@@ -1,0 +1,3 @@
+[submodule "subsurface"]
+	path = subsurface
+	url = git@github.com:subsurface/subsurface.git
