@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   ios: {
     icon: './assets/expo.icon',
-    bundleIdentifier: 'org.subsurface.mobile',
+    bundleIdentifier: 'codes.mani.subsurface-react',
     // Liquid glass requires iOS 26. Bump if the toolchain needs a higher floor.
     deploymentTarget: '26.0',
     infoPlist: {
