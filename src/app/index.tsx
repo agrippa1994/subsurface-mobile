@@ -8,6 +8,18 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { add } from '../../modules/ssrf-core/src';
+
+// Task 02 plumbing check: calls into the ssrf-core native module, which calls
+// Objective-C++, which calls ssrf::add in portable C++ (see the device log for
+// "[ssrf-core] C++ add(2, 3)"). Remove with this template screen in task 07.
+function getNativeCoreHint() {
+  try {
+    return <ThemedText type="code">add(2, 3) = {add(2, 3)}</ThemedText>;
+  } catch (error) {
+    return <ThemedText type="small">unavailable: {String(error)}</ThemedText>;
+  }
+}
 
 function getDevMenuHint() {
   if (Platform.OS === 'web') {
@@ -49,6 +61,7 @@ export default function HomeScreen() {
             hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
           />
           <HintRow title="Dev tools" hint={getDevMenuHint()} />
+          <HintRow title="ssrf-core (C++)" hint={getNativeCoreHint()} />
           <HintRow
             title="Fresh start"
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}

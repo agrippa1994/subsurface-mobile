@@ -66,8 +66,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 76,
       },
     ],
-    // Native module config plugin slot (task 02): once modules/ssrf-core exists,
-    // add its plugin here, e.g. './modules/ssrf-core/app.plugin.js'.
+    // modules/ssrf-core is a local Expo module: it is picked up by local
+    // autolinking (expo-module.config.json), so it needs no plugin entry here.
   ],
   experiments: {
     typedRoutes: true,

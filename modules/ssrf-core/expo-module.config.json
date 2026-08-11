@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "podspecPath": "SsrfCore.podspec",
+    "modules": ["SsrfCoreModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.ssrfcore.SsrfCoreModule"]
+  }
+}
