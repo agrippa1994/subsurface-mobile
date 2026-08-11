@@ -27,3 +27,8 @@ ios/Pods/
 
 # TypeScript
 *.tsbuildinfo
+
+# ssrf-core: vendored Subsurface core subset + host build output.
+# Reproduced by modules/ssrf-core/scripts/vendor-core.mjs; never edit by hand.
+modules/ssrf-core/cpp/generated/
+modules/ssrf-core/build/

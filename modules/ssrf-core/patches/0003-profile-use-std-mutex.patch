@@ -1,0 +1,25 @@
+Replace QMutex with std::mutex in profile.cpp.
+profile.cpp guards the shared deco planner state with a QMutex, used only via
+lock()/unlock(). std::mutex has the same interface for those two calls, so the
+change is mechanical and keeps the locking semantics identical.
+
+--- a/core/profile.cpp	2026-08-11 20:27:51
++++ b/core/profile.cpp	2026-08-11 20:27:51
+@@ -30,7 +30,7 @@
+ #include <string.h>
+ #include <assert.h>
+ #include <stdlib.h>
+-#include <QMutex>
++#include <mutex>
+ 
+ //#define DEBUG_GAS 1
+ 
+@@ -842,7 +842,7 @@
+ 	}
+ }
+ 
+-QMutex planLock;
++std::mutex planLock;
+ 
+ static void lock_planner()
+ {

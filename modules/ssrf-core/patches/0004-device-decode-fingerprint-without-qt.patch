@@ -1,0 +1,41 @@
+Decode fingerprint hex without QByteArray.
+device.cpp's only Qt use is QByteArray::fromHex() when reading a dive computer
+fingerprint back from the log. Replaced with an inline nibble decoder that
+skips non-hex characters, matching Qt's behaviour.
+
+--- a/core/device.cpp	2026-08-11 20:30:38
++++ b/core/device.cpp	2026-08-11 20:30:38
+@@ -179,9 +179,31 @@
+ void create_fingerprint_node_from_hex(fingerprint_table &table, uint32_t model, uint32_t serial,
+ 						const std::string &hex_data, uint32_t fdeviceid, uint32_t fdiveid)
+ {
+-	QByteArray raw = QByteArray::fromHex(hex_data.c_str());
++	// QByteArray::fromHex() equivalent: decode pairs of hex digits and skip
++	// anything that is not one, which is what Qt does as well.
++	std::vector<unsigned char> raw;
++	raw.reserve(hex_data.size() / 2);
++	unsigned char byte = 0;
++	int nibbles = 0;
++	for (char c: hex_data) {
++		int digit;
++		if (c >= '0' && c <= '9')
++			digit = c - '0';
++		else if (c >= 'a' && c <= 'f')
++			digit = c - 'a' + 10;
++		else if (c >= 'A' && c <= 'F')
++			digit = c - 'A' + 10;
++		else
++			continue;
++		byte = (byte << 4) | digit;
++		if (++nibbles == 2) {
++			raw.push_back(byte);
++			byte = 0;
++			nibbles = 0;
++		}
++	}
+ 	create_fingerprint_node(table, model, serial,
+-				(const unsigned char *)raw.constData(), raw.size(), fdeviceid, fdiveid);
++				raw.data(), raw.size(), fdeviceid, fdiveid);
+ }
+ 
+ static char to_hex_digit(unsigned char d)

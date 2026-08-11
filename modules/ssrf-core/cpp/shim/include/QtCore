@@ -1,0 +1,8 @@
+// AI-generated (Claude)
+//
+// Stand-in for Qt's <QtCore> umbrella header. core/time.cpp includes it, with
+// a comment saying it only wants QT_TRANSLATE_NOOP - which is exactly what the
+// shim's <QtGlobal> provides.
+#pragma once
+
+#include <QtGlobal>

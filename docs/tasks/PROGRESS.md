@@ -6,7 +6,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 00 — Overview & conventions read
 - [~] 01 — Repo + Expo dev-client skeleton (code done; on-device build pending)
 - [x] 02 — Native module scaffold (trivial JSI fn)
-- [ ] 03 — Vendor core subset + de-Qt shim compiles
+- [~] 03 — Vendor core subset + de-Qt shim compiles (host green; iOS link blocked on task 04)
 - [ ] 04 — iOS native deps (libxml2/libxslt/libzip) link
 - [ ] 05 — JSI bridge + API implemented
 - [ ] 06 — TS models + vitest golden tests green
@@ -55,3 +55,29 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Android still only has the generated Kotlin stub (no `add`); JNI parity is
   task 13.
 </content>
+- 2026-08-11 — Task 03: the Qt-free core subset compiles, links and runs. 37 core
+  translation units are vendored out of the read-only submodule into
+  `modules/ssrf-core/cpp/generated/` by `scripts/vendor-core.mjs` (copy → apply
+  `patches/*.patch` → overlay `cpp/shim/override/`), driven by the Expo config
+  plugin `plugin/withSsrfCore.js` before pod install. Four build-time patches and
+  eleven replacement headers remove Qt; twelve shim translation units supply the
+  symbols the core expects from qthelper/format/string-format/gettext/fulltext/
+  filter/selection/git-access/platform. libdivecomputer is headers-only (the
+  subset calls no `dc_*` function). Everything is documented in
+  `cpp/CORE_MANIFEST.md`.
+  `scripts/build-host.sh` compiles the identical tree for macOS in seconds and
+  links `tests/main.cpp` — the iteration loop that made this tractable. Results:
+  the serialization smoke unit produces valid SSRF XML, and all 89 logbooks in
+  `subsurface/dives/` parse, with `abitofeverything.ssrf` reporting 18 dives
+  (which is also task 04's acceptance number, already met on the host).
+  Both smoke units are exposed to JS (`smokeSerializeMinimalLog`,
+  `smokeCountDivesInFile`).
+  BLOCKED on iOS: `expo prebuild` and pod install succeed, and the iOS build gets
+  through everything except `#include <libxslt/transform.h>` — the iOS SDK ships
+  `libxslt.tbd` but no libxslt headers. That is exactly task 04's scope; task 03
+  is otherwise done.
+  One trap worth remembering: an Xcode build phase re-reads the Expo config while
+  compilation is running, so the config plugin runs mid-build. `vendor-core.mjs`
+  therefore fingerprints its inputs and no-ops when unchanged, and materializes
+  into a staging directory it renames into place - otherwise it deletes the tree
+  underneath the compiler.

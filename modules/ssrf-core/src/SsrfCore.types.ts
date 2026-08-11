@@ -9,4 +9,10 @@
 export type SsrfCoreNativeModule = {
   // Smoke test proving C++ executes over JSI (task 02).
   add(a: number, b: number): number;
+
+  // Task 03 smoke units, backed by the vendored Subsurface core.
+  // Serializes a minimal in-memory divelog to Subsurface XML.
+  smokeSerializeMinimalLog(): string | null;
+  // Parses an SSRF/XML logbook and returns its dive count, -1 on failure.
+  smokeCountDivesInFile(path: string): number;
 };

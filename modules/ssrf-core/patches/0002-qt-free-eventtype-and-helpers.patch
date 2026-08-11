@@ -1,0 +1,84 @@
+Make event type names Qt-free.
+eventtype.{h,cpp} is the only file in the subset whose *interface* is QString.
+Ported to std::string, with QStringLiteral("%1 (%2)").arg() replaced by plain
+concatenation and gettextFromC::tr() by the identity translate() from gettext.h.
+
+--- a/core/eventtype.h	2026-08-11 20:15:14
++++ b/core/eventtype.h	2026-08-11 20:15:27
+@@ -3,8 +3,8 @@
+ #ifndef EVENTNAME_H
+ #define EVENTNAME_H
+ 
++#include <string>
+ #include <vector>
+-#include <QString>
+ 
+ extern void clear_event_types();
+ extern void remember_event_type(const struct event *ev);
+@@ -14,7 +14,7 @@
+ extern void show_event_type(int idx);
+ extern bool any_event_types_hidden();
+ extern std::vector<int> hidden_event_types();
+-extern QString event_type_name(const event &ev);
+-extern QString event_type_name(int idx);
++extern std::string event_type_name(const event &ev);
++extern std::string event_type_name(int idx);
+ 
+ #endif
+--- a/core/eventtype.cpp	2026-08-11 20:15:14
++++ b/core/eventtype.cpp	2026-08-11 20:15:27
+@@ -84,39 +84,37 @@
+ 	return res;
+ }
+ 
+-static QString event_severity_name(event_severity severity)
++static std::string event_severity_name(event_severity severity)
+ {
+ 	switch (severity) {
+-	case EVENT_SEVERITY_INFO: return gettextFromC::tr("info");
+-	case EVENT_SEVERITY_WARN: return gettextFromC::tr("warn");
+-	case EVENT_SEVERITY_ALARM: return gettextFromC::tr("alarm");
+-	default: return QString();
++	case EVENT_SEVERITY_INFO: return translate("gettextFromC", "info");
++	case EVENT_SEVERITY_WARN: return translate("gettextFromC", "warn");
++	case EVENT_SEVERITY_ALARM: return translate("gettextFromC", "alarm");
++	default: return std::string();
+ 	}
+ }
+ 
+-static QString event_type_name(QString name, event_severity severity)
++static std::string event_type_name(std::string name, event_severity severity)
+ {
+-	QString severity_name = event_severity_name(severity);
+-	if (severity_name.isEmpty())
++	std::string severity_name = event_severity_name(severity);
++	if (severity_name.empty())
+ 		return name;
+-	return QStringLiteral("%1 (%2)").arg(name, severity_name);
++	return name + " (" + severity_name + ")";
+ }
+ 
+-QString event_type_name(const event &ev)
++std::string event_type_name(const event &ev)
+ {
+ 	if (ev.name.empty())
+-		return QString();
++		return std::string();
+ 
+-	QString name = QString::fromStdString(ev.name);
+-	return event_type_name(std::move(name), ev.get_severity());
++	return event_type_name(ev.name, ev.get_severity());
+ }
+ 
+-QString event_type_name(int idx)
++std::string event_type_name(int idx)
+ {
+ 	if (idx < 0 || idx >= (int)event_types.size())
+-		return QString();
++		return std::string();
+ 
+ 	const event_type &t = event_types[idx];
+-	QString name = QString::fromUtf8(t.name.c_str());
+-	return event_type_name(std::move(name), t.severity);
++	return event_type_name(t.name, t.severity);
+ }

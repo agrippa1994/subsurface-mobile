@@ -7,6 +7,14 @@ class SsrfCoreModule extends NativeModule<{}> {
   add(_a: number, _b: number): number {
     throw new Error('ssrf-core is not available on web');
   }
+
+  smokeSerializeMinimalLog(): string | null {
+    throw new Error('ssrf-core is not available on web');
+  }
+
+  smokeCountDivesInFile(_path: string): number {
+    throw new Error('ssrf-core is not available on web');
+  }
 }
 
 export default registerWebModule(SsrfCoreModule, 'SsrfCoreModule');

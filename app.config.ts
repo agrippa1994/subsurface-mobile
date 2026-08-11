@@ -66,8 +66,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 76,
       },
     ],
-    // modules/ssrf-core is a local Expo module: it is picked up by local
-    // autolinking (expo-module.config.json), so it needs no plugin entry here.
+    // modules/ssrf-core is picked up by local autolinking
+    // (expo-module.config.json); this plugin only vendors the Subsurface core
+    // subset into the module before pod install (task 03).
+    './modules/ssrf-core/plugin/withSsrfCore',
   ],
   experiments: {
     typedRoutes: true,
