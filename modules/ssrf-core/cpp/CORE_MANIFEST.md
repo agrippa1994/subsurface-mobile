@@ -118,8 +118,25 @@ arriving transitively through a Qt header.
 | libxml2 | SDK (`libxml2.tbd`, headers under `$(SDKROOT)/usr/include/libxml2`) | SDK |
 | sqlite3 | SDK (`libsqlite3.tbd`) — needed by `import-suunto.cpp` | SDK |
 | zlib | SDK | SDK |
-| libxslt | `libxslt.tbd` ships in the iOS SDK but **the headers do not** — task 04 vendors them | SDK (headers and library) |
-| libzip | not yet needed; task 04/11 | not yet needed |
+| libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | SDK (headers and library) |
+| libzip | not yet needed — nothing in the current subset includes `zip.h`; arrives with the zipped-format import path in task 11 | not yet needed |
+
+### libxslt notes
+
+The iOS SDK ships `libxslt.tbd` but no libxslt headers, so the SDK copy is
+unusable; building from source also pins the version (1.1.43) instead of
+inheriting Apple's 1.1.35. The build script cross-compiles device arm64 and
+simulator arm64+x86_64 (a generic simulator build needs both), merges
+`libxslt.a` + `libexslt.a` per slice, and emits an xcframework **without**
+attached headers — headers attached to an xcframework become public headers of
+the pod, which flattens them into `Pods/Headers/Public` and drags `exslt.h`
+into the module umbrella. They live in `ios/vendor/include` and are reached
+through `HEADER_SEARCH_PATHS` instead.
+
+The slice is linked by explicit path in `OTHER_LDFLAGS` rather than through
+`vendored_frameworks`: CocoaPods turns a static-library xcframework into a bare
+`-lxslt-combined` with no search path. The flags are set on the *user* target
+too, since the app performs the final link, and both keep `$(inherited)`.
 
 ## Smoke units
 
@@ -131,5 +148,9 @@ arriving transitively through a Qt header.
 - `smoke_count_dives_in_file(path)` — parses a logbook via `parse_xml_buffer`
   and returns the dive count.
 
-Status: all 89 logbooks in `subsurface/dives/` parse on the host;
-`abitofeverything.ssrf` reports 18 dives.
+Status: all 89 logbooks in `subsurface/dives/` parse on the host, and
+`abitofeverything.ssrf` reports 18 dives. On the iOS simulator the home screen
+runs serialize → write → parse and reports "459 bytes out, 1 dive(s) back",
+which exercises save-xml, parse-xml and libxml2 on device. Parsing
+`abitofeverything.ssrf` *on device* additionally needs the file bundled as an
+app asset - not done, so that number is host-verified only.

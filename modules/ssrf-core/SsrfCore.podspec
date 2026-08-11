@@ -25,6 +25,23 @@ Pod::Spec.new do |s|
     raise 'ssrf-core: cpp/generated is missing - run `node modules/ssrf-core/scripts/vendor-core.mjs`'
   end
 
+  # The libxslt slice is linked by explicit path rather than through
+  # `vendored_frameworks`: CocoaPods turns a static-library xcframework into a
+  # bare `-lxslt-combined` with no search path, which does not resolve. The
+  # flags go on the user target as well, since the app - not the pod - performs
+  # the final link.
+  # PODS_TARGET_SRCROOT only exists in the pod's own xcconfig, so the app target
+  # reaches the same file through PODS_ROOT (= <project>/ios/Pods).
+  xslt_ldflags = lambda do |root|
+    {
+      'OTHER_LDFLAGS[sdk=iphoneos*]' =>
+        %Q($(inherited) "#{root}/ios/vendor/libxslt.xcframework/ios-arm64/libxslt-combined.a"),
+      'OTHER_LDFLAGS[sdk=iphonesimulator*]' =>
+        %Q($(inherited) "#{root}/ios/vendor/libxslt.xcframework/ios-arm64_x86_64-simulator/libxslt-simulator.a"),
+    }
+  end
+  s.user_target_xcconfig = xslt_ldflags.call('$(PODS_ROOT)/../../modules/ssrf-core')
+
   s.pod_target_xcconfig = {
     # Pods build as framework targets here, so Swift reaches the Objective-C++
     # facade through the generated umbrella header (public_header_files below),
@@ -39,25 +56,33 @@ Pod::Spec.new do |s|
       '"$(PODS_TARGET_SRCROOT)/cpp/generated/core"',
       # Stand-ins for the Qt headers a few core files include for a macro.
       '"$(PODS_TARGET_SRCROOT)/cpp/shim/include"',
-      # libxml2 ships with the SDK; libxslt headers arrive in task 04.
+      # libxml2 ships complete with the SDK. libxslt does not (the SDK has
+      # libxslt.tbd but no headers), so it is vendored as an xcframework by
+      # ios/vendor/build/build-libxslt.sh.
       '"$(SDKROOT)/usr/include/libxml2"',
+      '"$(PODS_TARGET_SRCROOT)/ios/vendor/include"',
     ].join(' '),
     # SUBSURFACE_MOBILE keeps the desktop-only code paths out of the core.
     # ssrf-stdlib-compat.h supplies includes upstream gets through Qt.
     'OTHER_CPLUSPLUSFLAGS' => '-DSUBSURFACE_MOBILE -include "$(PODS_TARGET_SRCROOT)/cpp/shim/include/ssrf-stdlib-compat.h"',
-  }
+  }.merge(xslt_ldflags.call('$(PODS_TARGET_SRCROOT)'))
 
-  # libxml2 and sqlite3 are in the iOS SDK. libxslt has a .tbd in the SDK but no
-  # headers - task 04 vendors those.
-  s.libraries = 'xml2', 'sqlite3', 'xslt', 'z'
+  # libxml2, sqlite3 and zlib come from the iOS SDK. libxslt is vendored: the
+  # SDK's libxslt.tbd has no headers to go with it, and building it ourselves
+  # pins the version (1.1.43) instead of inheriting Apple's.
+  s.libraries = 'xml2', 'sqlite3', 'z'
 
   # Objective-C/Swift glue lives in ios/, portable C++ in cpp/. The podspec sits
   # at the module root so CocoaPods can reach both (file patterns must not
   # escape the pod root). tests/ is deliberately excluded: it is host-only.
-  s.source_files = 'ios/**/*.{h,m,mm,swift}', 'cpp/*.{h,cpp}', 'cpp/shim/**/*.{h,cpp}', 'cpp/generated/**/*.{h,c,cpp}'
+  s.source_files = 'ios/*.{h,m,mm,swift}', 'cpp/*.{h,cpp}', 'cpp/shim/**/*.{h,cpp}', 'cpp/generated/**/*.{h,c,cpp}'
 
   # Only the Objective-C facade may enter the umbrella header: everything under
   # cpp/ is C++ and would break the module map for Swift/Objective-C consumers.
-  s.public_header_files = 'ios/**/*.h'
+  # ios/vendor is deliberately outside both globs: those are libxslt's headers,
+  # reached through HEADER_SEARCH_PATHS. Listing them would make them public
+  # headers of the pod, flattening <libexslt/...> includes and dragging exslt.h
+  # into the module umbrella.
+  s.public_header_files = 'ios/*.h'
   s.private_header_files = 'cpp/**/*.h'
 end

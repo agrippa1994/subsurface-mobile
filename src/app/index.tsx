@@ -8,7 +8,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { add } from '../../modules/ssrf-core/src';
+import { File, Paths } from 'expo-file-system';
+
+import { add, smokeCountDivesInFile, smokeSerializeMinimalLog } from '../../modules/ssrf-core/src';
 
 // Task 02 plumbing check: calls into the ssrf-core native module, which calls
 // Objective-C++, which calls ssrf::add in portable C++ (see the device log for
@@ -16,6 +18,33 @@ import { add } from '../../modules/ssrf-core/src';
 function getNativeCoreHint() {
   try {
     return <ThemedText type="code">add(2, 3) = {add(2, 3)}</ThemedText>;
+  } catch (error) {
+    return <ThemedText type="small">unavailable: {String(error)}</ThemedText>;
+  }
+}
+
+// Task 03/04 check: the vendored Subsurface core serializes a divelog to SSRF
+// XML and parses it back, which exercises save-xml, parse-xml and libxml2 on
+// device. The full parity run (all 89 logbooks in subsurface/dives/) happens on
+// the host via modules/ssrf-core/scripts/build-host.sh. Remove in task 07.
+function getCoreRoundTripHint() {
+  try {
+    const xml = smokeSerializeMinimalLog();
+    if (!xml) {
+      return <ThemedText type="small">serialization returned nothing</ThemedText>;
+    }
+    const file = new File(Paths.cache, 'ssrf-smoke.ssrf');
+    if (file.exists) {
+      file.delete();
+    }
+    file.create();
+    file.write(xml);
+    const dives = smokeCountDivesInFile(file.uri.replace('file://', ''));
+    return (
+      <ThemedText type="code">
+        {xml.length} bytes out, {dives} dive(s) back
+      </ThemedText>
+    );
   } catch (error) {
     return <ThemedText type="small">unavailable: {String(error)}</ThemedText>;
   }
@@ -62,6 +91,7 @@ export default function HomeScreen() {
           />
           <HintRow title="Dev tools" hint={getDevMenuHint()} />
           <HintRow title="ssrf-core (C++)" hint={getNativeCoreHint()} />
+          <HintRow title="ssrf-core round trip" hint={getCoreRoundTripHint()} />
           <HintRow
             title="Fresh start"
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}

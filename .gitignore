@@ -32,3 +32,5 @@ ios/Pods/
 # Reproduced by modules/ssrf-core/scripts/vendor-core.mjs; never edit by hand.
 modules/ssrf-core/cpp/generated/
 modules/ssrf-core/build/
+# ssrf-core: libxslt cross-build scratch (sources + per-slice installs).
+modules/ssrf-core/ios/vendor/build/.work/

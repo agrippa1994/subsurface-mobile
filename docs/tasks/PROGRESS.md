@@ -6,8 +6,8 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 00 — Overview & conventions read
 - [~] 01 — Repo + Expo dev-client skeleton (code done; on-device build pending)
 - [x] 02 — Native module scaffold (trivial JSI fn)
-- [~] 03 — Vendor core subset + de-Qt shim compiles (host green; iOS link blocked on task 04)
-- [ ] 04 — iOS native deps (libxml2/libxslt/libzip) link
+- [x] 03 — Vendor core subset + de-Qt shim compiles
+- [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip deferred to 11)
 - [ ] 05 — JSI bridge + API implemented
 - [ ] 06 — TS models + vitest golden tests green
 - [ ] 07 — Navigation + dive list (read-only)
@@ -81,3 +81,33 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   therefore fingerprints its inputs and no-ops when unchanged, and materializes
   into a staging directory it renames into place - otherwise it deletes the tree
   underneath the compiler.
+- 2026-08-11 — Task 04: libxslt is vendored and the iOS build is green. The iOS
+  SDK ships `libxslt.tbd` but no libxslt headers, so the SDK copy is unusable;
+  `modules/ssrf-core/ios/vendor/build/build-libxslt.sh` cross-compiles 1.1.43
+  from source (device arm64 + simulator arm64/x86_64), merges libxslt+libexslt
+  per slice and writes `ios/vendor/libxslt.xcframework` plus
+  `ios/vendor/include`. libxml2, sqlite3 (needed by `import-suunto.cpp`) and
+  zlib come from the SDK. libzip is deferred - nothing in the current subset
+  includes `zip.h`; it arrives with the zipped-format import path in task 11.
+  `expo prebuild` + `expo run:ios` build clean and the app runs on the iOS 26
+  simulator: the home screen reports `add(2, 3) = 5` and
+  `459 bytes out, 1 dive(s) back` from a serialize -> write -> parse round trip
+  through the vendored core.
+  Three CocoaPods traps worth remembering:
+  1. Headers attached to an xcframework (`-headers`) become *public* headers of
+     the pod: they get flattened into `Pods/Headers/Public/SsrfCore` and
+     `exslt.h` is pulled into the module umbrella, where `<libexslt/...>` no
+     longer resolves. Ship the xcframework without headers and put them on
+     HEADER_SEARCH_PATHS instead - and keep `ios/vendor` out of `source_files` /
+     `public_header_files`, which is the same trap from the other direction.
+  2. `vendored_frameworks` on a *static library* xcframework yields a bare
+     `-lxslt-combined` with no search path. Link the slice by explicit path in
+     OTHER_LDFLAGS, with `[sdk=iphoneos*]` / `[sdk=iphonesimulator*]` variants.
+  3. Those flags must also go on `user_target_xcconfig` (the app performs the
+     final link, and PODS_TARGET_SRCROOT does not exist there - use PODS_ROOT),
+     and must keep `$(inherited)` or the whole Pods link breaks.
+  The simulator slice needs x86_64 as well: a generic
+  `platform=iOS Simulator` build compiles both architectures.
+  Remaining gap: parsing `abitofeverything.ssrf` (18 dives) is verified on the
+  host across all 89 logbooks, but not on device - that would need the fixture
+  bundled as an app asset.
