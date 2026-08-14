@@ -19,6 +19,15 @@
 export type ChartPalette = {
   depth: string;
   depthFill: string;
+  /**
+   * Bars on the statistics charts. Each of those charts draws a single series
+   * (a count), so they all wear the first categorical slot - the same hex as
+   * `depth`, named separately because it is a different job. No new hue, so the
+   * validation above still stands.
+   */
+  bar: string;
+  /** The selected bar of a statistics chart; the rest stay `bar`. */
+  barSelected: string;
   temperature: string;
   pressure: string;
   /** Deco ceiling: status "critical". Fixed, never themed. */
@@ -37,6 +46,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
   light: {
     depth: '#2a78d6',
     depthFill: 'rgba(42, 120, 214, 0.18)',
+    bar: '#2a78d6',
+    barSelected: '#1b5399',
     temperature: '#eb6834',
     pressure: '#1baf7a',
     ceiling: '#d03b3b',
@@ -51,6 +62,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
   dark: {
     depth: '#3987e5',
     depthFill: 'rgba(57, 135, 229, 0.22)',
+    bar: '#3987e5',
+    barSelected: '#8ab8f2',
     temperature: '#d95926',
     pressure: '#199e70',
     ceiling: '#d03b3b',

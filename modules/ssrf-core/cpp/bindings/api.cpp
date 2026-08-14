@@ -13,6 +13,7 @@
 #include "core/parse.h"
 #include "core/profile.h"
 #include "core/statistics.h"
+#include "core/subsurface-time.h"
 #include "core/tag.h"
 #include "core/trip.h"
 #include "core/units.h"
@@ -429,6 +430,84 @@ int apply_stats_filter(const json &filter)
 	return selected;
 }
 
+// Buckets the core does not compute, aggregated here rather than in JS so all
+// statistics come out of C++ (the same reason calculate_stats_summary() does
+// the rest):
+//
+//  - "timeline": one entry per calendar month that has dives, carrying the
+//    year. The core's stats_monthly does group by (year, month) but its
+//    `period` only holds the month, so a chart across years cannot label it.
+//  - "byDuration": a duration histogram, which the core has no equivalent of.
+//    10-minute buckets, mirroring desktop's default duration binner; the last
+//    bucket is open-ended.
+//  - "siteCount": distinct dive sites among the matched dives.
+//
+// All of these run over the same selection the core's statistics read, i.e.
+// after apply_stats_filter(), and skip invalid dives exactly as it does.
+const int STATS_DURATION_BUCKET_MIN = 10;
+const int STATS_MAX_DURATION_MIN = 180;
+
+json extra_statistics()
+{
+	const int nr_buckets = STATS_MAX_DURATION_MIN / STATS_DURATION_BUCKET_MIN + 1;
+	std::vector<int> duration_dives(nr_buckets, 0);
+	std::vector<int64_t> duration_time(nr_buckets, 0);
+
+	json timeline = json::array();
+	int prev_year = 0, prev_month = 0;
+
+	std::vector<uint32_t> sites;
+
+	for (const auto &dp : divelog.dives) {
+		const struct dive &d = *dp;
+		if (!d.selected || d.invalid)
+			continue;
+
+		int idx = d.duration.seconds / 60 / STATS_DURATION_BUCKET_MIN;
+		idx = std::clamp(idx, 0, nr_buckets - 1);
+		duration_dives[idx]++;
+		duration_time[idx] += d.duration.seconds;
+
+		struct tm tm;
+		utc_mkdate(d.when, &tm);
+		if (timeline.empty() || tm.tm_year != prev_year || tm.tm_mon + 1 != prev_month) {
+			prev_year = tm.tm_year;
+			prev_month = tm.tm_mon + 1;
+			timeline.push_back(json{
+				{ "year", prev_year },
+				{ "month", prev_month },
+				{ "dives", 0 },
+				{ "totalTimeSec", 0 },
+				{ "maxDepthMm", 0 },
+			});
+		}
+		json &entry = timeline.back();
+		entry["dives"] = entry["dives"].get<int>() + 1;
+		entry["totalTimeSec"] = entry["totalTimeSec"].get<int64_t>() + d.duration.seconds;
+		entry["maxDepthMm"] = std::max(entry["maxDepthMm"].get<int>(), d.maxdepth.mm);
+
+		if (d.dive_site && std::find(sites.begin(), sites.end(), d.dive_site->uuid) == sites.end())
+			sites.push_back(d.dive_site->uuid);
+	}
+
+	json by_duration = json::array();
+	for (int i = 0; i < nr_buckets; ++i) {
+		bool last = i == nr_buckets - 1;
+		by_duration.push_back(json{
+			{ "fromMin", i * STATS_DURATION_BUCKET_MIN },
+			{ "toMin", last ? json(nullptr) : json((i + 1) * STATS_DURATION_BUCKET_MIN) },
+			{ "dives", duration_dives[i] },
+			{ "totalTimeSec", duration_time[i] },
+		});
+	}
+
+	return json{
+		{ "timeline", timeline },
+		{ "byDuration", by_duration },
+		{ "siteCount", static_cast<int>(sites.size()) },
+	};
+}
+
 json get_statistics(const json &args)
 {
 	json filter = json::object();
@@ -444,6 +523,7 @@ json get_statistics(const json &args)
 	json out = stats_summary_to_json(calculate_stats_summary(true));
 	out["total"] = stats_to_json(calculate_stats_selected());
 	out["matched"] = selected;
+	out.update(extra_statistics());
 	return out;
 }
 

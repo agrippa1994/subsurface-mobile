@@ -335,11 +335,34 @@ export type Stats = {
   location: string;
 };
 
+/** One calendar month that has dives, from `StatsSummary.timeline`. */
+export type StatsMonth = {
+  /** Four-digit year. */
+  year: number;
+  /** 1-12. */
+  month: number;
+  dives: number;
+  totalTimeSec: number;
+  maxDepthMm: number;
+};
+
+/** One duration bucket. `toMin` is null on the last, open-ended bucket. */
+export type StatsDurationBin = {
+  fromMin: number;
+  toMin: number | null;
+  dives: number;
+  totalTimeSec: number;
+};
+
 export type StatsSummary = {
   /** Statistics over everything the filter matched. */
   total: Stats;
   matched: number;
   yearly: Stats[];
+  /**
+   * Grouped by (year, month) in chronological order, but `period` carries only
+   * the month - use `timeline` for anything that has to label the year.
+   */
   monthly: Stats[];
   byTrip: Stats[];
   /** Indexed by DiveMode + 1; entry 0 is the combined total. */
@@ -348,6 +371,12 @@ export type StatsSummary = {
   byDepth: Stats[];
   /** 5 C buckets; entry 0 is the combined total. */
   byTemp: Stats[];
+  /** Months with dives, chronological. Computed by the bindings, not the core. */
+  timeline: StatsMonth[];
+  /** 10-minute buckets, the last one open-ended. Bindings, not the core. */
+  byDuration: StatsDurationBin[];
+  /** Distinct dive sites among the matched dives. Bindings, not the core. */
+  siteCount: number;
 };
 
 export type StatsFilter = {

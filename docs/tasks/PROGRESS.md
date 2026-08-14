@@ -12,7 +12,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 06 — TS models + vitest golden tests green
 - [x] 07 — Navigation + dive list (read-only)
 - [x] 08 — Dive detail + profile diagram (Skia)
-- [ ] 09 — Statistics screen
+- [~] 09 — Statistics screen (code + tests done; simulator check pending)
 - [ ] 10 — Editing: dives, dive sites, buddies
 - [ ] 11 — Suunto import + SSRF import/export
 - [ ] 12 — Polish + TestFlight beta
@@ -324,3 +324,44 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   clicks into the simulator stopped landing partway through the session and
   neither a pinch nor a real desktop Subsurface run is available here; the same
   data path is covered numerically by `src/models/profile-plot.test.ts`.
+- 2026-08-14 — Task 09: the statistics screen is in. Everything it shows is
+  computed in C++: the core's `statistics.cpp` through
+  `calculate_stats_summary()` / `calculate_stats_selected()`, plus three fields
+  the bindings add in `extra_statistics()` (`api.cpp`) over the same selection -
+  `timeline`, `byDuration` and `siteCount`. TypeScript only labels them, and a
+  filter is re-sent to the module rather than applied to the rows in JS.
+  Why those three exist:
+  1. `timeline` is a per-(year, month) bucket that carries the year. The core's
+     `stats_monthly` does group by year and month, but its `period` holds only
+     the month, so a chart spanning several years cannot label its own bars.
+  2. `byDuration` is a duration histogram, which the core has no equivalent of -
+     10-minute buckets with an open-ended one at 180 min, matching desktop's
+     default duration binner in `stats/statsvariables.cpp`.
+  3. `siteCount` counts distinct sites by uuid. Counting them by name is wrong:
+     `abitofeverything.ssrf` has two sites sharing a name, so names give 11
+     where uuids give 12.
+  `src/models/statistics.ts` is the presentation model (tiles, the two
+  histograms, the dives-over-time series, the count axis and the filter
+  conversion). Two decisions in it worth keeping: the time chart fills the
+  months with no dives, because a gap in diving must not read as continuous
+  activity, and it falls back to calendar years past a 24-month span, because a
+  bar per month over a long logbook is unreadable on a phone. Depth buckets stay
+  on the core's 10 m cuts in imperial too - the labels convert, the cuts cannot.
+  `src/components/bar-chart.tsx` draws with Skia and puts the axis labels on top
+  as React Native text, the same split the profile chart uses. Each chart is a
+  single series (a count), so there is no legend and no categorical cycling:
+  every bar wears the first categorical slot, added to
+  `src/constants/chart-theme.ts` as `bar`/`barSelected` - the same hex as the
+  profile's depth blue, so the palette validation from task 08 still stands.
+  Touch replaces hover: dragging across the plot selects a bar and its caption
+  replaces the hint line, and that caption is also the accessibility label, so
+  the numbers are reachable without reading colour or geometry.
+  Tests: 150 green (32 new). `src/models/statistics.test.ts` covers the pure
+  model off a synthetic summary; `tests/statistics.test.ts` drives the real
+  bindings and is the hand count the task asks for - 18 dives, 12 sites,
+  totals and yearly split counted off `abitofeverything.ssrf` and cross-checked
+  dive by dive against `listDives()`, plus year/site/empty filters and a
+  single-dive logbook. The ASAN sweep is clean after the bindings change.
+  Not verified yet: the screen on the iOS 26 simulator in light and dark. The
+  rebuild that a native change forces was still running when this was
+  committed - the numbers themselves are covered by the module-driven suite.

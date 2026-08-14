@@ -107,6 +107,18 @@ directly and avoids the copy.
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The
   selection is left in place afterwards; nothing else in the module reads it.
+  Three fields on the reply are computed by the bindings rather than by the
+  core, over that same selection (see `extra_statistics()` in `api.cpp`), because
+  the core has no equivalent and aggregating them in TypeScript would put half
+  the statistics on the other side of the boundary:
+  - `timeline`: `{ year, month, dives, totalTimeSec, maxDepthMm }` per calendar
+    month that has dives, chronological. The core's `monthly` groups by
+    (year, month) too, but its `period` holds only the month, so a chart across
+    years cannot label it.
+  - `byDuration`: 10-minute buckets, `{ fromMin, toMin, dives, totalTimeSec }`,
+    with `toMin: null` on the last, open-ended bucket at 180 min. 10 minutes is
+    desktop's default duration binner (`stats/statsvariables.cpp`).
+  - `siteCount`: distinct dive sites among the matched dives, counted by uuid.
 - **`updateDive`** applies only the keys present in `patch`, then calls
   `dive::invalidate_cache()` because the full-text cache indexes notes, buddy
   and tags. `siteUuid: 0` detaches the dive from its site.

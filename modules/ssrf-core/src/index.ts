@@ -104,6 +104,13 @@ export function getProfile(id: number, dcIndex = 0): PlotInfo {
   return call<PlotInfo>('getProfile', { id, dcIndex });
 }
 
+/**
+ * Aggregate statistics over the dives the filter matches. The aggregation runs
+ * in C++ (the core's statistics.cpp, plus `timeline` / `byDuration` /
+ * `siteCount` from the bindings), so a narrowed filter is recomputed there
+ * rather than by filtering rows in JS - which is what keeps the numbers
+ * identical to desktop Subsurface's.
+ */
 export function getStatistics(filter?: StatsFilter): StatsSummary {
   return call<StatsSummary>('getStatistics', filter ? { filter } : {});
 }
