@@ -47,9 +47,18 @@ export function sampleLogPath(): Promise<string> {
   return bundledAssetPath(require('@/assets/sample/sample-log.ssrf'), 'sample logbook');
 }
 
-/** The Suunto DM4 database the developer tools import (task 11 does it for real). */
+/** The Suunto DM4 database the developer tools import, no file picker needed. */
 export function sampleSuuntoPath(): Promise<string> {
   return bundledAssetPath(require('@/assets/sample/suunto-sample.db'), 'Suunto sample');
+}
+
+/**
+ * A Suunto DM4 *XML* export (one dive, profile in base64 blobs). Unlike the
+ * database above it goes through the XSLT stylesheets, so importing it is what
+ * proves on device that the module found its bundled stylesheets.
+ */
+export function sampleSuuntoXmlPath(): Promise<string> {
+  return bundledAssetPath(require('@/assets/sample/suunto-dm4-sample.xml'), 'Suunto XML sample');
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
 

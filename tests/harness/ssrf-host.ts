@@ -28,7 +28,7 @@ import type {
   StatsSummary,
 } from '../../src/models';
 import { SsrfCoreError } from '../../src/models';
-import { HOST_BINARY } from './fixtures';
+import { HOST_BINARY, XSLT_DIR } from './fixtures';
 
 type Envelope<T> =
   | { ok: true; result: T; errors?: string[] }
@@ -114,6 +114,19 @@ export class SsrfHost {
 
   importSuunto(path: string): Promise<ImportResult> {
     return this.call<ImportResult>('importSuunto', { path });
+  }
+
+  importFile(path: string): Promise<ImportResult> {
+    return this.call<ImportResult>('importFile', { path });
+  }
+
+  /**
+   * Points the core at the stylesheets. On device the native module does this
+   * itself with the copy it bundles; here they come out of the submodule, so a
+   * test can never pass against a stale vendored copy.
+   */
+  configure(xsltDir: string = XSLT_DIR): Promise<{ xsltDir: string }> {
+    return this.call<{ xsltDir: string }>('configure', { xsltDir });
   }
 
   listDives(): Promise<DiveSummary[]> {

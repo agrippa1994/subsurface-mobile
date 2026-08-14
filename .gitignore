@@ -31,6 +31,7 @@ ios/Pods/
 # ssrf-core: vendored Subsurface core subset + host build output.
 # Reproduced by modules/ssrf-core/scripts/vendor-core.mjs; never edit by hand.
 modules/ssrf-core/cpp/generated/
+modules/ssrf-core/resources/xslt/
 modules/ssrf-core/build/
 # ssrf-core: libxslt cross-build scratch (sources + per-slice installs).
 modules/ssrf-core/ios/vendor/build/.work/

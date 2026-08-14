@@ -397,10 +397,16 @@ export type StatsFilter = {
 export type LoadResult = { dives: number; sites: number; trips: number };
 export type SaveResult = { path: string; dives: number };
 export type ImportResult = {
+  /** Dives new to the logbook. */
   added: number;
+  /** Dives the core recognized as ones it already had, merged in place. */
   merged: number;
+  /** Documents inside an archive that failed to parse (0 for a single file). */
   failed: number;
+  /** Total dives in the logbook after the import. */
   dives: number;
+  /** Total dive sites after the import. */
+  sites: number;
 };
 
 /**

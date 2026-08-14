@@ -54,6 +54,29 @@ describe.skipIf(!enabled)('AddressSanitizer', () => {
       await host.importSuunto(fixture('TestDiveDM5.db'));
       await host.importSuunto(fixture('TestDiveDM4.db'));
 
+      // Every format importFile detects (task 11), each through its own path:
+      // the zip reader, the blob decoder, the Suunto JSON importer and the
+      // XSLT transform. All of them touch raw buffers, which is exactly where a
+      // sanitizer earns its runtime.
+      await host.configure();
+      for (const name of [
+        'TestDiveDM3.SDE',
+        'TestDiveDivelogsDE.DLD',
+        'Dive_2013-02-02-1614.xml',
+        'suunto_ocean_air.json',
+        'suunto_nautic_sidemount.json',
+        'suunto_eon_core_nitrox.json',
+        'suunto_ocean_nitrox.json',
+      ]) {
+        await host.clear();
+        await host.importFile(fixture(name));
+        for (const dive of await host.listDives()) {
+          await host.getProfile(dive.id);
+        }
+        // Twice, so the merge path over an existing log is swept as well.
+        await host.importFile(fixture(name));
+      }
+
       expect(host.diagnostics).not.toContain('AddressSanitizer');
     } finally {
       await host.close();

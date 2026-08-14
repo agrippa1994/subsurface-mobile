@@ -1,7 +1,10 @@
 // AI-generated (Claude)
 #include "api.h"
 
+#include "base64.h"
 #include "marshal.h"
+#include "suunto-xml.h"
+#include "zip-reader.h"
 
 #include "core/dive.h"
 #include "core/divecomputer.h"
@@ -12,6 +15,7 @@
 #include "core/errorhelper.h"
 #include "core/parse.h"
 #include "core/profile.h"
+#include "core/qthelper.h"
 #include "core/statistics.h"
 #include "core/subsurface-time.h"
 #include "core/tag.h"
@@ -28,6 +32,13 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+// core/file.h declares the format importers inside `#if !defined
+// (SUBSURFACE_MOBILE)`, and this build defines that macro to keep the
+// desktop-only code paths out of the core. The Suunto JSON importer is
+// nevertheless compiled here (see core-subset.mjs), so its prototype is
+// repeated rather than the guard weakened.
+extern int suunto_json_import(const std::string &buffer, const std::string &fit_buffer, struct divelog *log);
 
 namespace ssrf {
 
@@ -110,30 +121,6 @@ int64_t require_int(const json &args, const char *key)
 	if (it == args.end() || !it->is_number())
 		fail(std::string("missing required numeric argument '") + key + "'");
 	return it->get<int64_t>();
-}
-
-std::string base64_decode(const std::string &in)
-{
-	static const std::string alphabet =
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	std::string out;
-	out.reserve(in.size() * 3 / 4);
-	int val = 0;
-	int bits = -8;
-	for (unsigned char c : in) {
-		if (c == '=' || std::isspace(c))
-			continue;
-		size_t pos = alphabet.find(static_cast<char>(c));
-		if (pos == std::string::npos)
-			fail("invalid base64 input");
-		val = (val << 6) + static_cast<int>(pos);
-		bits += 6;
-		if (bits >= 0) {
-			out.push_back(static_cast<char>((val >> bits) & 0xff));
-			bits -= 8;
-		}
-	}
-	return out;
 }
 
 std::string temp_dir()
@@ -534,28 +521,16 @@ json get_statistics(const json &args)
 	return out;
 }
 
-json import_suunto(const json &args)
+// Parses a Suunto DM4/DM5 sqlite database into `log`. `path` must name a real
+// file: the importers read the profile blobs through sqlite, which cannot work
+// off a buffer.
+void parse_suunto_db_into(const std::string &path, const std::string &contents,
+			  const std::string &name, struct divelog &log)
 {
-	auto [contents, name] = read_source(args);
-	if (contents.empty())
-		fail("empty Suunto database: " + name);
-
-	// The Suunto importers read the profile blobs through sqlite, which needs a
-	// real file - so a buffer is staged to disk first. A path argument is used
-	// directly.
-	std::string path = get_string(args, "path");
-	bool staged = path.empty();
-	if (staged) {
-		path = temp_dir() + "/ssrf-import-suunto.db";
-		write_file(path, contents);
-	}
-
 	sqlite3 *handle = nullptr;
 	if (sqlite3_open(path.c_str(), &handle)) {
 		if (handle)
 			sqlite3_close(handle);
-		if (staged)
-			remove(path.c_str());
 		fail("not a readable Suunto database: " + name);
 	}
 
@@ -572,7 +547,6 @@ json import_suunto(const json &args)
 		return sqlite3_exec(handle, sql, probe, nullptr, nullptr) == SQLITE_OK;
 	};
 
-	struct divelog log;
 	int rc;
 	if (schema_matches(dm5_test)) {
 		rc = parse_dm5_buffer(handle, path.c_str(), contents.data(), static_cast<int>(contents.size()), &log);
@@ -580,17 +554,27 @@ json import_suunto(const json &args)
 		rc = parse_dm4_buffer(handle, path.c_str(), contents.data(), static_cast<int>(contents.size()), &log);
 	} else {
 		sqlite3_close(handle);
-		if (staged)
-			remove(path.c_str());
 		fail("unrecognized database schema (expected Suunto DM4 or DM5): " + name);
 	}
 	sqlite3_close(handle);
-	if (staged)
-		remove(path.c_str());
 	if (rc)
 		fail("failed to import " + name);
+}
 
-	int imported = static_cast<int>(log.dives.size());
+// Merges an already parsed import log into the module's divelog and reports the
+// same counts the UI shows. `imported` is what the parser produced; a dive the
+// core recognized as one it already has is merged in place, so it does not move
+// the total - which is what makes "import the same file twice" a no-op.
+json merge_import_log(struct divelog &log, int imported, int failed)
+{
+	// SAC, OTU and CNS are computed, not parsed: a logbook file carries them
+	// because whoever wrote it had computed them, but a freshly imported dive
+	// has nothing until someone does. Desktop Subsurface computes them in its
+	// dive-list model; this module has no such model, so it does it here, on
+	// the dives being imported and on nothing else.
+	for (auto &d : log.dives)
+		divelog.dives.update_cylinder_related_info(*d);
+
 	size_t before = divelog.dives.size();
 	// Consumes `log`. merge_all_trips matches the mobile app's import path.
 	divelog.add_imported_dives(log, import_flags::merge_all_trips);
@@ -599,9 +583,155 @@ json import_suunto(const json &args)
 	return json{
 		{ "added", added },
 		{ "merged", imported - added },
-		{ "failed", 0 },
+		{ "failed", failed },
 		{ "dives", static_cast<int>(divelog.dives.size()) },
+		{ "sites", static_cast<int>(divelog.sites.size()) },
 	};
+}
+
+// Stages a buffer into a temp file when the caller passed bytes rather than a
+// path, and removes it again on the way out - sqlite needs a real file.
+struct staged_file {
+	std::string path;
+	bool owned = false;
+
+	staged_file(const json &args, const std::string &contents, const char *suffix)
+	{
+		path = get_string(args, "path");
+		if (!path.empty())
+			return;
+		owned = true;
+		path = temp_dir() + "/ssrf-import" + suffix;
+		write_file(path, contents);
+	}
+	~staged_file()
+	{
+		if (owned)
+			remove(path.c_str());
+	}
+};
+
+json import_suunto(const json &args)
+{
+	auto [contents, name] = read_source(args);
+	if (contents.empty())
+		fail("empty Suunto database: " + name);
+
+	struct divelog log;
+	{
+		staged_file file(args, contents, "-suunto.db");
+		parse_suunto_db_into(file.path, contents, name, log);
+	}
+	return merge_import_log(log, static_cast<int>(log.dives.size()), 0);
+}
+
+// ---------------------------------------------------------------------------
+// importFile: one entry point for every format the app accepts
+// ---------------------------------------------------------------------------
+
+bool looks_like_json(const std::string &bytes)
+{
+	for (char c : bytes) {
+		if (isspace(static_cast<unsigned char>(c)))
+			continue;
+		return c == '{';
+	}
+	return false;
+}
+
+bool looks_like_sqlite(const std::string &bytes)
+{
+	static const char magic[] = "SQLite format 3";
+	return bytes.compare(0, sizeof(magic) - 1, magic) == 0;
+}
+
+// Parses one XML document into `log`. This is the same call loadFromXML makes,
+// which is what gives an import every format the core's XSLT table covers
+// (Suunto DM4/SDM, UDDF, MacDive, ...) as well as plain SSRF.
+//
+// The one thing the core leaves undone is the sample blobs of a Suunto DM4 XML
+// export - see cpp/bindings/suunto-xml.h.
+void parse_xml_into(const std::string &contents, const std::string &name, struct divelog &log)
+{
+	size_t before = log.dives.size();
+	struct xml_params params;
+	if (parse_xml_buffer(name.c_str(), contents.c_str(), static_cast<int>(contents.size()), &log, &params))
+		fail("failed to parse " + name);
+	decode_suunto_dm4_profile(contents, log, before);
+}
+
+// A Suunto .sde (and a divelogs.de .dld) is a zip of XML documents, one per
+// dive. Every entry is parsed into the same log, so the whole archive arrives as
+// one import. An entry that fails to parse is counted rather than fatal: a
+// single bad dive in an export of hundreds must not lose the rest.
+int parse_zip_into(const std::string &contents, const std::string &name, struct divelog &log)
+{
+	std::vector<zip_entry> entries = zip_read_all(contents);
+	if (entries.empty())
+		fail("archive contains no files: " + name);
+
+	int failed = 0;
+	int parsed = 0;
+	for (const zip_entry &entry : entries) {
+		// Upstream skips the picture directory of a .dld the same way.
+		if (entry.name.find("pictures/") != std::string::npos)
+			continue;
+		size_t before = log.dives.size();
+		struct xml_params params;
+		if (parse_xml_buffer((name + "/" + entry.name).c_str(), entry.contents.c_str(),
+				     static_cast<int>(entry.contents.size()), &log, &params)) {
+			failed++;
+			continue;
+		}
+		parsed++;
+		// A .sde is one DM4 XML document per dive, so the blobs are here too.
+		decode_suunto_dm4_profile(entry.contents, log, before);
+	}
+	if (!parsed && failed)
+		fail("no file in " + name + " could be parsed");
+	return failed;
+}
+
+json import_file(const json &args)
+{
+	auto [contents, name] = read_source(args);
+	if (contents.empty())
+		fail("empty file: " + name);
+
+	struct divelog log;
+	int failed = 0;
+	if (looks_like_json(contents)) {
+		// The JSON the Suunto app exports (Nautic, Ocean, EON, D5). The
+		// importer reports 0 both for "not a dive" (a running activity, say)
+		// and for a document it could not read; the core message it left
+		// behind travels back in the envelope's `errors`.
+		if (suunto_json_import(contents, std::string(), &log) <= 0)
+			fail("no Suunto dive found in " + name);
+	} else if (looks_like_sqlite(contents)) {
+		staged_file file(args, contents, "-suunto.db");
+		parse_suunto_db_into(file.path, contents, name, log);
+	} else if (looks_like_zip(contents)) {
+		failed = parse_zip_into(contents, name, log);
+	} else {
+		parse_xml_into(contents, name, log);
+	}
+
+	int imported = static_cast<int>(log.dives.size());
+	if (!imported && !failed)
+		fail("no dives found in " + name);
+	return merge_import_log(log, imported, failed);
+}
+
+// Paths the core needs from the app: the directory holding the XSLT
+// stylesheets, which is how every non-SSRF XML format is read (the desktop app
+// gets them from Qt resources - see cpp/shim/qthelper.cpp).
+json configure(const json &args)
+{
+	std::string xslt = get_string(args, "xsltDir");
+	if (xslt.empty())
+		fail("missing required argument 'xsltDir'");
+	set_xslt_directory(xslt);
+	return json{ { "xsltDir", xslt } };
 }
 
 json dispatch(const std::string &method, const json &args)
@@ -620,6 +750,10 @@ json dispatch(const std::string &method, const json &args)
 		return get_statistics(args);
 	if (method == "importSuunto")
 		return import_suunto(args);
+	if (method == "importFile")
+		return import_file(args);
+	if (method == "configure")
+		return configure(args);
 	if (method == "listDiveSites")
 		return list_dive_sites();
 	if (method == "upsertDiveSite")

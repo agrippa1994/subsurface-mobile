@@ -25,12 +25,14 @@ import {
 	CORE_SOURCES,
 	LIBDC_HEADER_DIR,
 	PATCHES,
+	XSLT_DIR,
 } from '../core-subset.mjs';
 
 const moduleRoot = path.resolve(fileURLToPath(import.meta.url), '../..');
 const repoRoot = path.resolve(moduleRoot, '../..');
 const submodule = path.join(repoRoot, 'subsurface');
 const generated = path.join(moduleRoot, 'cpp/generated');
+const xsltOut = path.join(moduleRoot, 'resources/xslt');
 
 function fail(message) {
 	console.error(`[vendor-core] ${message}`);
@@ -152,7 +154,11 @@ const pinned = execFileSync('git', ['-C', submodule, 'rev-parse', 'HEAD'], { enc
 const stampFile = path.join(generated, '.vendor-stamp');
 const fingerprint = inputFingerprint(pinned);
 
-if (fs.existsSync(stampFile) && fs.readFileSync(stampFile, 'utf8') === fingerprint) {
+if (
+	fs.existsSync(stampFile) &&
+	fs.readFileSync(stampFile, 'utf8') === fingerprint &&
+	fs.existsSync(xsltOut)
+) {
 	console.log(`[vendor-core] up to date (core ${pinned.slice(0, 9)})`);
 	process.exit(0);
 }
@@ -195,6 +201,21 @@ for (const patch of PATCHES) {
 	}
 }
 
+// The stylesheets are data, not code, so they go to resources/ rather than into
+// the compiled tree - the podspec ships that directory as a resource bundle.
+// Same staging dance as above: swapped in whole, never half-written.
+const xsltStaging = `${xsltOut}.tmp`;
+fs.rmSync(xsltStaging, { recursive: true, force: true });
+fs.mkdirSync(xsltStaging, { recursive: true });
+const stylesheets = fs
+	.readdirSync(path.join(submodule, XSLT_DIR))
+	.filter((name) => name.endsWith('.xslt') || name.endsWith('.xsl'));
+if (stylesheets.length === 0) fail(`no stylesheets in subsurface/${XSLT_DIR}`);
+for (const name of stylesheets)
+	copyFile(path.join(submodule, XSLT_DIR, name), path.join(xsltStaging, name));
+fs.rmSync(xsltOut, { recursive: true, force: true });
+fs.renameSync(xsltStaging, xsltOut);
+
 const overlaid = overlay(path.join(moduleRoot, 'cpp/shim/override'), path.join(staging, 'core'));
 fs.writeFileSync(stampFile.replace(generated, staging), fingerprint);
 
@@ -203,6 +224,6 @@ fs.renameSync(staging, generated);
 
 console.log(
 	`[vendor-core] ${CORE_SOURCES.length} sources, ${headers.length} headers, ` +
-		`${PATCHES.length} patches, ${overlaid} overrides; ` +
+		`${PATCHES.length} patches, ${overlaid} overrides, ${stylesheets.length} stylesheets; ` +
 		`core ${pinned.slice(0, 9)} (${coreVersion}), libdivecomputer ${libdcVersion}`
 );

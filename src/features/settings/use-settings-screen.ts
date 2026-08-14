@@ -5,14 +5,17 @@
 // The developer actions exist because task 07's acceptance asks for the empty
 // and error states to be checked against real files: they write a logbook with
 // no dives, and a file that is not XML at all, and load them through the same
-// path a user's import will take in task 11.
+// path a picked file takes. They also stand in for the file picker, which a
+// simulator cannot drive.
 
 import { useCallback } from 'react';
 
+import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import {
   ensureLogbook,
   resetLogbook,
   sampleSuuntoPath,
+  sampleSuuntoXmlPath,
   writeScratchFile,
 } from '@/lib/logbook-file';
 import type { UnitSystem } from '@/models';
@@ -23,6 +26,8 @@ const EMPTY_LOGBOOK = "<divelog program='subsurface' version='3'>\n  <dives/>\n<
 const MALFORMED_LOGBOOK = 'this is not a logbook\n';
 
 export type SettingsScreen = {
+  /** Import and export (task 11), so the screen has one object to render from. */
+  transfer: Transfer;
   unitSystem: UnitSystem;
   setUnitSystem: (system: UnitSystem) => void;
   diveCount: number;
@@ -35,14 +40,21 @@ export type SettingsScreen = {
   loadEmptyLogbook: () => void;
   loadMalformedLogbook: () => void;
   /**
-   * Imports the bundled Suunto DM4 database into the loaded log. The real
-   * import - a file the user picks - is task 11; this is what task 08's
-   * acceptance renders a profile from.
+   * Imports the bundled Suunto DM4 database into the loaded log. The user-facing
+   * import is `transfer.importFile`; this one needs no file picker, which is
+   * what makes it usable from a simulator.
    */
   importSuuntoSample: () => void;
+  /**
+   * Imports the bundled Suunto DM4 XML export. That path runs through the XSLT
+   * stylesheets the native module ships, so it is the on-device check that they
+   * were found - the database above needs none of them.
+   */
+  importSuuntoXmlSample: () => void;
 };
 
 export function useSettingsScreen(): SettingsScreen {
+  const transfer = useTransfer();
   const unitSystem = useSettingsStore((state) => state.unitSystem);
   const setUnitSystem = useSettingsStore((state) => state.setUnitSystem);
   const dives = useLogStore((state) => state.dives);
@@ -50,7 +62,7 @@ export function useSettingsScreen(): SettingsScreen {
   const path = useLogStore((state) => state.path);
   const open = useLogStore((state) => state.open);
   const loadPath = useLogStore((state) => state.loadPath);
-  const importSuuntoFile = useLogStore((state) => state.importSuunto);
+  const importSuuntoFile = useLogStore((state) => state.importFile);
 
   const reload = useCallback(() => {
     void ensureLogbook().then((target) => loadPath(target));
@@ -73,7 +85,12 @@ export function useSettingsScreen(): SettingsScreen {
     void sampleSuuntoPath().then((path) => importSuuntoFile(path));
   }, [importSuuntoFile]);
 
+  const importSuuntoXmlSample = useCallback(() => {
+    void sampleSuuntoXmlPath().then((path) => importSuuntoFile(path));
+  }, [importSuuntoFile]);
+
   return {
+    transfer,
     unitSystem,
     setUnitSystem,
     diveCount: dives.length,
@@ -84,5 +101,6 @@ export function useSettingsScreen(): SettingsScreen {
     loadEmptyLogbook,
     loadMalformedLogbook,
     importSuuntoSample,
+    importSuuntoXmlSample,
   };
 }

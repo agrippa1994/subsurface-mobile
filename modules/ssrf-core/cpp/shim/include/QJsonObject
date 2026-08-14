@@ -1,0 +1,6 @@
+// AI-generated (Claude)
+//
+// Stand-in for Qt's <QJsonObject>. See ssrf-qjson.h.
+#pragma once
+
+#include "ssrf-qjson.h"

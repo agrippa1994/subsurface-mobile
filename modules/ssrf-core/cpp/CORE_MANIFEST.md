@@ -22,7 +22,7 @@ before `pod install`; `scripts/build-host.sh` runs it for the host build.
 Include order matters: the core includes its headers by bare name, so an
 overridden header wins by replacing the copy in `cpp/generated/core/`.
 
-## Compiled core sources (37)
+## Compiled core sources (38)
 
 **Model** — `dive.cpp`, `divecomputer.cpp`, `divelist.cpp`, `divelog.cpp`,
 `divesite.cpp`, `device.cpp`, `equipment.cpp`, `event.cpp`, `eventtype.cpp`,
@@ -33,7 +33,7 @@ overridden header wins by replacing the copy in `cpp/generated/core/`.
 `filterpresettable.cpp`, `membuffer.cpp`, `time.cpp`, `subsurface-string.cpp`,
 `strtod.cpp`, `errorhelper.cpp`, `sha1.cpp`, `version.cpp`
 
-**Importers** — `import-suunto.cpp`
+**Importers** — `import-suunto.cpp`, `import-suunto-json.cpp`
 
 **Math** — `deco.cpp`, `planner.cpp`, `plannernotes.cpp`, `profile.cpp`,
 `gaspressures.cpp`, `statistics.cpp`
@@ -43,7 +43,9 @@ bare name; cherry-picking them would only add churn).
 
 Deliberately excluded: `cloudstorage`, `git-access`, `libdivecomputer.cpp` (the
 downloader), `configuredivecomputer*`, `qt-ble`, `btdiscovery`, `file.cpp`
-(multi-format/zip dispatch — task 11), image/video, and everything under
+(multi-format/zip dispatch: the module dispatches on file *contents* in
+`cpp/bindings/api.cpp` instead, and it needs neither libzip nor the desktop's
+CSV/binary importers), image/video, and everything under
 `desktop-widgets/`, `qt-models/`, `mobile-widgets/`.
 
 ## libdivecomputer
@@ -67,6 +69,9 @@ a static C lib" — the enums would then already match by construction.
 | `0004-device-decode-fingerprint-without-qt` | `device.cpp` | Only Qt use is `QByteArray::fromHex()` when reading a dive computer fingerprint back from the log. Replaced with an inline nibble decoder that skips non-hex characters, as Qt does. |
 | `0005-profile-bound-o2-sensor-loop` | `profile.cpp` | Not a Qt patch: an upstream stack-buffer-overflow. `fill_o2_values()` keeps `pressure_t last_sensor[3]` but loops to `dc->no_o2sensors`, which comes straight out of the logbook and may be up to `MAX_O2_SENSORS` (6). Reachable from `getProfile` with `dives/Liberty_CCR_header_v1_00000011.dlf.xml`. Reported upstream; drop when the pin carries the fix. |
 
+| `0006-xslt-match-namespace-declaration` | `parse-xml.cpp` | Also not a Qt patch. `test_xslt_transforms()` selects the Suunto DM4 stylesheet on root `<Dive>` *plus an "xmlns" attribute*, tested with `xmlGetProp()`. libxml2 keeps namespace declarations in `nsDef`, not in the property list, so that test never fires and a Suunto DM4 XML export parses to zero dives. Looks at `nsDef` instead. Report upstream. |
+| `0007-suunto-json-without-fit` | `import-suunto-json.cpp` | Guts `patch_from_fit()` (parses the paired `.fit` through `libdc_buffer_parser()`, i.e. the libdivecomputer download path this build does not compile) and drops `suunto_json_fit_pair_import()` (desktop multi-file selection; needs QFile/QFileInfo and `file.cpp`'s `readfile()`). The JSON-to-dive mapping itself is compiled unchanged. Cost: a dive whose gas mix lives only in the FIT file imports as air. |
+
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
 
@@ -85,6 +90,14 @@ that the submodule pin moved under a hand-written assumption.
 | `selection.h` | `QVector` selection API and Qt signalling. | `current_dive`, `amount_selected`, `select_single_dive`, `select_newest_visible_dive`, `clear_selection`, `getDiveSelection` |
 | `git-access.h` | Includes `git2.h`; cloud/git logbooks are out of scope. | Cloud host macros, `git_info`, `is_git_repository` (always false), `git_save_dives`, `clear_git_id`, `set_git_id` |
 | `settings/qPrefDiveComputer.h` | QSettings-backed preference object. | `device()` — empty, there is no download flow |
+
+`cpp/shim/include/QJsonDocument`, `QJsonObject`, `QJsonArray` and `QJsonValue`
+are stand-ins over `nlohmann::json` (`ssrf-qjson.h`), plus the `QString` and
+`QByteArray` surface that goes with them. `import-suunto-json.cpp` is the only
+file that includes them, and with them it compiles unchanged - which is the
+point: the JSON-to-dive mapping is ~700 lines of Suunto knowledge that must not
+be reimplemented. Only what that file calls is provided; Qt's JSON API is far
+larger.
 
 `cpp/shim/include/QtGlobal` and `cpp/shim/include/QtCore` are stand-ins on the
 include path: `gas.cpp`, `tag.cpp`, `taxonomy.cpp` and `time.cpp` include them
@@ -108,7 +121,7 @@ arriving transitively through a Qt header.
 | `filterpreset.cpp` | `filter_preset` methods | Straight port; only the QString round trip disappears. |
 | `selection.cpp` | current-dive tracking | Single-dive selection only, no signals. |
 | `git-access.cpp` | git storage stubs | `is_git_repository()` always false, so save-xml always takes the plain XML path. |
-| `platform.cpp` | POSIX wrappers from `core/ios.cpp` | Wrappers are verbatim. The data directory comes from `set_data_directory()` (the app passes its container path) instead of `QStandardPaths`. The libzip wrappers are not defined yet — task 04/11. |
+| `platform.cpp` | POSIX wrappers from `core/ios.cpp` | Wrappers are verbatim. The data directory comes from `set_data_directory()` (the app passes its container path) instead of `QStandardPaths`. The libzip wrappers (`subsurface_zip_open_readonly`, `subsurface_zip_close`) are not defined: nothing in the subset calls them, because `core/file.cpp` is not compiled and the zipped formats are read by `cpp/bindings/zip-reader.cpp` instead. |
 | `divecomputer-hash.cpp` | `calculate_string_hash` | Upstream defines it in `libdivecomputer.cpp` (the downloader, out of scope). Same SHA1-based body, so dive ids match. |
 | `qPrefDiveComputer.cpp` | `qPrefDiveComputer::device()` | Always empty. |
 
@@ -120,7 +133,7 @@ arriving transitively through a Qt header.
 | sqlite3 | SDK (`libsqlite3.tbd`) — needed by `import-suunto.cpp` | SDK |
 | zlib | SDK | SDK |
 | libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | SDK (headers and library) |
-| libzip | not yet needed — nothing in the current subset includes `zip.h`; arrives with the zipped-format import path in task 11 | not yet needed |
+| libzip | not used — see `cpp/bindings/zip-reader.cpp`; neither SDK ships it, and the archive formats only need the container decoded | not used |
 
 ## Vendored third-party sources
 
@@ -157,9 +170,21 @@ The module API, all new code — no upstream file is involved.
 | --- | --- |
 | `api.h` / `api.cpp` | The single JSI entry point `ssrf::call(method, argsJson)`, its dispatch table, and the load/save/import/mutate implementations |
 | `marshal.h` / `marshal.cpp` | Core structs → JSON, in raw core units |
+| `base64.h` / `base64.cpp` | Base64 decoding: the JSI boundary passes buffers this way, and so does a Suunto DM4 XML export |
+| `zip-reader.h` / `zip-reader.cpp` | Read-only ZIP decoding (stored + deflate, over zlib) for `.sde`/`.dld`. Upstream uses libzip in `core/file.cpp`, which ships with neither SDK; the container is all that is needed, and the dive data still goes through the core's parser |
+| `suunto-xml.h` / `suunto-xml.cpp` | Decodes the `ProfileBlob` / `TemperatureBlob` / `PressureBlob` of a Suunto DM4 XML export into samples. `xslt/SuuntoDM4.xslt` emits those blobs and no core parser reads them - upstream only unpacks them from the *sqlite* DM4 database |
 
 Documented in `cpp/API.md`. Adding a method touches `api.cpp` and
 `src/index.ts` only; the Objective-C++/Swift glue is method-agnostic.
+
+## Runtime resources
+
+`scripts/vendor-core.mjs` also copies `subsurface/xslt/*.{xslt,xsl}` into
+`resources/xslt/` (git-ignored, like `cpp/generated`). The podspec ships that
+directory as the `SsrfCoreResources` bundle, and `ios/SsrfCoreBridge.mm` points
+the core at it once, before the first call. The core loads a stylesheet by name
+at runtime for every non-SSRF XML format it reads (`get_stylesheet()` in
+`cpp/shim/qthelper.cpp`); upstream serves them out of Qt resources.
 
 ## Smoke units
 

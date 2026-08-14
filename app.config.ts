@@ -18,13 +18,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Liquid glass requires iOS 26. Bump if the toolchain needs a higher floor.
     deploymentTarget: '26.0',
     infoPlist: {
-      // Registers .ssrf / .xml logbooks as document types the app opens and
-      // exports. Consumed by import/export in task 11.
+      // Document types the app opens (task 11): its own logbooks plus the dive
+      // exports it can import. Tapping one of these in Files or Mail offers
+      // Subsurface, and the file arrives as a URL - see
+      // src/features/transfer/use-incoming-files.ts.
       CFBundleDocumentTypes: [
         {
           CFBundleTypeName: 'Subsurface logbook',
           LSHandlerRank: 'Owner',
           LSItemContentTypes: ['org.subsurface.ssrf', 'public.xml'],
+        },
+        {
+          CFBundleTypeName: 'Dive computer export',
+          LSHandlerRank: 'Alternate',
+          LSItemContentTypes: ['org.subsurface.sde', 'public.json', 'public.zip-archive'],
         },
       ],
       UTImportedTypeDeclarations: [
@@ -37,7 +44,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             'public.mime-type': ['application/xml'],
           },
         },
+        {
+          // The Suunto Dive Manager export: a zip of one XML document per dive.
+          // Suunto registers no UTI for it, so the app declares one.
+          UTTypeIdentifier: 'org.subsurface.sde',
+          UTTypeDescription: 'Suunto Dive Manager export',
+          UTTypeConformsTo: ['public.zip-archive', 'public.data'],
+          UTTypeTagSpecification: {
+            'public.filename-extension': ['sde'],
+          },
+        },
       ],
+      // Deliberately *not* LSSupportsOpeningDocumentsInPlace: opening in place
+      // hands over a security-scoped URL, and the C++ core reads plain paths
+      // with fopen(). Without the entitlement iOS drops a copy into
+      // Documents/Inbox, which is inside the sandbox and always readable; the
+      // app merges it into its own logbook and deletes the copy.
+      // File sharing is on so the logbook is reachable from the Files app.
+      UIFileSharingEnabled: true,
     },
   },
   android: {

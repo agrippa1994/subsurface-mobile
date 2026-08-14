@@ -90,4 +90,13 @@ Pod::Spec.new do |s|
   # into the module umbrella.
   s.public_header_files = 'ios/*.h'
   s.private_header_files = 'cpp/**/*.h'
+
+  # The XSLT stylesheets the core loads at runtime to read every non-SSRF XML
+  # format. They are data, not headers, so they ship as a resource bundle;
+  # SsrfCoreBridge.mm resolves the bundle and hands the core its path.
+  # vendor-core.mjs materializes them out of the submodule, like cpp/generated.
+  unless File.directory?(File.join(__dir__, 'resources/xslt'))
+    raise 'ssrf-core: resources/xslt is missing - run `node modules/ssrf-core/scripts/vendor-core.mjs`'
+  end
+  s.resource_bundles = { 'SsrfCoreResources' => ['resources/xslt/*.{xslt,xsl}'] }
 end

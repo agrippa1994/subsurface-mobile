@@ -83,10 +83,39 @@ export function clear(): void {
 
 /**
  * Imports a Suunto DM4 or DM5 database into the current divelog, merging with
- * the dives already loaded.
+ * the dives already loaded. `importFile` handles the same files and everything
+ * else besides; this stays for callers that want the format pinned.
  */
 export function importSuunto(pathOrBuffer: string | ArrayBuffer): ImportResult {
   return call<ImportResult>('importSuunto', sourceArgs(pathOrBuffer));
+}
+
+/**
+ * Merges a file of any supported format into the current divelog, keeping the
+ * dives already loaded. The format is detected from the contents, not the name:
+ *
+ *  - a Suunto DM4/DM5 sqlite database (`.db`, `.sql`)
+ *  - a zip archive of dive documents (`.sde`, `.dld`, `.zip`)
+ *  - XML: SSRF logbooks, and every format the core's XSLT table covers
+ *    (Suunto DM4 / DM3 SDM, UDDF, MacDive, DivingLog, ...)
+ *
+ * Importing the same file twice merges rather than duplicates: the core matches
+ * dives it already has, which is what `merged` in the reply counts.
+ *
+ * Note that this does not save - the caller persists the logbook afterwards.
+ */
+export function importFile(pathOrBuffer: string | ArrayBuffer): ImportResult {
+  return call<ImportResult>('importFile', sourceArgs(pathOrBuffer));
+}
+
+/**
+ * Points the core at the directory holding the XSLT stylesheets, which is how
+ * every non-SSRF XML format is read. The native module does this once by itself
+ * with the stylesheets it ships (see `modules/ssrf-core/resources/xslt`); the
+ * Node test harness calls it with the submodule's copy.
+ */
+export function configure(paths: { xsltDir: string }): void {
+  call<{ xsltDir: string }>('configure', paths);
 }
 
 // --- Reads -----------------------------------------------------------------

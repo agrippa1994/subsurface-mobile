@@ -1,0 +1,49 @@
+Match the Suunto DM4 stylesheet on a namespace declaration.
+
+`test_xslt_transforms()` picks its stylesheet by root element plus, for the two
+ambiguous roots, the presence of an attribute:
+
+	{ "Dive", "SuuntoDM4.xslt", "xmlns" },
+	{ "Dive", "shearwater.xslt", "version" },
+
+The "xmlns" test is made with xmlGetProp(), but libxml2 does not keep namespace
+declarations in a node's property list - they live in `nsDef`. xmlGetProp()
+therefore returns NULL for "xmlns" on every document, so the Suunto DM4 entry
+can never match: a Suunto DM4 dive export (root <Dive xmlns="http://schemas.
+datacontract.org/2004/07/Suunto.Diving.Dal">, e.g. dives/Dive_2013-02-02-1614.xml)
+falls through the table untransformed and parses to zero dives. Running the same
+file through xsltproc with SuuntoDM4.xslt produces the expected divelog, so the
+stylesheet is fine and only the dispatch is wrong.
+
+Look at nsDef when the attribute being tested is "xmlns". Shearwater XML has no
+default namespace, so the two entries stay distinguishable.
+
+Report upstream and drop this patch when the pin carries a fix.
+
+--- a/core/parse-xml.cpp
++++ b/core/parse-xml.cpp
+@@ -1819,11 +1819,20 @@
+ 			if (info->attribute == NULL)
+ 				break;
+ 
+-			xmlChar *prop = xmlGetProp(root_element, (const xmlChar *)info->attribute);
+-			if (prop != NULL) {
+-				xmlFree(prop);
++			/* libxml2 keeps namespace declarations in nsDef, not in
++			 * the property list, so xmlGetProp() never reports an
++			 * "xmlns" attribute - the Suunto DM4 entry above would
++			 * never match. */
++			if (strcmp(info->attribute, "xmlns") == 0) {
++				if (root_element->nsDef != NULL)
++					break;
++			} else {
++				xmlChar *prop = xmlGetProp(root_element, (const xmlChar *)info->attribute);
++				if (prop != NULL) {
++					xmlFree(prop);
+ 
+-				break;
++					break;
++				}
+ 			}
+ 		}
+ 		info++;

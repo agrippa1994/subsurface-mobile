@@ -47,6 +47,7 @@ export const CORE_SOURCES = [
 
 	// Importers
 	'core/import-suunto.cpp',
+	'core/import-suunto-json.cpp',
 
 	// Math
 	'core/deco.cpp',
@@ -66,6 +67,13 @@ export const CORE_HEADER_GLOBS = ['core/*.h'];
 // suffice and the C library is not built. See CORE_MANIFEST.md.
 export const LIBDC_HEADER_DIR = 'libdivecomputer/include/libdivecomputer';
 
+// XSLT stylesheets. parse-xml.cpp transforms every non-SSRF XML format through
+// one of these (Suunto DM4/SDM, UDDF, MacDive, ...), loading it by name from a
+// directory at runtime - the desktop app serves them out of Qt resources, which
+// we do not have. They are copied into `resources/xslt/` and shipped as a pod
+// resource bundle; the module points the core at that directory on first use.
+export const XSLT_DIR = 'xslt';
+
 // Patches applied to the copied core headers, in order. Each is a plain
 // unified diff produced with `diff -u`, applied with `patch -p1` inside
 // `cpp/generated/`. A patch that no longer applies fails the build loudly -
@@ -76,4 +84,6 @@ export const PATCHES = [
 	'0003-profile-use-std-mutex.patch',
 	'0004-device-decode-fingerprint-without-qt.patch',
 	'0005-profile-bound-o2-sensor-loop.patch',
+	'0006-xslt-match-namespace-declaration.patch',
+	'0007-suunto-json-without-fit.patch',
 ];

@@ -15,7 +15,7 @@ import { create } from 'zustand';
 
 import {
   deleteDiveSite as deleteDiveSiteNative,
-  importSuunto as importSuuntoNative,
+  importFile as importFileNative,
   listDives,
   listDiveSites,
   loadFromXML,
@@ -23,7 +23,15 @@ import {
   updateDive as updateDiveNative,
   upsertDiveSite as upsertDiveSiteNative,
 } from '../../modules/ssrf-core/src';
-import type { Dive, DivePatch, DiveSite, DiveSiteInput, DiveSummary, LoadResult } from '@/models';
+import type {
+  Dive,
+  DivePatch,
+  DiveSite,
+  DiveSiteInput,
+  DiveSummary,
+  ImportResult,
+  LoadResult,
+} from '@/models';
 import { describeError, type ErrorInfo } from '@/models/errors';
 import { ensureLogbook } from '@/lib/logbook-file';
 
@@ -45,10 +53,20 @@ export type LogState = {
   /** Loads an arbitrary logbook, replacing whatever the module held. */
   loadPath(path: string): Promise<void>;
   /**
-   * Merges a Suunto DM4/DM5 database into the loaded log. The dives stay in
-   * memory until something saves them - task 11 owns the file side of import.
+   * Merges a file of any supported format into the loaded log and writes the
+   * logbook straight away - an import is not a change the user would expect to
+   * lose, so it does not wait for the mutation debounce.
    */
-  importSuunto(path: string): Promise<void>;
+  importFile(path: string): Promise<ImportResult>;
+  /**
+   * Replaces the working logbook with `path`: the file is loaded and then saved
+   * over the app's own logbook, so the picked file itself - which may be a
+   * temporary copy handed over by another app - is never the file the app keeps
+   * writing to.
+   */
+  replaceWith(path: string): Promise<LoadResult>;
+  /** Writes the current logbook to `path` for sharing. Flushes first. */
+  exportTo(path: string): Promise<void>;
   /** Re-reads dives and sites from the module after a mutation. */
   refresh(): void;
   dismissError(): void;
@@ -126,14 +144,46 @@ export const useLogStore = create<LogState>((set, get) => ({
     }
   },
 
-  async importSuunto(path: string) {
-    set({ status: 'loading', error: null });
+  async importFile(path: string) {
+    // Nothing is caught here: an import is something the user started from a
+    // screen, and that screen shows the failure next to the button that caused
+    // it rather than replacing the dive list with an error state.
+    const result = importFileNative(path);
+    get().refresh();
+    schedulePersist(set, get);
+    await get().flush();
+    return result;
+  },
+
+  async replaceWith(path: string) {
+    const target = await ensureLogbook();
+    let result: LoadResult;
     try {
-      importSuuntoNative(path);
-      set({ status: 'ready', dives: listDives(), sites: listDiveSites(), error: null });
+      result = loadFromXML(path);
     } catch (error) {
-      set({ status: 'error', error: describeError(error) });
+      // A failed parse leaves the module's divelog cleared, so the app would be
+      // sitting on a cache of dives that are no longer there. Put the working
+      // logbook back before handing the failure to the screen.
+      await get().loadPath(target);
+      throw error;
     }
+    set({
+      status: 'ready',
+      path: target,
+      lastLoad: result,
+      dives: listDives(),
+      sites: listDiveSites(),
+      error: null,
+    });
+    schedulePersist(set, get);
+    await get().flush();
+    return result;
+  },
+
+  async exportTo(path: string) {
+    // Anything still inside the debounce belongs in the export too.
+    await get().flush();
+    saveToXML(path);
   },
 
   refresh() {

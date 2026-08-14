@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
 import { useLogStore } from '@/store/log-store';
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -26,6 +27,10 @@ export default function RootLayout() {
     hydrateSettings();
     void openLog();
   }, [hydrateSettings, openLog]);
+
+  // A file opened from Files, Mail or AirDrop reaches the app as a URL, so the
+  // handler belongs above every screen (task 11).
+  useIncomingFileImports();
 
   return (
     // The root view is what makes gestures work anywhere below it - the

@@ -56,10 +56,16 @@ export default function SettingsScreen() {
       {action('Reload from disk', screen.reload)}
       {action('Restore the sample logbook', screen.restoreSample)}
 
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Transfer</Text>
+      {action('Import dives', screen.transfer.importFile)}
+      {action('Export and share', screen.transfer.shareLogbook)}
+      {action('Open a logbook', screen.transfer.openLogbook)}
+
       {__DEV__ ? (
         <>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Developer</Text>
           {action('Import the Suunto sample', screen.importSuuntoSample)}
+          {action('Import the Suunto XML sample', screen.importSuuntoXmlSample)}
           {action('Load an empty logbook', screen.loadEmptyLogbook)}
           {action('Load a malformed logbook', screen.loadMalformedLogbook)}
         </>

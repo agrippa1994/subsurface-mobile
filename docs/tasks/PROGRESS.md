@@ -7,14 +7,14 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [~] 01 — Repo + Expo dev-client skeleton (code done; on-device build pending)
 - [x] 02 — Native module scaffold (trivial JSI fn)
 - [x] 03 — Vendor core subset + de-Qt shim compiles
-- [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip deferred to 11)
+- [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip never needed, see 11)
 - [x] 05 — JSI bridge + API implemented
 - [x] 06 — TS models + vitest golden tests green
 - [x] 07 — Navigation + dive list (read-only)
 - [x] 08 — Dive detail + profile diagram (Skia)
 - [x] 09 — Statistics screen
 - [x] 10 — Editing: dives, dive sites, buddies
-- [ ] 11 — Suunto import + SSRF import/export
+- [x] 11 — Suunto import + SSRF import/export
 - [ ] 12 — Polish + TestFlight beta
 - [ ] 13 — Android parity (later phase)
 
@@ -88,7 +88,8 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   per slice and writes `ios/vendor/libxslt.xcframework` plus
   `ios/vendor/include`. libxml2, sqlite3 (needed by `import-suunto.cpp`) and
   zlib come from the SDK. libzip is deferred - nothing in the current subset
-  includes `zip.h`; it arrives with the zipped-format import path in task 11.
+  includes `zip.h`; the zipped-format import path in task 11 ended up not
+  needing it either (it decodes the container over zlib instead).
   `expo prebuild` + `expo run:ios` build clean and the app runs on the iOS 26
   simulator: the home screen reports `add(2, 3) = 5` and
   `459 bytes out, 1 dive(s) back` from a serialize -> write -> parse round trip
@@ -426,3 +427,83 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   dev-client's floating Tools button sits on top of the header's right side
   (dev builds only). That path is covered numerically by `tests/editing.test.ts`,
   which drives the same models and bindings the screens do.
+- 2026-08-14 — Task 11: import and export are in, and one module method covers
+  every format: `importFile` detects it from the file's *contents* - JSON, an
+  sqlite DM4/DM5 database, a zip archive, or XML - and merges the result into
+  the loaded log with `add_imported_dives(merge_all_trips)`, so importing the
+  same file twice merges instead of duplicating. `loadFromXML` stays the
+  "replace" path; the app offers both and asks before replacing.
+  XML import needed one thing the module never had: the core reads every
+  non-SSRF XML format by loading an XSLT stylesheet by name at runtime, and
+  nobody had told it where they are. `vendor-core.mjs` now also copies
+  `subsurface/xslt/` into `modules/ssrf-core/resources/xslt/`, the podspec ships
+  it as the `SsrfCoreResources` bundle, and `SsrfCoreBridge.mm` calls the new
+  `configure` method with the bundle path before the first call - from native
+  code rather than from JS, so no screen can forget to.
+  Four things upstream does not do for us, each deliberately placed:
+  1. **Patch `0006-xslt-match-namespace-declaration`.** The stylesheet table
+     picks SuuntoDM4.xslt on root `<Dive>` plus an `xmlns` *attribute*, tested
+     with `xmlGetProp()` - but libxml2 keeps namespace declarations in `nsDef`,
+     not in the property list, so that test never fires and a Suunto DM4 XML
+     export parses to zero dives. Report upstream.
+  2. **`cpp/bindings/suunto-xml.cpp`.** `SuuntoDM4.xslt` copies the dive's
+     `ProfileBlob` / `TemperatureBlob` / `PressureBlob` into a `<blob>` element
+     that no core parser reads - upstream only unpacks those columns from the
+     *sqlite* DM4 database (`dm4_dive()`), so an XML export imports with a
+     fabricated profile and no temperature or pressure at all. The four lines of
+     layout knowledge (float32 m, uint8 C, int32 mbar, one per SampleInterval)
+     are taken from that function; everything else still comes from the core.
+  3. **`cpp/bindings/zip-reader.cpp`** for `.sde` / `.dld`: ~180 lines of
+     read-only ZIP over zlib, instead of cross-compiling libzip (which neither
+     the macOS nor the iOS SDK ships) for a container decode. `core/file.cpp` is
+     still not compiled - the dispatch lives in `api.cpp`, and the dive data
+     still goes through the core's own parser.
+  4. **Patch `0007-suunto-json-without-fit`** plus Qt JSON stand-ins. The Suunto
+     app's JSON export is read by `core/import-suunto-json.cpp`, ~700 lines of
+     Suunto knowledge that must not be reimplemented - but it is written against
+     QJsonDocument/QJsonObject/QJsonArray/QJsonValue. `cpp/shim/include/QJson*`
+     provides exactly that surface over nlohmann::json, so the file compiles
+     unchanged; the patch only removes the two parts that reach outside this
+     build (the paired `.fit` file, which needs the libdivecomputer download
+     path, and the desktop's multi-file pairing, which needs QFile and
+     `readfile()`).
+  One behaviour change in the bindings worth knowing: imported dives get their
+  SAC, OTU and CNS computed (`update_cylinder_related_info`) before they are
+  merged. Those are derived values that a file carries only because whoever
+  wrote it had computed them; desktop does it in its dive-list model, which this
+  module has no equivalent of.
+  App side: `src/models/transfer.ts` holds the wording and the picker types,
+  `src/features/transfer/use-transfer.ts` the OS plumbing (expo-document-picker,
+  expo-sharing, the merge-or-open question), and the Settings screen gained an
+  Import / Export / Open section. `src/store/log-store.ts` gained `importFile`,
+  `replaceWith` and `exportTo`; an import writes the logbook immediately rather
+  than waiting out the mutation debounce. Incoming files (Files, Mail, AirDrop)
+  arrive as a URL and are handled above every screen by
+  `use-incoming-files.ts`. `LSSupportsOpeningDocumentsInPlace` is deliberately
+  *not* set: opening in place hands over a security-scoped URL and the core
+  reads plain paths with `fopen()`, so iOS is left to drop a copy into
+  `Documents/Inbox`, which the app reads and then deletes.
+  Tests: 220 green, 22 new in `tests/import-export.test.ts`. The Suunto DM4 XML
+  acceptance is there (177 samples, temperatures 26-28 C, pressures falling
+  206520 -> 53870 mbar), and the four `suunto_*.json` fixtures are compared
+  dive-for-dive against the `.xml` companion upstream ships next to them, which
+  is the desktop importer's own output. Three match exactly; the Ocean nitrox
+  file differs in seven fields, all downstream of the FIT file (gas mix, the
+  gas-switch event, GF Low/High, and CNS/OTU which follow the gas) - they are
+  listed in the test rather than filtered, so the day FIT support lands the test
+  says so. The ASAN sweep now covers every import path and is clean.
+  Verified on the iOS 26 simulator, driving files in through
+  `xcrun simctl openurl` (which is also what the Files "Open in..." path does):
+  a Suunto JSON lands as one dive dated 2026-01-13 with `otu='8' cns='5%'` -
+  the same numbers the host reports; a `TestDiveDM3.SDE` archive imports through
+  the zip reader and the bundled SuuntoSDM stylesheet; a DM4 XML export imports
+  with its decoded profile and is written to `logbook.ssrf` as 179 `<sample>`
+  elements carrying depth, temperature and pressure; re-importing it reports the
+  dive as already present instead of duplicating it; and the Inbox copy is gone
+  afterwards. Export puts a dated `subsurface-2026-08-14.ssrf` into the share
+  sheet, where iOS names it "Subsurface logbook" - i.e. the UTI registration
+  works.
+  Not verified: opening an exported file in *desktop Subsurface* (not installed
+  here), and the file picker itself, which cannot be driven from a script - the
+  developer actions in Settings import the bundled samples through the same
+  store path instead.

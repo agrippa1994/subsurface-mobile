@@ -73,7 +73,9 @@ rendered metric or imperial.
 | `loadFromXML` | `{ path }` or `{ base64 }` | `{ dives, sites, trips }` |
 | `saveToXML` | `{ path }` | `{ path, dives }` |
 | `clear` | `{}` | `{}` |
-| `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives }` |
+| `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
+| `importFile` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
+| `configure` | `{ xsltDir }` | `{ xsltDir }` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex? }` | `PlotInfo` |
@@ -100,7 +102,37 @@ directly and avoids the copy.
   and merges with `add_imported_dives(..., merge_all_trips)`. `merged` is
   `imported - added`. A buffer is staged to a temp file first, because the
   importers read profile blobs through sqlite and sqlite needs a real file.
-  The zipped `.SDE` container is task 11.
+  It is a narrower `importFile`, kept for callers that want the format pinned.
+- **`importFile`** takes any supported file and detects the format from the
+  *contents*, not the name:
+  - `{`-leading text: the JSON the Suunto app exports, through
+    `core/import-suunto-json.cpp`. Its paired `.fit` file is not read (see
+    CORE_MANIFEST.md, patch 0007), so on an Ocean nitrox dive the gas mix and
+    the gradient factors are missing - and CNS/OTU with them.
+  - `SQLite format 3`: a Suunto DM4/DM5 database, as `importSuunto`.
+  - a zip archive (`.sde`, `.dld`, `.zip`): every entry is parsed into the same
+    import log by `cpp/bindings/zip-reader.cpp`. An entry that fails to parse is
+    counted in `failed` rather than aborting the import.
+  - anything else: XML, through `parse_xml_buffer()` - so an import covers
+    everything the core's XSLT table does (Suunto DM4/SDM, UDDF, MacDive,
+    DivingLog, ...) as well as plain SSRF. A Suunto DM4 XML document then has
+    its sample blobs decoded by `cpp/bindings/suunto-xml.cpp`, which is a gap in
+    the core rather than a mobile-only need - see that file's header.
+
+  Everything merges with `add_imported_dives(..., merge_all_trips)`, so
+  importing the same file twice merges instead of duplicating, and `merged` is
+  `imported - added`. SAC, OTU and CNS are computed for the imported dives
+  before they are merged (`update_cylinder_related_info`), because those are
+  derived values that a freshly imported dive has nobody to compute for it -
+  desktop Subsurface does it in its dive-list model.
+
+  Note that dive sites arrive only with the dives that reference them: a site
+  nobody dived is not carried over. That is the core's import path, and it is
+  the difference between importing a logbook and opening one.
+- **`configure`** hands the core the directory holding the XSLT stylesheets,
+  which is how every non-SSRF XML format is read. It must be called before the
+  first such import; the iOS bridge does it once from the pod's resource bundle
+  (`SsrfCoreBridge.mm`), and the test harness does it with `subsurface/xslt`.
 - **`getProfile`** runs `create_plot_info_new(dive, dc, nullptr)`, i.e. the same
   computation the desktop profile widget plots, including deco/ceiling and gas
   partial pressures. `dcIndex` is range-checked here because
