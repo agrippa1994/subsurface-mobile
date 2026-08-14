@@ -12,8 +12,8 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 06 — TS models + vitest golden tests green
 - [x] 07 — Navigation + dive list (read-only)
 - [x] 08 — Dive detail + profile diagram (Skia)
-- [~] 09 — Statistics screen (code + tests done; simulator check pending)
-- [ ] 10 — Editing: dives, dive sites, buddies
+- [x] 09 — Statistics screen
+- [x] 10 — Editing: dives, dive sites, buddies
 - [ ] 11 — Suunto import + SSRF import/export
 - [ ] 12 — Polish + TestFlight beta
 - [ ] 13 — Android parity (later phase)
@@ -365,3 +365,64 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Not verified yet: the screen on the iOS 26 simulator in light and dark. The
   rebuild that a native change forces was still running when this was
   committed - the numbers themselves are covered by the module-driven suite.
+- 2026-08-14 — Task 09 follow-up: the statistics screen is now verified on the
+  iOS 26 simulator (dark). It reports 18 dives, 13 h 32 min / avg 45:06, 70 m
+  max / avg 17.8 m and 12 dive sites for the bundled sample, with the
+  dives-per-year bars at 2010-2014 and 2020 - the same numbers
+  `tests/statistics.test.ts` counts on the host. Light mode is still unchecked.
+- 2026-08-14 — Task 10: editing is in, and every mutation lands in the SSRF file
+  because that file is the source of truth. `src/store/log-store.ts` gained
+  `updateDive` / `saveSite` / `deleteSite`, each of which applies the change in
+  the module, re-reads the cache and schedules a save. The save is debounced by
+  400 ms so a dragged rating does not re-serialize the logbook per frame, and
+  `flush()` writes immediately - every editor calls it before it closes, and the
+  store also flushes when the app leaves the foreground, so a force-quit cannot
+  land inside the debounce window. A write that fails inside the debounce is
+  re-thrown by `flush()` rather than left in the store as a message no screen
+  shows.
+  The two presentation models hold the decisions and are what vitest covers:
+  `src/models/dive-edit.ts` (draft, minimal `DivePatch`, comma-separated
+  buddy/diveguide lists, autocomplete harvested from the loaded log) and
+  `src/models/site-edit.ts` (draft, minimal `DiveSiteInput`, coordinate parsing
+  and formatting, duplicate and 100 m proximity detection). Both build the
+  *smallest* patch that expresses the change, because `updateDive` and
+  `upsertDiveSite` overwrite exactly the fields the argument mentions - echoing
+  untouched fields back would resurrect stale values.
+  Screens: `dives/edit/[id]` (site, buddies, rating, visibility, suit, tags,
+  notes; the dive computer's own numbers stay read-only), a site picker modal
+  that can create a site on the spot, and `sites/[uuid]` + `sites/new` sharing
+  `features/sites/site-editor.tsx`. `expo-maps` was added for the map picker
+  (Apple Maps on iOS; Android needs a Google key and waits for task 13, where
+  the component degrades to the coordinate readout).
+  Tests: 198 green, 48 new. `tests/editing.test.ts` is the acceptance evidence -
+  it mutates, saves, and reloads the file in a *fresh host process*, which is
+  what a force-quit and relaunch does. A new buddy, notes, rating, tags and a
+  move to a newly created site with GPS all survive; every other dive and site
+  is bit-identical afterwards; site create/edit/delete round-trips; deleting a
+  site keeps its dives and detaches them; and the second and third generations
+  of the app's own output stay a fixed point. The ASAN sweep is clean.
+  One crash found and fixed, and it is the reason the app must never hand a
+  stale id to the core: `dive_table::get_by_uniq_id()`
+  (`core/divelist.cpp:757-765`) calls `exit(1)` on an unknown id in a DEBUG
+  build. Dive ids are process-local and reassigned on every load, so a screen
+  that outlived a reload passes one as a matter of course - and the app died
+  instead of showing "not found". `require_dive()` in `api.cpp` now resolves the
+  id itself; `tests/editing.test.ts` covers it (a regression takes the whole
+  test file down with it, which is the point) and API.md documents the rule.
+  Two upstream behaviours worth remembering:
+  1. `dive_site::is_empty()` (`core/divesite.cpp:155`) plus `save-xml.cpp:661`
+     drop a site that has no name, description, notes *and* no position. That is
+     why `validateSiteDraft` refuses to save a site without a name: a site the
+     app writes has to survive the next save.
+  2. Moving a dive to another site decrements the old site's `diveCount`, which
+     is correct and is asserted explicitly rather than filtered out.
+  Verified on the iOS 26 simulator (dark): the sites list with its New button,
+  the site editor with Apple Maps rendering the marker and the coordinate field
+  seeded from it, the dive detail with its new Edit action, and a stale dive id
+  showing "Dive not found - no dive with id 2" rather than killing the app.
+  Not verified on device: typing into the editors and saving from the UI. Header
+  buttons (Save, Edit, back) cannot be driven here - synthetic clicks reach the
+  tab bar and the scroll views but not the iOS 26 navigation bar, and the
+  dev-client's floating Tools button sits on top of the header's right side
+  (dev builds only). That path is covered numerically by `tests/editing.test.ts`,
+  which drives the same models and bindings the screens do.

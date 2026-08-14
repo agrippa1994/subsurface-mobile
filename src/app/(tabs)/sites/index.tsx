@@ -1,67 +1,90 @@
 // AI-generated (Claude)
-// Dive sites, read-only.
+// Dive sites: the list, the way into the editor, and the way to a new site.
 //
-// The sites come from the same store snapshot as the dive list; editing them is
-// task 10.
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+// The rows come from the same store snapshot as the dive list; how one renders
+// is decided in models/site-edit.ts so the vitest suite covers it.
+import { Link, Stack, useRouter } from 'expo-router';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { udegToDegrees } from '@/models';
+import { sortSitesByName, toSiteRow } from '@/models/site-edit';
 import { useLogStore } from '@/store/log-store';
-
-function coordinates(latUdeg: number, lonUdeg: number): string {
-  const lat = udegToDegrees(latUdeg);
-  const lon = udegToDegrees(lonUdeg);
-  return `${Math.abs(lat).toFixed(4)}${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(4)}${
-    lon >= 0 ? 'E' : 'W'
-  }`;
-}
 
 export default function SitesScreen() {
   const status = useLogStore((state) => state.status);
   const sites = useLogStore((state) => state.sites);
+  const router = useRouter();
   const theme = useTheme();
 
+  const header = (
+    <Stack.Screen
+      options={{
+        headerRight: () => (
+          <Link href="/sites/new" asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="New dive site" hitSlop={Spacing.two}>
+              <Text style={[styles.headerAction, { color: theme.accent }]}>New</Text>
+            </Pressable>
+          </Link>
+        ),
+      }}
+    />
+  );
+
   if (status === 'idle' || status === 'loading') {
-    return <StatusView kind="loading" title="Opening logbook" />;
+    return (
+      <>
+        {header}
+        <StatusView kind="loading" title="Opening logbook" />
+      </>
+    );
   }
 
   if (sites.length === 0) {
     return (
-      <StatusView
-        kind="empty"
-        title="No dive sites"
-        description="Sites appear here once a logbook with sites is loaded."
-        systemImage="mappin.slash"
-      />
+      <>
+        {header}
+        <StatusView
+          kind="empty"
+          title="No dive sites"
+          description="Sites appear here once a logbook with sites is loaded, or when you add one."
+          systemImage="mappin.slash"
+          actionLabel="New site"
+          onAction={() => router.push('/sites/new')}
+        />
+      </>
     );
   }
 
-  const sorted = [...sites].sort((a, b) => a.name.localeCompare(b.name));
+  const rows = sortSitesByName(sites).map(toSiteRow);
 
   return (
-    <FlatList
-      data={sorted}
-      keyExtractor={(site) => String(site.uuid)}
-      style={{ backgroundColor: theme.background }}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.content}
-      renderItem={({ item }) => (
-        <View style={styles.row}>
-          <View style={styles.main}>
-            <Text style={[styles.title, { color: theme.text }]}>{item.name || 'Unnamed site'}</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              {item.hasGps ? coordinates(item.latUdeg, item.lonUdeg) : 'no position'}
-            </Text>
-          </View>
-          <Text style={[styles.count, { color: theme.textSecondary }]}>
-            {item.diveCount} {item.diveCount === 1 ? 'dive' : 'dives'}
-          </Text>
-        </View>
-      )}
-    />
+    <>
+      {header}
+      <FlatList
+        data={rows}
+        keyExtractor={(row) => String(row.uuid)}
+        style={{ backgroundColor: theme.background }}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => router.push(`/sites/${item.uuid}`)}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.row,
+              pressed ? { backgroundColor: theme.backgroundSelected } : null,
+            ]}>
+            <View style={styles.main}>
+              <Text style={[styles.title, { color: theme.text }]}>{item.title}</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
+            </View>
+            <Text style={[styles.count, { color: theme.textSecondary }]}>{item.countText}</Text>
+          </Pressable>
+        )}
+      />
+    </>
   );
 }
 
@@ -89,5 +112,9 @@ const styles = StyleSheet.create({
   },
   count: {
     fontSize: 13,
+  },
+  headerAction: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

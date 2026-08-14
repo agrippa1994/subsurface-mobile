@@ -59,6 +59,12 @@ rendered metric or imperial.
   counter). It is stable while the log stays loaded and is **not** persisted -
   after `loadFromXML` every id is different. Never store one across a load.
 - **`diveSite.uuid`** *is* persisted in the SSRF file and is stable.
+- An id the log does not have comes back as the envelope's `error`. The
+  bindings must resolve ids themselves (`require_dive` in `api.cpp`) and must
+  **not** call `divelog.dives.get_by_uniq_id()`: in a DEBUG build that function
+  reports the id and then calls `exit(1)` (`core/divelist.cpp:757-765`), which
+  terminates the app. Passing a stale id is normal - a screen open across a
+  reload holds one - so it has to be an error, never a process death.
 
 ## Methods
 

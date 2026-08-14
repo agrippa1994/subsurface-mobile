@@ -10,15 +10,20 @@
 // Dive ids are process-local and are reassigned on every load (see
 // modules/ssrf-core/cpp/API.md), so nothing outside a loaded log may hold one.
 
+import { AppState } from 'react-native';
 import { create } from 'zustand';
 
 import {
+  deleteDiveSite as deleteDiveSiteNative,
   importSuunto as importSuuntoNative,
   listDives,
   listDiveSites,
   loadFromXML,
+  saveToXML,
+  updateDive as updateDiveNative,
+  upsertDiveSite as upsertDiveSiteNative,
 } from '../../modules/ssrf-core/src';
-import type { DiveSite, DiveSummary, LoadResult } from '@/models';
+import type { Dive, DivePatch, DiveSite, DiveSiteInput, DiveSummary, LoadResult } from '@/models';
 import { describeError, type ErrorInfo } from '@/models/errors';
 import { ensureLogbook } from '@/lib/logbook-file';
 
@@ -47,7 +52,33 @@ export type LogState = {
   /** Re-reads dives and sites from the module after a mutation. */
   refresh(): void;
   dismissError(): void;
+
+  // --- Mutations (task 10) --------------------------------------------------
+  //
+  // Every one of these applies the change in the module, re-reads the cache and
+  // schedules a save of the whole logbook - the SSRF file is the source of
+  // truth, so nothing is a change until it is on disk.
+
+  /** True between the first unsaved mutation and the write completing. */
+  saving: boolean;
+  /** Applies a dive patch and persists. Returns the module's updated dive. */
+  updateDive(id: number, patch: DivePatch): Promise<Dive>;
+  /** Creates or updates a dive site and persists. Returns its uuid. */
+  saveSite(input: DiveSiteInput): Promise<number>;
+  /** Deletes a site, detaching its dives, and persists. */
+  deleteSite(uuid: number): Promise<void>;
+  /** Writes the logbook now, if a mutation is still waiting for the debounce. */
+  flush(): Promise<void>;
 };
+
+// Rapid edits (a rating tapped three times, a slider dragged) must not
+// re-serialize the whole logbook once per keystroke, so a mutation only marks
+// the log dirty and arms this timer. `flush()` writes immediately, and every
+// editor calls it when it closes, so a force-quit cannot land in the window.
+const SAVE_DEBOUNCE_MS = 400;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSave: Promise<void> | null = null;
+let lastSaveError: unknown = null;
 
 export const useLogStore = create<LogState>((set, get) => ({
   status: 'idle',
@@ -116,7 +147,95 @@ export const useLogStore = create<LogState>((set, get) => ({
   dismissError() {
     set({ error: null, status: get().dives.length > 0 ? 'ready' : 'idle' });
   },
+
+  saving: false,
+
+  async updateDive(id: number, patch: DivePatch) {
+    const dive = updateDiveNative(id, patch);
+    get().refresh();
+    schedulePersist(set, get);
+    return dive;
+  },
+
+  async saveSite(input: DiveSiteInput) {
+    const uuid = upsertDiveSiteNative(input);
+    get().refresh();
+    schedulePersist(set, get);
+    return uuid;
+  },
+
+  async deleteSite(uuid: number) {
+    deleteDiveSiteNative(uuid);
+    get().refresh();
+    schedulePersist(set, get);
+  },
+
+  async flush() {
+    if (saveTimer !== null) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      persist(set, get);
+    }
+    await pendingSave;
+    // A write that failed inside the debounce had nobody to report to; the
+    // caller of flush() is that somebody, so it is raised here rather than
+    // left sitting in the store as a message no screen shows.
+    if (lastSaveError !== null) {
+      const error = lastSaveError;
+      lastSaveError = null;
+      throw error;
+    }
+  },
 }));
+
+type SetState = (partial: Partial<LogState>) => void;
+type GetState = () => LogState;
+
+function schedulePersist(set: SetState, get: GetState): void {
+  set({ saving: true });
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+  }
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    persist(set, get);
+  }, SAVE_DEBOUNCE_MS);
+}
+
+function persist(set: SetState, get: GetState): void {
+  const path = get().path;
+  if (path === null) {
+    set({ saving: false });
+    return;
+  }
+  // The write itself is synchronous in the module (save_dives to path.tmp, then
+  // rename), so `pendingSave` exists only so that flush() has something to await
+  // and a caller can be sure the file is on disk before it returns.
+  pendingSave = (async () => {
+    try {
+      saveToXML(path);
+      lastSaveError = null;
+      set({ saving: false });
+    } catch (error) {
+      // The in-memory log still holds the edit; only the file is behind. The
+      // error is kept rather than swallowed, because the file is the source of
+      // truth and the user has to know it did not get the change: flush()
+      // rethrows it, and the editor that called flush() shows it.
+      lastSaveError = error;
+      set({ saving: false, error: describeError(error) });
+    } finally {
+      pendingSave = null;
+    }
+  })();
+}
+
+// A logbook must not be left behind in memory when the app is swiped away, so
+// anything still inside the debounce window is written as the app backgrounds.
+AppState.addEventListener('change', (state) => {
+  if (state !== 'active') {
+    void useLogStore.getState().flush();
+  }
+});
 
 /** Looks up one cached row. Returns undefined once the log is reloaded. */
 export function selectDive(state: LogState, id: number): DiveSummary | undefined {

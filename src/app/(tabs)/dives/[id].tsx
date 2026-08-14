@@ -9,9 +9,9 @@
 //
 // This screen is React Native rather than SwiftUI: the profile is a Skia
 // canvas, and a SwiftUI list cannot host one.
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileChart } from '@/components/profile-chart';
 import { StatusView } from '@/components/status-view';
@@ -49,6 +49,9 @@ export default function DiveDetailScreen() {
   const diveId = Number(id);
   // Re-read whenever the log is reloaded: the ids change with it.
   const logPath = useLogStore((state) => state.path);
+  // ...and whenever a mutation happened: `refresh()` replaces this array, so
+  // its identity is what tells the screen its copy of the dive is stale.
+  const dives = useLogStore((state) => state.dives);
   const unitSystem = useUnitSystem();
   const theme = useTheme();
 
@@ -58,9 +61,10 @@ export default function DiveDetailScreen() {
     } catch (error) {
       return { error: formatErrorLine(describeError(error)) };
     }
-    // logPath is not read here on purpose - it is the invalidation key.
+    // logPath and dives are not read here on purpose - they are the
+    // invalidation keys.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diveId, logPath]);
+  }, [diveId, logPath, dives]);
 
   const plot = useMemo(
     () => ('dive' in loaded ? buildProfilePlot(loaded.profile, loaded.dive.dcs[0]?.events ?? []) : null),
@@ -87,7 +91,18 @@ export default function DiveDetailScreen() {
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <Stack.Screen options={{ title: row.title }} />
+      <Stack.Screen
+        options={{
+          title: row.title,
+          headerRight: () => (
+            <Link href={`/dives/edit/${dive.id}`} asChild>
+              <Pressable accessibilityRole="button" hitSlop={Spacing.two}>
+                <Text style={[styles.headerAction, { color: theme.accent }]}>Edit</Text>
+              </Pressable>
+            </Link>
+          ),
+        }}
+      />
 
       <Header dive={dive} />
 
@@ -292,5 +307,9 @@ const styles = StyleSheet.create({
   notes: {
     fontSize: 15,
     lineHeight: 21,
+  },
+  headerAction: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 });

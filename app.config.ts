@@ -42,6 +42,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     // Android is a later phase (task 13); config kept from the template.
+    // The package id only exists so `expo prebuild` does not stop to ask for
+    // one - nothing Android-side is built yet.
+    package: 'codes.mani.subsurfacereact',
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -58,6 +61,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-dev-client',
     'expo-sharing',
+    // Apple Maps on iOS, for picking and showing a dive site's position
+    // (task 10). No location permission is requested: the app never needs the
+    // diver's own position, only the site's.
+    'expo-maps',
     [
       'expo-splash-screen',
       {

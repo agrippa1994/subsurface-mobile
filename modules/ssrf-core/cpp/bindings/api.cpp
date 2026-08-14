@@ -194,12 +194,19 @@ bool contains_ci(const std::string &haystack, const std::string &needle)
 // Lookups
 // ---------------------------------------------------------------------------
 
+// Never call divelog.dives.get_by_uniq_id() with an id that might not exist:
+// in a DEBUG build (core/divelist.cpp:757-765) it reports the id and then calls
+// exit(1), which takes the whole app down. Ids are process-local and are
+// reassigned on every load, so a screen holding a stale one is normal - it has
+// to come back as an error, not as a terminated process. The lookup is the same
+// linear scan the core does, so nothing is lost by doing it here.
 struct dive &require_dive(int id)
 {
-	struct dive *d = divelog.dives.get_by_uniq_id(id);
-	if (!d)
+	auto it = std::find_if(divelog.dives.begin(), divelog.dives.end(),
+			       [id](const auto &d) { return d->id == id; });
+	if (it == divelog.dives.end())
 		fail("no dive with id " + std::to_string(id));
-	return *d;
+	return **it;
 }
 
 struct dive_site &require_site(uint32_t uuid)
