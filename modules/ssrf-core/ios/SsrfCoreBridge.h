@@ -9,6 +9,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SsrfCoreBridge : NSObject
 
+// The whole core API: `method` names the call, `argsJson` carries its
+// arguments, and the reply is the JSON envelope described in cpp/api.h.
+// Deliberately one entry point - see cpp/API.md.
++ (NSString *)call:(NSString *)method argsJson:(NSString *)argsJson;
+
 // Calls ssrf::add in native C++.
 + (NSInteger)add:(NSInteger)a b:(NSInteger)b;
 

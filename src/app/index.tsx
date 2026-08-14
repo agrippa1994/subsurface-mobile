@@ -10,7 +10,14 @@ import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { File, Paths } from 'expo-file-system';
 
-import { add, smokeCountDivesInFile, smokeSerializeMinimalLog } from '../../modules/ssrf-core/src';
+import {
+  add,
+  getProfile,
+  listDives,
+  loadFromXML,
+  smokeCountDivesInFile,
+  smokeSerializeMinimalLog,
+} from '../../modules/ssrf-core/src';
 
 // Task 02 plumbing check: calls into the ssrf-core native module, which calls
 // Objective-C++, which calls ssrf::add in portable C++ (see the device log for
@@ -43,6 +50,37 @@ function getCoreRoundTripHint() {
     return (
       <ThemedText type="code">
         {xml.length} bytes out, {dives} dive(s) back
+      </ThemedText>
+    );
+  } catch (error) {
+    return <ThemedText type="small">unavailable: {String(error)}</ThemedText>;
+  }
+}
+
+// Task 05 check: the whole JSON boundary on device - loadFromXML, listDives and
+// getProfile through the single JSI entry point. The exhaustive run (all 89
+// logbooks in subsurface/dives/) happens on the host via
+// modules/ssrf-core/scripts/build-host.sh. Remove in task 07.
+function getCoreApiHint() {
+  try {
+    const xml = smokeSerializeMinimalLog();
+    if (!xml) {
+      return <ThemedText type="small">serialization returned nothing</ThemedText>;
+    }
+    const file = new File(Paths.cache, 'ssrf-api.ssrf');
+    if (file.exists) {
+      file.delete();
+    }
+    file.create();
+    file.write(xml);
+
+    const loaded = loadFromXML(file.uri.replace('file://', ''));
+    const dives = listDives();
+    const profile = dives.length > 0 ? getProfile(dives[0].id) : null;
+    return (
+      <ThemedText type="code">
+        {loaded.dives} dive(s), maxDepth {dives[0]?.maxDepthMm ?? 0} mm,{' '}
+        {profile?.entry.length ?? 0} plotted samples
       </ThemedText>
     );
   } catch (error) {
@@ -92,6 +130,7 @@ export default function HomeScreen() {
           <HintRow title="Dev tools" hint={getDevMenuHint()} />
           <HintRow title="ssrf-core (C++)" hint={getNativeCoreHint()} />
           <HintRow title="ssrf-core round trip" hint={getCoreRoundTripHint()} />
+          <HintRow title="ssrf-core API" hint={getCoreApiHint()} />
           <HintRow
             title="Fresh start"
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}

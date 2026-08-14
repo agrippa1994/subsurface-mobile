@@ -1,9 +1,18 @@
 // AI-generated (Claude)
 #import "SsrfCoreBridge.h"
 
+#include "bindings/api.h"
 #include "ssrfcore.h"
 
 @implementation SsrfCoreBridge
+
++ (NSString *)call:(NSString *)method argsJson:(NSString *)argsJson
+{
+  std::string reply = ssrf::call(method.UTF8String, argsJson.UTF8String);
+  // The reply is always valid UTF-8 JSON (nlohmann escapes on dump), so
+  // stringWithUTF8String cannot return nil here.
+  return [NSString stringWithUTF8String:reply.c_str()];
+}
 
 + (NSInteger)add:(NSInteger)a b:(NSInteger)b
 {

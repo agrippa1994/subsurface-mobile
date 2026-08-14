@@ -8,7 +8,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 02 — Native module scaffold (trivial JSI fn)
 - [x] 03 — Vendor core subset + de-Qt shim compiles
 - [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip deferred to 11)
-- [ ] 05 — JSI bridge + API implemented
+- [x] 05 — JSI bridge + API implemented
 - [ ] 06 — TS models + vitest golden tests green
 - [ ] 07 — Navigation + dive list (read-only)
 - [ ] 08 — Dive detail + profile diagram (Skia)
@@ -111,3 +111,48 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Remaining gap: parsing `abitofeverything.ssrf` (18 dives) is verified on the
   host across all 89 logbooks, but not on device - that would need the fixture
   bundled as an app asset.
+- 2026-08-14 — Task 05: the real module API is in, documented in
+  `modules/ssrf-core/cpp/API.md`. `cpp/bindings/` holds it: `marshal.cpp` turns
+  core structs into JSON in raw core units, `api.cpp` holds the dispatch table
+  plus load/save/import/mutate. nlohmann/json 3.11.3 is vendored header-only at
+  `cpp/third_party/` (MIT), reached through HEADER_SEARCH_PATHS rather than
+  `source_files` - the same reasoning as libxslt's headers.
+  Design decision worth keeping: **one** native function,
+  `call(method, argsJson) -> json`, instead of one per API method. The
+  Objective-C++/Swift glue is therefore method-agnostic and never changes again
+  (nor will the JNI glue in task 13); adding a method touches `api.cpp` and
+  `src/index.ts` only. Every reply is an envelope - `{ok, result}` or
+  `{ok, error, errors}` - where `errors` carries whatever the core routed
+  through `report_error()`, collected by a `set_error_cb` sink. `src/index.ts`
+  turns a failure into a thrown `SsrfCoreError`.
+  Methods: loadFromXML, saveToXML, clear, importSuunto, listDives, getDive,
+  getProfile, getStatistics, listDiveSites, upsertDiveSite, deleteDiveSite,
+  updateDive, getLastError. Buffers cross as base64; a path avoids the copy.
+  saveToXML is atomic (`save_dives()` to `path.tmp`, then `rename(2)`).
+  getStatistics implements its filter by marking dives `selected`, since that is
+  the input `calculate_stats_selected()` / `calculate_stats_summary(true)` take.
+  Acceptance, all on the host via `./scripts/build-host.sh` +
+  `./build/host/ssrf-smoke api <file>`:
+  `test29.xml` gives 4 dives with the first at `when=1323758100`
+  (2011-12-13T06:35:00Z, matching `date='2011-12-13' time='06:35:00'`) and
+  `maxDepthMm=20100` (20.1 m) - both as written in the file;
+  profiles come back with monotonic `sec`, plausible depths and a pressure array
+  of exactly `nr * nrCylinders`, verified non-zero across all 18 dives of
+  `abitofeverything.ssrf` (e.g. 2342 samples x 2 cylinders = 4684 sensor
+  readings); `listDiveSites` reports 26 sites, 17 with GPS.
+  All 89 XML/SSRF logbooks in `subsurface/dives/` load through `loadFromXML`
+  (the other 48 files there are CSV/sqlite/fit/binary formats this API
+  deliberately rejects). Suunto import works on `TestDiveDM4.db` (1 dive) and
+  `TestDiveDM5.db` (4 dives). A mutate -> saveToXML -> loadFromXML round trip
+  preserves notes/buddy/tags/rating and a newly created dive site.
+  Two traps worth remembering:
+  1. `dive::id` is a *process-local* counter, not persisted. Ids differ after
+     every load, so nothing may cache one across `loadFromXML`. Dive site
+     `uuid`s, by contrast, are persisted and stable. Documented in API.md and in
+     the TS doc comments.
+  2. `tests/main.cpp`'s `call` subcommand takes several method/args pairs per
+     invocation, because the divelog lives in the process - loading a file and
+     then querying it has to happen in one process.
+  Deliberately omitted from the profile JSON: `plot_data::ceilings[16]`,
+  `percentages[16]` and `o2sensor[6]`. They would multiply the payload roughly
+  30x and nothing in v1 draws them; see API.md if a later task needs them.

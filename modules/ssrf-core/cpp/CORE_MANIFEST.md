@@ -121,6 +121,16 @@ arriving transitively through a Qt header.
 | libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | SDK (headers and library) |
 | libzip | not yet needed — nothing in the current subset includes `zip.h`; arrives with the zipped-format import path in task 11 | not yet needed |
 
+## Vendored third-party sources
+
+| Path | Upstream | Version | License | Why |
+| --- | --- | --- | --- | --- |
+| `cpp/third_party/nlohmann/json.hpp` | nlohmann/json | v3.11.3 single-include | MIT | Marshalling for the JSI boundary (`cpp/bindings/`) |
+
+Header-only and reached through `HEADER_SEARCH_PATHS`, deliberately *not* listed
+in the podspec's `source_files` — same reasoning as libxslt's headers, see
+below. See `cpp/third_party/README.md` for how to reproduce the file.
+
 ### libxslt notes
 
 The iOS SDK ships `libxslt.tbd` but no libxslt headers, so the SDK copy is
@@ -137,6 +147,18 @@ The slice is linked by explicit path in `OTHER_LDFLAGS` rather than through
 `vendored_frameworks`: CocoaPods turns a static-library xcframework into a bare
 `-lxslt-combined` with no search path. The flags are set on the *user* target
 too, since the app performs the final link, and both keep `$(inherited)`.
+
+## Bindings (`cpp/bindings/`)
+
+The module API, all new code — no upstream file is involved.
+
+| File | Role |
+| --- | --- |
+| `api.h` / `api.cpp` | The single JSI entry point `ssrf::call(method, argsJson)`, its dispatch table, and the load/save/import/mutate implementations |
+| `marshal.h` / `marshal.cpp` | Core structs → JSON, in raw core units |
+
+Documented in `cpp/API.md`. Adding a method touches `api.cpp` and
+`src/index.ts` only; the Objective-C++/Swift glue is method-agnostic.
 
 ## Smoke units
 

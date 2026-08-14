@@ -1,12 +1,20 @@
 // AI-generated (Claude)
 // Shared types for the ssrf-core module boundary.
 //
-// The JSI boundary format is JSON: TypeScript sends/receives JSON strings and
-// the native module owns the in-memory divelog. Task 05 fills in the real
-// divelog / dive / dive-site / buddy shapes here.
+// The JSI boundary format is JSON: TypeScript sends a method name plus a JSON
+// argument object and gets a JSON envelope back. The native module owns the
+// in-memory divelog; nothing is cached here.
+//
+// Units are the core's own integer units - millimetres, millibar, millikelvin,
+// millilitres, grams, seconds, permille, microdegrees. No conversion or
+// formatting happens in C++, so the same numbers can be rendered metric or
+// imperial. The key mapping is documented in cpp/API.md.
 
 // Native surface exposed by the Swift/Kotlin module definition.
 export type SsrfCoreNativeModule = {
+  // The whole core API. Returns the JSON envelope described in cpp/api.h.
+  call(method: string, argsJson: string): string;
+
   // Smoke test proving C++ executes over JSI (task 02).
   add(a: number, b: number): number;
 
@@ -16,3 +24,364 @@ export type SsrfCoreNativeModule = {
   // Parses an SSRF/XML logbook and returns its dive count, -1 on failure.
   smokeCountDivesInFile(path: string): number;
 };
+
+// --- Enumerations, mirroring the core's enum values ------------------------
+
+/** `divemode_t` in core/divemode.h. */
+export enum DiveMode {
+  OC = 0,
+  CCR = 1,
+  PSCR = 2,
+  Freedive = 3,
+}
+
+/** `cylinderuse` in core/equipment.h. */
+export enum CylinderUse {
+  OcGas = 0,
+  Diluent = 1,
+  Oxygen = 2,
+  NotUsed = 3,
+}
+
+/** `velocity_t` in core/profile.h. */
+export enum Velocity {
+  Stable = 0,
+  Slow = 1,
+  Moderate = 2,
+  Fast = 3,
+  Crazy = 4,
+}
+
+/** `plot_info::dive_type` in core/profile.h. */
+export enum ProfileDiveType {
+  Air = 0,
+  Nitrox = 1,
+  Trimix = 2,
+  Freediving = 3,
+}
+
+/** `event_severity` in core/event.h. */
+export enum EventSeverity {
+  None = 0,
+  Info = 1,
+  Warn = 2,
+  Alarm = 3,
+}
+
+/** `taxonomy_category` in core/taxonomy.h. */
+export enum TaxonomyCategory {
+  None = 0,
+  Ocean = 1,
+  Country = 2,
+  AdminL1 = 3,
+  AdminL2 = 4,
+  LocalName = 5,
+  AdminL3 = 6,
+}
+
+// --- Domain shapes ---------------------------------------------------------
+
+export type GasMix = {
+  o2Permille: number;
+  hePermille: number;
+  /** o2Permille with the "0 means air" sentinel already resolved. */
+  o2EffectivePermille: number;
+  heEffectivePermille: number;
+};
+
+/**
+ * One row of the dive list.
+ *
+ * `id` is the core's runtime handle for the dive. It is stable for as long as
+ * the log stays loaded, but it is NOT persisted: after `loadFromXML` the ids
+ * are different, so never store one across a load.
+ */
+export type DiveSummary = {
+  id: number;
+  number: number;
+  /** Unix timestamp in seconds, UTC. */
+  when: number;
+  durationSec: number;
+  maxDepthMm: number;
+  meanDepthMm: number;
+  waterTempMkelvin: number;
+  rating: number;
+  visibility: number;
+  siteUuid: number;
+  siteName: string;
+  tripLocation: string;
+  buddy: string;
+  diveguide: string;
+  tags: string[];
+  divemode: DiveMode;
+  dcModel: string;
+  invalid: boolean;
+};
+
+export type Cylinder = {
+  description: string;
+  sizeMl: number;
+  workingPressureMbar: number;
+  gasmix: GasMix;
+  startMbar: number;
+  endMbar: number;
+  sampleStartMbar: number;
+  sampleEndMbar: number;
+  depthMm: number;
+  manuallyAdded: boolean;
+  gasUsedMl: number;
+  decoGasUsedMl: number;
+  use: CylinderUse;
+  bestmixO2: boolean;
+  bestmixHe: boolean;
+};
+
+export type WeightSystem = {
+  description: string;
+  weightGrams: number;
+  autoFilled: boolean;
+};
+
+export type DiveEvent = {
+  timeSec: number;
+  type: number;
+  flags: number;
+  value: number;
+  name: string;
+  hidden: boolean;
+  severity: EventSeverity;
+  /** Gas-switch events only. -1 means "unknown, match by gasmix". */
+  gasIndex?: number;
+  /** Gas-switch events only. */
+  gasmix?: GasMix;
+  /** Divemode-change events only. */
+  divemode?: DiveMode;
+};
+
+export type DiveComputer = {
+  model: string;
+  serial: string;
+  fwVersion: string;
+  deviceId: number;
+  diveId: number;
+  when: number;
+  durationSec: number;
+  surfaceTimeSec: number;
+  maxDepthMm: number;
+  meanDepthMm: number;
+  airTempMkelvin: number;
+  waterTempMkelvin: number;
+  surfacePressureMbar: number;
+  divemode: DiveMode;
+  noO2sensors: number;
+  salinity: number;
+  timezoneOffset: number;
+  /** Samples themselves come from `getProfile`, not from here. */
+  sampleCount: number;
+  events: DiveEvent[];
+  extraData: { key: string; value: string }[];
+};
+
+export type Dive = DiveSummary & {
+  notes: string;
+  suit: string;
+  wavesize: number;
+  current: number;
+  surge: number;
+  chill: number;
+  sac: number;
+  otu: number;
+  cns: number;
+  maxcns: number;
+  salinity: number;
+  userSalinity: number;
+  minTempMkelvin: number;
+  maxTempMkelvin: number;
+  airTempMkelvin: number;
+  surfacePressureMbar: number;
+  totalWeightGrams: number;
+  notrip: boolean;
+  cylinders: Cylinder[];
+  weightsystems: WeightSystem[];
+  dcs: DiveComputer[];
+};
+
+export type TaxonomyEntry = {
+  category: TaxonomyCategory;
+  value: string;
+  origin: number;
+};
+
+export type DiveSite = {
+  uuid: number;
+  name: string;
+  latUdeg: number;
+  lonUdeg: number;
+  hasGps: boolean;
+  description: string;
+  notes: string;
+  diveCount: number;
+  taxonomy: TaxonomyEntry[];
+};
+
+export type DiveSiteInput = {
+  /** Omit to create a new site; pass an existing uuid to update one. */
+  uuid?: number;
+  name?: string;
+  latUdeg?: number;
+  lonUdeg?: number;
+  description?: string;
+  notes?: string;
+};
+
+export type DivePatch = {
+  notes?: string;
+  buddy?: string;
+  diveguide?: string;
+  suit?: string;
+  rating?: number;
+  visibility?: number;
+  number?: number;
+  invalid?: boolean;
+  /** Replaces the whole tag list. */
+  tags?: string[];
+  /** 0 detaches the dive from its site. */
+  siteUuid?: number;
+};
+
+/** One plotted sample. All depths in mm, pressures in mbar, temps in mkelvin. */
+export type PlotEntry = {
+  sec: number;
+  depthMm: number;
+  temperatureMkelvin: number;
+  ceilingMm: number;
+  stopdepthMm: number;
+  stoptimeSec: number;
+  ndlSec: number;
+  ttsSec: number;
+  rbtSec: number;
+  inDeco: boolean;
+  cns: number;
+  sac: number;
+  smoothedMm: number;
+  modMm: number;
+  eadMm: number;
+  endMm: number;
+  eaddMm: number;
+  o2pressureMbar: number;
+  o2setpointMbar: number;
+  scrOcPo2Mbar: number;
+  /** Partial pressures in bar. */
+  pressures: { o2: number; n2: number; he: number };
+  velocity: Velocity;
+  speed: number;
+  heartbeat: number;
+  bearing: number;
+  ambpressure: number;
+  gfline: number;
+  surfaceGf: number;
+  currentGf: number;
+  density: number;
+  icdWarning: boolean;
+};
+
+export type PlotInfo = {
+  nr: number;
+  nrCylinders: number;
+  maxtimeSec: number;
+  meanDepthMm: number;
+  maxDepthMm: number;
+  minPressureMbar: number;
+  maxPressureMbar: number;
+  minHr: number;
+  maxHr: number;
+  minTempMkelvin: number;
+  maxTempMkelvin: number;
+  diveType: ProfileDiveType;
+  endtempcoord: number;
+  maxpp: number;
+  waypointAboveCeiling: boolean;
+  entry: PlotEntry[];
+  /**
+   * Flat arrays of `nr * nrCylinders` millibar readings, indexed exactly like
+   * the core does it: `cylinder + sampleIndex * nrCylinders`. Use
+   * `plotPressureAt` rather than open-coding the arithmetic.
+   */
+  pressures: { sensor: number[]; interpolated: number[] };
+};
+
+export type Stats = {
+  /** Year for yearly buckets, month (1-12) for monthly ones, else 0. */
+  period: number;
+  selectionSize: number;
+  totalTimeSec: number;
+  totalAverageDepthTimeSec: number;
+  shortestTimeSec: number;
+  longestTimeSec: number;
+  maxDepthMm: number;
+  minDepthMm: number;
+  avgDepthMm: number;
+  combinedMaxDepthMm: number;
+  maxSacMlPerMin: number;
+  minSacMlPerMin: number;
+  avgSacMlPerMin: number;
+  totalSacTimeSec: number;
+  maxTempMkelvin: number;
+  minTempMkelvin: number;
+  combinedTempMkelvin: number;
+  combinedCount: number;
+  isYear: boolean;
+  isTrip: boolean;
+  location: string;
+};
+
+export type StatsSummary = {
+  /** Statistics over everything the filter matched. */
+  total: Stats;
+  matched: number;
+  yearly: Stats[];
+  monthly: Stats[];
+  byTrip: Stats[];
+  /** Indexed by DiveMode + 1; entry 0 is the combined total. */
+  byType: Stats[];
+  /** 10 m buckets; entry 0 is the combined total. */
+  byDepth: Stats[];
+  /** 5 C buckets; entry 0 is the combined total. */
+  byTemp: Stats[];
+};
+
+export type StatsFilter = {
+  /** Unix seconds, inclusive. */
+  fromWhen?: number;
+  toWhen?: number;
+  siteUuid?: number;
+  /** Case-insensitive substring match on any tag. */
+  tag?: string;
+  /** Case-insensitive substring match on buddy or diveguide. */
+  buddy?: string;
+  minDepthMm?: number;
+  maxDepthMm?: number;
+  /** Dives flagged invalid are excluded unless this is set. */
+  includeInvalid?: boolean;
+};
+
+export type LoadResult = { dives: number; sites: number; trips: number };
+export type SaveResult = { path: string; dives: number };
+export type ImportResult = {
+  added: number;
+  merged: number;
+  failed: number;
+  dives: number;
+};
+
+/** Thrown by every wrapper in index.ts when the native call reports failure. */
+export class SsrfCoreError extends Error {
+  /** Messages the C++ core routed through report_error during the call. */
+  readonly coreErrors: string[];
+
+  constructor(message: string, coreErrors: string[] = []) {
+    super(message);
+    this.name = 'SsrfCoreError';
+    this.coreErrors = coreErrors;
+  }
+}

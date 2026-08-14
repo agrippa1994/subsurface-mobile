@@ -54,6 +54,8 @@ Pod::Spec.new do |s|
       '"$(PODS_TARGET_SRCROOT)/cpp"',
       '"$(PODS_TARGET_SRCROOT)/cpp/generated"',
       '"$(PODS_TARGET_SRCROOT)/cpp/generated/core"',
+      # nlohmann/json.hpp, the marshalling layer of the JSI boundary.
+      '"$(PODS_TARGET_SRCROOT)/cpp/third_party"',
       # Stand-ins for the Qt headers a few core files include for a macro.
       '"$(PODS_TARGET_SRCROOT)/cpp/shim/include"',
       # libxml2 ships complete with the SDK. libxslt does not (the SDK has
@@ -75,7 +77,10 @@ Pod::Spec.new do |s|
   # Objective-C/Swift glue lives in ios/, portable C++ in cpp/. The podspec sits
   # at the module root so CocoaPods can reach both (file patterns must not
   # escape the pod root). tests/ is deliberately excluded: it is host-only.
-  s.source_files = 'ios/*.{h,m,mm,swift}', 'cpp/*.{h,cpp}', 'cpp/shim/**/*.{h,cpp}', 'cpp/generated/**/*.{h,c,cpp}'
+  # cpp/third_party is deliberately absent: nlohmann/json.hpp is header-only and
+  # is reached through HEADER_SEARCH_PATHS, the same way libxslt's headers are.
+  # Listing it would make it a header of the pod and drag it into the umbrella.
+  s.source_files = 'ios/*.{h,m,mm,swift}', 'cpp/*.{h,cpp}', 'cpp/bindings/*.{h,cpp}', 'cpp/shim/**/*.{h,cpp}', 'cpp/generated/**/*.{h,c,cpp}'
 
   # Only the Objective-C facade may enter the umbrella header: everything under
   # cpp/ is C++ and would break the module map for Swift/Objective-C consumers.

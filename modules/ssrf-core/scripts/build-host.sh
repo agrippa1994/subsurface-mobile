@@ -28,6 +28,7 @@ CXXFLAGS=(
 	-std=c++20 -g -O0 -fno-omit-frame-pointer
 	-isysroot "$SDK"
 	-I"$GEN" -I"$GEN/core" -I"$MODULE_ROOT/cpp" -I"$MODULE_ROOT/cpp/shim/include"
+	-I"$MODULE_ROOT/cpp/third_party"
 	-I"$SDK/usr/include/libxml2"
 	# The core is built without Qt; SUBSURFACE_MOBILE keeps the desktop-only
 	# code paths (undo stack, printing, cloud) out of the vendored sources.

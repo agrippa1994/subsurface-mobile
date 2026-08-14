@@ -1,12 +1,17 @@
 // AI-generated (Claude)
 import ExpoModulesCore
 
-// Expo Modules synchronous functions are dispatched over JSI, so `add` below
-// runs C++ on the JS thread with no bridge serialization. Task 05 extends this
-// definition with the real JSON in / JSON out core API.
+// Expo Modules synchronous functions are dispatched over JSI, so the calls
+// below run C++ on the JS thread with no bridge serialization.
 public class SsrfCoreModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SsrfCore")
+
+    // The entire core API goes through this one function; adding a method is a
+    // C++ and a TypeScript change only, never a native-glue change.
+    Function("call") { (method: String, argsJson: String) -> String in
+      SsrfCoreBridge.call(method, argsJson: argsJson)
+    }
 
     Function("add") { (a: Int, b: Int) -> Int in
       SsrfCoreBridge.add(a, b: b)
