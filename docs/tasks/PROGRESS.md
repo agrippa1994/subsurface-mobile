@@ -11,7 +11,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 05 — JSI bridge + API implemented
 - [x] 06 — TS models + vitest golden tests green
 - [x] 07 — Navigation + dive list (read-only)
-- [ ] 08 — Dive detail + profile diagram (Skia)
+- [x] 08 — Dive detail + profile diagram (Skia)
 - [ ] 09 — Statistics screen
 - [ ] 10 — Editing: dives, dive sites, buddies
 - [ ] 11 — Suunto import + SSRF import/export
@@ -272,3 +272,55 @@ criteria** pass. If blocked, leave it unchecked and add a note.
      container (`xcrun simctl get_app_container booted <bundle id> data`) and
      relaunching - which is how the empty, error and imperial states above were
      checked.
+- 2026-08-14 — Task 08: the dive detail screen and the profile diagram are in.
+  `src/models/profile-plot.ts` is the presentation model - it turns one
+  `getProfile` reply into the drawn series (depth, deco ceiling, temperature,
+  one line per cylinder), the axis ticks, and the scrubber readout, all in the
+  core's raw units. It is covered by 20 vitest cases driven through the host
+  harness: a Suunto DM4 import and every dive of the bundled sample, checking
+  that the depth curve covers the profile, events stay inside the plotted range
+  and sit on the curve, ceilings never exceed the dive depth, and the scrubber
+  picks the nearest sample.
+  `src/components/profile-chart.tsx` draws it with Skia; axis labels, the legend
+  and the readout are React Native text on top of the canvas, so they inherit
+  the platform font and Dynamic Type without shipping a font asset. Pinch zooms
+  the time axis around the focal point, a two-finger drag pans, a one-finger
+  drag scrubs, and a double tap resets. `src/app/(tabs)/dives/[id].tsx` is the
+  full detail screen: header stats, the chart, dive/site/people rows, cylinders
+  with gas mix and pressures, weights, dive computer and notes. That screen is
+  React Native rather than SwiftUI because a SwiftUI list cannot host a Skia
+  canvas.
+  Colours follow the data-viz method rather than taste: three categorical slots
+  (blue depth, orange temperature, aqua pressure) plus the fixed status colours
+  for the deco ceiling and event markers, validated with the skill's script
+  against this app's own surfaces, all pairs - light CVD dE 9.2 / normal 24.0,
+  dark 9.4 / 20.9. Light-mode aqua is below 3:1 on white, so the relief rule
+  applies and every series is named in the legend text. The palette and the
+  command to re-validate it live in `src/constants/chart-theme.ts`.
+  Verified on the iOS 26 simulator: the sample log's "Yellow House" dive renders
+  depth, temperature, tank pressure, the deco-ceiling region and an event
+  marker; tapping the chart puts the crosshair on the curve and the readout
+  shows `17:18  24.5 m  5.6 C  115 bar`. A Suunto DM4 import (the bundled
+  `assets/sample/suunto-sample.db`, imported through the developer action in
+  Settings) lands as one more dive on device and lists as 22.4 m / 59:20 /
+  2 Feb 2013 - exactly the numbers the core reports on the host.
+  Four things worth remembering:
+  1. `GestureDetector` needs a `GestureHandlerRootView` above it; without one the
+     screen throws on render. It now wraps the whole app in
+     `src/app/_layout.tsx`.
+  2. The gesture callbacks use `.runOnJS(true)` and `.onChange` deltas rather
+     than worklets and shared values. A zoom rebuilds the drawn paths, which is
+     JS-side work anyway, and `windowPoints` thins each series to 600 points
+     first - keeping the shallowest and deepest sample per bucket, so a spike
+     survives the thinning that plain stride sampling would drop.
+  3. `plotPressureAt` moved from `modules/ssrf-core/src/index.ts` into
+     `SsrfCore.types.ts`: it is pure arithmetic over a reply, and the Node tests
+     must import it without loading the native module.
+  4. `plot_info::maxdepth` can exceed every plotted sample (it comes from the
+     dive's own record, not from the interpolated samples), so the depth axis
+     takes the maximum of both.
+  Not verified on device: the profile rendered *from the imported Suunto dive*
+  side by side with desktop Subsurface, and the pinch/pan gestures. Synthetic
+  clicks into the simulator stopped landing partway through the session and
+  neither a pinch nor a real desktop Subsurface run is available here; the same
+  data path is covered numerically by `src/models/profile-plot.test.ts`.

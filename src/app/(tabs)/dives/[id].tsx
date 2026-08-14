@@ -1,57 +1,86 @@
 // AI-generated (Claude)
-// Dive detail - placeholder.
+// Dive detail: the dive's own record plus the profile diagram.
 //
-// Task 08 replaces the body of this screen with the profile diagram and the
-// full dive header. What matters here is the plumbing: the route carries the
-// dive id, and the id is resolved against the module's current log rather than
-// against anything cached in the navigation state, because ids are reassigned
-// on every load (see modules/ssrf-core/cpp/API.md).
+// `getDive` and `getProfile` are called here rather than cached in the store,
+// because both are per-dive and the store only caches the list. Ids are
+// process-local (see modules/ssrf-core/cpp/API.md), so a reload of the log
+// invalidates this screen - which is why the lookup failing renders "not
+// found" instead of throwing.
+//
+// This screen is React Native rather than SwiftUI: the profile is a Skia
+// canvas, and a SwiftUI list cannot host one.
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ProfileChart } from '@/components/profile-chart';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDepth, formatDuration, formatTemperature } from '@/models';
+import { getDive, getProfile } from '../../../../modules/ssrf-core/src';
+import type { Cylinder, Dive, PlotInfo, WeightSystem } from '@/models';
+import {
+  DiveMode,
+  formatDepth,
+  formatDuration,
+  formatGasMix,
+  formatPressure,
+  formatTemperature,
+  formatVolume,
+  formatWeight,
+} from '@/models';
 import { toDiveRow } from '@/models/dive-list';
-import { selectDive, useLogStore } from '@/store/log-store';
+import { buildProfilePlot } from '@/models/profile-plot';
+import { describeError, formatErrorLine } from '@/models/errors';
+import { useLogStore } from '@/store/log-store';
 import { useUnitSystem } from '@/store/settings-store';
+
+const DIVE_MODE_LABEL: Record<DiveMode, string> = {
+  [DiveMode.OC]: 'Open circuit',
+  [DiveMode.CCR]: 'CCR',
+  [DiveMode.PSCR]: 'pSCR',
+  [DiveMode.Freedive]: 'Freedive',
+};
+
+type Loaded = { dive: Dive; profile: PlotInfo };
 
 export default function DiveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
-  const dive = useLogStore((state) => selectDive(state, diveId));
+  // Re-read whenever the log is reloaded: the ids change with it.
+  const logPath = useLogStore((state) => state.path);
   const unitSystem = useUnitSystem();
   const theme = useTheme();
 
-  if (!dive) {
+  const loaded = useMemo<Loaded | { error: string }>(() => {
+    try {
+      return { dive: getDive(diveId), profile: getProfile(diveId) };
+    } catch (error) {
+      return { error: formatErrorLine(describeError(error)) };
+    }
+    // logPath is not read here on purpose - it is the invalidation key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diveId, logPath]);
+
+  const plot = useMemo(
+    () => ('dive' in loaded ? buildProfilePlot(loaded.profile, loaded.dive.dcs[0]?.events ?? []) : null),
+    [loaded]
+  );
+
+  if ('error' in loaded) {
     return (
       <StatusView
         kind="error"
         title="Dive not found"
-        description="It is no longer part of the loaded logbook."
+        description={loaded.error}
         systemImage="questionmark.circle"
       />
     );
   }
 
+  const { dive, profile } = loaded;
   const row = toDiveRow(dive, unitSystem);
-  const facts: [string, string][] = [
-    ['Date', `${row.dateText} ${row.timeText}`],
-    ['Max depth', dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, unitSystem) : '-'],
-    ['Average depth', dive.meanDepthMm > 0 ? formatDepth(dive.meanDepthMm, unitSystem) : '-'],
-    ['Duration', dive.durationSec > 0 ? formatDuration(dive.durationSec) : '-'],
-    [
-      'Water temperature',
-      dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, unitSystem) : '-',
-    ],
-    ['Dive site', dive.siteName || '-'],
-    ['Trip', dive.tripLocation || '-'],
-    ['Buddy', dive.buddy || '-'],
-    ['Divemaster', dive.diveguide || '-'],
-    ['Tags', dive.tags.length > 0 ? dive.tags.join(', ') : '-'],
-    ['Dive computer', dive.dcModel || '-'],
-  ];
+  const dc = dive.dcs[0];
 
   return (
     <ScrollView
@@ -59,21 +88,191 @@ export default function DiveDetailScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
       <Stack.Screen options={{ title: row.title }} />
-      {facts.map(([label, value]) => (
-        <View key={label} style={styles.row}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
-          <Text style={[styles.value, { color: theme.text }]}>{value}</Text>
+
+      <Header dive={dive} />
+
+      <Section title="Profile">
+        {plot ? (
+          <ProfileChart plot={plot} pi={profile} unitSystem={unitSystem} />
+        ) : (
+          <Text style={{ color: theme.textSecondary }}>No profile.</Text>
+        )}
+      </Section>
+
+      <Section title="Dive">
+        <Row label="Date" value={`${row.dateText} ${row.timeText}`} />
+        <Row label="Max depth" value={formatDepth(dive.maxDepthMm, unitSystem)} />
+        {dive.meanDepthMm > 0 ? (
+          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, unitSystem)} />
+        ) : null}
+        <Row label="Duration" value={formatDuration(dive.durationSec)} />
+        <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
+        {dive.waterTempMkelvin > 0 ? (
+          <Row label="Water" value={formatTemperature(dive.waterTempMkelvin, unitSystem)} />
+        ) : null}
+        {dive.airTempMkelvin > 0 ? (
+          <Row label="Air" value={formatTemperature(dive.airTempMkelvin, unitSystem)} />
+        ) : null}
+        {dive.sac > 0 ? (
+          <Row label="SAC" value={`${formatVolume(dive.sac, unitSystem)}/min`} />
+        ) : null}
+        {dive.otu > 0 ? <Row label="OTU" value={String(Math.round(dive.otu))} /> : null}
+        {dive.maxcns > 0 ? <Row label="CNS" value={`${Math.round(dive.maxcns)} %`} /> : null}
+        {dive.rating > 0 ? <Row label="Rating" value={`${dive.rating} / 5`} /> : null}
+        {dive.visibility > 0 ? <Row label="Visibility" value={`${dive.visibility} / 5`} /> : null}
+      </Section>
+
+      <Section title="People and place">
+        <Row label="Dive site" value={dive.siteName || '-'} />
+        <Row label="Trip" value={dive.tripLocation || '-'} />
+        <Row label="Buddy" value={dive.buddy || '-'} />
+        <Row label="Divemaster" value={dive.diveguide || '-'} />
+        <Row label="Suit" value={dive.suit || '-'} />
+        <Row label="Tags" value={dive.tags.length > 0 ? dive.tags.join(', ') : '-'} />
+      </Section>
+
+      {dive.cylinders.length > 0 ? (
+        <Section title="Cylinders">
+          {dive.cylinders.map((cylinder, index) => (
+            <CylinderRow key={index} cylinder={cylinder} index={index} />
+          ))}
+        </Section>
+      ) : null}
+
+      {dive.weightsystems.length > 0 ? (
+        <Section title="Weights">
+          {dive.weightsystems.map((weight, index) => (
+            <WeightRow key={index} weight={weight} />
+          ))}
+          <Row label="Total" value={formatWeight(dive.totalWeightGrams, unitSystem)} />
+        </Section>
+      ) : null}
+
+      {dc ? (
+        <Section title="Dive computer">
+          <Row label="Model" value={dc.model || '-'} />
+          {dc.serial ? <Row label="Serial" value={dc.serial} /> : null}
+          {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
+          <Row label="Samples" value={String(dc.sampleCount)} />
+          {dive.dcs.length > 1 ? (
+            <Row label="Other computers" value={String(dive.dcs.length - 1)} />
+          ) : null}
+        </Section>
+      ) : null}
+
+      {dive.notes.trim() !== '' ? (
+        <Section title="Notes">
+          <Text style={[styles.notes, { color: theme.text }]}>{dive.notes.trim()}</Text>
+        </Section>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+function Header({ dive }: { dive: Dive }) {
+  const theme = useTheme();
+  const unitSystem = useUnitSystem();
+  const stats: [string, string][] = [
+    ['Max depth', formatDepth(dive.maxDepthMm, unitSystem)],
+    ['Duration', formatDuration(dive.durationSec)],
+    [
+      'Water',
+      dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, unitSystem) : '-',
+    ],
+  ];
+
+  return (
+    <View style={styles.header}>
+      {stats.map(([label, value]) => (
+        <View key={label} style={styles.stat}>
+          <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
         </View>
       ))}
-      <Text style={[styles.footnote, { color: theme.textSecondary }]}>
-        The profile diagram arrives in task 08.
-      </Text>
-    </ScrollView>
+    </View>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</Text>
+      <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>{children}</View>
+    </View>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.value, { color: theme.text }]}>{value}</Text>
+    </View>
+  );
+}
+
+function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number }) {
+  const unitSystem = useUnitSystem();
+  const gas = formatGasMix(cylinder.gasmix.o2EffectivePermille, cylinder.gasmix.heEffectivePermille);
+  const start = cylinder.startMbar || cylinder.sampleStartMbar;
+  const end = cylinder.endMbar || cylinder.sampleEndMbar;
+  const pressure =
+    start > 0 && end > 0
+      ? `${formatPressure(start, unitSystem)} to ${formatPressure(end, unitSystem)}`
+      : '-';
+  const size = cylinder.sizeMl > 0 ? ` - ${formatVolume(cylinder.sizeMl, unitSystem)}` : '';
+
+  return (
+    <Row
+      label={cylinder.description || `Cylinder ${index + 1}`}
+      value={`${gas}${size}\n${pressure}`}
+    />
+  );
+}
+
+function WeightRow({ weight }: { weight: WeightSystem }) {
+  const unitSystem = useUnitSystem();
+  return (
+    <Row
+      label={weight.description || 'Weight'}
+      value={formatWeight(weight.weightGrams, unitSystem)}
+    />
   );
 }
 
 const styles = StyleSheet.create({
   content: {
+    padding: Spacing.three,
+    gap: Spacing.four,
+    paddingBottom: Spacing.six,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stat: {
+    alignItems: 'center',
+    flex: 1,
+    gap: Spacing.half,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  section: {
+    gap: Spacing.two,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    textTransform: 'uppercase',
+  },
+  card: {
+    borderRadius: Spacing.three,
     padding: Spacing.three,
     gap: Spacing.two,
   },
@@ -90,8 +289,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'right',
   },
-  footnote: {
-    marginTop: Spacing.four,
-    fontSize: 13,
+  notes: {
+    fontSize: 15,
+    lineHeight: 21,
   },
 });

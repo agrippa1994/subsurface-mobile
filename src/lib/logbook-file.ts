@@ -27,21 +27,31 @@ export function toNativePath(uri: string): string {
 }
 
 /**
- * Resolves the bundled sample logbook to a readable local path. In a release
- * build the asset is inside the app bundle; in development Metro serves it and
- * expo-asset caches it to disk first.
+ * Resolves a bundled asset to a readable local path. In a release build the
+ * asset is inside the app bundle; in development Metro serves it and expo-asset
+ * caches it to disk first.
  */
-export async function sampleLogPath(): Promise<string> {
-  // Metro resolves assets through require(); an import would be transformed
-  // into a module reference rather than an asset handle.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const [asset] = await Asset.loadAsync(require('@/assets/sample/sample-log.ssrf'));
+async function bundledAssetPath(module: number, what: string): Promise<string> {
+  const [asset] = await Asset.loadAsync(module);
   const uri = asset.localUri ?? asset.uri;
   if (!uri) {
-    throw new Error('the bundled sample logbook could not be resolved');
+    throw new Error(`the bundled ${what} could not be resolved`);
   }
   return toNativePath(uri);
 }
+
+// Metro resolves assets through require(); an import would be transformed into
+// a module reference rather than an asset handle.
+/* eslint-disable @typescript-eslint/no-require-imports */
+export function sampleLogPath(): Promise<string> {
+  return bundledAssetPath(require('@/assets/sample/sample-log.ssrf'), 'sample logbook');
+}
+
+/** The Suunto DM4 database the developer tools import (task 11 does it for real). */
+export function sampleSuuntoPath(): Promise<string> {
+  return bundledAssetPath(require('@/assets/sample/suunto-sample.db'), 'Suunto sample');
+}
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * Makes sure a working logbook exists and returns its path, seeding it from the

@@ -12,7 +12,12 @@
 
 import { create } from 'zustand';
 
-import { listDives, listDiveSites, loadFromXML } from '../../modules/ssrf-core/src';
+import {
+  importSuunto as importSuuntoNative,
+  listDives,
+  listDiveSites,
+  loadFromXML,
+} from '../../modules/ssrf-core/src';
 import type { DiveSite, DiveSummary, LoadResult } from '@/models';
 import { describeError, type ErrorInfo } from '@/models/errors';
 import { ensureLogbook } from '@/lib/logbook-file';
@@ -34,6 +39,11 @@ export type LogState = {
   open(): Promise<void>;
   /** Loads an arbitrary logbook, replacing whatever the module held. */
   loadPath(path: string): Promise<void>;
+  /**
+   * Merges a Suunto DM4/DM5 database into the loaded log. The dives stay in
+   * memory until something saves them - task 11 owns the file side of import.
+   */
+  importSuunto(path: string): Promise<void>;
   /** Re-reads dives and sites from the module after a mutation. */
   refresh(): void;
   dismissError(): void;
@@ -82,6 +92,16 @@ export const useLogStore = create<LogState>((set, get) => ({
         sites: [],
         error: describeError(error),
       });
+    }
+  },
+
+  async importSuunto(path: string) {
+    set({ status: 'loading', error: null });
+    try {
+      importSuuntoNative(path);
+      set({ status: 'ready', dives: listDives(), sites: listDiveSites(), error: null });
+    } catch (error) {
+      set({ status: 'error', error: describeError(error) });
     }
   },
 

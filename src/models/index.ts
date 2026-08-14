@@ -39,6 +39,7 @@ export {
   CylinderUse,
   DiveMode,
   EventSeverity,
+  plotPressureAt,
   ProfileDiveType,
   SsrfCoreError,
   TaxonomyCategory,

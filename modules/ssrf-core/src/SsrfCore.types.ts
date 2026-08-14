@@ -374,6 +374,24 @@ export type ImportResult = {
   dives: number;
 };
 
+/**
+ * Cylinder pressure in mbar at one sample, resolving the flat layout the core
+ * uses (`cylinder + sampleIndex * nrCylinders`). Falls back to the interpolated
+ * series when there is no sensor reading, which is what the desktop profile
+ * does when drawing the pressure graph.
+ *
+ * Lives here rather than in index.ts because it is pure arithmetic over a
+ * reply: the app and the Node test suite both use it, and index.ts pulls in the
+ * native module.
+ */
+export function plotPressureAt(pi: PlotInfo, sampleIndex: number, cylinder: number): number {
+  if (cylinder < 0 || cylinder >= pi.nrCylinders) {
+    return 0;
+  }
+  const idx = cylinder + sampleIndex * pi.nrCylinders;
+  return pi.pressures.sensor[idx] || pi.pressures.interpolated[idx] || 0;
+}
+
 /** Thrown by every wrapper in index.ts when the native call reports failure. */
 export class SsrfCoreError extends Error {
   /** Messages the C++ core routed through report_error during the call. */

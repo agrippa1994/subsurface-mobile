@@ -134,21 +134,9 @@ export function updateDive(id: number, patch: DivePatch): Dive {
   return call<Dive>('updateDive', { id, patch });
 }
 
-// --- Helpers ---------------------------------------------------------------
-
-/**
- * Cylinder pressure in mbar at one sample, resolving the flat layout the core
- * uses (`cylinder + sampleIndex * nrCylinders`). Falls back to the interpolated
- * series when there is no sensor reading, which is what the desktop profile
- * does when drawing the pressure graph.
- */
-export function plotPressureAt(pi: PlotInfo, sampleIndex: number, cylinder: number): number {
-  if (cylinder < 0 || cylinder >= pi.nrCylinders) {
-    return 0;
-  }
-  const idx = cylinder + sampleIndex * pi.nrCylinders;
-  return pi.pressures.sensor[idx] || pi.pressures.interpolated[idx] || 0;
-}
+// `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:
+// it is pure arithmetic over a reply, so it must stay importable without
+// pulling in the native module (the Node test suite does exactly that).
 
 // The task 02/03 smoke units (add, smokeSerializeMinimalLog,
 // smokeCountDivesInFile) are still exposed by the native module, but no longer

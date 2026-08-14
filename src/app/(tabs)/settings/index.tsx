@@ -59,6 +59,7 @@ export default function SettingsScreen() {
       {__DEV__ ? (
         <>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Developer</Text>
+          {action('Import the Suunto sample', screen.importSuuntoSample)}
           {action('Load an empty logbook', screen.loadEmptyLogbook)}
           {action('Load a malformed logbook', screen.loadMalformedLogbook)}
         </>

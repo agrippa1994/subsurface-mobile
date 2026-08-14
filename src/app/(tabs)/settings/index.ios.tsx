@@ -39,6 +39,7 @@ export default function SettingsScreen() {
           <Section
             title="Developer"
             footer={<Text>Loads throwaway files to exercise the list&apos;s empty and error states.</Text>}>
+            <Button label="Import the Suunto sample" onPress={screen.importSuuntoSample} />
             <Button label="Load an empty logbook" onPress={screen.loadEmptyLogbook} />
             <Button
               label="Load a malformed logbook"

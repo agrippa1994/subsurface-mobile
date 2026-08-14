@@ -9,7 +9,12 @@
 
 import { useCallback } from 'react';
 
-import { ensureLogbook, resetLogbook, writeScratchFile } from '@/lib/logbook-file';
+import {
+  ensureLogbook,
+  resetLogbook,
+  sampleSuuntoPath,
+  writeScratchFile,
+} from '@/lib/logbook-file';
 import type { UnitSystem } from '@/models';
 import { useLogStore } from '@/store/log-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -29,6 +34,12 @@ export type SettingsScreen = {
   restoreSample: () => void;
   loadEmptyLogbook: () => void;
   loadMalformedLogbook: () => void;
+  /**
+   * Imports the bundled Suunto DM4 database into the loaded log. The real
+   * import - a file the user picks - is task 11; this is what task 08's
+   * acceptance renders a profile from.
+   */
+  importSuuntoSample: () => void;
 };
 
 export function useSettingsScreen(): SettingsScreen {
@@ -39,6 +50,7 @@ export function useSettingsScreen(): SettingsScreen {
   const path = useLogStore((state) => state.path);
   const open = useLogStore((state) => state.open);
   const loadPath = useLogStore((state) => state.loadPath);
+  const importSuuntoFile = useLogStore((state) => state.importSuunto);
 
   const reload = useCallback(() => {
     void ensureLogbook().then((target) => loadPath(target));
@@ -57,6 +69,10 @@ export function useSettingsScreen(): SettingsScreen {
     void loadPath(writeScratchFile('malformed-logbook.ssrf', MALFORMED_LOGBOOK));
   }, [loadPath]);
 
+  const importSuuntoSample = useCallback(() => {
+    void sampleSuuntoPath().then((path) => importSuuntoFile(path));
+  }, [importSuuntoFile]);
+
   return {
     unitSystem,
     setUnitSystem,
@@ -67,5 +83,6 @@ export function useSettingsScreen(): SettingsScreen {
     restoreSample,
     loadEmptyLogbook,
     loadMalformedLogbook,
+    importSuuntoSample,
   };
 }

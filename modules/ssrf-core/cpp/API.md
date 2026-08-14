@@ -145,8 +145,10 @@ preserved as two flat arrays of `nr * nrCylinders` millibar values:
 "pressures": { "sensor": [ ... ], "interpolated": [ ... ] }
 ```
 
-`plotPressureAt(pi, sampleIndex, cylinder)` in `src/index.ts` does the indexing
-and the sensor -> interpolated fallback.
+`plotPressureAt(pi, sampleIndex, cylinder)` in `src/SsrfCore.types.ts` (also
+re-exported from `src/index.ts`) does the indexing and the sensor ->
+interpolated fallback. It lives in the types file because it is pure arithmetic
+over a reply: the Node test suite imports it without loading the native module.
 
 ### Deliberate omissions
 
