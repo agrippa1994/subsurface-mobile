@@ -10,7 +10,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip deferred to 11)
 - [x] 05 — JSI bridge + API implemented
 - [x] 06 — TS models + vitest golden tests green
-- [ ] 07 — Navigation + dive list (read-only)
+- [x] 07 — Navigation + dive list (read-only)
 - [ ] 08 — Dive detail + profile diagram (Skia)
 - [ ] 09 — Statistics screen
 - [ ] 10 — Editing: dives, dive sites, buddies
@@ -225,3 +225,50 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   own output onwards the round trip is a fixed point - the second and third
   generations are model-identical and byte-identical. That holds for every file
   in `subsurface/dives/` the API accepts, and is what the sweep asserts.
+- 2026-08-14 — Task 07: the app shell is real. Navigation is a root stack holding
+  a native tab bar (`src/app/(tabs)/_layout.tsx`, liquid glass on iOS 26) with
+  Dives / Sites / Statistics / Settings; each tab owns its own stack, so a dive
+  pushes inside the Dives tab and keeps the tab bar
+  (`(tabs)/dives/index.tsx` -> `(tabs)/dives/[id].tsx`). `src/app/index.tsx` is a
+  redirect to `/dives`. The whole task-01/02 template - home, explore, the
+  liquid-glass spike and their components - is gone, and with it the TS wrappers
+  for the task 02/03 smoke units (the native functions stay).
+  State is two small zustand stores. `src/store/log-store.ts` caches what
+  `listDives()` / `listDiveSites()` returned plus the screen state around it
+  (idle/loading/ready/error) - the module stays the source of truth and
+  `refresh()` re-reads it wholesale after any mutation (task 10).
+  `src/store/settings-store.ts` holds the metric/imperial setting in
+  `documents/settings.json`; its shape and parsing live in
+  `src/models/settings.ts` so they are testable in Node.
+  The working logbook is `documents/logbook.ssrf`, seeded on first run from the
+  bundled sample (`assets/sample/sample-log.ssrf`, a copy of the submodule's
+  `abitofeverything.ssrf`, 18 dives / 26 sites). `metro.config.js` adds `ssrf` to
+  `assetExts` so the file is a Metro asset; `src/lib/logbook-file.ts` resolves it
+  through expo-asset and copies it into documents.
+  Rendering is data-driven off `src/models/dive-list.ts`, which holds every
+  formatting and grouping decision and is what the new vitest cases cover
+  (99 tests total, still ~2.6 s). Trips are reconstructed from *runs* of
+  time-adjacent dives sharing a trip location rather than by bucketing the
+  string, because `listDives()` exposes a trip only through its location: two
+  separate visits to the same place must stay two sections. Views come in two
+  variants per screen - `*.ios.tsx` on SwiftUI (`List`/`Section`,
+  `ContentUnavailableView`, `Form`+`Picker`) and a React Native fallback for
+  Android (task 13) and web - both reading the same model.
+  Verified on the iOS 26 simulator (dev client, `npx expo run:ios`): the sample
+  log renders as a grouped native list newest-first; tapping "Yellow House"
+  pushes the detail with the matching dive (45.4 m, 37:40, Aeris A300CS);
+  switching the setting to imperial re-renders it as 149 ft; an empty logbook
+  shows the "No dives yet" ContentUnavailableView and a malformed one the error
+  state with a working "Try again"; deleting `logbook.ssrf` re-seeds the sample
+  on the next launch.
+  Two notes worth keeping:
+  1. The core reports a failure twice - once as the envelope's `error` and once
+     as a `report_error()` detail - and both carry the absolute sandbox path.
+     `src/models/errors.ts` shortens paths to the file name and drops a detail
+     that only restates the message; without that the error screen was a
+     screenful of container UUID.
+  2. Settings can be exercised without a device UI by writing
+     `Documents/settings.json` / `Documents/logbook.ssrf` in the simulator
+     container (`xcrun simctl get_app_container booted <bundle id> data`) and
+     relaunching - which is how the empty, error and imperial states above were
+     checked.

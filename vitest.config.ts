@@ -8,6 +8,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    // Dive timestamps are UTC and the presentation model renders them in local
+    // time, so the run needs a fixed zone to assert formatted dates.
+    env: { TZ: 'UTC' },
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     globalSetup: ['tests/global-setup.ts'],
     // One process per file keeps each test file's divelog isolated, and the

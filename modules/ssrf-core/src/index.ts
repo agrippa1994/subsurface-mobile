@@ -150,20 +150,9 @@ export function plotPressureAt(pi: PlotInfo, sampleIndex: number, cylinder: numb
   return pi.pressures.sensor[idx] || pi.pressures.interpolated[idx] || 0;
 }
 
-// --- Task 02/03 smoke units ------------------------------------------------
-// Kept until the template home screen goes away in task 07; the real API above
-// covers everything they proved.
-
-export function add(a: number, b: number): number {
-  return SsrfCoreModule.add(a, b);
-}
-
-export function smokeSerializeMinimalLog(): string | null {
-  return SsrfCoreModule.smokeSerializeMinimalLog();
-}
-
-export function smokeCountDivesInFile(path: string): number {
-  return SsrfCoreModule.smokeCountDivesInFile(path);
-}
+// The task 02/03 smoke units (add, smokeSerializeMinimalLog,
+// smokeCountDivesInFile) are still exposed by the native module, but no longer
+// wrapped here: the app screens that called them went away with the template in
+// task 07, and everything they proved is covered by the API above.
 
 export default SsrfCoreModule;

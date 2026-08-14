@@ -1,18 +1,36 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+// AI-generated (Claude)
+// Root navigation.
+//
+// A stack holding the tab group. Each tab carries its own stack (see
+// (tabs)/dives/_layout.tsx and friends) so pushes stay inside the tab, which is
+// what iOS does everywhere.
+//
+// The startup work lives here because it must happen once per launch, before
+// any screen reads the store: preferences are hydrated from disk and the
+// working logbook is opened, seeded from the bundled sample on first run - see
+// src/lib/logbook-file.ts.
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { useLogStore } from '@/store/log-store';
+import { useSettingsStore } from '@/store/settings-store';
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  const openLog = useLogStore((state) => state.open);
+
+  useEffect(() => {
+    hydrateSettings();
+    void openLog();
+  }, [hydrateSettings, openLog]);
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+      </Stack>
     </ThemeProvider>
   );
 }
