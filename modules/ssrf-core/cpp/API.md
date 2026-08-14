@@ -97,7 +97,12 @@ directly and avoids the copy.
   The zipped `.SDE` container is task 11.
 - **`getProfile`** runs `create_plot_info_new(dive, dc, nullptr)`, i.e. the same
   computation the desktop profile widget plots, including deco/ceiling and gas
-  partial pressures.
+  partial pressures. `dcIndex` is range-checked here because
+  `dive::get_dc()` clamps and wraps it modulo the number of divecomputers - an
+  out-of-range index would otherwise plot a different divecomputer instead of
+  reporting the mistake. Note that `PlotInfo.maxDepthMm` is the *dive's* maximum
+  depth, which can exceed the deepest plotted sample when the divecomputer
+  recorded its maximum at a finer resolution than the sample interval.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The
@@ -171,3 +176,15 @@ Add them behind an option if a later task needs them.
 
 `call` takes several method/args pairs per invocation because the divelog lives
 in the process: loading a file and then querying it needs one process.
+
+The same binary also speaks a line protocol, which is what the vitest suite
+drives (see `tests/harness/ssrf-host.ts` in the repo root):
+
+```sh
+printf 'loadFromXML\t{"path":"../../subsurface/dives/test29.xml"}\nlistDives\t{}\n' |
+	./build/host/ssrf-smoke repl
+```
+
+One request per line, `<method>\t<args-json>`, answered by exactly one line
+carrying the envelope. That keeps a single long-lived divelog for a whole test
+file, which is the only way a load-then-query sequence can work.

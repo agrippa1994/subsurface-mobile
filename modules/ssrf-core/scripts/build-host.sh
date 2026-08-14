@@ -9,6 +9,14 @@
 #
 #   ./scripts/build-host.sh          build and run the smoke test
 #   ./scripts/build-host.sh --build  build only
+#   ./scripts/build-host.sh --asan   build only, with AddressSanitizer, into
+#                                    build/asan (the vitest suite uses
+#                                    build/host, so the two never collide)
+#
+# The sanitizer build is worth running against the whole fixture corpus after
+# any change to the shim or the bindings: it is how the dangling `current_dive`
+# in shim/selection.cpp and the upstream o2-sensor overflow (patch 0005) were
+# found, both of which only showed up as rare, silent data corruption otherwise.
 #
 # Host libxml2/libxslt come from the macOS SDK. On iOS the SDK ships the
 # libraries but not the libxslt headers - that is task 04's problem.
@@ -16,9 +24,18 @@
 set -euo pipefail
 
 MODULE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD="$MODULE_ROOT/build/host"
 GEN="$MODULE_ROOT/cpp/generated"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
+
+ASAN=()
+BUILD="$MODULE_ROOT/build/host"
+if [[ "${1:-}" == "--asan" ]]; then
+	# -O1 keeps the sanitized build usable; -O0 makes it crawl.
+	ASAN=(-fsanitize=address -O1)
+	BUILD="$MODULE_ROOT/build/asan"
+	shift
+	set -- --build "$@"
+fi
 
 node "$MODULE_ROOT/scripts/vendor-core.mjs"
 
@@ -35,9 +52,11 @@ CXXFLAGS=(
 	-DSUBSURFACE_MOBILE
 	-include "$MODULE_ROOT/cpp/shim/include/ssrf-stdlib-compat.h"
 	-Wall -Wno-unused-parameter -Wno-unused-variable
+	# Last, so the sanitizer build's -O1 overrides the -O0 above.
+	${ASAN[@]+"${ASAN[@]}"}
 )
-CFLAGS=(-std=c11 -g -O0 -isysroot "$SDK" -I"$GEN" -I"$GEN/core")
-LDFLAGS=(-isysroot "$SDK" -lxml2 -lxslt -lz -lsqlite3)
+CFLAGS=(-std=c11 -g -O0 -isysroot "$SDK" -I"$GEN" -I"$GEN/core" ${ASAN[@]+"${ASAN[@]}"})
+LDFLAGS=(-isysroot "$SDK" -lxml2 -lxslt -lz -lsqlite3 ${ASAN[@]+"${ASAN[@]}"})
 
 sources=()
 while IFS= read -r f; do sources+=("$f"); done < <(

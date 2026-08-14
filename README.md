@@ -40,6 +40,27 @@ npx expo prebuild
 npx expo run:ios      # onto a physical device
 ```
 
+## Tests
+
+```sh
+npm test          # vitest: models + golden tests against the real C++ bindings
+npm run typecheck
+npm run lint
+```
+
+The golden tests do not mock the native module: they build
+`modules/ssrf-core` for the host and drive the same
+`call(method, argsJson)` bindings the app uses over JSI, against the logbooks in
+`subsurface/dives/`. macOS with the Xcode command line tools is therefore
+required, and the submodule must be checked out.
+
+```sh
+SSRF_ASAN=1 npm test   # adds the AddressSanitizer sweep over every fixture
+```
+
+Run that after any change to the C++ shim, the bindings or the pinned core:
+memory errors there show up as rare silent data corruption rather than crashes.
+
 ## Development conventions
 
 See [CLAUDE.md](CLAUDE.md) for the project invariants. In short: TypeScript

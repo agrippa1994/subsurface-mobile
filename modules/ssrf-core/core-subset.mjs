@@ -75,4 +75,5 @@ export const PATCHES = [
 	'0002-qt-free-eventtype-and-helpers.patch',
 	'0003-profile-use-std-mutex.patch',
 	'0004-device-decode-fingerprint-without-qt.patch',
+	'0005-profile-bound-o2-sensor-loop.patch',
 ];

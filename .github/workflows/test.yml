@@ -1,0 +1,35 @@
+# AI-generated (Claude)
+# Runs the TypeScript checks and the vitest suite.
+#
+# macOS, because the golden tests drive the real C++ bindings: the suite builds
+# modules/ssrf-core for the host (see modules/ssrf-core/scripts/build-host.sh),
+# which needs the Xcode command line tools for the SDK's libxml2/libxslt/sqlite3.
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The fixtures are the pinned upstream logbooks in subsurface/dives.
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test

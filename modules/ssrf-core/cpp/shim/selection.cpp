@@ -11,9 +11,27 @@
 int amount_selected = 0;
 struct dive *current_dive = nullptr;
 
+// `current_dive` is a raw pointer into a divelog that owns its dives through
+// unique_ptrs, so anything that empties the log leaves it dangling - and
+// `divelog::clear()` is called on every load, right before the new file is
+// parsed. Upstream keeps the pointer in step through the UI's undo/selection
+// machinery, which this build does not have. Rather than hooking every path
+// that can free a dive, confirm the dive is still in the log before touching
+// it; the logs are small and this runs once per load.
+static bool still_in_log(const struct dive *d)
+{
+	if (!d)
+		return false;
+	for (const auto &entry : divelog.dives) {
+		if (entry.get() == d)
+			return true;
+	}
+	return false;
+}
+
 void select_single_dive(struct dive *d)
 {
-	if (current_dive)
+	if (still_in_log(current_dive))
 		current_dive->selected = false;
 	current_dive = d;
 	if (d)
@@ -41,7 +59,7 @@ void clear_selection()
 
 std::vector<dive *> getDiveSelection()
 {
-	if (!current_dive)
+	if (!still_in_log(current_dive))
 		return {};
 	return { current_dive };
 }

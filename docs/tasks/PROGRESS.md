@@ -9,7 +9,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 03 — Vendor core subset + de-Qt shim compiles
 - [x] 04 — iOS native deps link (libxml2/libxslt/sqlite3; libzip deferred to 11)
 - [x] 05 — JSI bridge + API implemented
-- [ ] 06 — TS models + vitest golden tests green
+- [x] 06 — TS models + vitest golden tests green
 - [ ] 07 — Navigation + dive list (read-only)
 - [ ] 08 — Dive detail + profile diagram (Skia)
 - [ ] 09 — Statistics screen
@@ -156,3 +156,72 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Deliberately omitted from the profile JSON: `plot_data::ceilings[16]`,
   `percentages[16]` and `o2sensor[6]`. They would multiply the payload roughly
   30x and nothing in v1 draws them; see API.md if a later task needs them.
+- 2026-08-14 — Task 06: `vitest` is green - 67 tests in ~2.5 s, run with
+  `npm test` (plus `npm run typecheck`, `npm run lint`); CI in
+  `.github/workflows/test.yml` on a macOS runner because the suite builds the
+  real C++.
+  Domain types live in `src/models/`. They are re-exported from
+  `modules/ssrf-core/src/SsrfCore.types.ts` rather than restated: that file is
+  the normative description of the bindings' JSON, so a hand-copied mirror would
+  drift silently. `src/models/units.ts` holds the conversions and formatting,
+  using the constants from `subsurface/core/units.h` so a depth in feet matches
+  desktop to the digit.
+  The harness drives the *real* bindings, not a TS reimplementation: a new
+  `ssrf-smoke repl` subcommand speaks a line protocol
+  (`<method>\t<args-json>` in, one envelope line out) and
+  `tests/harness/ssrf-host.ts` wraps it method by method. One process per test
+  file, since the divelog lives in the process. `tests/global-setup.ts` rebuilds
+  the host binary before the suite, so tests can never pass against stale C++.
+  Fixtures are referenced out of the submodule, never copied.
+  Coverage: `tests/golden-parse.test.ts` (test29/test15/abitofeverything, values
+  read off the XML source), `tests/round-trip.test.ts` (7 named fixtures plus a
+  sweep over all 89 XML/SSRF files in `subsurface/dives/` - of the 137 files
+  there the rest are CSV/sqlite/binary formats and never reach the parser; every
+  one of the 89 is accepted and round-trips),
+  `tests/profile.test.ts` (Suunto DM4/DM5 import + profile sanity),
+  `src/models/units.test.ts`.
+  Three bugs found and fixed - the round-trip test failed intermittently, and
+  chasing that flake is what turned them up:
+  1. **Use-after-free in the shim.** `cpp/shim/selection.cpp` kept
+     `current_dive` as a raw pointer across `divelog::clear()`, which runs on
+     every load, and `select_newest_visible_dive()` then wrote
+     `selected = false` into freed memory. It landed inside whatever std::string
+     had reused the block, so a random dive note came back with a NUL where a
+     space had been - roughly one load in two. It now checks the dive is still
+     in the log before touching it.
+  2. **Upstream stack-buffer-overflow**, now carried as build-time patch
+     `0005-profile-bound-o2-sensor-loop`. `fill_o2_values()` in `profile.cpp`
+     keeps `pressure_t last_sensor[3]` but loops to `dc->no_o2sensors`, which is
+     read straight out of the logbook and may be up to `MAX_O2_SENSORS` (6).
+     `dives/Liberty_CCR_header_v1_00000011.dlf.xml` trips it through
+     `getProfile`. Report upstream and drop the patch when the pin carries a fix.
+  3. `getProfile` accepted any `dcIndex`, because `dive::get_dc()` clamps and
+     wraps modulo the divecomputer count - an out-of-range index silently
+     plotted a different divecomputer. `api.cpp` now range-checks it.
+  Both memory bugs were found with `./scripts/build-host.sh --asan` (new flag,
+  builds into `build/asan/`) driven over the whole fixture corpus. That sweep is
+  checked in as `tests/asan-sweep.test.ts`, opt-in via `SSRF_ASAN=1 npm test`
+  since it rebuilds the core. **Run it after any change to the shim, the
+  bindings or the pin**: memory errors here surface as rare silent data
+  corruption, not crashes, so the normal suite catches them only by luck. It is
+  currently clean across all 89 logbooks (load, save, reload, every `getDive` +
+  `getProfile`, statistics, and both Suunto imports).
+  **Known limitation, upstream behaviour, not a shim defect.** The first save of
+  a logbook authored elsewhere is not a no-op: `dive::fixup` completes what the
+  file left open, exactly as desktop Subsurface does on its first save. Five
+  such completions, enumerated and allowed in `tests/harness/parity.ts` and
+  nowhere else:
+  1. `divecomputer::when` is 0 when the file gives no per-computer timestamp;
+     the writer emits the dive's date, so the reload has one.
+  2. Dives with no samples get a fabricated profile (`fake_dc`, dive.cpp:1081)
+     from max depth and duration; it is saved, and the reload recomputes mean
+     depth off it (e.g. test15.xml 25.000 m -> 25.002 m).
+  3. `sac` follows the recomputed profile (~0.04% on the affected files).
+  4. A gas-switch event naming a cylinder whose mix contradicts the event's own
+     o2/he attributes is rewritten to the cylinder's mix
+     (test-tank-sensor-mapping-merge.xml).
+  5. Whitespace around a text node is trimmed on the way back in.
+  The invariant that actually protects user data therefore is: from the app's
+  own output onwards the round trip is a fixed point - the second and third
+  generations are model-identical and byte-identical. That holds for every file
+  in `subsurface/dives/` the API accepts, and is what the sweep asserts.

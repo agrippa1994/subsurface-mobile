@@ -7,6 +7,7 @@
 //   ssrf-smoke <file.ssrf>...      parse each file and print its dive count
 //   ssrf-smoke call <method> [json] run one API method and print its JSON reply
 //   ssrf-smoke api <file.ssrf>     task 05 acceptance walk-through over one file
+//   ssrf-smoke repl                line protocol on stdin, one JSON reply per line
 
 #include "../cpp/bindings/api.h"
 #include "../cpp/ssrfcore.h"
@@ -15,6 +16,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <string>
 
 using json = nlohmann::json;
@@ -154,6 +156,34 @@ int run_api(const char *path)
 	return failures ? 1 : 0;
 }
 
+// Long-lived driver for the vitest harness (task 06). The divelog lives in the
+// process, so tests that load a file and then query it must share one process;
+// spawning a binary per call would also cost more than the tests themselves.
+//
+// Protocol: one request per line, "<method>\t<args-json>", answered by exactly
+// one line carrying the JSON envelope. That framing is safe because nlohmann
+// dumps compact, escaping any newline inside a string.
+int run_repl()
+{
+	std::string line;
+	while (std::getline(std::cin, line)) {
+		if (line.empty())
+			continue;
+		size_t tab = line.find('\t');
+		std::string method = line.substr(0, tab);
+		std::string args = tab == std::string::npos ? "{}" : line.substr(tab + 1);
+		std::string reply = ssrf::call(method.c_str(), args);
+		// A reply must stay one line; the envelope is compact JSON already,
+		// but a core error string could in principle carry a raw newline.
+		for (char &c : reply) {
+			if (c == '\n' || c == '\r')
+				c = ' ';
+		}
+		std::cout << reply << "\n" << std::flush;
+	}
+	return 0;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -172,6 +202,9 @@ int main(int argc, char **argv)
 			printf("%s\n", ssrf::call(argv[i], argv[i + 1]).c_str());
 		return 0;
 	}
+
+	if (!strcmp(argv[1], "repl"))
+		return run_repl();
 
 	if (!strcmp(argv[1], "api")) {
 		if (argc < 3) {

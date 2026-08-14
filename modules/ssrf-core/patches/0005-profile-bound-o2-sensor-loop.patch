@@ -1,0 +1,42 @@
+Bound the o2 sensor loop in fill_o2_values() to the array it writes.
+
+`fill_o2_values()` keeps `pressure_t last_sensor[3]` but iterates to
+`dc->no_o2sensors`, which is a uint8_t read straight out of the logbook
+(`no_o2sensors` in parse-xml.cpp:874, or derived by fixup_no_o2sensors()).
+Anything above 3 writes past the end of the stack array; the plot_data side of
+the copy is `std::array<pressure_t, MAX_O2_SENSORS>` with MAX_O2_SENSORS == 6,
+so the bound is simply wrong rather than the file being invalid.
+
+Reachable from this module's getProfile() with a file the app parsed happily:
+subsurface/dives/Liberty_CCR_header_v1_00000011.dlf.xml trips it, which
+AddressSanitizer reports as a stack-buffer-overflow.
+
+The fix sizes the array like its counterpart and clamps the loops, matching
+what profile.cpp:1084 already does for the same field.
+
+Reported upstream; drop this patch when the pinned core carries the fix.
+
+--- a/core/profile.cpp
++++ b/core/profile.cpp
+@@ -1176,7 +1176,7 @@
+  * for plotting. This function called by: create_plot_info_new() */
+ {
+ 	int i, j;
+-	pressure_t last_sensor[3], o2pressure;
++	pressure_t last_sensor[MAX_O2_SENSORS], o2pressure;
+ 	pressure_t amb_pressure;
+
+ 	for (i = 0; i < pi.nr; i++) {
+@@ -1185,10 +1185,10 @@
+
+ 		if (dc->divemode == CCR || (dc->divemode == PSCR && dc->no_o2sensors)) {
+ 			if (i == 0) { // For 1st iteration, initialise the last_sensor values
+-				for (j = 0; j < dc->no_o2sensors; j++)
++				for (j = 0; j < dc->no_o2sensors && j < MAX_O2_SENSORS; j++)
+ 					last_sensor[j] = entry.o2sensor[j];
+ 			} else { // Now re-insert the missing oxygen pressure values
+-				for (j = 0; j < dc->no_o2sensors; j++)
++				for (j = 0; j < dc->no_o2sensors && j < MAX_O2_SENSORS; j++)
+ 					if (entry.o2sensor[j].mbar)
+ 						last_sensor[j] = entry.o2sensor[j];
+ 					else

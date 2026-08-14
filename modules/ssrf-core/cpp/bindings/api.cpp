@@ -277,11 +277,13 @@ json get_profile(const json &args)
 {
 	const struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
 	int dcIndex = static_cast<int>(get_int(args, "dcIndex", 0));
-	const struct divecomputer *dc = d.get_dc(dcIndex);
-	if (!dc)
+	// dive::get_dc() clamps and wraps its argument modulo the number of
+	// divecomputers, so it never reports an out-of-range index - it would
+	// silently plot a different divecomputer. Reject it here instead.
+	if (dcIndex < 0 || static_cast<size_t>(dcIndex) >= d.dcs.size())
 		fail("dive " + std::to_string(d.id) + " has no divecomputer " + std::to_string(dcIndex));
 
-	plot_info pi = create_plot_info_new(&d, dc, nullptr);
+	plot_info pi = create_plot_info_new(&d, d.get_dc(dcIndex), nullptr);
 	return plot_info_to_json(pi);
 }
 

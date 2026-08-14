@@ -65,6 +65,7 @@ a static C lib" — the enums would then already match by construction.
 | `0002-qt-free-eventtype-and-helpers` | `eventtype.{h,cpp}` | The one file in the subset whose *interface* is `QString`. Ported to `std::string`; `QStringLiteral("%1 (%2)").arg()` becomes concatenation, `gettextFromC::tr()` becomes `translate()`. |
 | `0003-profile-use-std-mutex` | `profile.cpp` | `QMutex planLock` guards the shared deco planner state, used only via `lock()`/`unlock()`. `std::mutex` has the same interface for both. |
 | `0004-device-decode-fingerprint-without-qt` | `device.cpp` | Only Qt use is `QByteArray::fromHex()` when reading a dive computer fingerprint back from the log. Replaced with an inline nibble decoder that skips non-hex characters, as Qt does. |
+| `0005-profile-bound-o2-sensor-loop` | `profile.cpp` | Not a Qt patch: an upstream stack-buffer-overflow. `fill_o2_values()` keeps `pressure_t last_sensor[3]` but loops to `dc->no_o2sensors`, which comes straight out of the logbook and may be up to `MAX_O2_SENSORS` (6). Reachable from `getProfile` with `dives/Liberty_CCR_header_v1_00000011.dlf.xml`. Reported upstream; drop when the pin carries the fix. |
 
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
