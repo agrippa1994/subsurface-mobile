@@ -10,7 +10,8 @@
 // expo-router.
 
 import * as Linking from 'expo-linking';
-import { useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useTransfer } from './use-transfer';
 
@@ -51,5 +52,25 @@ export function useIncomingFiles(handle: (uri: string) => Promise<void>): void {
 /** Convenience wrapper for the root layout: its own transfer hook, wired up. */
 export function useIncomingFileImports(): void {
   const { handleIncoming } = useTransfer();
-  useIncomingFiles(handleIncoming);
+  const router = useRouter();
+
+  // Expo Router sees the same incoming URL and tries to match it as a route.
+  // A `file:///.../Inbox/TestDive.SDE` matches nothing, so the app is left
+  // sitting on the "page could not be found" screen behind the import alert.
+  // The dive list is where an import belongs anyway, so the app goes there -
+  // once when the URL arrives, and once more after the file has been dealt
+  // with, because the router may still be settling the failed match by then.
+  const handle = useCallback(
+    async (uri: string) => {
+      router.replace('/dives');
+      try {
+        await handleIncoming(uri);
+      } finally {
+        router.replace('/dives');
+      }
+    },
+    [handleIncoming, router]
+  );
+
+  useIncomingFiles(handle);
 }
