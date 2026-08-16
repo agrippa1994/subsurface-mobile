@@ -12,6 +12,10 @@ export type Settings = {
   gfLow: number;
   /** Buehlmann gradient factor high, in percent. */
   gfHigh: number;
+  /** Draw the leading tissue's gradient factor at depth on the profile. */
+  showGfNow: boolean;
+  /** Draw the gradient factor the diver would surface with on the profile. */
+  showGfSurface: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -19,6 +23,10 @@ export const DEFAULT_SETTINGS: Settings = {
   // The core's own defaults (subsurface/core/pref.cpp, default_prefs).
   gfLow: 30,
   gfHigh: 75,
+  // Off: the profile is busy enough, and both are for divers who went looking
+  // for them. Neither costs a recomputation, only a curve.
+  showGfNow: false,
+  showGfSurface: false,
 };
 
 /**
@@ -50,6 +58,15 @@ export function clampGradientFactors(
 }
 
 /**
+ * A boolean preference out of a parsed file. Anything that is not a boolean -
+ * missing, a string, a number a hand-edit left behind - is the default, never a
+ * truthiness test.
+ */
+function flag(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+/**
  * Reads a settings file. Anything unrecognised, missing or malformed falls back
  * to the default, so an older or hand-edited file never blocks startup.
  */
@@ -62,6 +79,8 @@ export function parseSettings(json: string): Settings {
         typeof raw?.gfLow === 'number' ? raw.gfLow : DEFAULT_SETTINGS.gfLow,
         typeof raw?.gfHigh === 'number' ? raw.gfHigh : DEFAULT_SETTINGS.gfHigh,
       ),
+      showGfNow: flag(raw?.showGfNow, DEFAULT_SETTINGS.showGfNow),
+      showGfSurface: flag(raw?.showGfSurface, DEFAULT_SETTINGS.showGfSurface),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -73,5 +92,7 @@ export function serializeSettings(settings: Settings): string {
     unitSystem: settings.unitSystem,
     gfLow: settings.gfLow,
     gfHigh: settings.gfHigh,
+    showGfNow: settings.showGfNow,
+    showGfSurface: settings.showGfSurface,
   });
 }

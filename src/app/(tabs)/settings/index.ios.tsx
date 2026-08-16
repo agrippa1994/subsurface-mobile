@@ -10,6 +10,7 @@ import {
   Section,
   Stepper,
   Text,
+  Toggle,
 } from '@expo/ui/swift-ui';
 import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 
@@ -40,7 +41,9 @@ export default function SettingsScreen() {
           footer={
             <Text>
               Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
-              profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75.
+              profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75. The two
+              curves show tissue loading against the limit: GF at depth for the moment itself,
+              surface GF for what the diver would carry on surfacing right then.
             </Text>
           }>
           <Stepper
@@ -58,6 +61,16 @@ export default function SettingsScreen() {
             max={GF_RANGE.max}
             step={1}
             onValueChange={screen.setGfHigh}
+          />
+          <Toggle
+            label="Show GF at depth"
+            isOn={screen.showGfNow}
+            onIsOnChange={screen.setShowGfNow}
+          />
+          <Toggle
+            label="Show surface GF"
+            isOn={screen.showGfSurface}
+            onIsOnChange={screen.setShowGfSurface}
           />
         </Section>
 

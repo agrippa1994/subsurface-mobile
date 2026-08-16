@@ -141,6 +141,19 @@ describe('profileSummary', () => {
     expect(profileSummary(EMPTY_PROFILE_PLOT)).toBe(
       'Dive profile. This dive has no profile samples.'
     );
+    // Even with both curves asked for: there is nothing to speak.
+    const gf = { showGfNow: true, showGfSurface: true };
+    expect(profileSummary(EMPTY_PROFILE_PLOT, 'metric', gf)).toBe(
+      'Dive profile. This dive has no profile samples.'
+    );
+  });
+});
+
+describe('EMPTY_PROFILE_PLOT', () => {
+  it('carries every series, so callers need no null checks', () => {
+    expect(EMPTY_PROFILE_PLOT.gfNow).toEqual([]);
+    expect(EMPTY_PROFILE_PLOT.gfSurface).toEqual([]);
+    expect(EMPTY_PROFILE_PLOT.gfRange).toEqual({ min: 0, max: 0 });
   });
 });
 
@@ -263,6 +276,85 @@ describe('a logbook with temperature, pressure and deco', () => {
     expect(sawTemperature).toBe(true);
     expect(sawPressure).toBe(true);
     expect(sawCeiling).toBe(true);
+  });
+
+  // The two gradient factors reach TS in different units - current_gf is a
+  // fraction of the M-value, surface_gf is already percent (profile.cpp:967 vs
+  // :973). Getting that wrong is a silent 100x, so it is checked against the raw
+  // entries rather than against a plausible-looking range.
+  it('puts both gradient factors on one percent scale', async () => {
+    const summaries = await host.listDives();
+    let sawGfNow = false;
+    let sawGfSurface = false;
+
+    for (const summary of summaries) {
+      const dive = await host.getDive(summary.id);
+      const profile = await host.getProfile(summary.id);
+      const plot = buildProfilePlot(profile, dive.dcs[0]?.events ?? []);
+
+      const nowEntries = profile.entry.filter((entry) => entry.currentGf > 0);
+      const surfaceEntries = profile.entry.filter((entry) => entry.surfaceGf > 0);
+      expect(plot.gfNow.length).toBe(nowEntries.length);
+      expect(plot.gfSurface.length).toBe(surfaceEntries.length);
+
+      plot.gfNow.forEach((point, index) => {
+        expect(point.sec).toBe(nowEntries[index].sec);
+        expect(point.value).toBeCloseTo(nowEntries[index].currentGf * 100, 6);
+        expect(point.value).toBeGreaterThan(0);
+        sawGfNow = true;
+      });
+      plot.gfSurface.forEach((point, index) => {
+        expect(point.sec).toBe(surfaceEntries[index].sec);
+        // Not multiplied a second time.
+        expect(point.value).toBeCloseTo(surfaceEntries[index].surfaceGf, 6);
+        sawGfSurface = true;
+      });
+
+      // The M-value limit keeps a fixed height, and an excursion past it is
+      // still inside the band.
+      expect(plot.gfRange.min).toBe(0);
+      expect(plot.gfRange.max).toBeGreaterThanOrEqual(100);
+      for (const point of [...plot.gfNow, ...plot.gfSurface]) {
+        expect(point.value).toBeLessThanOrEqual(plot.gfRange.max);
+      }
+    }
+
+    expect(sawGfNow).toBe(true);
+    expect(sawGfSurface).toBe(true);
+  });
+
+  it('reads both gradient factors out for the scrubber', async () => {
+    const summaries = await host.listDives();
+    for (const summary of summaries) {
+      const profile = await host.getProfile(summary.id);
+      const index = profile.entry.findIndex((entry) => entry.surfaceGf > 0);
+      if (index < 0) {
+        continue;
+      }
+      const entry = profile.entry[index];
+      const readout = readoutAt(profile, entry.sec, 'metric');
+      expect(readout!.gfSurfaceText).toBe(`${Math.round(entry.surfaceGf)}%`);
+      expect(readout!.gfNowText).toBe(
+        entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null
+      );
+      return;
+    }
+    throw new Error('no sample in the fixture carries a surface gradient factor');
+  });
+
+  it('speaks a gradient factor only when its curve is shown', async () => {
+    const [summary] = await host.listDives();
+    const dive = await host.getDive(summary.id);
+    const profile = await host.getProfile(summary.id);
+    const plot = buildProfilePlot(profile, dive.dcs[0]?.events ?? []);
+
+    expect(profileSummary(plot, 'metric')).not.toMatch(/gradient factor/);
+    expect(profileSummary(plot, 'metric', { showGfSurface: true })).toMatch(
+      /highest surface gradient factor \d+ percent/
+    );
+    expect(profileSummary(plot, 'metric', { showGfNow: true })).toMatch(
+      /highest gradient factor at depth \d+ percent/
+    );
   });
 
   it('finds the sample nearest a time', async () => {

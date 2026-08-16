@@ -57,6 +57,24 @@ export default function SettingsScreen() {
     </View>
   );
 
+  // Stands in for the iOS variant's native Toggle. A switch to the screen
+  // reader, whatever it looks like here.
+  const toggle = (label: string, value: boolean, onChange: (show: boolean) => void) => (
+    <Pressable
+      key={label}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      style={[
+        styles.stepper,
+        { backgroundColor: value ? theme.backgroundSelected : theme.backgroundElement },
+      ]}>
+      <Text style={{ color: theme.text }}>{label}</Text>
+      <Text style={{ color: theme.textSecondary }}>{value ? 'On' : 'Off'}</Text>
+    </Pressable>
+  );
+
   const action = (label: string, onPress: () => void) => (
     <Pressable key={label} accessibilityRole="button" onPress={onPress} style={styles.action}>
       <Text style={styles.actionLabel}>{label}</Text>
@@ -77,9 +95,13 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Decompression</Text>
       {stepper('GF low', screen.gfLow, screen.setGfLow)}
       {stepper('GF high', screen.gfHigh, screen.setGfHigh)}
+      {toggle('Show GF at depth', screen.showGfNow, screen.setShowGfNow)}
+      {toggle('Show surface GF', screen.showGfSurface, screen.setShowGfSurface)}
       <Text style={[styles.note, { color: theme.textSecondary }]}>
         Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
-        profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75.
+        profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75. The two
+        curves show tissue loading against the limit: GF at depth for the moment itself, surface GF
+        for what the diver would carry on surfacing right then.
       </Text>
 
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Logbook</Text>

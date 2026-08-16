@@ -36,7 +36,9 @@ import {
   useUngroupDives,
 } from '@/queries/logbook-mutations';
 import {
+  useGfSeries,
   useGradientFactors,
+  useSetGfSeries,
   useSetGradientFactors,
   useSetUnitSystem,
   useUnitSystem,
@@ -56,6 +58,14 @@ export type SettingsScreen = {
   /** Both setters clamp to GF_RANGE and keep gfLow <= gfHigh. */
   setGfLow: (percent: number) => void;
   setGfHigh: (percent: number) => void;
+  /**
+   * Whether the profile draws the two gradient factor curves. Display only: the
+   * core computes both for every plot regardless, so neither costs a recompute.
+   */
+  showGfNow: boolean;
+  showGfSurface: boolean;
+  setShowGfNow: (show: boolean) => void;
+  setShowGfSurface: (show: boolean) => void;
   diveCount: number;
   siteCount: number;
   logbookPath: string | null;
@@ -128,6 +138,19 @@ export function useSettingsScreen(): SettingsScreen {
     (percent: number) => setGradientFactors({ gfLow: Math.min(gfLow, percent), gfHigh: percent }),
     [gfLow, setGradientFactors],
   );
+  const { showGfNow, showGfSurface } = useGfSeries();
+  const setGfSeries = useSetGfSeries();
+
+  const setShowGfNow = useCallback(
+    (show: boolean) => setGfSeries({ showGfNow: show }),
+    [setGfSeries],
+  );
+
+  const setShowGfSurface = useCallback(
+    (show: boolean) => setGfSeries({ showGfSurface: show }),
+    [setGfSeries],
+  );
+
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
   const path = useLogbook().data?.path ?? null;
@@ -264,6 +287,10 @@ export function useSettingsScreen(): SettingsScreen {
     gfHigh,
     setGfLow,
     setGfHigh,
+    showGfNow,
+    showGfSurface,
+    setShowGfNow,
+    setShowGfSurface,
     diveCount: dives.length,
     siteCount: sites.length,
     logbookPath: path,

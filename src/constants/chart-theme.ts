@@ -15,6 +15,13 @@
 //
 // Re-run before changing any value:
 //   node scripts/validate_palette.js "<hex,hex,hex>" --mode light --surface "#ffffff" --pairs all
+//
+// The gradient factor pair (violet) was added afterwards and is NOT covered by
+// the numbers above - the validator script is not in this repo, so it could not
+// be re-run. It is a fourth hue held to the same relief rule the aqua needs: the
+// legend names both curves in text, and the two share one hue on purpose,
+// separated by a solid versus dashed stroke rather than by a tint difference no
+// deuteranope would see.
 
 export type ChartPalette = {
   depth: string;
@@ -33,6 +40,13 @@ export type ChartPalette = {
   /** Deco ceiling: status "critical". Fixed, never themed. */
   ceiling: string;
   ceilingFill: string;
+  /**
+   * The two gradient factor curves. One hue for both, because they are one
+   * quantity read two ways; the solid/dashed stroke and the legend tell them
+   * apart, never the tint alone.
+   */
+  gfNow: string;
+  gfSurface: string;
   /** Event markers: status "warning", always drawn with a label beside them. */
   event: string;
   grid: string;
@@ -52,6 +66,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
     pressure: '#1baf7a',
     ceiling: '#d03b3b',
     ceilingFill: 'rgba(208, 59, 59, 0.14)',
+    gfNow: '#6f42c1',
+    gfSurface: '#8f5fd8',
     event: '#fab219',
     grid: '#e1e0d9',
     axis: '#c3c2b7',
@@ -68,6 +84,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
     pressure: '#199e70',
     ceiling: '#d03b3b',
     ceilingFill: 'rgba(208, 59, 59, 0.18)',
+    gfNow: '#a98af0',
+    gfSurface: '#c2a7f5',
     event: '#fab219',
     grid: '#2c2c2a',
     axis: '#383835',

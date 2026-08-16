@@ -31,7 +31,7 @@ import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive, useProfile } from '@/queries/logbook';
-import { useUnitSystem } from '@/queries/settings';
+import { useGfSeries, useUnitSystem } from '@/queries/settings';
 
 const DIVE_MODE_LABEL: Record<DiveMode, string> = {
   [DiveMode.OC]: 'Open circuit',
@@ -44,6 +44,9 @@ export default function DiveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
   const unitSystem = useUnitSystem();
+  // Which gradient factor curves the profile draws. A display preference only -
+  // both series are in every plot_info, so toggling one costs no recomputation.
+  const { showGfNow, showGfSurface } = useGfSeries();
   const theme = useTheme();
 
   // Both are keyed on the dive id and live under the log subtree, so a reload
@@ -99,7 +102,13 @@ export default function DiveDetailScreen() {
 
       <Section title="Profile">
         {plot ? (
-          <ProfileChart plot={plot} pi={profile} unitSystem={unitSystem} />
+          <ProfileChart
+            plot={plot}
+            pi={profile}
+            unitSystem={unitSystem}
+            showGfNow={showGfNow}
+            showGfSurface={showGfSurface}
+          />
         ) : (
           <Text style={{ color: theme.textSecondary }}>No profile.</Text>
         )}

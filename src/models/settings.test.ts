@@ -27,9 +27,29 @@ describe('parseSettings', () => {
 
   it('keeps the defaults for a file written before gradient factors existed', () => {
     expect(parseSettings('{"unitSystem":"imperial"}')).toEqual({
+      ...DEFAULT_SETTINGS,
       unitSystem: 'imperial',
-      gfLow: DEFAULT_SETTINGS.gfLow,
-      gfHigh: DEFAULT_SETTINGS.gfHigh,
+    });
+  });
+
+  it('reads the stored gradient factor curve toggles', () => {
+    expect(parseSettings('{"showGfNow":true,"showGfSurface":true}')).toMatchObject({
+      showGfNow: true,
+      showGfSurface: true,
+    });
+  });
+
+  it('keeps the curve toggles off for a file written before they existed', () => {
+    expect(parseSettings('{"gfLow":20,"gfHigh":85}')).toMatchObject({
+      showGfNow: false,
+      showGfSurface: false,
+    });
+  });
+
+  it('ignores non-boolean curve toggles rather than testing them for truthiness', () => {
+    expect(parseSettings('{"showGfNow":"yes","showGfSurface":1}')).toMatchObject({
+      showGfNow: DEFAULT_SETTINGS.showGfNow,
+      showGfSurface: DEFAULT_SETTINGS.showGfSurface,
     });
   });
 
@@ -52,7 +72,13 @@ describe('parseSettings', () => {
   });
 
   it('round-trips', () => {
-    const settings = { unitSystem: 'imperial' as const, gfLow: 35, gfHigh: 80 };
+    const settings = {
+      unitSystem: 'imperial' as const,
+      gfLow: 35,
+      gfHigh: 80,
+      showGfNow: false,
+      showGfSurface: true,
+    };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
   });
 });

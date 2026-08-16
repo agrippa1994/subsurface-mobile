@@ -76,6 +76,26 @@ export function useGradientFactors(): GradientFactors {
 }
 
 /**
+ * Which gradient factor curves the profile draws. Purely a display choice: it
+ * is deliberately NOT part of `queryKeys.profile()`, unlike gf low and high,
+ * because it changes nothing the core computes - both series are in every
+ * plot_info already. Keying on it would recompute the whole plot natively on
+ * every tap of the switch.
+ */
+export type GfSeries = { showGfNow: boolean; showGfSurface: boolean };
+
+/** Memoized: it feeds the profile chart's path-building memo. */
+export function useGfSeries(): GfSeries {
+  const { showGfNow, showGfSurface } = useSettings();
+  return useMemo(() => ({ showGfNow, showGfSurface }), [showGfNow, showGfSurface]);
+}
+
+export function useSetGfSeries(): (patch: Partial<GfSeries>) => void {
+  const update = useUpdateSettings();
+  return useCallback((patch: Partial<GfSeries>) => update.mutate(patch), [update]);
+}
+
+/**
  * Writes some of the preferences, merged onto the rest. Every setter goes
  * through this: a mutation that rebuilt the whole object would drop the
  * settings it does not know about.

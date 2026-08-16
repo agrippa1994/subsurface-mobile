@@ -15,6 +15,7 @@
 import {
   Canvas,
   Circle,
+  DashPathEffect,
   Group,
   LinearGradient,
   Path,
@@ -49,6 +50,12 @@ const MAX_POINTS = 600;
 const TEMPERATURE_BAND = { top: 0.72, bottom: 0.97 };
 /** Tank pressure lives in the top band, where the depth curve rarely goes. */
 const PRESSURE_BAND = { top: 0.03, bottom: 0.3 };
+/**
+ * The gradient factors take the middle, between the pressure and the
+ * temperature band. They cross the depth curve there, which is why they are thin
+ * strokes over its fill rather than another filled shape.
+ */
+const GF_BAND = { top: 0.34, bottom: 0.66 };
 const MAX_ZOOM = 40;
 
 export type ProfileChartProps = {
@@ -57,6 +64,10 @@ export type ProfileChartProps = {
   pi: PlotInfo;
   unitSystem: UnitSystem;
   height?: number;
+  /** Gradient factor of the leading tissue at depth. Off by default. */
+  showGfNow?: boolean;
+  /** Gradient factor the diver would surface with. Off by default. */
+  showGfSurface?: boolean;
 };
 
 /** The visible slice of the time axis, in seconds. */
@@ -98,7 +109,14 @@ function buildArea(
   return path;
 }
 
-export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChartProps) {
+export function ProfileChart({
+  plot,
+  pi,
+  unitSystem,
+  height = 260,
+  showGfNow = false,
+  showGfSurface = false,
+}: ProfileChartProps) {
   const colors = ChartColors[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const [width, setWidth] = useState(0);
   const [view, setView] = useState<TimeWindow>({ from: 0, to: plot.maxSec });
@@ -146,6 +164,18 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
     const tempMin = temperatureValue(plot.temperatureRange.min, unitSystem);
     const tempMax = temperatureValue(plot.temperatureRange.max, unitSystem);
 
+    const gfLine = (points: Point[], enabled: boolean): SkPath | null => {
+      if (!enabled) {
+        return null;
+      }
+      const windowed = windowPoints(points, view.from, view.to, MAX_POINTS);
+      return windowed.length > 1
+        ? buildLine(windowed, x, (percent) =>
+            bandY(percent, plot.gfRange.min, plot.gfRange.max, GF_BAND)
+          )
+        : null;
+    };
+
     return {
       depthArea: buildArea(depthPoints, x, yDepth, PAD.top + chartHeight),
       depthLine: buildLine(depthPoints, x, yDepth),
@@ -154,6 +184,8 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
       ceilingArea:
         ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
       ceilingLine: ceilingPoints.length > 1 ? buildLine(ceilingPoints, x, yDepth) : null,
+      gfNow: gfLine(plot.gfNow, showGfNow),
+      gfSurface: gfLine(plot.gfSurface, showGfSurface),
       temperature:
         temperaturePoints.length > 1
           ? buildLine(temperaturePoints, x, (mkelvin) =>
@@ -172,7 +204,19 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
         }))
         .filter((series) => series.path.countPoints() > 1),
     };
-  }, [bandY, chartHeight, chartWidth, plot, unitSystem, view.from, view.to, x, yDepth]);
+  }, [
+    bandY,
+    chartHeight,
+    chartWidth,
+    plot,
+    showGfNow,
+    showGfSurface,
+    unitSystem,
+    view.from,
+    view.to,
+    x,
+    yDepth,
+  ]);
 
   const grid = useMemo(() => {
     const path = Skia.Path.Make();
@@ -293,6 +337,8 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
                 readout.depthText,
                 readout.temperatureText,
                 ...readout.pressureTexts,
+                showGfNow && readout.gfNowText ? `GF ${readout.gfNowText}` : null,
+                showGfSurface && readout.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null,
                 readout.inDeco && readout.ceilingText ? `ceiling ${readout.ceilingText}` : null,
                 !readout.inDeco && readout.ndlText ? `NDL ${readout.ndlText}` : null,
               ]
@@ -312,7 +358,7 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
           // curve nor the scrubber gesture is reachable without a pointer.
           accessible
           accessibilityRole="image"
-          accessibilityLabel={profileSummary(plot, unitSystem)}>
+          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 
@@ -365,6 +411,20 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
                 strokeWidth={2}
                 color={colors.temperature}
               />
+            ) : null}
+
+            {paths?.gfNow ? (
+              <Path path={paths.gfNow} style="stroke" strokeWidth={2} color={colors.gfNow} />
+            ) : null}
+            {/* Dashed, so it is told from gf at depth without relying on the tint. */}
+            {paths?.gfSurface ? (
+              <Path
+                path={paths.gfSurface}
+                style="stroke"
+                strokeWidth={2}
+                color={colors.gfSurface}>
+                <DashPathEffect intervals={[5, 4]} />
+              </Path>
             ) : null}
 
             <Group>
@@ -451,6 +511,12 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
         ) : null}
         {plot.ceiling.length > 0 ? (
           <LegendItem color={colors.ceiling} textColor={colors.label} label="Deco ceiling" />
+        ) : null}
+        {showGfNow && plot.gfNow.length > 1 ? (
+          <LegendItem color={colors.gfNow} textColor={colors.label} label="GF at depth (%)" />
+        ) : null}
+        {showGfSurface && plot.gfSurface.length > 1 ? (
+          <LegendItem color={colors.gfSurface} textColor={colors.label} label="Surface GF (%)" />
         ) : null}
         {plot.events.length > 0 ? (
           <LegendItem color={colors.event} textColor={colors.label} label="Events" />

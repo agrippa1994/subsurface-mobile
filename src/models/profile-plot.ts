@@ -12,7 +12,7 @@
 // tank pressure, deco ceiling, event markers); how it is drawn is new, because
 // that code is Qt.
 
-import type { DiveEvent, PlotInfo } from './index';
+import type { DiveEvent, PlotEntry, PlotInfo } from './index';
 import { EventSeverity, plotPressureAt } from './index';
 import {
   mkelvinToCelsius,
@@ -55,6 +55,22 @@ export type ProfilePlot = {
    * Empty for a dive that never was.
    */
   ceiling: Point[];
+  /**
+   * Gradient factor of the leading tissue at the depth of the moment, in
+   * percent. Empty where the core reported none.
+   */
+  gfNow: Point[];
+  /**
+   * Gradient factor the diver would carry on surfacing from that moment, in
+   * percent - the "am I clear to ascend" number.
+   */
+  gfSurface: Point[];
+  /**
+   * Shared y domain of both gradient factor series, in percent. Starts at 0 and
+   * reaches at least 100, so the M-value limit sits at a fixed height instead of
+   * the curve renormalising itself per dive.
+   */
+  gfRange: Range;
   /** Water temperature, in mkelvin. Sparse: dive computers report it rarely. */
   temperature: Point[];
   temperatureRange: Range;
@@ -70,6 +86,9 @@ export const EMPTY_PROFILE_PLOT: ProfilePlot = {
   maxDepthMm: 0,
   depth: [],
   ceiling: [],
+  gfNow: [],
+  gfSurface: [],
+  gfRange: { min: 0, max: 0 },
   temperature: [],
   temperatureRange: { min: 0, max: 0 },
   pressures: [],
@@ -82,6 +101,23 @@ function range(values: number[]): Range {
     return { min: 0, max: 0 };
   }
   return { min: Math.min(...values), max: Math.max(...values) };
+}
+
+/**
+ * The two gradient factors do not arrive in the same unit, which is the one
+ * thing to get right here: `current_gf` is a fraction of the M-value
+ * (subsurface/core/profile.cpp:967) while `surface_gf` is already multiplied by
+ * 100 (:973). The core's own tooltip does exactly this - `100.0 *
+ * entry.current_gf` against a raw `entry.surface_gf` (:1409, :1411).
+ */
+function gfNowPercent(entry: PlotEntry): number {
+  return entry.currentGf * 100;
+}
+
+/** Rounds a gradient factor axis out to the next 25%, never below 100%. */
+function gfAxisMax(values: number[]): number {
+  const observed = values.length > 0 ? Math.max(...values) : 0;
+  return Math.max(100, Math.ceil(observed / 25) * 25);
 }
 
 function depthAt(plot: Point[], sec: number): number {
@@ -115,6 +151,17 @@ export function buildProfilePlot(pi: PlotInfo, events: DiveEvent[] = []): Profil
     .filter((entry) => entry.temperatureMkelvin > 0)
     .map((entry) => ({ sec: entry.sec, value: entry.temperatureMkelvin }));
 
+  // Both are built whether or not the user asked for them: the model stays free
+  // of preferences and the chart decides what to draw. The `> 0` guards are the
+  // core's own (profile.cpp:1408-1411) - a zero means "not computed", not "no
+  // tissue loading".
+  const gfNow: Point[] = pi.entry
+    .filter((entry) => entry.currentGf > 0)
+    .map((entry) => ({ sec: entry.sec, value: gfNowPercent(entry) }));
+  const gfSurface: Point[] = pi.entry
+    .filter((entry) => entry.surfaceGf > 0)
+    .map((entry) => ({ sec: entry.sec, value: entry.surfaceGf }));
+
   const pressures: PressureSeries[] = [];
   for (let cylinder = 0; cylinder < pi.nrCylinders; cylinder++) {
     const points: Point[] = [];
@@ -144,6 +191,12 @@ export function buildProfilePlot(pi: PlotInfo, events: DiveEvent[] = []): Profil
     maxDepthMm: Math.max(pi.maxDepthMm, ...depth.map((point) => point.value)),
     depth,
     ceiling,
+    gfNow,
+    gfSurface,
+    gfRange: {
+      min: 0,
+      max: gfAxisMax([...gfNow, ...gfSurface].map((point) => point.value)),
+    },
     temperature,
     temperatureRange: range(temperature.map((point) => point.value)),
     pressures,
@@ -275,6 +328,10 @@ export type ProfileReadout = {
   inDeco: boolean;
   ceilingText: string | null;
   ndlText: string | null;
+  /** Gradient factor at depth, e.g. "62%". Null where the core reported none. */
+  gfNowText: string | null;
+  /** Gradient factor on surfacing now, e.g. "78%". */
+  gfSurfaceText: string | null;
 };
 
 /** Index of the plotted sample nearest `sec`, or -1 when there are none. */
@@ -331,6 +388,8 @@ export function readoutAt(
     inDeco: entry.inDeco,
     ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, system) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
+    gfNowText: entry.currentGf > 0 ? `${Math.round(gfNowPercent(entry))}%` : null,
+    gfSurfaceText: entry.surfaceGf > 0 ? `${Math.round(entry.surfaceGf)}%` : null,
   };
 }
 
@@ -347,7 +406,14 @@ export function temperatureValue(mkelvin: number, system: UnitSystem): number {
  * how deep, how long, when the deepest point was, what the water did, and
  * whether the dive went into deco.
  */
-export function profileSummary(plot: ProfilePlot, system: UnitSystem = 'metric'): string {
+export function profileSummary(
+  plot: ProfilePlot,
+  system: UnitSystem = 'metric',
+  // A curve that is drawn but never spoken does not exist to VoiceOver, so the
+  // shown series decide what the summary mentions. Their peak is the number
+  // that matters: it is the worst the dive got.
+  gf: { showGfNow?: boolean; showGfSurface?: boolean } = {}
+): string {
   if (plot.depth.length === 0) {
     return 'Dive profile. This dive has no profile samples.';
   }
@@ -377,6 +443,14 @@ export function profileSummary(plot: ProfilePlot, system: UnitSystem = 'metric')
   parts.push(
     plot.ceiling.length > 0 ? 'the dive went into decompression' : 'no decompression obligation'
   );
+  if (gf.showGfNow && plot.gfNow.length > 0) {
+    const peak = Math.max(...plot.gfNow.map((point) => point.value));
+    parts.push(`highest gradient factor at depth ${Math.round(peak)} percent`);
+  }
+  if (gf.showGfSurface && plot.gfSurface.length > 0) {
+    const peak = Math.max(...plot.gfSurface.map((point) => point.value));
+    parts.push(`highest surface gradient factor ${Math.round(peak)} percent`);
+  }
   if (plot.events.length > 0) {
     parts.push(`${plot.events.length} ${plot.events.length === 1 ? 'event' : 'events'}`);
   }
