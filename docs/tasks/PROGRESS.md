@@ -15,7 +15,8 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 09 — Statistics screen
 - [x] 10 — Editing: dives, dive sites, buddies
 - [x] 11 — Suunto import + SSRF import/export
-- [ ] 12 — Polish + TestFlight beta
+- [~] 12 — Polish + TestFlight beta (polish, robustness, release config done;
+      TestFlight upload blocked on an Apple Developer account)
 - [ ] 13 — Android parity (later phase)
 
 ## Notes / blockers
