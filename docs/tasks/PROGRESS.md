@@ -507,3 +507,68 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   here), and the file picker itself, which cannot be driven from a script - the
   developer actions in Settings import the bundled samples through the same
   store path instead.
+
+- 2026-08-16 — Task 12: polish, robustness and the release paperwork. Still open
+  at the end of it: the TestFlight upload itself, which needs an Apple Developer
+  account this machine does not have (see below).
+  Robustness first, because the tests found real bugs rather than confirming the
+  code. `loadFromXML` accepted any well-formed XML the core's table has no entry
+  for and produced an empty logbook, so picking the wrong file in the Files
+  picker silently replaced what the user was looking at; a parse that yields no
+  dives, no sites and no trips is now a failure unless the document says it is a
+  `<divelog>` (an empty SSRF is something the app itself can write). A load that
+  failed *before* the parse - an empty file - left the previous divelog in
+  memory while the store dropped its cache, so the two disagreed; the log is now
+  cleared first and "load failed" always means "no dives". And an import left
+  dives outside a trip that a reload of the same file would autogroup, so the
+  app showed a different log than its own file did and the next save was not a
+  fixed point; the import now runs `process_loaded_dives()`, the same
+  post-processing a load does.
+  `tests/robustness.test.ts` (13 tests) covers the malformed input - empty,
+  truncated mid-dive, binary noise, a recipe file, an unclosed root, a missing
+  path, a directory - and a stress session of 12 rounds of edit, site upsert,
+  import and save, reloading the file in a fresh process after every round. It
+  also asserts what the atomic write is for: no `.tmp` left behind, the file
+  byte-identical when what was just loaded is saved again, and the logbook plus
+  its mtime untouched when a save fails.
+  `tests/performance.test.ts` drives a synthesized 600-dive logbook (real dives
+  out of `SampleDivesV2.ssrf`, re-dated one per day, ~30 MB of samples). Host
+  build, so the numbers are not a phone: parse 1.4 s, `listDives` 29 ms for the
+  lot, grouping plus formatting every row 32 ms, one profile 305 ms end to end,
+  statistics over the whole log under a second. What the test asserts is the
+  *shape* - per-dive cost flat as the log grows, the summary carrying no
+  samples, the drawn series thinned to 600 points however long the dive.
+  Accessibility: the rows, the diagram and the tiles were built to be glanced
+  at, which read out one fragment at a time is close to useless. `toDiveRow()`
+  now also produces the sentence VoiceOver says (durations spoken as "42
+  minutes", not "42:15", which iOS reads as a clock time), `profileSummary()`
+  describes the shape of the dive since neither the curve nor the scrubber is
+  reachable without a pointer, and the tiles and detail rows became single
+  accessible elements. The chart palette needed nothing: it was validated in
+  task 08 and every series is named in the legend.
+  Crash reporting without a crash reporting service: a third-party SDK would
+  mean someone else receiving a diver's data, and one more blob linked into a
+  GPL-2.0 app. Failures land in a local log (`src/lib/diagnostics.ts`, newest 50
+  entries, container paths stripped) that Settings can share or clear, fed by an
+  `ErrorBoundary` in the root layout and by handlers for uncaught errors and
+  unhandled rejections.
+  Release: the app icon was still the Expo template's chevron.
+  `scripts/make-icons.mjs` draws a dive profile and writes every raster from
+  that one description - no image dependency, a PNG being a deflate stream in
+  four chunks - plus an Icon Composer bundle carrying the same mark as SVG so
+  iOS 26 renders it with its own material. `eas.json`, `docs/release.md` and
+  `docs/store-listing.md` cover build, submit, listing copy and the privacy
+  answers (nothing collected). The GPL-2.0 point that matters for the store: set
+  a custom EULA to the GPL text, since Apple's standard one is more restrictive.
+  Settings gained an About section naming the licence, the core version and the
+  pinned commit, read from `CORE_MANIFEST.md` at config time.
+  Haptics in three places only, per Apple's rule: a rating star under the
+  finger, an import/open/export finishing or failing, and a destructive
+  confirmation about to appear.
+  BLOCKED: the TestFlight build. `eas.json` is complete except for the two
+  account facts (`ascAppId`, `appleTeamId`), which need an Apple Developer
+  Program membership and an App Store Connect record. The one thing to watch on
+  a cloud build is that the core lives in a git submodule that has to be part of
+  the upload; `vendor-core.mjs` now falls back to the pin in `CORE_MANIFEST.md`
+  when the submodule arrives without its git metadata, but it cannot invent the
+  sources.
