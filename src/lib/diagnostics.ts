@@ -84,14 +84,24 @@ export function installProblemHandlers(): void {
     });
   }
 
-  // Hermes reports these through a global hook rather than through window
-  // events; without it a failed save inside a fire-and-forget promise would
-  // leave no trace at all.
-  const rejectionTracking = globalThis as typeof globalThis & {
-    HermesInternal?: { hasPromise?: () => boolean };
-  };
-  if (rejectionTracking.HermesInternal) {
-    const onRejection = (event: { reason?: unknown }) => recordProblem('rejection', event.reason);
-    globalThis.addEventListener?.('unhandledrejection', onRejection as EventListener);
+  // A rejected promise nobody awaited - a save inside a fire-and-forget `void
+  // ...()`, say - would otherwise leave no trace at all. Hermes reports these
+  // through its own hook, which React Native already claims in development to
+  // drive LogBox; taking it over there would replace a visible warning with a
+  // line in a file, so this only runs in a release build.
+  const hermes = (globalThis as typeof globalThis & {
+    HermesInternal?: {
+      enablePromiseRejectionTracker?: (options: {
+        allRejections: boolean;
+        onUnhandled: (id: number, error: unknown) => void;
+      }) => void;
+    };
+  }).HermesInternal;
+
+  if (!__DEV__ && hermes?.enablePromiseRejectionTracker) {
+    hermes.enablePromiseRejectionTracker({
+      allRejections: true,
+      onUnhandled: (_id, error) => recordProblem('rejection', error),
+    });
   }
 }
