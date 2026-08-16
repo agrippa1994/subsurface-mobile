@@ -13,6 +13,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ProfileChart } from '@/components/profile-chart';
+import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -113,6 +114,18 @@ export default function DiveDetailScreen() {
           <Text style={{ color: theme.textSecondary }}>No profile.</Text>
         )}
       </Section>
+
+      {/* Turning the device hands the same plot the whole screen. */}
+      {plot ? (
+        <ProfileFullscreen
+          title={row.title}
+          plot={plot}
+          pi={profile}
+          unitSystem={unitSystem}
+          showGfNow={showGfNow}
+          showGfSurface={showGfSurface}
+        />
+      ) : null}
 
       <Section title="Dive">
         <Row label="Date" value={`${row.dateText} ${row.timeText}`} />

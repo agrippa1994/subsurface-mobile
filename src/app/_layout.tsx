@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusView } from '@/components/status-view';
 import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
+import { usePortraitLock } from '@/hooks/use-landscape';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
 import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
 import { createQueryClient } from '@/lib/query-client';
@@ -81,6 +82,9 @@ function AppShell() {
 
   // Anything still inside the save debounce is written as the app backgrounds.
   useFlushOnBackground();
+
+  // Portrait everywhere; the dive profile opts back out while it is on screen.
+  usePortraitLock();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

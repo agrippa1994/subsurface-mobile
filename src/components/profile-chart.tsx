@@ -242,6 +242,22 @@ export function ProfileChart({
 
   const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, unitSystem);
 
+  // One string per field rather than one joined line: the row wraps, so a dive
+  // carrying temperature, several cylinders, both gradient factors and a ceiling
+  // reads in full instead of being clipped at the right edge.
+  const readoutFields = readout
+    ? [
+        readout.timeText,
+        readout.depthText,
+        readout.temperatureText,
+        ...readout.pressureTexts,
+        showGfNow && readout.gfNowText ? `GF ${readout.gfNowText}` : null,
+        showGfSurface && readout.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null,
+        readout.inDeco && readout.ceilingText ? `ceiling ${readout.ceilingText}` : null,
+        !readout.inDeco && readout.ndlText ? `NDL ${readout.ndlText}` : null,
+      ].filter((field): field is string => Boolean(field))
+    : [];
+
   // --- Gestures ------------------------------------------------------------
 
   // Zooming keeps the second under the pinch's focal point where it is, which
@@ -330,22 +346,17 @@ export function ProfileChart({
   return (
     <View>
       <View style={styles.readoutRow}>
-        <Text style={[styles.readout, { color: colors.label }]} numberOfLines={1}>
-          {readout
-            ? [
-                readout.timeText,
-                readout.depthText,
-                readout.temperatureText,
-                ...readout.pressureTexts,
-                showGfNow && readout.gfNowText ? `GF ${readout.gfNowText}` : null,
-                showGfSurface && readout.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null,
-                readout.inDeco && readout.ceilingText ? `ceiling ${readout.ceilingText}` : null,
-                !readout.inDeco && readout.ndlText ? `NDL ${readout.ndlText}` : null,
-              ]
-                .filter(Boolean)
-                .join('   ')
-            : 'Drag to scrub, pinch to zoom, double tap to reset'}
-        </Text>
+        {readoutFields.length > 0 ? (
+          readoutFields.map((field, index) => (
+            <Text key={`${index}-${field}`} style={[styles.readout, { color: colors.label }]}>
+              {field}
+            </Text>
+          ))
+        ) : (
+          <Text style={[styles.readout, { color: colors.label }]}>
+            Drag to scrub, pinch to zoom, double tap to reset
+          </Text>
+        )}
       </View>
 
       <GestureDetector gesture={gesture}>
@@ -561,7 +572,10 @@ const styles = StyleSheet.create({
   },
   readoutRow: {
     minHeight: 20,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: Spacing.three,
   },
   readout: {
     fontSize: 13,
