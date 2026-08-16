@@ -572,3 +572,18 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   the upload; `vendor-core.mjs` now falls back to the pin in `CORE_MANIFEST.md`
   when the submodule arrives without its git metadata, but it cannot invent the
   sources.
+  Verified on the iOS 26 simulator (iPhone 17 Pro), against a build made after
+  `expo prebuild`: the app launches with the new icon and splash, the dive list
+  and Settings render in dark mode with the liquid-glass tab bar, and a
+  `TestDiveDM3.SDE` driven in with `xcrun simctl openurl` - the same path the
+  Files "Open in..." uses - reports "1 dive already in the logbook. The logbook
+  now holds 21 dives". That run found one bug the tests could not: Expo Router
+  sees the incoming `file://` URL too, matches nothing, and left the import
+  alert sitting on top of its "page could not be found" screen. The handler now
+  sends the app to the dive list, and the alert appears over the list.
+  Not verified on device: the About and Problems sections of Settings, which are
+  below the fold - a script can drive URLs and launches but cannot scroll or tap
+  the simulator (no idb here), the same limit noted for the file picker in task
+  11. What the launch does prove is that `useSettingsScreen()` runs on device:
+  it reads the problem log through expo-file-system and the pins through
+  expo-constants while the screen renders, and the screen rendered.
