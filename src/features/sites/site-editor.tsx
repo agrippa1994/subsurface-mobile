@@ -14,6 +14,7 @@ import { FormButtonRow, FormField, FormSection } from '@/components/form';
 import { SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
+import { warned } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { describeError, formatErrorLine } from '@/models/errors';
 import {
@@ -119,6 +120,7 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       original.diveCount > 0
         ? `\n\n${original.diveCount} ${original.diveCount === 1 ? 'dive keeps' : 'dives keep'} its data but loses the site.`
         : '';
+    warned();
     Alert.alert(`Delete "${original.name || 'this site'}"?`, `This cannot be undone.${attached}`, [
       { text: 'Cancel', style: 'cancel' },
       {

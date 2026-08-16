@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
+import { selectionChanged } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
 
 export function FormSection({
@@ -124,7 +125,10 @@ export function RatingField({
         {[1, 2, 3, 4, 5].map((star) => (
           <Pressable
             key={star}
-            onPress={() => onChange(value === star ? 0 : star)}
+            onPress={() => {
+              selectionChanged();
+              onChange(value === star ? 0 : star);
+            }}
             accessibilityRole="button"
             accessibilityLabel={`${label} ${star} of 5`}
             hitSlop={Spacing.two}>

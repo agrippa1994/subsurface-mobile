@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
+import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { toNativePath } from '@/lib/logbook-file';
 import { describeError } from '@/models/errors';
 import {
@@ -52,8 +53,11 @@ export function useTransfer(): Transfer {
     async (path: string) => {
       setBusy(true);
       try {
-        Alert.alert('Import complete', describeImport(await importIntoLog(path)));
+        const result = await importIntoLog(path);
+        operationSucceeded();
+        Alert.alert('Import complete', describeImport(result));
       } catch (error) {
+        operationFailed();
         Alert.alert('Import failed', describeFailure(error));
       } finally {
         setBusy(false);
@@ -67,8 +71,10 @@ export function useTransfer(): Transfer {
       setBusy(true);
       try {
         const result = await replaceWith(path);
+        operationSucceeded();
         Alert.alert('Logbook opened', `${result.dives} dives, ${result.sites} dive sites.`);
       } catch (error) {
+        operationFailed();
         Alert.alert('Could not open', describeFailure(error));
       } finally {
         setBusy(false);
@@ -99,6 +105,7 @@ export function useTransfer(): Transfer {
       }
       // Opening throws the current logbook away, which is the one destructive
       // thing in this file - so it asks first, every time.
+      warned();
       Alert.alert(
         'Open this logbook?',
         'The dives currently in the app are replaced by the ones in the file. Import instead to keep both.',
@@ -133,6 +140,7 @@ export function useTransfer(): Transfer {
           dialogTitle: 'Share logbook',
         });
       } catch (error) {
+        operationFailed();
         Alert.alert('Export failed', describeFailure(error));
       } finally {
         setBusy(false);
