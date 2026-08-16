@@ -8,9 +8,16 @@
 // path a picked file takes. They also stand in for the file picker, which a
 // simulator cannot drive.
 
-import { useCallback } from 'react';
+import Constants from 'expo-constants';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { useCallback, useState } from 'react';
+import { Alert, Linking } from 'react-native';
 
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
+import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
+import { diagnosticsSummary } from '@/models/diagnostics';
+import type { AboutInfo } from '@/models/about';
 import {
   ensureLogbook,
   resetLogbook,
@@ -51,7 +58,29 @@ export type SettingsScreen = {
    * were found - the database above needs none of them.
    */
   importSuuntoXmlSample: () => void;
+
+  /** Version and licence facts for the About section. */
+  about: AboutInfo;
+  /** Opens the source repository, which the GPL notice points at. */
+  openSource: () => void;
+  /** e.g. "3 entries, last on 2026-08-16", or "No problems recorded". */
+  diagnostics: string;
+  /** Hands the problem log to the share sheet. Nothing leaves the device first. */
+  shareDiagnostics: () => void;
+  clearDiagnostics: () => void;
 };
+
+function aboutInfo(): AboutInfo {
+  const extra = Constants.expoConfig?.extra ?? {};
+  const core = (extra.core ?? {}) as { commit?: string; version?: string };
+  return {
+    appVersion: Constants.expoConfig?.version ?? '0.0.0',
+    buildNumber: Constants.expoConfig?.ios?.buildNumber ?? '',
+    coreCommit: core.commit ?? 'unknown',
+    coreVersion: core.version ?? 'unknown',
+    sourceUrl: typeof extra.sourceUrl === 'string' ? extra.sourceUrl : '',
+  };
+}
 
 export function useSettingsScreen(): SettingsScreen {
   const transfer = useTransfer();
@@ -89,6 +118,47 @@ export function useSettingsScreen(): SettingsScreen {
     void sampleSuuntoXmlPath().then((path) => importSuuntoFile(path));
   }, [importSuuntoFile]);
 
+  const about = aboutInfo();
+  const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
+
+  const openSource = useCallback(() => {
+    if (about.sourceUrl !== '') {
+      void Linking.openURL(about.sourceUrl);
+    }
+  }, [about.sourceUrl]);
+
+  const shareDiagnostics = useCallback(() => {
+    void (async () => {
+      const log = readDiagnostics();
+      if (log.trim() === '') {
+        Alert.alert('Nothing to share', 'No problems have been recorded on this device.');
+        return;
+      }
+      // Copied under a name that says what it is, because the name is what the
+      // receiving app shows.
+      const target = new File(Paths.cache, 'subsurface-problems.txt');
+      if (target.exists) {
+        target.delete();
+      }
+      target.create();
+      target.write(log);
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Problem log', log);
+        return;
+      }
+      await Sharing.shareAsync(target.uri, {
+        UTI: 'public.plain-text',
+        mimeType: 'text/plain',
+        dialogTitle: 'Share problem log',
+      });
+    })();
+  }, []);
+
+  const clear = useCallback(() => {
+    clearDiagnostics();
+    setDiagnostics(diagnosticsSummary(''));
+  }, []);
+
   return {
     transfer,
     unitSystem,
@@ -102,5 +172,10 @@ export function useSettingsScreen(): SettingsScreen {
     loadMalformedLogbook,
     importSuuntoSample,
     importSuuntoXmlSample,
+    about,
+    openSource,
+    diagnostics,
+    shareDiagnostics,
+    clearDiagnostics: clear,
   };
 }

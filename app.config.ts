@@ -1,5 +1,23 @@
 // AI-generated (Claude)
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { ExpoConfig, ConfigContext } from 'expo/config';
+
+// Which Subsurface core the app is built on, taken from the manifest that has
+// to be kept accurate anyway (modules/ssrf-core/cpp/CORE_MANIFEST.md) so the
+// About screen cannot claim a pin the build does not have. The GPL-2.0 notice
+// this feeds is not decoration: the app links the core, so it has to say what
+// it links and where the source is.
+function corePins(): { commit: string; version: string } {
+  const manifest = readFileSync(
+    join(__dirname, 'modules/ssrf-core/cpp/CORE_MANIFEST.md'),
+    'utf8'
+  );
+  const commit = /`subsurface\/` submodule \| `([0-9a-f]+)`/.exec(manifest);
+  const version = /Core version string \| `([^`]+)`/.exec(manifest);
+  return { commit: commit?.[1] ?? 'unknown', version: version?.[1] ?? 'unknown' };
+}
 
 // Dynamic Expo config. Replaces app.json so we can register document types,
 // the dev-client, and (task 02) the ssrf-core native module config plugin.
@@ -105,5 +123,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+  extra: {
+    ...config.extra,
+    core: corePins(),
+    sourceUrl: 'https://github.com/agrippa1994/subsurface-mobile',
   },
 });

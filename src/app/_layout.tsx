@@ -14,9 +14,35 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { StatusView } from '@/components/status-view';
 import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
+import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
+import { describeError, formatErrorLine } from '@/models/errors';
 import { useLogStore } from '@/store/log-store';
 import { useSettingsStore } from '@/store/settings-store';
+
+/**
+ * Expo Router renders this instead of the tree when a screen below throws. It
+ * exists so a failure is a screen with a way out rather than a white app, and
+ * so the failure reaches the problem log - the app reports to nobody but the
+ * user (see src/models/diagnostics.ts).
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  useEffect(() => {
+    recordProblem('render', error);
+  }, [error]);
+
+  return (
+    <StatusView
+      kind="error"
+      title="Something went wrong"
+      description={formatErrorLine(describeError(error))}
+      systemImage="exclamationmark.triangle"
+      actionLabel="Try again"
+      onAction={() => void retry()}
+    />
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -24,6 +50,7 @@ export default function RootLayout() {
   const openLog = useLogStore((state) => state.open);
 
   useEffect(() => {
+    installProblemHandlers();
     hydrateSettings();
     void openLog();
   }, [hydrateSettings, openLog]);

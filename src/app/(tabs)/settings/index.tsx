@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
 import type { UnitSystem } from '@/models';
 
 export default function SettingsScreen() {
@@ -61,6 +62,23 @@ export default function SettingsScreen() {
       {action('Export and share', screen.transfer.shareLogbook)}
       {action('Open a logbook', screen.transfer.openLogbook)}
 
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Problems</Text>
+      <Text style={{ color: theme.text }}>{screen.diagnostics}</Text>
+      <Text style={[styles.note, { color: theme.textSecondary }]}>{PRIVACY_NOTICE}</Text>
+      {action('Share the problem log', screen.shareDiagnostics)}
+      {action('Clear it', screen.clearDiagnostics)}
+
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>About</Text>
+      {aboutRows(screen.about).map((row) => (
+        <Text key={row.label} style={{ color: theme.text }}>
+          {`${row.label}: ${row.value}`}
+        </Text>
+      ))}
+      <Text style={[styles.note, { color: theme.textSecondary }]}>
+        {`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}
+      </Text>
+      {action('Source code and licence', screen.openSource)}
+
       {__DEV__ ? (
         <>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Developer</Text>
@@ -95,6 +113,9 @@ const styles = StyleSheet.create({
   },
   path: {
     fontSize: 12,
+  },
+  note: {
+    fontSize: 13,
   },
   action: {
     paddingVertical: Spacing.two,

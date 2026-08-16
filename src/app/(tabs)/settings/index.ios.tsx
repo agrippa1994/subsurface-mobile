@@ -5,6 +5,7 @@ import { Button, Form, Host, LabeledContent, Picker, Section, Text } from '@expo
 import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
+import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
 import type { UnitSystem } from '@/models';
 
 export default function SettingsScreen() {
@@ -59,6 +60,23 @@ export default function SettingsScreen() {
             modifiers={[disabled(screen.transfer.busy)]}
             onPress={screen.transfer.openLogbook}
           />
+        </Section>
+
+        <Section title="Problems" footer={<Text>{PRIVACY_NOTICE}</Text>}>
+          <LabeledContent label="Problem log">
+            <Text>{screen.diagnostics}</Text>
+          </LabeledContent>
+          <Button label="Share the problem log" onPress={screen.shareDiagnostics} />
+          <Button label="Clear it" role="destructive" onPress={screen.clearDiagnostics} />
+        </Section>
+
+        <Section title="About" footer={<Text>{`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}</Text>}>
+          {aboutRows(screen.about).map((row) => (
+            <LabeledContent key={row.label} label={row.label}>
+              <Text>{row.value}</Text>
+            </LabeledContent>
+          ))}
+          <Button label="Source code and licence" onPress={screen.openSource} />
         </Section>
 
         {__DEV__ ? (
