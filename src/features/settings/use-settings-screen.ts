@@ -11,11 +11,14 @@
 import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
+import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
+import { groupDivesByTrip, NO_TRIP_LABEL } from '@/models/dive-list';
+import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
 import {
@@ -44,6 +47,15 @@ export type SettingsScreen = {
   reload: () => void;
   /** Deletes the working logbook and seeds it from the bundled sample again. */
   restoreSample: () => void;
+  /**
+   * Takes every dive out of its trip, after confirming. Trips a build that
+   * still autogrouped wrote into the logbook cannot be told from ones the user
+   * made in desktop Subsurface (see api.cpp, ungroup_dives), so this removes
+   * all of them and says so before it does.
+   */
+  ungroupDives: () => void;
+  /** Trips in the loaded log, so the row can say what would be removed. */
+  tripCount: number;
   loadEmptyLogbook: () => void;
   loadMalformedLogbook: () => void;
   /**
@@ -92,6 +104,13 @@ export function useSettingsScreen(): SettingsScreen {
   const open = useLogStore((state) => state.open);
   const loadPath = useLogStore((state) => state.loadPath);
   const importSuuntoFile = useLogStore((state) => state.importFile);
+  const ungroupInLog = useLogStore((state) => state.ungroupDives);
+  // A trip reaches the app only as its location string, so the count is taken
+  // off the same sections the dive list shows rather than from the module.
+  const tripCount = useMemo(
+    () => groupDivesByTrip(dives).filter((section) => section.title !== NO_TRIP_LABEL).length,
+    [dives],
+  );
 
   const reload = useCallback(() => {
     void ensureLogbook().then((target) => loadPath(target));
@@ -101,6 +120,38 @@ export function useSettingsScreen(): SettingsScreen {
     resetLogbook();
     void open();
   }, [open]);
+
+  const ungroupDives = useCallback(() => {
+    if (tripCount === 0) {
+      Alert.alert('No trips', 'None of the dives in this logbook are in a trip.');
+      return;
+    }
+    warned();
+    Alert.alert(
+      'Ungroup all dives',
+      `This removes ${tripCount === 1 ? 'the trip' : `all ${tripCount} trips`} from the logbook ` +
+        'and leaves the dives themselves untouched. Trips made in desktop Subsurface go too - ' +
+        'a saved logbook does not record which trips were generated.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Ungroup',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await ungroupInLog();
+                operationSucceeded();
+              } catch (error) {
+                operationFailed();
+                Alert.alert('Could not ungroup', describeError(error).message);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [tripCount, ungroupInLog]);
 
   const loadEmptyLogbook = useCallback(() => {
     void loadPath(writeScratchFile('empty-logbook.ssrf', EMPTY_LOGBOOK));
@@ -168,6 +219,8 @@ export function useSettingsScreen(): SettingsScreen {
     logbookPath: path,
     reload,
     restoreSample,
+    ungroupDives,
+    tripCount,
     loadEmptyLogbook,
     loadMalformedLogbook,
     importSuuntoSample,

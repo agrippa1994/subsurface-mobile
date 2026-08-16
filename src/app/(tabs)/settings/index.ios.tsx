@@ -32,8 +32,12 @@ export default function SettingsScreen() {
           <LabeledContent label="Dive sites">
             <Text>{String(screen.siteCount)}</Text>
           </LabeledContent>
+          <LabeledContent label="Trips">
+            <Text>{String(screen.tripCount)}</Text>
+          </LabeledContent>
           <Button label="Reload from disk" onPress={screen.reload} />
           <Button label="Restore the sample logbook" onPress={screen.restoreSample} />
+          <Button label="Ungroup all dives" role="destructive" onPress={screen.ungroupDives} />
         </Section>
 
         <Section

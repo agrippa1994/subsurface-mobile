@@ -10,7 +10,6 @@
 <divecomputerid model='Uemis Zurich' deviceid='e050efc6' nickname='Uemis Zurich (e050efc6)'/>
 <divecomputerid model='Suunto Vyper' deviceid='e9237b0a' nickname='Suunto Vyper (e9237b0a)'/>
 <divecomputerid model='Reefnet Sensus Ultra' deviceid='fbad0400' nickname='Sensus'/>
-  <autogroup state='1' />
 </settings>
 <divesites>
 <site uuid='3a3764b1' name='20th test dive - trimix'>

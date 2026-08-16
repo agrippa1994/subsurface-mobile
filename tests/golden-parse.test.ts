@@ -8,8 +8,11 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { formatWhenIso, mkelvinToCelsius, mmToMeters, udegToDegrees } from '../src/models';
-import { fixture } from './harness/fixtures';
+import { fixture, tempDir } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
 
 let host: SsrfHost;
@@ -193,6 +196,54 @@ describe('statistics', () => {
     expect(deep.matched).toBeGreaterThan(0);
     expect(deep.matched).toBeLessThan(all.matched);
     expect(deep.total.minDepthMm).toBeGreaterThanOrEqual(30000);
+  });
+});
+
+describe('trips come from the file, never from autogrouping', () => {
+  // Every fixture here declares <autogroup state='1' />, which is what used to
+  // make the module group dives that the file left outside any trip - and,
+  // because the flag latched for the whole process, keep grouping them in every
+  // later load and import too. See cpp/bindings/api.cpp, disable_autogroup().
+  it('keeps exactly the trips SampleDivesV2 declares, and no more', async () => {
+    // Four <trip> elements over 29 dives; the two the file leaves outside a
+    // trip stay outside it, though they are within days of the others.
+    const loaded = await host.loadFromXML(fixture('SampleDivesV2.ssrf'));
+    expect(loaded.trips).toBe(4);
+    const dives = await host.listDives();
+    expect(dives.filter((d) => d.tripLocation === '')).toHaveLength(2);
+  });
+
+  it('does not group an import, and does not regroup what is already loaded', async () => {
+    await host.loadFromXML(fixture('SampleDivesV2.ssrf'));
+    // test29.xml is four dives with no trip at all - and a load of it would
+    // have latched the flag for the process even if this one had not.
+    expect(await host.importFile(fixture('test29.xml'))).toMatchObject({ added: 4 });
+    const dives = await host.listDives();
+    expect(dives.filter((d) => d.tripLocation === '')).toHaveLength(6);
+  });
+});
+
+describe('ungroupDives', () => {
+  it('empties the trips and leaves the dives alone, and survives a save', async () => {
+    const loaded = await host.loadFromXML(fixture('SampleDivesV2.ssrf'));
+    expect(loaded.trips).toBe(4);
+
+    expect(await host.ungroupDives()).toEqual({ dives: 29, trips: 0 });
+    const dives = await host.listDives();
+    expect(dives).toHaveLength(29);
+    expect(dives.every((d) => d.tripLocation === '')).toBe(true);
+
+    // The trips must be gone from the file too, not just from memory.
+    const out = join(tempDir(), 'ungrouped.ssrf');
+    await host.saveToXML(out);
+    expect(await host.loadFromXML(out)).toMatchObject({ dives: 29, trips: 0 });
+    expect(readFileSync(out, 'utf8')).not.toContain('<trip');
+  });
+
+  it('is a no-op on a logbook with no trips', async () => {
+    await host.loadFromXML(fixture('test29.xml'));
+    expect(await host.ungroupDives()).toEqual({ dives: 4, trips: 0 });
+    expect(await host.listDives()).toHaveLength(4);
   });
 });
 

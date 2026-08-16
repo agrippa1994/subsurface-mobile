@@ -409,6 +409,9 @@ export type ImportResult = {
   sites: number;
 };
 
+/** What is left after ungroupDives(): every dive, and no trips at all. */
+export type UngroupResult = { dives: number; trips: number };
+
 /**
  * Cylinder pressure in mbar at one sample, resolving the flat layout the core
  * uses (`cylinder + sampleIndex * nrCylinders`). Falls back to the interpolated

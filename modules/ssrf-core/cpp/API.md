@@ -84,6 +84,7 @@ rendered metric or imperial.
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
 | `updateDive` | `{ id, patch }` | `Dive` |
+| `ungroupDives` | `{}` | `{ dives, trips }` |
 | `getLastError` | `{}` | `string` |
 
 `ArrayBuffer` arguments cross as base64 (`base64` key); a `path` is used
@@ -94,6 +95,12 @@ directly and avoids the copy.
 - **`loadFromXML`** clears the divelog first, then runs
   `divelog.process_loaded_dives()` - the same post-processing the desktop app
   does after a load (dive numbering, surface intervals, CNS, sorting).
+- **Autogrouping is forced off** after every parse, on both the load and the
+  import path (`disable_autogroup()`). A trip exists because the file declares
+  one, never because two dives are within three days of each other. Without
+  this the flag latches: `<autogroup state='1'/>` in any file ever loaded sets
+  it, `parse-xml.cpp` never clears it and neither does `divelog::clear()`. The
+  flag is consequently not written back out either.
 - **`saveToXML`** writes `path.tmp` via `save_dives()` and `rename(2)`s it over
   the target, so an interrupted write can never truncate the logbook. The SSRF
   file is the source of truth; there is no database.
@@ -162,6 +169,13 @@ directly and avoids the copy.
   and tags. `siteUuid: 0` detaches the dive from its site.
 - **`deleteDiveSite`** detaches every dive from the site before destroying it,
   so no `dive::dive_site` pointer is left dangling.
+- **`ungroupDives`** unregisters every dive from its trip and empties the trip
+  table. It removes *all* trips, including ones a desktop logbook declared:
+  `dive_trip::autogen` is in-memory only - neither `save-xml.cpp` nor the parser
+  carries it - so a trip an older, autogrouping build wrote into a file cannot
+  be told from one the user made. The caller is expected to confirm first; the
+  app does, in Settings. `notrip` is left unset, since nothing regroups dives
+  once autogrouping is off.
 
 ## JSON key mapping
 

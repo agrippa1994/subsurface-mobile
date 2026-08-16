@@ -26,6 +26,7 @@ import type {
   SaveResult,
   StatsFilter,
   StatsSummary,
+  UngroupResult,
 } from '../../src/models';
 import { SsrfCoreError } from '../../src/models';
 import { HOST_BINARY, XSLT_DIR } from './fixtures';
@@ -131,6 +132,10 @@ export class SsrfHost {
 
   listDives(): Promise<DiveSummary[]> {
     return this.call<DiveSummary[]>('listDives');
+  }
+
+  ungroupDives(): Promise<UngroupResult> {
+    return this.call<UngroupResult>('ungroupDives');
   }
 
   getDive(id: number): Promise<Dive> {

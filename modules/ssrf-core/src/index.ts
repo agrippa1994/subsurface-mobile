@@ -20,6 +20,7 @@ import {
   type SaveResult,
   type StatsFilter,
   type StatsSummary,
+  type UngroupResult,
 } from './SsrfCore.types';
 
 export * from './SsrfCore.types';
@@ -168,6 +169,15 @@ export function deleteDiveSite(uuid: number): void {
 /** Applies a partial update; absent fields are left alone. */
 export function updateDive(id: number, patch: DivePatch): Dive {
   return call<Dive>('updateDive', { id, patch });
+}
+
+/**
+ * Takes every dive out of its trip and drops the trips. For logbooks a build
+ * that still autogrouped has written trips into - the app cannot recognise
+ * those on its own, so this is the user's undo. See api.cpp, ungroup_dives().
+ */
+export function ungroupDives(): UngroupResult {
+  return call<UngroupResult>('ungroupDives');
 }
 
 // `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:

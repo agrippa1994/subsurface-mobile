@@ -20,6 +20,7 @@ import {
   listDiveSites,
   loadFromXML,
   saveToXML,
+  ungroupDives as ungroupDivesNative,
   updateDive as updateDiveNative,
   upsertDiveSite as upsertDiveSiteNative,
 } from '../../modules/ssrf-core/src';
@@ -85,6 +86,11 @@ export type LogState = {
   saveSite(input: DiveSiteInput): Promise<number>;
   /** Deletes a site, detaching its dives, and persists. */
   deleteSite(uuid: number): Promise<void>;
+  /**
+   * Takes every dive out of its trip and persists straight away. Not an edit
+   * the user would expect to lose, so it does not wait for the debounce.
+   */
+  ungroupDives(): Promise<void>;
   /** Writes the logbook now, if a mutation is still waiting for the debounce. */
   flush(): Promise<void>;
 };
@@ -218,6 +224,13 @@ export const useLogStore = create<LogState>((set, get) => ({
     deleteDiveSiteNative(uuid);
     get().refresh();
     schedulePersist(set, get);
+  },
+
+  async ungroupDives() {
+    ungroupDivesNative();
+    get().refresh();
+    schedulePersist(set, get);
+    await get().flush();
   },
 
   async flush() {

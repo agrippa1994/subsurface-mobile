@@ -208,6 +208,20 @@ struct dive_site &require_site(uint32_t uuid)
 // Methods
 // ---------------------------------------------------------------------------
 
+// Autogrouping is off in this app, always: a trip exists because a file says it
+// does, never because two dives happen to fall within TRIP_THRESHOLD (three
+// days, core/trip.cpp) of each other. There is no UI to turn it on or off, so
+// the only way it could ever be on is by accident - and it is easy to have by
+// accident, because `<autogroup state='1'/>` in any file ever loaded latches the
+// flag on: parse-xml.cpp only ever sets it to true, and divelog::clear() does
+// not reset it. Clearing it after every parse, before any post-processing, is
+// what keeps "the file had no trips" and "the app shows no trips" the same
+// statement.
+void disable_autogroup()
+{
+	divelog.autogroup = false;
+}
+
 // True when the document says it is a Subsurface logbook. An SSRF file with no
 // dives in it is a legitimate thing to open - the app can write one - whereas
 // any other document that yields nothing is a file picked by mistake.
@@ -229,6 +243,7 @@ json load_from_xml(const json &args)
 	struct xml_params params;
 	if (parse_xml_buffer(name.c_str(), contents.c_str(), static_cast<int>(contents.size()), &divelog, &params))
 		fail("failed to parse " + name);
+	disable_autogroup();
 
 	// The XML parser accepts a well-formed document it has no table entry for
 	// and simply produces nothing, so a recipe file or a settings export would
@@ -274,6 +289,28 @@ json save_to_xml(const json &args)
 	return json{
 		{ "path", path },
 		{ "dives", static_cast<int>(divelog.dives.size()) },
+	};
+}
+
+// ungroupDives: takes every dive out of its trip and empties the trip table.
+//
+// This exists for logbooks written by a build that still autogrouped (see
+// disable_autogroup): those trips are in the file now, and nothing tells them
+// apart from a trip the user made in desktop Subsurface - `dive_trip::autogen`
+// is in-memory only, neither saved by save-xml.cpp nor read back by the parser.
+// So the app cannot clean up on its own; the user asks for it, and gets all of
+// it. `notrip` is deliberately left alone: with autogrouping off, nothing would
+// regroup these dives anyway, and setting it would write tripflag='NOTRIP' into
+// a file that desktop Subsurface then honours forever.
+json ungroup_dives()
+{
+	for (auto &d : divelog.dives)
+		unregister_dive_from_trip(d.get());
+	divelog.trips.clear();
+
+	return json{
+		{ "dives", static_cast<int>(divelog.dives.size()) },
+		{ "trips", 0 },
 	};
 }
 
@@ -598,6 +635,10 @@ json merge_import_log(struct divelog &log, int imported, int failed)
 		divelog.dives.update_cylinder_related_info(*d);
 
 	size_t before = divelog.dives.size();
+	// Both logs: add_imported_dives autogroups the import log on the way in,
+	// process_loaded_dives below autogroups the merged one.
+	log.autogroup = false;
+	disable_autogroup();
 	// Consumes `log`. merge_all_trips matches the mobile app's import path.
 	divelog.add_imported_dives(log, import_flags::merge_all_trips);
 	int added = static_cast<int>(divelog.dives.size() - before);
@@ -791,10 +832,13 @@ json dispatch(const std::string &method, const json &args)
 		return delete_dive_site(args);
 	if (method == "updateDive")
 		return update_dive(args);
+	if (method == "ungroupDives")
+		return ungroup_dives();
 	if (method == "getLastError")
 		return joined_errors();
 	if (method == "clear") {
 		divelog.clear();
+		disable_autogroup();
 		return json::object();
 	}
 	fail("unknown method '" + method + "'");

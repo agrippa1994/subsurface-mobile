@@ -56,6 +56,10 @@ export default function SettingsScreen() {
       </Text>
       {action('Reload from disk', screen.reload)}
       {action('Restore the sample logbook', screen.restoreSample)}
+      {action(
+        screen.tripCount > 0 ? `Ungroup all dives (${screen.tripCount} trips)` : 'Ungroup all dives',
+        screen.ungroupDives,
+      )}
 
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Transfer</Text>
       {action('Import dives', screen.transfer.importFile)}

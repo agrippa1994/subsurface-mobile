@@ -33,6 +33,7 @@ export type {
   StatsFilter,
   StatsMonth,
   StatsSummary,
+  UngroupResult,
   TaxonomyEntry,
   WeightSystem,
 } from '../../modules/ssrf-core/src/SsrfCore.types';
