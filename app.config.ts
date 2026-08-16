@@ -31,7 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'subsurface',
   userInterfaceStyle: 'automatic',
   ios: {
-    icon: './assets/expo.icon',
+    // An Icon Composer bundle: iOS 26 renders it with its own material and
+    // depth rather than compositing a flat PNG. The mark is the dive profile
+    // drawn by scripts/make-icons.mjs, which also writes the PNG fallbacks.
+    icon: './assets/subsurface.icon',
     bundleIdentifier: 'codes.mani.subsurface-react',
     // Liquid glass requires iOS 26. Bump if the toolchain needs a higher floor.
     deploymentTarget: '26.0',
@@ -88,7 +91,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // one - nothing Android-side is built yet.
     package: 'codes.mani.subsurfacereact',
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
+      backgroundColor: '#062C53',
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -110,9 +113,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#208AEF',
+        // The two ends of the icon's gradient, so the launch screen reads as
+        // the same water in either appearance.
+        backgroundColor: '#146FC4',
+        dark: { backgroundColor: '#062C53', image: './assets/images/splash-icon.png' },
         image: './assets/images/splash-icon.png',
-        imageWidth: 76,
+        imageWidth: 120,
       },
     ],
     // modules/ssrf-core is picked up by local autolinking

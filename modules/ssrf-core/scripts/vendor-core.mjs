@@ -150,7 +150,26 @@ if (!fs.existsSync(path.join(submodule, 'core/dive.cpp')))
 if (!fs.existsSync(path.join(submodule, LIBDC_HEADER_DIR)))
 	fail('subsurface/libdivecomputer is empty - run `git submodule update --init --recursive` in subsurface/');
 
-const pinned = execFileSync('git', ['-C', submodule, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+// The submodule's checked-out commit, which the stamp is keyed on. A cloud
+// build (EAS) may unpack the submodule's *files* without its git metadata, so
+// the pin recorded in CORE_MANIFEST.md is the fallback - the manifest is the
+// record of what is vendored anyway, and a build that cannot ask git is still
+// building exactly the tree it was handed.
+function pinnedCommit() {
+	try {
+		return execFileSync('git', ['-C', submodule, 'rev-parse', 'HEAD'], {
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+		}).trim();
+	} catch {
+		const manifest = fs.readFileSync(path.join(moduleRoot, 'cpp/CORE_MANIFEST.md'), 'utf8');
+		const match = /`subsurface\/` submodule \| `([0-9a-f]+)`/.exec(manifest);
+		if (!match) fail('cannot determine the pinned core commit (no git, no manifest entry)');
+		return match[1];
+	}
+}
+
+const pinned = pinnedCommit();
 const stampFile = path.join(generated, '.vendor-stamp');
 const fingerprint = inputFingerprint(pinned);
 
