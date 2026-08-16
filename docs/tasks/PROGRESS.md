@@ -670,3 +670,22 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   281 tests still pass, untouched; `tests/` and `src/models/` have no diff.
 
+- 2026-08-16 — Dive deletion. The dive editor can now remove the dive it is
+  editing: a destructive `Delete dive` row under Notes, an `Alert.alert`
+  confirmation naming the dive (`diveRowTitle`), then `useDeleteDive`, `flush()`
+  and `router.dismissTo('/dives')`. It dismisses rather than going back because
+  the screen behind the editor is that dive's detail view, which would come up
+  as "Dive not found".
+
+  The path did not exist at any layer, so it is new all the way down:
+  `delete_dive` in `cpp/bindings/api.cpp` (id to index, then
+  `divelog::delete_single_dive()`, which detaches the trip and the site and
+  drops a trip whose last dive this was), `deleteDive` in the module TS API and
+  the vitest harness, and `useDeleteDive` in `src/queries/logbook-mutations.ts`.
+  That mutation *removes* `queryKeys.dive(id)` and the new
+  `queryKeys.diveProfiles(id)` prefix instead of invalidating them - nothing can
+  answer for a deleted id, so a refetch would only come back as an error.
+
+  Three cases in `tests/editing.test.ts`: the deletion survives a relaunch and
+  leaves every other dive, the dive's site stays with its count one lower, and a
+  trip disappears once its last dive is gone. 284 tests pass.

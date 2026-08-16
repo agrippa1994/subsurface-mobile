@@ -15,6 +15,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 
 import type {
+  DeleteDiveResult,
   Dive,
   DivePatch,
   DiveSite,
@@ -164,6 +165,10 @@ export class SsrfHost {
 
   updateDive(id: number, patch: DivePatch): Promise<Dive> {
     return this.call<Dive>('updateDive', { id, patch });
+  }
+
+  deleteDive(id: number): Promise<DeleteDiveResult> {
+    return this.call<DeleteDiveResult>('deleteDive', { id });
   }
 
   previewDive(id: number, patch: DivePatch): Promise<Dive> {

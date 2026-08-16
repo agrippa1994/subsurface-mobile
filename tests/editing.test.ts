@@ -443,6 +443,7 @@ describe('dive site management', () => {
     await expect(opened.host.updateDive(999_999, { notes: 'x' })).rejects.toThrow(
       /no dive with id/
     );
+    await expect(opened.host.deleteDive(999_999)).rejects.toThrow(/no dive with id/);
     // Still alive and still answering.
     expect((await opened.host.listDives()).length).toBeGreaterThan(0);
     await opened.host.close();
@@ -453,6 +454,70 @@ describe('dive site management', () => {
     await expect(opened.host.upsertDiveSite({ uuid: 999_999, name: 'Nowhere' })).rejects.toThrow(
       /no dive site with uuid/
     );
+    await opened.host.close();
+  });
+});
+
+describe('dive deletion', () => {
+  it('drops the dive and leaves every other one across a relaunch', async () => {
+    const opened = await freshLogbook('delete-dive.ssrf');
+    const before = await opened.host.listDives();
+    const victim = before[1];
+    const survivors = before.filter((d) => d.id !== victim.id).map((d) => d.number);
+
+    const result = await opened.host.deleteDive(victim.id);
+    expect(result.dives).toBe(before.length - 1);
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const after = await host.listDives();
+    // Ids are reassigned on load, so identity here is the dive number.
+    expect(after.map((d) => d.number)).toEqual(survivors);
+    await host.close();
+  });
+
+  it('detaches the deleted dive from its site, keeping the site', async () => {
+    const opened = await freshLogbook('delete-dive-site-kept.ssrf');
+    const dives = await opened.host.listDives();
+    const victim = dives.find((d) => d.siteUuid !== 0)!;
+    const siteBefore = (await opened.host.listDiveSites()).find((s) => s.uuid === victim.siteUuid)!;
+
+    await opened.host.deleteDive(victim.id);
+
+    const siteAfter = (await opened.host.listDiveSites()).find((s) => s.uuid === siteBefore.uuid);
+    expect(siteAfter).toBeDefined();
+    expect(siteAfter!.diveCount).toBe(siteBefore.diveCount - 1);
+    await opened.host.close();
+  });
+
+  it('drops a trip once its last dive is deleted', async () => {
+    const opened = await freshLogbook('delete-dive-trip.ssrf');
+    const dives = await opened.host.listDives();
+    const byLocation = new Map<string, number[]>();
+    for (const dive of dives) {
+      const location = dive.tripLocation.trim();
+      if (location !== '') {
+        byLocation.set(location, [...(byLocation.get(location) ?? []), dive.id]);
+      }
+    }
+    const trip = [...byLocation.entries()].find(([, ids]) => ids.length >= 2);
+    // The sample carries trips; if it ever stops doing so this test is vacuous,
+    // so say that out loud rather than pass by accident.
+    expect(trip).toBeDefined();
+    const [location, ids] = trip!;
+
+    // After the first delete the trip is still standing - that count is the
+    // baseline the last delete has to come in one under.
+    const withTrip = (await opened.host.deleteDive(ids[0])).trips;
+    let result = { dives: 0, trips: withTrip };
+    for (const id of ids.slice(1)) {
+      result = await opened.host.deleteDive(id);
+    }
+    expect(result.trips).toBe(withTrip - 1);
+
+    const left = await opened.host.listDives();
+    expect(left.every((d) => d.tripLocation.trim() !== location)).toBe(true);
     await opened.host.close();
   });
 });

@@ -454,6 +454,9 @@ export type ImportResult = {
 /** What is left after ungroupDives(): every dive, and no trips at all. */
 export type UngroupResult = { dives: number; trips: number };
 
+/** What the logbook holds after deleteDive(): the trip count can drop too. */
+export type DeleteDiveResult = { dives: number; trips: number };
+
 /**
  * Cylinder pressure in mbar at one sample, resolving the flat layout the core
  * uses (`cylinder + sampleIndex * nrCylinders`). Falls back to the interpolated

@@ -84,6 +84,7 @@ rendered metric or imperial.
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
 | `updateDive` | `{ id, patch }` | `Dive` |
+| `deleteDive` | `{ id }` | `{ dives, trips }` |
 | `previewDive` | `{ id, patch }` | `Dive` |
 | `ungroupDives` | `{}` | `{ dives, trips }` |
 | `getLastError` | `{}` | `string` |

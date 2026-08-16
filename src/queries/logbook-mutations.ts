@@ -19,6 +19,7 @@ import {
 } from '@tanstack/react-query';
 
 import {
+  deleteDive,
   deleteDiveSite,
   importFile,
   loadFromXML,
@@ -27,7 +28,14 @@ import {
   updateDive,
   upsertDiveSite,
 } from '../../modules/ssrf-core/src';
-import type { Dive, DivePatch, DiveSiteInput, ImportResult, LoadResult } from '@/models';
+import type {
+  DeleteDiveResult,
+  Dive,
+  DivePatch,
+  DiveSiteInput,
+  ImportResult,
+  LoadResult,
+} from '@/models';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { flush, schedulePersist, setPersistTarget } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
@@ -54,6 +62,24 @@ export function useUpdateDive(): UseMutationResult<Dive, Error, { id: number; pa
   return useMutation({
     mutationFn: async ({ id, patch }) => updateDive(id, patch),
     onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/**
+ * Removes a dive. The dive's own cache entries are *removed* rather than
+ * invalidated: nothing can answer for that id any more, so a refetch behind the
+ * closing screen would only come back as "no dive with id".
+ */
+export function useDeleteDive(): UseMutationResult<DeleteDiveResult, Error, number> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => deleteDive(id),
+    onSuccess: async (_result, id) => {
+      client.removeQueries({ queryKey: queryKeys.dive(id) });
+      client.removeQueries({ queryKey: queryKeys.diveProfiles(id) });
       await invalidateData(client);
       schedulePersist();
     },

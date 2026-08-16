@@ -392,6 +392,27 @@ json delete_dive_site(const json &args)
 	return json{ { "sites", static_cast<int>(divelog.sites.size()) } };
 }
 
+json delete_dive(const json &args)
+{
+	int id = static_cast<int>(require_int(args, "id"));
+	// The index, not the reference require_dive() hands back - and for the same
+	// reason it exists: get_by_uniq_id() exit(1)s in a DEBUG build on an id the
+	// log no longer has, which a screen holding a stale id will produce.
+	auto it = std::find_if(divelog.dives.begin(), divelog.dives.end(),
+			       [id](const auto &d) { return d->id == id; });
+	if (it == divelog.dives.end())
+		fail("no dive with id " + std::to_string(id));
+
+	// Detaching the dive from its trip and its site, and dropping a trip this
+	// was the last dive of, is all done for us - see core/divelog.cpp.
+	divelog.delete_single_dive(static_cast<int>(it - divelog.dives.begin()));
+
+	return json{
+		{ "dives", static_cast<int>(divelog.dives.size()) },
+		{ "trips", static_cast<int>(divelog.trips.size()) },
+	};
+}
+
 // Overwrites exactly the fields the entry mentions, leaving the rest of the
 // cylinder as it was - the same partial-update rule the dive patch follows.
 void apply_cylinder_patch(cylinder_t &cyl, const json &entry)
@@ -988,6 +1009,8 @@ json dispatch(const std::string &method, const json &args)
 		return delete_dive_site(args);
 	if (method == "updateDive")
 		return update_dive(args);
+	if (method == "deleteDive")
+		return delete_dive(args);
 	if (method == "previewDive")
 		return preview_dive(args);
 	if (method == "ungroupDives")

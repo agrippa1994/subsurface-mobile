@@ -16,6 +16,7 @@
 export type {
   Cylinder,
   CylinderPatch,
+  DeleteDiveResult,
   Dive,
   DiveComputer,
   DiveEvent,

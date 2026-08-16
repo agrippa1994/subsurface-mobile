@@ -26,6 +26,8 @@ export const queryKeys = {
   sites: () => ['log', 'data', 'sites'] as const,
   dive: (id: number) => ['log', 'data', 'dive', id] as const,
   profile: (id: number, dcIndex: number) => ['log', 'data', 'profile', id, dcIndex] as const,
+  /** Every profile of one dive, whichever dive computer it came from. */
+  diveProfiles: (id: number) => ['log', 'data', 'profile', id] as const,
   statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,
 
   /** Preferences: a file of its own, untouched by loading a logbook. */

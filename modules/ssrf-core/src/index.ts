@@ -9,6 +9,7 @@
 import SsrfCoreModule from './SsrfCoreModule';
 import {
   SsrfCoreError,
+  type DeleteDiveResult,
   type Dive,
   type DivePatch,
   type DiveSite,
@@ -169,6 +170,14 @@ export function deleteDiveSite(uuid: number): void {
 /** Applies a partial update; absent fields are left alone. */
 export function updateDive(id: number, patch: DivePatch): Dive {
   return call<Dive>('updateDive', { id, patch });
+}
+
+/**
+ * Removes a dive, detaching it from its dive site and its trip on the way out.
+ * A trip this was the last dive of goes with it. See api.cpp, delete_dive().
+ */
+export function deleteDive(id: number): DeleteDiveResult {
+  return call<DeleteDiveResult>('deleteDive', { id });
 }
 
 /**

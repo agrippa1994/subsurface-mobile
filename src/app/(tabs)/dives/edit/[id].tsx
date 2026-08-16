@@ -12,8 +12,8 @@
 
 import { useForm } from '@tanstack/react-form';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fieldError, FormButtonRow, FormField, FormSection, RatingField } from '@/components/form';
 import { NameField } from '@/components/name-field';
@@ -23,6 +23,7 @@ import { Spacing } from '@/constants/theme';
 import { CylinderEditor } from '@/features/dives/cylinder-editor';
 import { SitePicker } from '@/features/dives/site-picker';
 import { useTheme } from '@/hooks/use-theme';
+import { warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
 import { previewDive } from '../../../../../modules/ssrf-core/src';
 import type { Dive, DivePatch } from '@/models';
@@ -44,9 +45,10 @@ import {
   parseTagInput,
   type DiveDraft,
 } from '@/models/dive-edit';
+import { diveRowTitle } from '@/models/dive-list';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive, useDives, useSites } from '@/queries/logbook';
-import { useUpdateDive } from '@/queries/logbook-mutations';
+import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
 import { useUnitSystem } from '@/queries/settings';
 
 /**
@@ -95,6 +97,7 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
   const updateDive = useUpdateDive();
+  const deleteDive = useDeleteDive();
   const [pickingSite, setPickingSite] = useState(false);
 
   const names = useMemo(() => harvestNames(dives), [dives]);
@@ -135,6 +138,26 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
     },
   });
 
+  const onDelete = useCallback(() => {
+    warned();
+    Alert.alert(`Delete "${diveRowTitle(dive)}"?`, 'This dive and its profile are gone for good.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            await deleteDive.mutateAsync(dive.id);
+            await flush();
+            // Not back(): the screen behind is this dive's detail view, which
+            // would come up as "Dive not found". Pop past it to the list.
+            router.dismissTo('/dives');
+          })();
+        },
+      },
+    ]);
+  }, [deleteDive, dive, router]);
+
   return (
     <ScrollView
       style={{ backgroundColor: theme.background }}
@@ -169,7 +192,7 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
 
       <form.Subscribe selector={(state) => state.errorMap.onSubmit}>
         {(submitError) => {
-          const message = fieldError([submitError, updateDive.error]);
+          const message = fieldError([submitError, updateDive.error, deleteDive.error]);
           return message ? (
             <Text style={[styles.error, { color: theme.danger }]}>{message}</Text>
           ) : null;
@@ -329,6 +352,10 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
             />
           )}
         </form.Field>
+      </FormSection>
+
+      <FormSection>
+        <FormButtonRow label="Delete dive" onPress={onDelete} destructive />
       </FormSection>
 
       <View style={styles.footerSpace} />
