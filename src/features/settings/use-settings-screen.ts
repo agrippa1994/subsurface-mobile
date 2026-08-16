@@ -35,7 +35,12 @@ import {
   useReloadLogbook,
   useUngroupDives,
 } from '@/queries/logbook-mutations';
-import { useSetUnitSystem, useUnitSystem } from '@/queries/settings';
+import {
+  useGradientFactors,
+  useSetGradientFactors,
+  useSetUnitSystem,
+  useUnitSystem,
+} from '@/queries/settings';
 
 const EMPTY_LOGBOOK = "<divelog program='subsurface' version='3'>\n  <dives/>\n</divelog>\n";
 const MALFORMED_LOGBOOK = 'this is not a logbook\n';
@@ -45,6 +50,12 @@ export type SettingsScreen = {
   transfer: Transfer;
   unitSystem: UnitSystem;
   setUnitSystem: (system: UnitSystem) => void;
+  /** Buehlmann gradient factors, in percent, the profile ceiling is computed with. */
+  gfLow: number;
+  gfHigh: number;
+  /** Both setters clamp to GF_RANGE and keep gfLow <= gfHigh. */
+  setGfLow: (percent: number) => void;
+  setGfHigh: (percent: number) => void;
   diveCount: number;
   siteCount: number;
   logbookPath: string | null;
@@ -103,6 +114,20 @@ export function useSettingsScreen(): SettingsScreen {
   const transfer = useTransfer();
   const unitSystem = useUnitSystem();
   const setUnitSystem = useSetUnitSystem();
+  const { gfLow, gfHigh } = useGradientFactors();
+  const setGradientFactors = useSetGradientFactors();
+
+  // Raising gf low past gf high pushes gf high along with it, and lowering gf
+  // high pulls gf low down, so a stepper never lands on an inverted pair.
+  const setGfLow = useCallback(
+    (percent: number) => setGradientFactors({ gfLow: percent, gfHigh }),
+    [gfHigh, setGradientFactors],
+  );
+
+  const setGfHigh = useCallback(
+    (percent: number) => setGradientFactors({ gfLow: Math.min(gfLow, percent), gfHigh: percent }),
+    [gfLow, setGradientFactors],
+  );
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
   const path = useLogbook().data?.path ?? null;
@@ -234,7 +259,11 @@ export function useSettingsScreen(): SettingsScreen {
   return {
     transfer,
     unitSystem,
-    setUnitSystem: setUnitSystem.mutate,
+    setUnitSystem,
+    gfLow,
+    gfHigh,
+    setGfLow,
+    setGfHigh,
     diveCount: dives.length,
     siteCount: sites.length,
     logbookPath: path,

@@ -14,7 +14,7 @@
 // Dive site uuids are persisted and stable, but they live under the same root
 // for the simple reason that a reload replaces those objects too.
 
-import type { StatsFilter } from '@/models';
+import type { GradientFactors, StatsFilter } from '@/models';
 
 export const queryKeys = {
   /** The loaded logbook itself: { path, lastLoad }. */
@@ -25,7 +25,13 @@ export const queryKeys = {
   dives: () => ['log', 'data', 'dives'] as const,
   sites: () => ['log', 'data', 'sites'] as const,
   dive: (id: number) => ['log', 'data', 'dive', id] as const,
-  profile: (id: number, dcIndex: number) => ['log', 'data', 'profile', id, dcIndex] as const,
+  /**
+   * One plotted profile. The gradient factors are part of the key because they
+   * change what the core computes: without them a cached plot would keep the
+   * ceiling of the previous setting.
+   */
+  profile: (id: number, dcIndex: number, gf: GradientFactors) =>
+    ['log', 'data', 'profile', id, dcIndex, gf.gfLow, gf.gfHigh] as const,
   /** Every profile of one dive, whichever dive computer it came from. */
   diveProfiles: (id: number) => ['log', 'data', 'profile', id] as const,
   statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,

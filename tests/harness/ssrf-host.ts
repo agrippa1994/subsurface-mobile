@@ -21,6 +21,7 @@ import type {
   DiveSite,
   DiveSiteInput,
   DiveSummary,
+  GradientFactors,
   ImportResult,
   LoadResult,
   PlotInfo,
@@ -143,8 +144,8 @@ export class SsrfHost {
     return this.call<Dive>('getDive', { id });
   }
 
-  getProfile(id: number, dcIndex = 0): Promise<PlotInfo> {
-    return this.call<PlotInfo>('getProfile', { id, dcIndex });
+  getProfile(id: number, dcIndex = 0, gf?: GradientFactors): Promise<PlotInfo> {
+    return this.call<PlotInfo>('getProfile', { id, dcIndex, ...gf });
   }
 
   getStatistics(filter?: StatsFilter): Promise<StatsSummary> {

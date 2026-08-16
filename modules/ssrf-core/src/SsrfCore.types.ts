@@ -327,6 +327,15 @@ export type PlotEntry = {
   icdWarning: boolean;
 };
 
+/**
+ * Buehlmann gradient factors, in percent, as `getProfile` takes them. The core
+ * clamps each to 10-150 and raises `gfHigh` to `gfLow` if the pair is inverted.
+ */
+export type GradientFactors = {
+  gfLow: number;
+  gfHigh: number;
+};
+
 export type PlotInfo = {
   nr: number;
   nrCylinders: number;

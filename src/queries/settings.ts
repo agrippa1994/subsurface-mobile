@@ -12,9 +12,16 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
+import { useCallback, useMemo } from 'react';
 
-import type { UnitSystem } from '@/models';
-import { DEFAULT_SETTINGS, parseSettings, serializeSettings, type Settings } from '@/models/settings';
+import type { GradientFactors, UnitSystem } from '@/models';
+import {
+  clampGradientFactors,
+  DEFAULT_SETTINGS,
+  parseSettings,
+  serializeSettings,
+  type Settings,
+} from '@/models/settings';
 import { queryKeys } from '@/lib/query-keys';
 
 const SETTINGS_FILENAME = 'settings.json';
@@ -59,14 +66,43 @@ export function useUnitSystem(): UnitSystem {
   return useSettings().unitSystem;
 }
 
-export function useSetUnitSystem() {
+/**
+ * The gradient factors every profile is plotted with. Memoized because it feeds
+ * a query key and a queryFn.
+ */
+export function useGradientFactors(): GradientFactors {
+  const { gfLow, gfHigh } = useSettings();
+  return useMemo(() => ({ gfLow, gfHigh }), [gfLow, gfHigh]);
+}
+
+/**
+ * Writes some of the preferences, merged onto the rest. Every setter goes
+ * through this: a mutation that rebuilt the whole object would drop the
+ * settings it does not know about.
+ */
+export function useUpdateSettings() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (unitSystem: UnitSystem): Promise<Settings> => {
-      const settings: Settings = { unitSystem };
+    mutationFn: async (patch: Partial<Settings>): Promise<Settings> => {
+      const current = client.getQueryData<Settings>(queryKeys.settings()) ?? readSettings();
+      const settings: Settings = { ...current, ...patch };
       writeSettings(settings);
       return settings;
     },
     onSuccess: (settings) => client.setQueryData(queryKeys.settings(), settings),
   });
+}
+
+export function useSetUnitSystem(): (unitSystem: UnitSystem) => void {
+  const update = useUpdateSettings();
+  return useCallback((unitSystem: UnitSystem) => update.mutate({ unitSystem }), [update]);
+}
+
+/** Sets both gradient factors at once, in range and in order. */
+export function useSetGradientFactors(): (gf: GradientFactors) => void {
+  const update = useUpdateSettings();
+  return useCallback(
+    (gf: GradientFactors) => update.mutate(clampGradientFactors(gf.gfLow, gf.gfHigh)),
+    [update],
+  );
 }

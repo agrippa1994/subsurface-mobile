@@ -31,6 +31,7 @@ import { toStatsFilter, type StatsFilterInput } from '@/models/statistics';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { setPersistTarget } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
+import { useGradientFactors } from '@/queries/settings';
 
 export type Logbook = {
   /** Path of the logbook currently loaded. */
@@ -92,10 +93,16 @@ export function useDive(id: number): UseQueryResult<Dive> {
   });
 }
 
+/**
+ * The plotted profile, computed with the gradient factors from Settings - a
+ * change there recomputes rather than redraws, because the ceiling comes out of
+ * the core.
+ */
 export function useProfile(id: number, dcIndex = 0): UseQueryResult<PlotInfo> {
+  const gf = useGradientFactors();
   return useQuery({
-    queryKey: queryKeys.profile(id, dcIndex),
-    queryFn: () => getProfile(id, dcIndex),
+    queryKey: queryKeys.profile(id, dcIndex, gf),
+    queryFn: () => getProfile(id, dcIndex, gf),
     enabled: useLogLoaded() && Number.isFinite(id),
   });
 }

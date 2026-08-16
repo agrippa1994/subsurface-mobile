@@ -7,6 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
+import { GF_RANGE } from '@/models/settings';
 import type { UnitSystem } from '@/models';
 
 export default function SettingsScreen() {
@@ -30,6 +31,32 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
+  // Stands in for the iOS variant's native Stepper. The value sits between the
+  // two buttons so the row reads the same way.
+  const stepper = (label: string, value: number, onChange: (percent: number) => void) => (
+    <View key={label} style={styles.stepper}>
+      <Text style={{ color: theme.text }}>{`${label}  ${value}%`}</Text>
+      <View style={styles.segments}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Decrease ${label}`}
+          disabled={value <= GF_RANGE.min}
+          onPress={() => onChange(value - 1)}
+          style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
+          <Text style={{ color: theme.text }}>-</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Increase ${label}`}
+          disabled={value >= GF_RANGE.max}
+          onPress={() => onChange(value + 1)}
+          style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
+          <Text style={{ color: theme.text }}>+</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   const action = (label: string, onPress: () => void) => (
     <Pressable key={label} accessibilityRole="button" onPress={onPress} style={styles.action}>
       <Text style={styles.actionLabel}>{label}</Text>
@@ -46,6 +73,14 @@ export default function SettingsScreen() {
         {unitOption('metric', 'Metric')}
         {unitOption('imperial', 'Imperial')}
       </View>
+
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Decompression</Text>
+      {stepper('GF low', screen.gfLow, screen.setGfLow)}
+      {stepper('GF high', screen.gfHigh, screen.setGfHigh)}
+      <Text style={[styles.note, { color: theme.textSecondary }]}>
+        Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
+        profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75.
+      </Text>
 
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Logbook</Text>
       <Text style={{ color: theme.text }}>
@@ -109,6 +144,11 @@ const styles = StyleSheet.create({
   segments: {
     flexDirection: 'row',
     gap: Spacing.two,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   segment: {
     paddingHorizontal: Spacing.three,

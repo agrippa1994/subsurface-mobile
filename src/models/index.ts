@@ -25,6 +25,7 @@ export type {
   DiveSiteInput,
   DiveSummary,
   GasMix,
+  GradientFactors,
   ImportResult,
   LoadResult,
   PlotEntry,

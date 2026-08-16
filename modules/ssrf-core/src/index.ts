@@ -15,6 +15,7 @@ import {
   type DiveSite,
   type DiveSiteInput,
   type DiveSummary,
+  type GradientFactors,
   type ImportResult,
   type LoadResult,
   type PlotInfo,
@@ -130,9 +131,15 @@ export function getDive(id: number): Dive {
   return call<Dive>('getDive', { id });
 }
 
-/** Builds the plotted profile of one divecomputer (index 0 by default). */
-export function getProfile(id: number, dcIndex = 0): PlotInfo {
-  return call<PlotInfo>('getProfile', { id, dcIndex });
+/**
+ * Builds the plotted profile of one divecomputer (index 0 by default).
+ *
+ * `gf` sets the gradient factors the deco ceiling is computed with; omitted, the
+ * core's 30/75 apply. They ride on the call because the core keeps them in a
+ * global that the last caller wins - see cpp/API.md.
+ */
+export function getProfile(id: number, dcIndex = 0, gf?: GradientFactors): PlotInfo {
+  return call<PlotInfo>('getProfile', { id, dcIndex, ...gf });
 }
 
 /**

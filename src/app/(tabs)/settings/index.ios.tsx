@@ -1,11 +1,21 @@
 // AI-generated (Claude)
 // Settings, iOS variant: a native Form, so the rows, grouping and controls are
 // the system's own.
-import { Button, Form, Host, LabeledContent, Picker, Section, Text } from '@expo/ui/swift-ui';
+import {
+  Button,
+  Form,
+  Host,
+  LabeledContent,
+  Picker,
+  Section,
+  Stepper,
+  Text,
+} from '@expo/ui/swift-ui';
 import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
+import { GF_RANGE } from '@/models/settings';
 import type { UnitSystem } from '@/models';
 
 export default function SettingsScreen() {
@@ -23,6 +33,32 @@ export default function SettingsScreen() {
             <Text modifiers={[tag('metric')]}>Metric</Text>
             <Text modifiers={[tag('imperial')]}>Imperial</Text>
           </Picker>
+        </Section>
+
+        <Section
+          title="Decompression"
+          footer={
+            <Text>
+              Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
+              profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75.
+            </Text>
+          }>
+          <Stepper
+            label={`GF low  ${screen.gfLow}%`}
+            value={screen.gfLow}
+            min={GF_RANGE.min}
+            max={GF_RANGE.max}
+            step={1}
+            onValueChange={screen.setGfLow}
+          />
+          <Stepper
+            label={`GF high  ${screen.gfHigh}%`}
+            value={screen.gfHigh}
+            min={GF_RANGE.min}
+            max={GF_RANGE.max}
+            step={1}
+            onValueChange={screen.setGfHigh}
+          />
         </Section>
 
         <Section title="Logbook" footer={<Text>{screen.logbookPath ?? 'not loaded'}</Text>}>
@@ -86,7 +122,9 @@ export default function SettingsScreen() {
         {__DEV__ ? (
           <Section
             title="Developer"
-            footer={<Text>Loads throwaway files to exercise the list&apos;s empty and error states.</Text>}>
+            footer={
+              <Text>Loads throwaway files to exercise the list&apos;s empty and error states.</Text>
+            }>
             <Button label="Import the Suunto sample" onPress={screen.importSuuntoSample} />
             <Button label="Import the Suunto XML sample" onPress={screen.importSuuntoXmlSample} />
             <Button label="Load an empty logbook" onPress={screen.loadEmptyLogbook} />

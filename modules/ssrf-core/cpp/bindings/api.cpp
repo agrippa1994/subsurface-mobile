@@ -6,6 +6,7 @@
 #include "suunto-xml.h"
 #include "zip-reader.h"
 
+#include "core/deco.h"
 #include "core/dive.h"
 #include "core/divecomputer.h"
 #include "core/divelist.h"
@@ -329,6 +330,12 @@ json get_dive(const json &args)
 	return dive_to_json(require_dive(static_cast<int>(require_int(args, "id"))));
 }
 
+// Bounds on a gradient factor, in percent. Desktop Subsurface's preference
+// dialog allows the same range; anything outside it is a typo rather than a
+// plan.
+static const int GF_MIN = 10;
+static const int GF_MAX = 150;
+
 json get_profile(const json &args)
 {
 	const struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
@@ -338,6 +345,21 @@ json get_profile(const json &args)
 	// silently plot a different divecomputer. Reject it here instead.
 	if (dcIndex < 0 || static_cast<size_t>(dcIndex) >= d.dcs.size())
 		fail("dive " + std::to_string(d.id) + " has no divecomputer " + std::to_string(dcIndex));
+
+	// Gradient factors. set_gf() writes the process-global buehlmann_config,
+	// so they are set on every call rather than once at startup - the caller's
+	// preference is the only thing that decides what this plot shows. The
+	// defaults are default_prefs' (core/pref.cpp), which this build never
+	// copies into `prefs`.
+	int gfLow = static_cast<int>(get_int(args, "gfLow", 30));
+	int gfHigh = static_cast<int>(get_int(args, "gfHigh", 75));
+	gfLow = std::clamp(gfLow, GF_MIN, GF_MAX);
+	gfHigh = std::clamp(gfHigh, GF_MIN, GF_MAX);
+	// A gf_low above gf_high has no meaning for the Buehlmann model; the
+	// stricter of the two wins rather than the call failing.
+	if (gfLow > gfHigh)
+		gfHigh = gfLow;
+	set_gf(static_cast<short>(gfLow), static_cast<short>(gfHigh));
 
 	plot_info pi = create_plot_info_new(&d, d.get_dc(dcIndex), nullptr);
 	return plot_info_to_json(pi);

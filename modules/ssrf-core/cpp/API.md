@@ -78,7 +78,7 @@ rendered metric or imperial.
 | `configure` | `{ xsltDir }` | `{ xsltDir }` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
-| `getProfile` | `{ id, dcIndex? }` | `PlotInfo` |
+| `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
@@ -150,6 +150,12 @@ directly and avoids the copy.
   reporting the mistake. Note that `PlotInfo.maxDepthMm` is the *dive's* maximum
   depth, which can exceed the deepest plotted sample when the divecomputer
   recorded its maximum at a finer resolution than the sample interval.
+  `gfLow` / `gfHigh` are the Buehlmann gradient factors in percent (defaults
+  30 / 75, the `default_prefs` values), applied through `set_gf()` before the
+  plot is computed. They are clamped to 10-150, and a `gfLow` above `gfHigh`
+  raises `gfHigh` to it. `set_gf()` writes a process-global, so they are passed
+  on every call rather than configured once: whatever the last `getProfile` set
+  is what any later plot would otherwise use.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The

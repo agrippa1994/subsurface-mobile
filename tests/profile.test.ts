@@ -6,8 +6,10 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { join } from 'node:path';
+
 import type { PlotInfo } from '../src/models';
-import { fixture } from './harness/fixtures';
+import { fixture, REPO_ROOT } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
 
 let host: SsrfHost;
@@ -23,6 +25,13 @@ afterAll(async () => {
 function maxDepth(profile: PlotInfo): number {
   return profile.entry.reduce((max, e) => Math.max(max, e.depthMm), 0);
 }
+
+/** Stands in for "how much deco this plot shows": deeper and longer both raise it. */
+function ceilingSum(profile: PlotInfo): number {
+  return profile.entry.reduce((sum, e) => sum + Math.max(0, e.ceilingMm), 0);
+}
+
+const SAMPLE_LOG = join(REPO_ROOT, 'assets/sample/sample-log.ssrf');
 
 describe('Suunto import', () => {
   it('imports a DM4 database', async () => {
@@ -139,6 +148,34 @@ describe('profiles of parsed logbooks', () => {
     // Cylinder pressures are millibar: a full tank is around 200000.
     expect(Math.max(...readings)).toBeGreaterThan(50000);
     expect(Math.max(...readings)).toBeLessThan(500000);
+  });
+
+  // The deco ceiling is the one thing on the profile the user's own settings
+  // change (Settings > Decompression), so the arguments have to reach set_gf().
+  it('plots a deeper ceiling for stricter gradient factors', async () => {
+    await host.loadFromXML(SAMPLE_LOG);
+    const dives = await host.listDives();
+
+    let compared = 0;
+    for (const dive of dives) {
+      const relaxed = ceilingSum(await host.getProfile(dive.id, 0, { gfLow: 90, gfHigh: 95 }));
+      const strict = ceilingSum(await host.getProfile(dive.id, 0, { gfLow: 10, gfHigh: 20 }));
+      if (strict === 0) {
+        continue;
+      }
+      expect(strict).toBeGreaterThan(relaxed);
+      compared += 1;
+    }
+    expect(compared).toBeGreaterThan(0);
+  });
+
+  it('defaults to the core preferences when no gradient factors are given', async () => {
+    await host.loadFromXML(SAMPLE_LOG);
+    const [dive] = await host.listDives();
+
+    const implicit = await host.getProfile(dive.id);
+    const explicit = await host.getProfile(dive.id, 0, { gfLow: 30, gfHigh: 75 });
+    expect(ceilingSum(implicit)).toBe(ceilingSum(explicit));
   });
 
   it('rejects a divecomputer index that does not exist', async () => {
