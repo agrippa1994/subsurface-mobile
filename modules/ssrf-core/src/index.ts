@@ -172,6 +172,19 @@ export function updateDive(id: number, patch: DivePatch): Dive {
 }
 
 /**
+ * The dive as `updateDive(id, patch)` would leave it, without applying it.
+ *
+ * This is a read: the log is untouched and `siteUuid` is ignored. It exists so
+ * the editor can show the SAC rate that follows from the cylinder sizes and
+ * pressures being typed, computed by the core rather than by a second
+ * implementation of gas compressibility in TypeScript. See api.cpp,
+ * preview_dive().
+ */
+export function previewDive(id: number, patch: DivePatch): Dive {
+  return call<Dive>('previewDive', { id, patch });
+}
+
+/**
  * Takes every dive out of its trip and drops the trips. For logbooks a build
  * that still autogrouped has written trips into - the app cannot recognise
  * those on its own, so this is the user's undo. See api.cpp, ungroup_dives().

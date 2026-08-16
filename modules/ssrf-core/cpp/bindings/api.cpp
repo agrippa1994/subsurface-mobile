@@ -12,7 +12,9 @@
 #include "core/divelog.h"
 #include "core/divesite.h"
 #include "core/divesitetable.h"
+#include "core/equipment.h"
 #include "core/errorhelper.h"
+#include "core/gas.h"
 #include "core/parse.h"
 #include "core/profile.h"
 #include "core/qthelper.h"
@@ -390,14 +392,119 @@ json delete_dive_site(const json &args)
 	return json{ { "sites", static_cast<int>(divelog.sites.size()) } };
 }
 
-json update_dive(const json &args)
+// Overwrites exactly the fields the entry mentions, leaving the rest of the
+// cylinder as it was - the same partial-update rule the dive patch follows.
+void apply_cylinder_patch(cylinder_t &cyl, const json &entry)
 {
-	struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
-	auto patch_it = args.find("patch");
-	if (patch_it == args.end() || !patch_it->is_object())
-		fail("missing required object argument 'patch'");
-	const json &patch = *patch_it;
+	if (entry.contains("description"))
+		cyl.type.description = get_string(entry, "description");
+	if (entry.contains("sizeMl"))
+		cyl.type.size.mliter = static_cast<int>(get_int(entry, "sizeMl", 0));
+	if (entry.contains("workingPressureMbar"))
+		cyl.type.workingpressure.mbar = static_cast<int>(get_int(entry, "workingPressureMbar", 0));
+	// Raw permille, sentinel and all: 0/0 is how the core spells air, and
+	// resolving it here would turn "air" into a literal 20.9% nitrox in the
+	// saved file.
+	if (entry.contains("o2Permille"))
+		cyl.gasmix.o2.permille = static_cast<int>(get_int(entry, "o2Permille", 0));
+	if (entry.contains("hePermille"))
+		cyl.gasmix.he.permille = static_cast<int>(get_int(entry, "hePermille", 0));
+	if (entry.contains("startMbar"))
+		cyl.start.mbar = static_cast<int>(get_int(entry, "startMbar", 0));
+	if (entry.contains("endMbar"))
+		cyl.end.mbar = static_cast<int>(get_int(entry, "endMbar", 0));
+	if (entry.contains("use")) {
+		int64_t use = get_int(entry, "use", OC_GAS);
+		if (use < 0 || use >= NUM_GAS_USE)
+			fail("cylinder 'use' out of range");
+		cyl.cylinder_use = static_cast<enum cylinderuse>(use);
+	}
+}
 
+// True when the entry describes a cylinder the dive already has.
+bool has_source_index(const json &entry)
+{
+	auto it = entry.find("sourceIndex");
+	return it != entry.end() && !it->is_null();
+}
+
+/*
+ * `cylinders` is the whole resulting list, not a delta: an entry carrying
+ * `sourceIndex` keeps the dive's existing cylinder at that index, an entry
+ * without one is new. Entries must stay in source order and the new ones must
+ * come last, so the only structural change a patch can express is removal plus
+ * appending - which is exactly what the editor offers, and what keeps the
+ * sample sensors and gas-switch events remappable.
+ */
+void apply_cylinders(struct dive &d, const json &list)
+{
+	if (!list.is_array())
+		fail("'cylinders' must be an array");
+
+	int previous = -1;
+	bool seen_new = false;
+	std::vector<bool> kept(d.cylinders.size(), false);
+	for (const json &entry : list) {
+		if (!entry.is_object())
+			fail("each entry of 'cylinders' must be an object");
+		if (!has_source_index(entry)) {
+			seen_new = true;
+			continue;
+		}
+		if (seen_new)
+			fail("new cylinders must come after the existing ones");
+		int idx = static_cast<int>(get_int(entry, "sourceIndex", -1));
+		if (idx < 0 || idx >= static_cast<int>(d.cylinders.size()))
+			fail("cylinder sourceIndex " + std::to_string(idx) + " out of range");
+		if (idx <= previous)
+			fail("cylinders may not be reordered");
+		previous = idx;
+		kept[idx] = true;
+	}
+
+	// A cylinder the samples or the gas-switch events still refer to has no
+	// sensible replacement, and dropping it would leave those events pointing
+	// at "unknown gas". Refuse rather than quietly degrade the dive.
+	for (int idx = 0; idx < static_cast<int>(kept.size()); ++idx) {
+		if (!kept[idx] && d.is_cylinder_used(idx))
+			fail("cylinder " + std::to_string(idx) + " is used by the dive and cannot be removed");
+	}
+
+	// Back to front, so the indices still to be visited stay valid.
+	// remove_cylinder() only erases; it is cylinder_renumber() that moves the
+	// tank-sensor mappings and the gas-switch indices along with it, which is
+	// why the core's own edit commands always run the pair together.
+	for (int idx = static_cast<int>(kept.size()) - 1; idx >= 0; --idx) {
+		if (kept[idx])
+			continue;
+		std::vector<int> mapping =
+			get_cylinder_map_for_remove(static_cast<int>(d.cylinders.size()), idx);
+		remove_cylinder(&d, idx);
+		cylinder_renumber(d, mapping.data());
+	}
+
+	// What is left is the kept cylinders in order, so the entries line up with
+	// them one by one and the new ones append past the end.
+	size_t at = 0;
+	for (const json &entry : list) {
+		if (has_source_index(entry)) {
+			apply_cylinder_patch(d.cylinders[at], entry);
+			++at;
+		} else {
+			cylinder_t cyl;
+			cyl.manually_added = true;
+			apply_cylinder_patch(cyl, entry);
+			d.cylinders.push_back(std::move(cyl));
+		}
+	}
+}
+
+// The part of a dive patch that does not touch the divelog itself, so that it
+// can also be applied to a throwaway copy of a dive (see preview_dive()).
+// Registering the dive with a site is deliberately not here: that mutates the
+// site table, which a preview must not do.
+void apply_dive_patch(struct dive &d, const json &patch)
+{
 	if (patch.contains("notes"))
 		d.notes = get_string(patch, "notes");
 	if (patch.contains("buddy"))
@@ -424,6 +531,35 @@ json update_dive(const json &args)
 		taglist_cleanup(d.tags);
 	}
 
+	if (patch.contains("cylinders")) {
+		apply_cylinders(d, patch["cylinders"]);
+		// SAC, OTU and CNS are derived from the cylinders and their start/end
+		// pressures, so a cylinder edit that left them alone would show the
+		// figures of the dive as it was before. This is the same recomputation
+		// the desktop app's dive-list model does after an equipment edit.
+		divelog.dives.update_cylinder_related_info(d);
+	}
+
+	// The full-text cache indexes notes/buddy/tags, so it is stale now.
+	d.invalidate_cache();
+}
+
+// Reads the patch argument shared by updateDive and previewDive.
+const json &require_patch(const json &args)
+{
+	auto it = args.find("patch");
+	if (it == args.end() || !it->is_object())
+		fail("missing required object argument 'patch'");
+	return *it;
+}
+
+json update_dive(const json &args)
+{
+	struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
+	const json &patch = require_patch(args);
+
+	apply_dive_patch(d, patch);
+
 	if (patch.contains("siteUuid")) {
 		uint32_t uuid = static_cast<uint32_t>(get_int(patch, "siteUuid", 0));
 		unregister_dive_from_dive_site(&d);
@@ -431,10 +567,30 @@ json update_dive(const json &args)
 			require_site(uuid).add_dive(&d);
 	}
 
-	// The full-text cache indexes notes/buddy/tags, so it is stale now.
-	d.invalidate_cache();
-
 	return dive_to_json(d);
+}
+
+/*
+ * What the dive would look like with `patch` applied, without applying it.
+ *
+ * The editor needs this for one thing the user can watch change while typing:
+ * the SAC rate, which follows from the cylinder sizes and the start/end
+ * pressures through gas compressibility (`cylinder_t::gas_volume`) and the
+ * dive's mean depth. Recomputing that in TypeScript would be a second
+ * implementation of core physics that could disagree with the file; running the
+ * core over a copy of the dive cannot.
+ *
+ * `siteUuid` is ignored here - a preview must not touch the site table.
+ */
+json preview_dive(const json &args)
+{
+	const struct dive &original = require_dive(static_cast<int>(require_int(args, "id")));
+	struct dive copy = original;
+	apply_dive_patch(copy, require_patch(args));
+	// Unconditionally, unlike update_dive: a preview of a pressure change is
+	// the one thing this method exists for, and the copy is thrown away.
+	divelog.dives.update_cylinder_related_info(copy);
+	return dive_to_json(copy);
 }
 
 // Marks the dives matching `filter` as selected, since that is the input the
@@ -832,6 +988,8 @@ json dispatch(const std::string &method, const json &args)
 		return delete_dive_site(args);
 	if (method == "updateDive")
 		return update_dive(args);
+	if (method == "previewDive")
+		return preview_dive(args);
 	if (method == "ungroupDives")
 		return ungroup_dives();
 	if (method == "getLastError")

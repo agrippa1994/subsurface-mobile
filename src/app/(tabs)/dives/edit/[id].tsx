@@ -16,28 +16,41 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FormButtonRow, FormField, FormSection, RatingField } from '@/components/form';
 import { NameField } from '@/components/name-field';
 import { StatusView } from '@/components/status-view';
+import { SuggestField, SuggestionChips } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
+import { CylinderEditor } from '@/features/dives/cylinder-editor';
 import { SitePicker } from '@/features/dives/site-picker';
 import { useTheme } from '@/hooks/use-theme';
-import { getDive } from '../../../../../modules/ssrf-core/src';
-import type { Dive } from '@/models';
+import { getDive, previewDive } from '../../../../../modules/ssrf-core/src';
+import type { Dive, DivePatch } from '@/models';
+import { formatSac } from '@/models';
+import {
+  buildCylinderPatches,
+  cylinderDraftsFrom,
+  validateCylinderDrafts,
+  type CylinderDraft,
+} from '@/models/cylinder-edit';
 import {
   buildDivePatch,
-  diveDraftFrom,
+  harvestCylinderDescriptions,
   harvestNames,
+  harvestSuits,
   harvestTags,
+  diveDraftFrom,
   isEmptyPatch,
   parseTagInput,
   type DiveDraft,
 } from '@/models/dive-edit';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useLogStore } from '@/store/log-store';
+import { useUnitSystem } from '@/store/settings-store';
 
 export default function DiveEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
   const router = useRouter();
   const theme = useTheme();
+  const unitSystem = useUnitSystem();
 
   const dives = useLogStore((state) => state.dives);
   const sites = useLogStore((state) => state.sites);
@@ -60,11 +73,59 @@ export default function DiveEditScreen() {
   const [tagText, setTagText] = useState(() =>
     'dive' in loaded ? loaded.dive.tags.join(', ') : ''
   );
+  // Cylinders are their own draft: they are a list of rows rather than a set of
+  // fields, and unlike the rest of the editor they carry the identity a row
+  // needs to survive a re-render (`CylinderDraft.key`).
+  const [cylinders, setCylinders] = useState<CylinderDraft[]>(() =>
+    'dive' in loaded ? cylinderDraftsFrom(loaded.dive, unitSystem) : []
+  );
   const [pickingSite, setPickingSite] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const names = useMemo(() => harvestNames(dives), [dives]);
   const knownTags = useMemo(() => harvestTags(dives), [dives]);
+  const knownSuits = useMemo(() => harvestSuits(dives), [dives]);
+  const knownCylinders = useMemo(() => harvestCylinderDescriptions(dives), [dives]);
+
+  const cylinderErrors = useMemo(
+    () => validateCylinderDrafts(cylinders, unitSystem),
+    [cylinders, unitSystem]
+  );
+  const cylindersValid = Object.keys(cylinderErrors).length === 0;
+
+  /**
+   * The `cylinders` key of the patch, or null when nothing about them changed.
+   * Built once here and reused for both the SAC preview and the save, so the
+   * number on screen is computed from exactly what saving would write.
+   */
+  const cylinderPatches = useMemo(() => {
+    if (!('dive' in loaded) || !cylindersValid) {
+      return null;
+    }
+    return buildCylinderPatches(loaded.dive, cylinders, unitSystem);
+  }, [cylinders, cylindersValid, loaded, unitSystem]);
+
+  /**
+   * SAC as the core would compute it once these cylinders are saved. It comes
+   * from the module rather than from arithmetic here because it depends on gas
+   * compressibility and the dive's mean depth (`calculate_sac` in
+   * core/divelist.cpp) - a second implementation could disagree with the file.
+   */
+  const sac = useMemo(() => {
+    if (!('dive' in loaded)) {
+      return 0;
+    }
+    if (cylinderPatches === null) {
+      return loaded.dive.sac;
+    }
+    try {
+      return previewDive(loaded.dive.id, { cylinders: cylinderPatches }).sac;
+    } catch {
+      // A preview is a convenience; a failure here must not stop the editor.
+      // Whatever is wrong will be reported when the save attempts it for real.
+      return 0;
+    }
+  }, [cylinderPatches, loaded]);
 
   const patch = useCallback(
     (changes: Partial<DiveDraft>) =>
@@ -76,8 +137,15 @@ export default function DiveEditScreen() {
     if (!('dive' in loaded) || draft === null) {
       return;
     }
+    if (!cylindersValid) {
+      setSaveError('Fix the cylinder fields marked in red before saving.');
+      return;
+    }
     try {
-      const divePatch = buildDivePatch(loaded.dive, draft);
+      const divePatch: DivePatch = buildDivePatch(loaded.dive, draft);
+      if (cylinderPatches !== null) {
+        divePatch.cylinders = cylinderPatches;
+      }
       if (!isEmptyPatch(divePatch)) {
         await updateDive(loaded.dive.id, divePatch);
         // The editor is about to close, so the debounce window has to end here:
@@ -88,7 +156,7 @@ export default function DiveEditScreen() {
     } catch (error) {
       setSaveError(formatErrorLine(describeError(error)));
     }
-  }, [draft, flush, loaded, router, updateDive]);
+  }, [cylinderPatches, cylindersValid, draft, flush, loaded, router, updateDive]);
 
   if ('error' in loaded || draft === null) {
     return (
@@ -154,12 +222,32 @@ export default function DiveEditScreen() {
           value={draft.visibility}
           onChange={(visibility) => patch({ visibility })}
         />
-        <FormField
+        <SuggestField
           label="Suit"
           value={draft.suit}
-          onChangeText={(suit) => patch({ suit })}
+          corpus={knownSuits}
           placeholder="5mm wetsuit"
+          onChange={(suit) => patch({ suit })}
         />
+      </FormSection>
+
+      <CylinderEditor
+        drafts={cylinders}
+        errors={cylinderErrors}
+        descriptions={knownCylinders}
+        unitSystem={unitSystem}
+        onChange={setCylinders}
+      />
+
+      <FormSection
+        title="Gas consumption"
+        footer="Surface air consumption, computed from the cylinder sizes and the start and end pressures.">
+        <View style={styles.sacRow}>
+          <Text style={[styles.sacLabel, { color: theme.text }]}>SAC</Text>
+          <Text style={[styles.sacValue, { color: theme.text }]}>
+            {sac > 0 ? formatSac(sac, unitSystem) : 'Not enough data'}
+          </Text>
+        </View>
       </FormSection>
 
       <FormSection title="Tags">
@@ -174,29 +262,14 @@ export default function DiveEditScreen() {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        {tagSuggestions.length > 0 ? (
-          <View style={styles.chips}>
-            {tagSuggestions.map((tag) => (
-              <Pressable
-                key={tag}
-                accessibilityRole="button"
-                onPress={() => {
-                  const next = [...draft.tags, tag];
-                  setTagText(next.join(', '));
-                  patch({ tags: next });
-                }}
-                style={({ pressed }) => [
-                  styles.chip,
-                  {
-                    borderColor: theme.separator,
-                    backgroundColor: pressed ? theme.backgroundSelected : 'transparent',
-                  },
-                ]}>
-                <Text style={{ color: theme.text }}>{tag}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
+        <SuggestionChips
+          suggestions={tagSuggestions}
+          onSelect={(tag) => {
+            const next = [...draft.tags, tag];
+            setTagText(next.join(', '));
+            patch({ tags: next });
+          }}
+        />
       </FormSection>
 
       <FormSection title="Notes">
@@ -235,16 +308,18 @@ const styles = StyleSheet.create({
   error: {
     fontSize: 15,
   },
-  chips: {
+  sacRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.three,
   },
-  chip: {
-    borderRadius: Spacing.four,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
+  sacLabel: {
+    fontSize: 17,
+  },
+  sacValue: {
+    fontSize: 17,
+    fontWeight: '600',
   },
   footerSpace: {
     height: Spacing.six,

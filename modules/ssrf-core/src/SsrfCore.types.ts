@@ -112,10 +112,18 @@ export type DiveSummary = {
   tripLocation: string;
   buddy: string;
   diveguide: string;
+  suit: string;
   tags: string[];
   divemode: DiveMode;
   dcModel: string;
   invalid: boolean;
+  /**
+   * The descriptions of the dive's cylinders, in order, with the unnamed ones
+   * left out. On the summary rather than only on `Dive` because it is the
+   * autocomplete corpus for the cylinder editor: the core has no cylinder
+   * table, so the dive list is the only record of the tanks a diver uses.
+   */
+  cylinderDescriptions: string[];
 };
 
 export type Cylinder = {
@@ -134,6 +142,12 @@ export type Cylinder = {
   use: CylinderUse;
   bestmixO2: boolean;
   bestmixHe: boolean;
+  /**
+   * `dive::is_cylinder_used(index)`: the samples or the gas-switch events refer
+   * to this cylinder. Such a cylinder cannot be removed - the events would be
+   * left pointing at a gas that is no longer there.
+   */
+  used: boolean;
 };
 
 export type WeightSystem = {
@@ -184,7 +198,6 @@ export type DiveComputer = {
 
 export type Dive = DiveSummary & {
   notes: string;
-  suit: string;
   wavesize: number;
   current: number;
   surge: number;
@@ -234,6 +247,30 @@ export type DiveSiteInput = {
   notes?: string;
 };
 
+/**
+ * One entry of `DivePatch.cylinders`. Only the keys present are written, so a
+ * patch that changes a start pressure need not restate the gas mix.
+ *
+ * `sourceIndex` names the cylinder in the dive's *current* list that this entry
+ * carries forward; an entry without one is a new cylinder. The array is the
+ * whole resulting list, so a cylinder simply left out of it is removed - which
+ * the bindings refuse for a cylinder the samples or gas-switch events still use
+ * (`dive::is_cylinder_used`). Entries must stay in source order, with the new
+ * ones last.
+ */
+export type CylinderPatch = {
+  sourceIndex?: number;
+  description?: string;
+  sizeMl?: number;
+  workingPressureMbar?: number;
+  /** Raw permille, sentinel included: 0 with `hePermille` 0 means air. */
+  o2Permille?: number;
+  hePermille?: number;
+  startMbar?: number;
+  endMbar?: number;
+  use?: CylinderUse;
+};
+
 export type DivePatch = {
   notes?: string;
   buddy?: string;
@@ -247,6 +284,11 @@ export type DivePatch = {
   tags?: string[];
   /** 0 detaches the dive from its site. */
   siteUuid?: number;
+  /**
+   * The dive's whole cylinder list after the edit. Applying it recomputes the
+   * derived `sac`, `otu` and `cns`, because those follow from the cylinders.
+   */
+  cylinders?: CylinderPatch[];
 };
 
 /** One plotted sample. All depths in mm, pressures in mbar, temps in mkelvin. */

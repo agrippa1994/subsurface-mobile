@@ -89,10 +89,43 @@ export function harvestNames(dives: readonly DiveSummary[]): string[] {
 
 /** Every tag used in the loaded log, deduplicated and sorted. */
 export function harvestTags(dives: readonly DiveSummary[]): string[] {
+  return harvestStrings(dives, (dive) => dive.tags);
+}
+
+/**
+ * Every suit worn in the loaded log, deduplicated case-insensitively and
+ * sorted. Like the buddy corpus this is harvested from the dives themselves:
+ * `dive::suit` (core/dive.h) is a free-text string and the core keeps no list
+ * of suits, so a diver's own three suits are only knowable from what they wrote
+ * on earlier dives.
+ */
+export function harvestSuits(dives: readonly DiveSummary[]): string[] {
+  return harvestStrings(dives, (dive) => [dive.suit]);
+}
+
+/** Every cylinder description in the loaded log, deduplicated and sorted. */
+export function harvestCylinderDescriptions(dives: readonly DiveSummary[]): string[] {
+  return harvestStrings(dives, (dive) => dive.cylinderDescriptions);
+}
+
+/**
+ * The shared body of the corpus harvests.
+ *
+ * `pick` may return undefined, and an entry inside it may be undefined too:
+ * `DiveSummary` is whatever the *installed* native module emits, and a JS
+ * bundle can be newer than the dev-client binary it is running against. A field
+ * added to the bindings then arrives as undefined until the app is rebuilt. An
+ * autocomplete corpus is not worth crashing the editor over, so a missing field
+ * simply contributes nothing.
+ */
+function harvestStrings(
+  dives: readonly DiveSummary[],
+  pick: (dive: DiveSummary) => readonly (string | undefined)[] | undefined
+): string[] {
   const byKey = new Map<string, string>();
   for (const dive of dives) {
-    for (const tag of dive.tags) {
-      const name = tag.trim();
+    for (const raw of pick(dive) ?? []) {
+      const name = raw?.trim() ?? '';
       const key = name.toLocaleLowerCase();
       if (name !== '' && !byKey.has(key)) {
         byKey.set(key, name);
@@ -129,6 +162,40 @@ export function suggestNames(
   matches.sort((a, b) => {
     const aPrefix = a.toLocaleLowerCase().startsWith(trailing) ? 0 : 1;
     const bPrefix = b.toLocaleLowerCase().startsWith(trailing) ? 0 : 1;
+    return aPrefix - bPrefix || a.localeCompare(b);
+  });
+  return matches.slice(0, limit);
+}
+
+/**
+ * Suggestions for a field that holds one value rather than a list - the suit, a
+ * cylinder description. Same rules as `suggestNames`: case-insensitive
+ * substring, prefix matches first, nothing at all for an empty field. A value
+ * the field already spells exactly is not offered back.
+ *
+ * An empty field is the one difference worth arguing about: a diver who has
+ * logged three suits would be glad to see them before typing. It stays silent
+ * anyway, because the corpus of a long logbook is not three entries, and a
+ * dropdown of forty suits on focus is worse than no dropdown at all - the
+ * pattern the app already uses for that case is the tag chip row, which the
+ * caller can render from the corpus directly.
+ */
+export function suggestValues(
+  value: string,
+  corpus: readonly string[],
+  limit = 5
+): string[] {
+  const typed = value.trim().toLocaleLowerCase();
+  if (typed === '') {
+    return [];
+  }
+  const matches = corpus.filter((entry) => {
+    const key = entry.toLocaleLowerCase();
+    return key.includes(typed) && key !== typed;
+  });
+  matches.sort((a, b) => {
+    const aPrefix = a.toLocaleLowerCase().startsWith(typed) ? 0 : 1;
+    const bPrefix = b.toLocaleLowerCase().startsWith(typed) ? 0 : 1;
     return aPrefix - bPrefix || a.localeCompare(b);
   });
   return matches.slice(0, limit);

@@ -84,6 +84,7 @@ rendered metric or imperial.
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
 | `updateDive` | `{ id, patch }` | `Dive` |
+| `previewDive` | `{ id, patch }` | `Dive` |
 | `ungroupDives` | `{}` | `{ dives, trips }` |
 | `getLastError` | `{}` | `string` |
 
@@ -167,6 +168,31 @@ directly and avoids the copy.
 - **`updateDive`** applies only the keys present in `patch`, then calls
   `dive::invalidate_cache()` because the full-text cache indexes notes, buddy
   and tags. `siteUuid: 0` detaches the dive from its site.
+
+  `patch.cylinders` is the dive's *whole* resulting cylinder list rather than a
+  delta. An entry carrying `sourceIndex` keeps the cylinder the dive has at that
+  index and overwrites only the fields the entry mentions; an entry without one
+  is a new cylinder. A cylinder left out of the array is removed - which the
+  bindings refuse for one `dive::is_cylinder_used()` reports as used, since the
+  samples and gas-switch events would be left pointing at a gas that is no
+  longer there. Removals go through `remove_cylinder()` *and*
+  `cylinder_renumber()`, the pair the core's own edit commands always run
+  together: the first erases, the second moves the tank-sensor mappings and the
+  gas-switch indices with it. Entries must stay in source order, with the new
+  ones last, so a patch cannot express a reordering.
+
+  Applying `cylinders` also runs `dive_table::update_cylinder_related_info()`,
+  which recomputes `sac`, `otu` and `cns` - they are derived from the cylinders
+  and their start/end pressures, so an equipment edit that left them alone would
+  report the figures of the dive as it was. Desktop Subsurface does the same
+  recomputation in its dive-list model.
+- **`previewDive`** is `updateDive` against a throwaway copy of the dive: it
+  returns what the dive *would* look like and mutates nothing. It exists for the
+  editor's live SAC readout, which depends on gas compressibility
+  (`cylinder_t::gas_volume`) and the dive's mean depth - computing that in
+  TypeScript would be a second implementation of core physics that could
+  disagree with the file. `siteUuid` is ignored, because a preview must not
+  touch the site table; the derived values are recomputed unconditionally.
 - **`deleteDiveSite`** detaches every dive from the site before destroying it,
   so no `dive::dive_site` pointer is left dangling.
 - **`ungroupDives`** unregisters every dive from its trip and empties the trip

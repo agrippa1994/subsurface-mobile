@@ -165,4 +165,8 @@ export class SsrfHost {
   updateDive(id: number, patch: DivePatch): Promise<Dive> {
     return this.call<Dive>('updateDive', { id, patch });
   }
+
+  previewDive(id: number, patch: DivePatch): Promise<Dive> {
+    return this.call<Dive>('previewDive', { id, patch });
+  }
 }

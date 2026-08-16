@@ -15,6 +15,12 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type { Dive } from '../src/models';
+import {
+  buildCylinderPatches,
+  cylinderDraftsFrom,
+  newCylinderDraft,
+} from '../src/models/cylinder-edit';
 import { buildDivePatch, diveDraftFrom, parseNameList } from '../src/models/dive-edit';
 import {
   buildSiteInput,
@@ -174,6 +180,151 @@ describe('dive edits persist', () => {
     const dives = await opened.host.listDives();
     const dive = await opened.host.getDive(dives[0].id);
     expect(buildDivePatch(dive, diveDraftFrom(dive))).toEqual({});
+    await opened.host.close();
+  });
+});
+
+describe('cylinder edits', () => {
+  /** The first dive whose cylinders carry hand-entered start/end pressures. */
+  async function diveWithPressures(from: SsrfHost) {
+    for (const summary of await from.listDives()) {
+      const dive = await from.getDive(summary.id);
+      if (dive.cylinders.some((cyl) => cyl.startMbar > 0 && cyl.endMbar > 0) && dive.sac > 0) {
+        return dive;
+      }
+    }
+    throw new Error('no dive with manually entered cylinder pressures in the fixture');
+  }
+
+  it('recomputes the SAC from a new end pressure and keeps both across a relaunch', async () => {
+    const opened = await freshLogbook('edit-cylinders.ssrf');
+    const dive = await diveWithPressures(opened.host);
+    const index = dive.cylinders.findIndex((cyl) => cyl.startMbar > 0 && cyl.endMbar > 0);
+
+    // Surfacing with more gas left than the log says: less gas used, so the
+    // SAC has to come down. That is the whole point of the recomputation - a
+    // pressure edit that left `dive::sac` alone would show the old figure.
+    const drafts = cylinderDraftsFrom(dive, 'metric');
+    const raised = Number(drafts[index].endText) + 30;
+    drafts[index] = { ...drafts[index], endText: String(raised) };
+
+    const patches = buildCylinderPatches(dive, drafts, 'metric');
+    expect(patches).not.toBeNull();
+    expect(patches![index]).toEqual({ sourceIndex: index, endMbar: raised * 1000 });
+
+    const preview = await opened.host.previewDive(dive.id, { cylinders: patches! });
+    expect(preview.sac).toBeGreaterThan(0);
+    expect(preview.sac).toBeLessThan(dive.sac);
+
+    // A preview is a read: the log still holds the dive as it was.
+    const untouched = await opened.host.getDive(dive.id);
+    expect(untouched.sac).toBe(dive.sac);
+    expect(untouched.cylinders[index].endMbar).toBe(dive.cylinders[index].endMbar);
+
+    const updated = await opened.host.updateDive(dive.id, { cylinders: patches! });
+    expect(updated.sac).toBe(preview.sac);
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const reloaded = (await host.listDives()).find((d) => d.number === dive.number)!;
+    const full = await host.getDive(reloaded.id);
+    expect(full.cylinders[index].endMbar).toBe(raised * 1000);
+    // The SAC is derived, so the reload recomputes it - and must land on the
+    // same number the editor showed before the save.
+    expect(full.sac).toBe(preview.sac);
+    await host.close();
+  });
+
+  it('refuses to remove a cylinder the dive computer recorded', async () => {
+    const opened = await freshLogbook('remove-used-cylinder.ssrf');
+    const dive = await diveWithPressures(opened.host);
+    const used = dive.cylinders.findIndex((cyl) => cyl.used);
+    expect(used).toBeGreaterThanOrEqual(0);
+
+    const drafts = cylinderDraftsFrom(dive, 'metric').filter(
+      (_draft, at) => at !== used
+    );
+    await expect(
+      opened.host.updateDive(dive.id, {
+        cylinders: buildCylinderPatches(dive, drafts, 'metric')!,
+      })
+    ).rejects.toThrow(/cannot be removed/);
+
+    // The refusal leaves the dive exactly as it was, cylinders and all.
+    const after = await opened.host.getDive(dive.id);
+    expect(after.cylinders).toHaveLength(dive.cylinders.length);
+    await opened.host.close();
+  });
+
+  it('removes the unused cylinders and adds a new one, and both survive a relaunch', async () => {
+    const opened = await freshLogbook('add-remove-cylinder.ssrf');
+
+    let target: Dive | null = null;
+    for (const summary of await opened.host.listDives()) {
+      const dive = await opened.host.getDive(summary.id);
+      if (dive.cylinders.filter((cyl) => !cyl.used).length >= 2) {
+        target = dive;
+        break;
+      }
+    }
+    expect(target).not.toBeNull();
+    const dive = target!;
+    const keptCount = dive.cylinders.filter((cyl) => cyl.used).length;
+
+    const drafts = [
+      ...cylinderDraftsFrom(dive, 'metric').filter((draft) => draft.used),
+      {
+        ...newCylinderDraft(),
+        description: 'Stage 40',
+        sizeText: '5.5',
+        workingPressureText: '207',
+        o2Text: '50',
+        startText: '200',
+        endText: '90',
+      },
+    ];
+
+    await opened.host.updateDive(dive.id, {
+      cylinders: buildCylinderPatches(dive, drafts, 'metric')!,
+    });
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const reloaded = (await host.listDives()).find((d) => d.number === dive.number)!;
+    const full = await host.getDive(reloaded.id);
+    expect(full.cylinders).toHaveLength(keptCount + 1);
+
+    const added = full.cylinders[keptCount];
+    expect(added.description).toBe('Stage 40');
+    expect(added.sizeMl).toBe(5500);
+    expect(added.workingPressureMbar).toBe(207000);
+    expect(added.gasmix.o2Permille).toBe(500);
+    expect(added.startMbar).toBe(200000);
+    expect(added.endMbar).toBe(90000);
+
+    // The list row carries the descriptions the editor autocompletes from.
+    expect(reloaded.cylinderDescriptions).toContain('Stage 40');
+    await host.close();
+  });
+
+  it('leaves a sampled pressure sampled when the editor only opens the dive', async () => {
+    const opened = await freshLogbook('untouched-cylinders.ssrf');
+
+    // A cylinder whose pressures came from the dive computer seeds the editor
+    // from `sampleStart`/`sampleEnd`. Round-tripping that draft must not
+    // promote those readings into manually entered `start`/`end` values.
+    let sampled: Dive | null = null;
+    for (const summary of await opened.host.listDives()) {
+      const dive = await opened.host.getDive(summary.id);
+      if (dive.cylinders.some((cyl) => cyl.startMbar === 0 && cyl.sampleStartMbar > 0)) {
+        sampled = dive;
+        break;
+      }
+    }
+    expect(sampled).not.toBeNull();
+    expect(buildCylinderPatches(sampled!, cylinderDraftsFrom(sampled!, 'metric'), 'metric')).toBeNull();
     await opened.host.close();
   });
 });

@@ -6,11 +6,11 @@
 // directly and the suggestions are harvested from the loaded log. All of that
 // logic lives in models/dive-edit.ts; this component only renders it.
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { FormField } from '@/components/form';
+import { SuggestionChips } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { applySuggestion, suggestNames } from '@/models/dive-edit';
 
 export function NameField({
@@ -27,9 +27,6 @@ export function NameField({
   placeholder?: string;
   onChange: (value: string) => void;
 }) {
-  const theme = useTheme();
-  const suggestions = suggestNames(value, corpus);
-
   return (
     <View style={styles.container}>
       <FormField
@@ -40,25 +37,10 @@ export function NameField({
         autoCapitalize="words"
         autoCorrect={false}
       />
-      {suggestions.length > 0 ? (
-        <View style={styles.suggestions}>
-          {suggestions.map((name) => (
-            <Pressable
-              key={name}
-              onPress={() => onChange(applySuggestion(value, name))}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.chip,
-                {
-                  backgroundColor: pressed ? theme.backgroundSelected : theme.background,
-                  borderColor: theme.separator,
-                },
-              ]}>
-              <Text style={[styles.chipText, { color: theme.text }]}>{name}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      <SuggestionChips
+        suggestions={suggestNames(value, corpus)}
+        onSelect={(name) => onChange(applySuggestion(value, name))}
+      />
     </View>
   );
 }
@@ -66,19 +48,5 @@ export function NameField({
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.two,
-  },
-  suggestions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  chip: {
-    borderRadius: Spacing.four,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-  },
-  chipText: {
-    fontSize: 15,
   },
 });

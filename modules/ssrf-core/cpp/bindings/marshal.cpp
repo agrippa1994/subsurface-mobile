@@ -43,9 +43,14 @@ json gasmix_to_json(const struct gasmix &mix)
 	};
 }
 
-json cylinder_to_json(const cylinder_t &cyl)
+// `used` is `dive::is_cylinder_used(index)`: true when the samples or the
+// gas-switch events refer to this cylinder. It belongs to the dive rather than
+// to the cylinder, but the editor needs it per row - it is what decides whether
+// a cylinder may be removed at all (api.cpp, apply_cylinders()).
+json cylinder_to_json(const cylinder_t &cyl, bool used)
 {
 	return json{
+		{ "used", used },
 		{ "description", cyl.type.description },
 		{ "sizeMl", cyl.type.size.mliter },
 		{ "workingPressureMbar", cyl.type.workingpressure.mbar },
@@ -147,7 +152,20 @@ json taxonomy_to_json(const taxonomy_data &t)
 json dive_summary_to_json(const struct dive &d)
 {
 	const struct divecomputer *dc = d.dcs.empty() ? nullptr : &d.dcs.front();
+
+	// The gear the editors autocomplete from. The core has no suit or cylinder
+	// table - the dives are the only record of what this diver owns - so the
+	// corpus has to come off the dive list, which is the one thing the app
+	// keeps cached. Two short strings per dive; the samples stay out of here.
+	json cylinderDescriptions = json::array();
+	for (const cylinder_t &cyl : d.cylinders) {
+		if (!cyl.type.description.empty())
+			cylinderDescriptions.push_back(cyl.type.description);
+	}
+
 	return json{
+		{ "suit", d.suit },
+		{ "cylinderDescriptions", std::move(cylinderDescriptions) },
 		{ "id", d.id },
 		{ "number", d.number },
 		{ "when", static_cast<int64_t>(d.when) },
@@ -174,7 +192,6 @@ json dive_to_json(const struct dive &d)
 	json j = dive_summary_to_json(d);
 
 	j["notes"] = d.notes;
-	j["suit"] = d.suit;
 	j["wavesize"] = d.wavesize;
 	j["current"] = d.current;
 	j["surge"] = d.surge;
@@ -193,8 +210,8 @@ json dive_to_json(const struct dive &d)
 	j["notrip"] = d.notrip;
 
 	json cylinders = json::array();
-	for (const cylinder_t &cyl : d.cylinders)
-		cylinders.push_back(cylinder_to_json(cyl));
+	for (size_t i = 0; i < d.cylinders.size(); ++i)
+		cylinders.push_back(cylinder_to_json(d.cylinders[i], d.is_cylinder_used(static_cast<int>(i))));
 	j["cylinders"] = std::move(cylinders);
 
 	json weights = json::array();

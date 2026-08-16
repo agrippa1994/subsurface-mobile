@@ -38,6 +38,10 @@ export function mbarToBar(mbar: number): number {
   return mbar / 1000;
 }
 
+export function barToMbar(bar: number): number {
+  return Math.round(bar * 1000);
+}
+
 /** `to_PSI` in core/units.h. */
 export function mbarToPsi(mbar: number): number {
   return mbar * 0.0145037738;
@@ -74,6 +78,15 @@ export function mlToLiters(ml: number): number {
 /** `ml_to_cuft` in core/units.h. */
 export function mlToCuft(ml: number): number {
   return ml / 28316.8466;
+}
+
+export function litersToMl(liters: number): number {
+  return Math.round(liters * 1000);
+}
+
+/** The inverse of `mlToCuft`, for what an imperial volume field accepts back. */
+export function cuftToMl(cuft: number): number {
+  return Math.round(cuft * 28316.8466);
 }
 
 export function gramsToKg(grams: number): number {
@@ -130,6 +143,18 @@ export function formatWeight(grams: number, system: UnitSystem = 'metric'): stri
   return system === 'imperial'
     ? `${round(gramsToLbs(grams), 1)} lbs`
     : `${round(gramsToKg(grams), 1)} kg`;
+}
+
+/**
+ * Surface air consumption, which the core stores as millilitres per minute
+ * (`dive::sac`, computed by `calculate_sac` in core/divelist.cpp). Shown to one
+ * decimal in litres, whole cubic feet in imperial - a SAC is never known
+ * finer than that.
+ */
+export function formatSac(mlPerMin: number, system: UnitSystem = 'metric'): string {
+  return system === 'imperial'
+    ? `${round(mlToCuft(mlPerMin), 2)} cuft/min`
+    : `${round(mlToLiters(mlPerMin), 1)} l/min`;
 }
 
 /** Dive durations are shown as `h:mm:ss` or `m:ss`, like the desktop app. */
