@@ -61,6 +61,17 @@ SSRF_ASAN=1 npm test   # adds the AddressSanitizer sweep over every fixture
 Run that after any change to the C++ shim, the bindings or the pinned core:
 memory errors there show up as rare silent data corruption rather than crashes.
 
+Two things the suite structurally cannot check are written up as manual passes,
+both with the values to compare against:
+
+- [docs/device-acceptance.md](docs/device-acceptance.md) — gestures, the file
+  picker, navigation-bar buttons, VoiceOver and large-log feel on a real device.
+- [docs/interop-check.md](docs/interop-check.md) — opening a logbook the app
+  exported in desktop Subsurface.
+
+The app is distributed as a local dev-client build; the App Store route is not
+pursued (see [docs/release.md](docs/release.md)).
+
 ## Development conventions
 
 See [CLAUDE.md](CLAUDE.md) for the project invariants. In short: TypeScript

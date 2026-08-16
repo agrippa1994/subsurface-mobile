@@ -1,8 +1,29 @@
-# Releasing to TestFlight
+# Distribution
 
-What a build needs, in order. Everything here is task 12, step 6.
+**The App Store and TestFlight route is not pursued.** The supported way to put
+this app on a phone is a local dev-client build:
 
-## Before the first build
+```sh
+npx expo prebuild
+npx expo run:ios --device
+```
+
+and the manual pass in `device-acceptance.md`, which is what closes task 12's
+acceptance in place of a TestFlight build. A free personal signing team is
+enough - the app asks for no paid-tier entitlements.
+
+The rest of this file is the TestFlight route, kept because it was worked out
+and because two things in it stay true whatever the distribution channel: the
+submodule has to be part of any upload, and linking the GPL-2.0 core has
+consequences for the licence a build is offered under.
+
+---
+
+## Not pursued - releasing to TestFlight
+
+What a build would need, in order. Everything below is task 12, step 6.
+
+### Before the first build
 
 1. **Apple Developer account.** An Apple Developer Program membership (99 USD a
    year), an App Store Connect app record for the bundle id
@@ -13,7 +34,7 @@ What a build needs, in order. Everything here is task 12, step 6.
 3. **`eas login`** and `eas build:configure` once, which creates the EAS project
    id and stores signing credentials.
 
-## Building
+### Building
 
 ```sh
 git submodule update --init --recursive   # the core must be on disk
@@ -33,7 +54,7 @@ arrives without its git metadata, but it cannot invent the sources: if the
 upload does not carry `subsurface/core/dive.cpp`, the build stops with
 "subsurface/ submodule is empty".
 
-## Submitting
+### Submitting
 
 ```sh
 npx eas submit --profile production --platform ios --latest
@@ -43,12 +64,12 @@ Then, in App Store Connect: add the build to a TestFlight group, fill in
 "What to Test", and answer the export-compliance question (the app uses no
 encryption beyond HTTPS - it makes no network calls at all).
 
-## Store metadata
+### Store metadata
 
 `docs/store-listing.md` holds the description, keywords, the privacy answers
 and the licence statement to paste into App Store Connect.
 
-## Licence
+### Licence
 
 The app links the GPL-2.0 Subsurface core, so the binary is a derivative work
 and is distributed under the GPL-2.0. Two consequences for a public release:

@@ -20,8 +20,10 @@
 
 ## Acceptance criteria
 
-- A **TestFlight** build installs and runs the **full flow** on a real device: import →
-  browse → view profile → view statistics → edit → export.
+- A build installs and runs the **full flow** on a real device: import → browse → view
+  profile → view statistics → edit → export. The App Store route is not pursued, so this
+  is a locally installed dev-client build (`npx expo run:ios --device`) driven through
+  `docs/device-acceptance.md`, not a TestFlight build.
 - No corruption of the SSRF file across a stress session of edits/imports.
 - Large-log performance is acceptable (smooth scrolling; profile opens quickly).
 

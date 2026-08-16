@@ -1,7 +1,10 @@
 # App Store listing
 
-Copy for App Store Connect. Kept in the repo so the wording is reviewed like
-anything else, and so the privacy answers stay honest as the app changes.
+**Not pursued** - the store route is out of scope, see `release.md`. Kept
+because the wording, and the privacy answers in particular, describe the app
+accurately and were reviewed like anything else in the repo.
+
+Copy for App Store Connect, if that ever happens.
 
 ## Name and subtitle
 
@@ -61,6 +64,10 @@ provides. Answer "No" to the encryption question.
 4+. No user-generated content shared between users, no web browsing.
 
 ## What to Test (TestFlight)
+
+The full version of this list, with the value each step must produce, is
+`device-acceptance.md` - that document is the one to run. The short form here
+is what a tester would be shown.
 
 1. Import a Suunto export or a .ssrf logbook (Settings > Import dives, or
    "Open in Subsurface" from Files or Mail).
