@@ -10,8 +10,11 @@
    **Dives**, **Sites**, **Statistics**, **Settings**. Liquid-glass nav/tool bars via
    `@expo/ui`. Remove/gate the task-01 spike screen.
 
-2. **State layer:** a thin store (e.g. Zustand) that wraps the module — the module is the
-   source of truth, the store caches `listDives()` / selection and invalidates on mutation.
+2. **State layer:** **TanStack Query** over the module — the module is the source of
+   truth, the query cache holds what the last `listDives()` returned and every mutation
+   invalidates it. Keys live under `['log','data']` so a mutation re-reads the derived
+   answers without re-running `loadFromXML`; a load, import or replace *removes* that
+   subtree instead, because dive ids are process-local and are reassigned on every load.
    Load a **bundled sample SSRF** (copied to app documents on first run) so there is
    content before the user imports anything.
 

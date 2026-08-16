@@ -2,7 +2,7 @@
 // The dive list.
 //
 // Read-only in this task; editing arrives in task 10. The screen owns no data:
-// it renders whatever the store cached from the module, grouped by the
+// it renders whatever the module answered on the last read, grouped by the
 // presentation model, and shows the loading / empty / error placeholders around
 // it.
 import { useRouter } from 'expo-router';
@@ -10,35 +10,33 @@ import { useMemo } from 'react';
 
 import { DiveListView } from '@/components/dive-list-view';
 import { StatusView } from '@/components/status-view';
-import { formatErrorLine } from '@/models/errors';
+import { describeError, formatErrorLine } from '@/models/errors';
 import { groupDivesByTrip } from '@/models/dive-list';
-import { useLogStore } from '@/store/log-store';
-import { useUnitSystem } from '@/store/settings-store';
+import { useDives, useLogbook } from '@/queries/logbook';
+import { useUnitSystem } from '@/queries/settings';
 
 export default function DivesScreen() {
   const router = useRouter();
-  const status = useLogStore((state) => state.status);
-  const dives = useLogStore((state) => state.dives);
-  const error = useLogStore((state) => state.error);
-  const open = useLogStore((state) => state.open);
+  const logbook = useLogbook();
+  const { data: dives = [] } = useDives();
   const unitSystem = useUnitSystem();
 
   const sections = useMemo(() => groupDivesByTrip(dives), [dives]);
 
-  if (status === 'error' && error) {
+  if (logbook.isError) {
     return (
       <StatusView
         kind="error"
         title="The logbook could not be opened"
-        description={formatErrorLine(error)}
+        description={formatErrorLine(describeError(logbook.error))}
         systemImage="exclamationmark.triangle"
         actionLabel="Try again"
-        onAction={() => void open()}
+        onAction={() => void logbook.refetch()}
       />
     );
   }
 
-  if (status === 'idle' || status === 'loading') {
+  if (!logbook.isSuccess) {
     return <StatusView kind="loading" title="Opening logbook" />;
   }
 

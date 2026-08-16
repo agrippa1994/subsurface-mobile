@@ -1,8 +1,8 @@
 // AI-generated (Claude)
 // Dive sites: the list, the way into the editor, and the way to a new site.
 //
-// The rows come from the same store snapshot as the dive list; how one renders
-// is decided in models/site-edit.ts so the vitest suite covers it.
+// The rows come from the same module read as the dive list; how one renders is
+// decided in models/site-edit.ts so the vitest suite covers it.
 import { Link, Stack, useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -10,11 +10,11 @@ import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { sortSitesByName, toSiteRow } from '@/models/site-edit';
-import { useLogStore } from '@/store/log-store';
+import { useLogbook, useSites } from '@/queries/logbook';
 
 export default function SitesScreen() {
-  const status = useLogStore((state) => state.status);
-  const sites = useLogStore((state) => state.sites);
+  const logbook = useLogbook();
+  const { data: sites = [] } = useSites();
   const router = useRouter();
   const theme = useTheme();
 
@@ -32,7 +32,7 @@ export default function SitesScreen() {
     />
   );
 
-  if (status === 'idle' || status === 'loading') {
+  if (!logbook.isSuccess) {
     return (
       <>
         {header}

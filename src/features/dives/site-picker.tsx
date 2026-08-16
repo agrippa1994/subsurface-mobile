@@ -4,8 +4,8 @@
 //
 // A modal rather than a pushed screen: the choice belongs to the editor behind
 // it, and the editor keeps its unsaved draft while this is open. Creating a
-// site here goes through the store like any other mutation, so the new site is
-// on disk before the dive points at it.
+// site here goes through the same mutation as the site editor, so the new site
+// is on disk before the dive points at it.
 
 import { useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -14,7 +14,8 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { sortSitesByName, toSiteRow } from '@/models/site-edit';
-import { useLogStore } from '@/store/log-store';
+import { useSites } from '@/queries/logbook';
+import { useSaveSite } from '@/queries/logbook-mutations';
 
 export function SitePicker({
   visible,
@@ -29,8 +30,8 @@ export function SitePicker({
   onClose: () => void;
 }) {
   const theme = useTheme();
-  const sites = useLogStore((state) => state.sites);
-  const saveSite = useLogStore((state) => state.saveSite);
+  const { data: sites = [] } = useSites();
+  const saveSite = useSaveSite();
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +48,7 @@ export function SitePicker({
 
   const create = async () => {
     try {
-      const uuid = await saveSite({ name });
+      const uuid = await saveSite.mutateAsync({ name });
       setQuery('');
       onSelect(uuid);
     } catch (caught) {

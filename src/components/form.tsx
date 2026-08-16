@@ -44,15 +44,21 @@ export function FormSection({
 
 export type FormFieldProps = TextInputProps & {
   label: string;
-  /** Shown under the field, e.g. why the value is not accepted. */
+  /** Shown under the field: what it is for, or what it accepts. */
   hint?: string;
+  /**
+   * Why the value is not accepted. Takes the place of the hint and is drawn in
+   * the danger colour - a rejection and an explanation must not look alike.
+   */
+  error?: string;
 };
 
 export const FormField = forwardRef<TextInput, FormFieldProps>(function FormField(
-  { label, hint, style, multiline, ...props },
+  { label, hint, error, style, multiline, ...props },
   ref
 ) {
   const theme = useTheme();
+  const note = error ?? hint;
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
@@ -68,10 +74,76 @@ export const FormField = forwardRef<TextInput, FormFieldProps>(function FormFiel
         multiline={multiline}
         {...props}
       />
-      {hint ? <Text style={[styles.hint, { color: theme.textSecondary }]}>{hint}</Text> : null}
+      {note ? (
+        <Text style={[styles.hint, { color: error ? theme.danger : theme.textSecondary }]}>
+          {note}
+        </Text>
+      ) : null}
     </View>
   );
 });
+
+/**
+ * A form field's error as one line. TanStack Form collects errors into an
+ * array and lets a validator return a string or an object; a field shows a
+ * single line, so this takes the first thing that is actually an error.
+ */
+export function fieldError(errors: readonly unknown[]): string | undefined {
+  const first = errors.find((error) => error !== undefined && error !== null);
+  if (first === undefined) {
+    return undefined;
+  }
+  if (typeof first === 'string') {
+    return first;
+  }
+  const message = (first as { message?: unknown }).message;
+  return typeof message === 'string' ? message : String(first);
+}
+
+/**
+ * A row of chips, one selected. Used where a picker would be overkill and a
+ * SwiftUI segmented control cannot be hosted (the editors are plain React
+ * Native - see the note at the top of this file).
+ */
+export function OptionField<T extends string | number>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.options}>
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            key={String(option.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => {
+              selectionChanged();
+              onChange(option.value);
+            }}
+            style={[
+              styles.option,
+              {
+                borderColor: selected ? theme.accent : theme.separator,
+                backgroundColor: selected ? theme.backgroundSelected : 'transparent',
+              },
+            ]}>
+            <Text style={{ color: selected ? theme.accent : theme.textSecondary }}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 /** A row that opens something else - a picker, a map, another screen. */
 export function FormButtonRow({
@@ -185,6 +257,17 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 13,
+  },
+  options: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  option: {
+    borderRadius: Spacing.four,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
   },
   buttonRow: {
     flexDirection: 'row',

@@ -3,14 +3,19 @@
 //
 // Small enough to keep in one JSON file next to the logbook - there is no
 // database in this app on purpose. Reads and writes are synchronous, which is
-// fine for a file this size and keeps the store free of async state. The shape
-// and its parsing live in src/models/settings.ts so they stay testable in Node.
+// fine for a file this size. The shape and its parsing live in
+// src/models/settings.ts so they stay testable in Node.
+//
+// The read is seeded as `initialData` rather than fetched: it cannot throw (it
+// falls back to the defaults) and units must not flash imperial-then-metric on
+// the first frame of every screen.
 
-import { create } from 'zustand';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
 
 import type { UnitSystem } from '@/models';
 import { DEFAULT_SETTINGS, parseSettings, serializeSettings, type Settings } from '@/models/settings';
+import { queryKeys } from '@/lib/query-keys';
 
 const SETTINGS_FILENAME = 'settings.json';
 
@@ -40,28 +45,28 @@ function writeSettings(settings: Settings): void {
   }
 }
 
-export type SettingsState = Settings & {
-  hydrated: boolean;
-  /** Reads the file once at startup. Safe to call again; it just re-reads. */
-  hydrate(): void;
-  setUnitSystem(system: UnitSystem): void;
-};
-
-export const useSettingsStore = create<SettingsState>((set) => ({
-  ...DEFAULT_SETTINGS,
-  hydrated: false,
-
-  hydrate() {
-    set({ ...readSettings(), hydrated: true });
-  },
-
-  setUnitSystem(unitSystem) {
-    set({ unitSystem });
-    writeSettings({ unitSystem });
-  },
-}));
+export function useSettings(): Settings {
+  const { data } = useQuery({
+    queryKey: queryKeys.settings(),
+    queryFn: readSettings,
+    initialData: readSettings,
+  });
+  return data;
+}
 
 /** Convenience selector: the unit system every formatter takes. */
 export function useUnitSystem(): UnitSystem {
-  return useSettingsStore((state) => state.unitSystem);
+  return useSettings().unitSystem;
+}
+
+export function useSetUnitSystem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (unitSystem: UnitSystem): Promise<Settings> => {
+      const settings: Settings = { unitSystem };
+      writeSettings(settings);
+      return settings;
+    },
+    onSuccess: (settings) => client.setQueryData(queryKeys.settings(), settings),
+  });
 }

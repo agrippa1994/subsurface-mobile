@@ -13,11 +13,10 @@
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { FormField, FormSection } from '@/components/form';
+import { FormField, FormSection, OptionField } from '@/components/form';
 import { SuggestField } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { selectionChanged } from '@/lib/haptics';
 import { CylinderUse, formatGasMix, type UnitSystem } from '@/models';
 import {
   newCylinderDraft,
@@ -26,18 +25,11 @@ import {
   type CylinderErrors,
 } from '@/models/cylinder-edit';
 
-const USE_LABEL: Record<CylinderUse, string> = {
-  [CylinderUse.OcGas]: 'Open circuit',
-  [CylinderUse.Diluent]: 'Diluent',
-  [CylinderUse.Oxygen]: 'Oxygen',
-  [CylinderUse.NotUsed]: 'Not used',
-};
-
-const USE_ORDER: CylinderUse[] = [
-  CylinderUse.OcGas,
-  CylinderUse.Diluent,
-  CylinderUse.Oxygen,
-  CylinderUse.NotUsed,
+const USE_OPTIONS: readonly { value: CylinderUse; label: string }[] = [
+  { value: CylinderUse.OcGas, label: 'Open circuit' },
+  { value: CylinderUse.Diluent, label: 'Diluent' },
+  { value: CylinderUse.Oxygen, label: 'Oxygen' },
+  { value: CylinderUse.NotUsed, label: 'Not used' },
 ];
 
 export function CylinderEditor({
@@ -135,7 +127,11 @@ export function CylinderEditor({
             />
           </View>
 
-          <UsePicker value={draft.use} onChange={(use) => patchRow(draft.key, { use })} />
+          <OptionField
+            options={USE_OPTIONS}
+            value={draft.use}
+            onChange={(use) => patchRow(draft.key, { use })}
+          />
 
           {errors[draft.key] ? (
             <Text style={[styles.note, { color: theme.danger }]}>{errors[draft.key]}</Text>
@@ -190,44 +186,6 @@ function gasLabel(draft: CylinderDraft): string {
   return formatGasMix(o2 ?? 0, he ?? 0);
 }
 
-function UsePicker({
-  value,
-  onChange,
-}: {
-  value: CylinderUse;
-  onChange: (use: CylinderUse) => void;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={styles.uses}>
-      {USE_ORDER.map((use) => {
-        const selected = use === value;
-        return (
-          <Pressable
-            key={use}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            onPress={() => {
-              selectionChanged();
-              onChange(use);
-            }}
-            style={[
-              styles.use,
-              {
-                borderColor: selected ? theme.accent : theme.separator,
-                backgroundColor: selected ? theme.backgroundSelected : 'transparent',
-              },
-            ]}>
-            <Text style={{ color: selected ? theme.accent : theme.textSecondary }}>
-              {USE_LABEL[use]}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     gap: Spacing.four,
@@ -247,17 +205,6 @@ const styles = StyleSheet.create({
   },
   remove: {
     fontSize: 15,
-  },
-  uses: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  use: {
-    borderRadius: Spacing.four,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
   },
   add: {
     flexDirection: 'row',

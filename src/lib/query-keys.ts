@@ -1,0 +1,33 @@
+// AI-generated (Claude)
+// Query keys.
+//
+// Everything read out of the loaded logbook lives under ['log', 'data'], and
+// the load itself under ['log'] alone. That split matters:
+//
+//   - a mutation invalidates ['log', 'data'], which re-reads the dives, sites,
+//     profiles and statistics but must NOT re-run loadFromXML;
+//   - a load, import or replace removes ['log'] wholesale, because dive ids are
+//     process-local and are reassigned on every loadFromXML. A key such as
+//     ['log','data','dive',7] cached across a load points at a different dive
+//     (see modules/ssrf-core/cpp/API.md).
+//
+// Dive site uuids are persisted and stable, but they live under the same root
+// for the simple reason that a reload replaces those objects too.
+
+import type { StatsFilter } from '@/models';
+
+export const queryKeys = {
+  /** The loaded logbook itself: { path, lastLoad }. */
+  log: () => ['log'] as const,
+  /** Root of everything read out of the loaded logbook. */
+  logData: () => ['log', 'data'] as const,
+
+  dives: () => ['log', 'data', 'dives'] as const,
+  sites: () => ['log', 'data', 'sites'] as const,
+  dive: (id: number) => ['log', 'data', 'dive', id] as const,
+  profile: (id: number, dcIndex: number) => ['log', 'data', 'profile', id, dcIndex] as const,
+  statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,
+
+  /** Preferences: a file of its own, untouched by loading a logbook. */
+  settings: () => ['settings'] as const,
+};

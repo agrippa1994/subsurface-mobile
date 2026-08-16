@@ -19,7 +19,7 @@ import {
   exportFileName,
   isLogbookName,
 } from '@/models/transfer';
-import { useLogStore } from '@/store/log-store';
+import { useExportTo, useImportFile, useReplaceLogbook } from '@/queries/logbook-mutations';
 
 /** Alert body for a failure: the message, plus whatever the core reported. */
 function describeFailure(error: unknown): string {
@@ -44,23 +44,23 @@ export type Transfer = {
 };
 
 export function useTransfer(): Transfer {
-  const [busy, setBusy] = useState(false);
-  const importIntoLog = useLogStore((state) => state.importFile);
-  const replaceWith = useLogStore((state) => state.replaceWith);
-  const exportTo = useLogStore((state) => state.exportTo);
+  // Sharing is the one path with no mutation of its own to report progress, so
+  // it keeps a flag; the rest read `isPending` off their mutation.
+  const [sharing, setSharing] = useState(false);
+  const importIntoLog = useImportFile();
+  const replaceWith = useReplaceLogbook();
+  const exportTo = useExportTo();
+  const busy = sharing || importIntoLog.isPending || replaceWith.isPending || exportTo.isPending;
 
   const merge = useCallback(
     async (path: string) => {
-      setBusy(true);
       try {
-        const result = await importIntoLog(path);
+        const result = await importIntoLog.mutateAsync(path);
         operationSucceeded();
         Alert.alert('Import complete', describeImport(result));
       } catch (error) {
         operationFailed();
         Alert.alert('Import failed', describeFailure(error));
-      } finally {
-        setBusy(false);
       }
     },
     [importIntoLog],
@@ -68,16 +68,13 @@ export function useTransfer(): Transfer {
 
   const replace = useCallback(
     async (path: string) => {
-      setBusy(true);
       try {
-        const result = await replaceWith(path);
+        const { lastLoad } = await replaceWith.mutateAsync(path);
         operationSucceeded();
-        Alert.alert('Logbook opened', `${result.dives} dives, ${result.sites} dive sites.`);
+        Alert.alert('Logbook opened', `${lastLoad.dives} dives, ${lastLoad.sites} dive sites.`);
       } catch (error) {
         operationFailed();
         Alert.alert('Could not open', describeFailure(error));
-      } finally {
-        setBusy(false);
       }
     },
     [replaceWith],
@@ -120,7 +117,7 @@ export function useTransfer(): Transfer {
 
   const shareLogbook = useCallback(() => {
     void (async () => {
-      setBusy(true);
+      setSharing(true);
       try {
         // Exported under a dated name rather than "logbook.ssrf": the name is
         // what the receiving app shows, and it is the copy being shared, not
@@ -129,7 +126,7 @@ export function useTransfer(): Transfer {
         if (target.exists) {
           target.delete();
         }
-        await exportTo(toNativePath(target.uri));
+        await exportTo.mutateAsync(toNativePath(target.uri));
         if (!(await Sharing.isAvailableAsync())) {
           Alert.alert('Export saved', target.uri);
           return;
@@ -143,7 +140,7 @@ export function useTransfer(): Transfer {
         operationFailed();
         Alert.alert('Export failed', describeFailure(error));
       } finally {
-        setBusy(false);
+        setSharing(false);
       }
     })();
   }, [exportTo]);

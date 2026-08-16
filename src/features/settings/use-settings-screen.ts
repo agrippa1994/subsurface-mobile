@@ -22,15 +22,20 @@ import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
 import {
-  ensureLogbook,
   resetLogbook,
   sampleSuuntoPath,
   sampleSuuntoXmlPath,
   writeScratchFile,
 } from '@/lib/logbook-file';
 import type { UnitSystem } from '@/models';
-import { useLogStore } from '@/store/log-store';
-import { useSettingsStore } from '@/store/settings-store';
+import { useDives, useLogbook, useSites } from '@/queries/logbook';
+import {
+  useImportFile,
+  useLoadPath,
+  useReloadLogbook,
+  useUngroupDives,
+} from '@/queries/logbook-mutations';
+import { useSetUnitSystem, useUnitSystem } from '@/queries/settings';
 
 const EMPTY_LOGBOOK = "<divelog program='subsurface' version='3'>\n  <dives/>\n</divelog>\n";
 const MALFORMED_LOGBOOK = 'this is not a logbook\n';
@@ -96,15 +101,15 @@ function aboutInfo(): AboutInfo {
 
 export function useSettingsScreen(): SettingsScreen {
   const transfer = useTransfer();
-  const unitSystem = useSettingsStore((state) => state.unitSystem);
-  const setUnitSystem = useSettingsStore((state) => state.setUnitSystem);
-  const dives = useLogStore((state) => state.dives);
-  const sites = useLogStore((state) => state.sites);
-  const path = useLogStore((state) => state.path);
-  const open = useLogStore((state) => state.open);
-  const loadPath = useLogStore((state) => state.loadPath);
-  const importSuuntoFile = useLogStore((state) => state.importFile);
-  const ungroupInLog = useLogStore((state) => state.ungroupDives);
+  const unitSystem = useUnitSystem();
+  const setUnitSystem = useSetUnitSystem();
+  const { data: dives = [] } = useDives();
+  const { data: sites = [] } = useSites();
+  const path = useLogbook().data?.path ?? null;
+  const reloadLogbook = useReloadLogbook();
+  const loadPath = useLoadPath();
+  const importSuuntoFile = useImportFile();
+  const ungroupInLog = useUngroupDives();
   // A trip reaches the app only as its location string, so the count is taken
   // off the same sections the dive list shows rather than from the module.
   const tripCount = useMemo(
@@ -113,13 +118,13 @@ export function useSettingsScreen(): SettingsScreen {
   );
 
   const reload = useCallback(() => {
-    void ensureLogbook().then((target) => loadPath(target));
-  }, [loadPath]);
+    reloadLogbook.mutate();
+  }, [reloadLogbook]);
 
   const restoreSample = useCallback(() => {
     resetLogbook();
-    void open();
-  }, [open]);
+    reloadLogbook.mutate();
+  }, [reloadLogbook]);
 
   const ungroupDives = useCallback(() => {
     if (tripCount === 0) {
@@ -140,7 +145,7 @@ export function useSettingsScreen(): SettingsScreen {
           onPress: () => {
             void (async () => {
               try {
-                await ungroupInLog();
+                await ungroupInLog.mutateAsync();
                 operationSucceeded();
               } catch (error) {
                 operationFailed();
@@ -154,20 +159,36 @@ export function useSettingsScreen(): SettingsScreen {
   }, [tripCount, ungroupInLog]);
 
   const loadEmptyLogbook = useCallback(() => {
-    void loadPath(writeScratchFile('empty-logbook.ssrf', EMPTY_LOGBOOK));
+    loadPath.mutate(writeScratchFile('empty-logbook.ssrf', EMPTY_LOGBOOK));
   }, [loadPath]);
 
   const loadMalformedLogbook = useCallback(() => {
-    void loadPath(writeScratchFile('malformed-logbook.ssrf', MALFORMED_LOGBOOK));
+    loadPath.mutate(writeScratchFile('malformed-logbook.ssrf', MALFORMED_LOGBOOK));
   }, [loadPath]);
 
-  const importSuuntoSample = useCallback(() => {
-    void sampleSuuntoPath().then((path) => importSuuntoFile(path));
-  }, [importSuuntoFile]);
+  // The sample paths resolve an asset, which is the one asynchronous step; a
+  // failure to find it is reported rather than left as a floating rejection.
+  const importSample = useCallback(
+    (resolve: () => Promise<string>) => {
+      void resolve()
+        .then((path) => importSuuntoFile.mutateAsync(path))
+        .catch((error: unknown) => {
+          operationFailed();
+          Alert.alert('Import failed', describeError(error).message);
+        });
+    },
+    [importSuuntoFile],
+  );
 
-  const importSuuntoXmlSample = useCallback(() => {
-    void sampleSuuntoXmlPath().then((path) => importSuuntoFile(path));
-  }, [importSuuntoFile]);
+  const importSuuntoSample = useCallback(
+    () => importSample(sampleSuuntoPath),
+    [importSample],
+  );
+
+  const importSuuntoXmlSample = useCallback(
+    () => importSample(sampleSuuntoXmlPath),
+    [importSample],
+  );
 
   const about = aboutInfo();
   const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
@@ -213,7 +234,7 @@ export function useSettingsScreen(): SettingsScreen {
   return {
     transfer,
     unitSystem,
-    setUnitSystem,
+    setUnitSystem: setUnitSystem.mutate,
     diveCount: dives.length,
     siteCount: sites.length,
     logbookPath: path,

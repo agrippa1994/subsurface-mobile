@@ -25,12 +25,10 @@ import {
   summaryTiles,
   type StatTile,
 } from '@/models/statistics';
-import { useLogStore } from '@/store/log-store';
-import { useUnitSystem } from '@/store/settings-store';
+import { useUnitSystem } from '@/queries/settings';
 
 export default function StatisticsScreen() {
   const screen = useStatisticsScreen();
-  const status = useLogStore((state) => state.status);
   const unitSystem = useUnitSystem();
   const theme = useTheme();
 
@@ -47,7 +45,7 @@ export default function StatisticsScreen() {
   );
   const durations = useMemo(() => (summary ? durationHistogram(summary) : []), [summary]);
 
-  if (status === 'idle' || status === 'loading') {
+  if (screen.loading) {
     return <StatusView kind="loading" title="Opening logbook" />;
   }
 

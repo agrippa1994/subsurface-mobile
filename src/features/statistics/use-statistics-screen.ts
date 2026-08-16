@@ -1,23 +1,24 @@
 // AI-generated (Claude)
 // Everything the Statistics screen does, minus the rendering.
 //
-// Two calls into the module per render pass: one unfiltered summary, which is
-// only used to populate the year picker, and one for the filter in force. The
-// filtered numbers are never derived from the unfiltered ones - the module
-// recomputes them, which is what keeps them identical to desktop's.
+// Two queries into the module: one unfiltered summary, which is only used to
+// populate the year picker, and one for the filter in force. The filtered
+// numbers are never derived from the unfiltered ones - the module recomputes
+// them, which is what keeps them identical to desktop's.
 
 import { useMemo, useState } from 'react';
 
-import { getStatistics } from '../../../modules/ssrf-core/src';
 import type { DiveSite, StatsSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
-import { filterYears, isFiltered, toStatsFilter, type StatsFilterInput } from '@/models/statistics';
-import { useLogStore } from '@/store/log-store';
+import { filterYears, isFiltered, NO_FILTER, type StatsFilterInput } from '@/models/statistics';
+import { useDives, useSites, useStatistics } from '@/queries/logbook';
 
 export type StatisticsScreen = {
   /** null while the module could not answer; `error` says why. */
   summary: StatsSummary | null;
   error: string | null;
+  /** True until the first summary has been read. */
+  loading: boolean;
   filter: StatsFilterInput;
   filtered: boolean;
   /** Years the log covers, newest first. Unaffected by the current filter. */
@@ -32,27 +33,20 @@ export type StatisticsScreen = {
 };
 
 export function useStatisticsScreen(): StatisticsScreen {
-  const [filter, setFilter] = useState<StatsFilterInput>({ year: null, siteUuid: null });
+  const [filter, setFilter] = useState<StatsFilterInput>(NO_FILTER);
+  const active = isFiltered(filter);
 
-  // Both the loaded path and the dive count change on every load and mutation,
-  // so they are what makes the summaries stale.
-  const logPath = useLogStore((state) => state.path);
-  const dives = useLogStore((state) => state.dives);
-  const sites = useLogStore((state) => state.sites);
+  const { data: dives = [] } = useDives();
+  const { data: sites = [] } = useSites();
 
-  // logPath and the dive count are the invalidation keys, not inputs: the
-  // module owns the divelog, so a reload or a mutation is what makes the last
-  // answer stale.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const unfiltered = useMemo(() => read(), [logPath, dives.length]);
-  const filtered = useMemo(
-    () => (isFiltered(filter) ? read(filter) : unfiltered),
-    [filter, unfiltered]
-  );
+  const unfiltered = useStatistics();
+  // Keyed on the filter, so switching years hits the cache on the way back.
+  // Unfiltered is reused rather than re-queried when no filter is set.
+  const filtered = useStatistics(active ? filter : undefined);
 
   const years = useMemo(
-    () => (unfiltered.summary ? filterYears(unfiltered.summary) : []),
-    [unfiltered.summary]
+    () => (unfiltered.data ? filterYears(unfiltered.data) : []),
+    [unfiltered.data]
   );
 
   const sitesWithDives = useMemo(
@@ -61,25 +55,16 @@ export function useStatisticsScreen(): StatisticsScreen {
   );
 
   return {
-    summary: filtered.summary,
-    error: filtered.error,
+    summary: filtered.data ?? null,
+    error: filtered.error ? formatErrorLine(describeError(filtered.error)) : null,
+    loading: filtered.isPending,
     filter,
-    filtered: isFiltered(filter),
+    filtered: active,
     years,
     sites: sitesWithDives,
     setYear: (year) => setFilter((current) => ({ ...current, year })),
     setSite: (siteUuid) => setFilter((current) => ({ ...current, siteUuid })),
-    clearFilter: () => setFilter({ year: null, siteUuid: null }),
+    clearFilter: () => setFilter(NO_FILTER),
     logEmpty: dives.length === 0,
   };
-}
-
-type Result = { summary: StatsSummary | null; error: string | null };
-
-function read(input?: StatsFilterInput): Result {
-  try {
-    return { summary: getStatistics(input ? toStatsFilter(input) : undefined), error: null };
-  } catch (error) {
-    return { summary: null, error: formatErrorLine(describeError(error)) };
-  }
 }

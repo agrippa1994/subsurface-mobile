@@ -1,21 +1,30 @@
 // AI-generated (Claude)
 // The dive-site editor, shared by the "new site" and "edit site" routes.
 //
-// The module owns the sites; this screen holds a draft, and on save turns it
-// into the smallest `upsertDiveSite` argument that expresses the change (see
-// models/site-edit.ts). Saving also flushes the logbook to disk, so a
-// force-quit right after cannot lose the edit.
+// The module owns the sites; this screen holds a TanStack Form over a draft,
+// and on save turns it into the smallest `upsertDiveSite` argument that
+// expresses the change (see models/site-edit.ts) - the form hands over full
+// values, so the diff against `original` is what keeps untouched fields from
+// being written back. Saving also flushes the logbook to disk, so a force-quit
+// right after cannot lose the edit.
+//
+// Validation is the pure functions in models/site-edit.ts, run as form
+// validators. They stay there rather than moving into this screen because that
+// is what keeps them covered by the Node test suite.
 
+import { useForm } from '@tanstack/react-form';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { FormButtonRow, FormField, FormSection } from '@/components/form';
+import { fieldError, FormButtonRow, FormField, FormSection } from '@/components/form';
 import { SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { warned } from '@/lib/haptics';
+import { flush } from '@/lib/logbook-persist';
 import { useTheme } from '@/hooks/use-theme';
+import type { DiveSite } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
 import {
   buildSiteInput,
@@ -29,88 +38,81 @@ import {
   validateSiteDraft,
   type SiteDraft,
 } from '@/models/site-edit';
-import { useLogStore } from '@/store/log-store';
+import { useSites } from '@/queries/logbook';
+import { useDeleteSite, useSaveSite } from '@/queries/logbook-mutations';
+
+/**
+ * The draft plus the raw coordinate text. The parsed position is kept beside
+ * the text rather than derived from it on save: re-parsing a formatted string
+ * would round the position the user picked on the map.
+ */
+type SiteFormValues = SiteDraft & { coordinateText: string };
 
 export function SiteEditor({ uuid }: { uuid: number }) {
   const router = useRouter();
   const theme = useTheme();
-  const sites = useLogStore((state) => state.sites);
-  const saveSite = useLogStore((state) => state.saveSite);
-  const deleteSite = useLogStore((state) => state.deleteSite);
-  const flush = useLogStore((state) => state.flush);
+  const { data: sites = [] } = useSites();
+  const saveSite = useSaveSite();
+  const deleteSite = useDeleteSite();
 
-  const original = useMemo(() => sites.find((site) => site.uuid === uuid), [sites, uuid]);
-  const [draft, setDraft] = useState<SiteDraft>(() =>
-    original ? siteDraftFrom(original) : { ...EMPTY_SITE_DRAFT }
-  );
-  const [coordinateText, setCoordinateText] = useState(() =>
-    original ? formatCoordinateInput(draft.latUdeg, draft.lonUdeg) : ''
-  );
-  const [coordinateError, setCoordinateError] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // A brand-new site is invalid until it has a name, but saying so before the
-  // user has typed anything is scolding an empty form. The hint appears once
-  // saving has been attempted.
-  const [saveAttempted, setSaveAttempted] = useState(false);
-
+  const original = sites.find((site) => site.uuid === uuid);
   const isNew = uuid === 0;
-  const patch = useCallback(
-    (changes: Partial<SiteDraft>) => setDraft((current) => ({ ...current, ...changes })),
-    []
-  );
 
-  const onCoordinateText = useCallback(
-    (text: string) => {
-      setCoordinateText(text);
-      if (text.trim() === '') {
-        setCoordinateError(false);
-        patch({ latUdeg: null, lonUdeg: null });
-        return;
-      }
-      const parsed = parseCoordinates(text);
-      setCoordinateError(parsed === null);
-      if (parsed) {
-        patch({ latUdeg: parsed.latUdeg, lonUdeg: parsed.lonUdeg });
-      }
+  const form = useForm({
+    defaultValues: ((): SiteFormValues => {
+      const draft = original ? siteDraftFrom(original) : { ...EMPTY_SITE_DRAFT };
+      return {
+        ...draft,
+        coordinateText: original ? formatCoordinateInput(draft.latUdeg, draft.lonUdeg) : '',
+      };
+    })(),
+    validators: {
+      // A brand-new site is invalid until it has a name, but saying so before
+      // the user has typed anything is scolding an empty form - so this runs on
+      // submit rather than on change.
+      onSubmit: ({ value }) => {
+        const check = validateSiteDraft(value);
+        return check.ok ? undefined : { fields: { name: check.message } };
+      },
     },
-    [patch]
-  );
-
-  const onPick = useCallback(
-    (latUdeg: number, lonUdeg: number) => {
-      patch({ latUdeg, lonUdeg });
-      setCoordinateText(formatCoordinateInput(latUdeg, lonUdeg));
-      setCoordinateError(false);
-    },
-    [patch]
-  );
-
-  const duplicates = findDuplicateSites(draft, sites);
-  const nearby = findNearbySites(draft, sites);
-  const validation = validateSiteDraft(draft);
-
-  const onSave = useCallback(async () => {
-    setSaveAttempted(true);
-    const check = validateSiteDraft(draft);
-    if (!check.ok) {
-      setSaveError(check.message);
-      return;
-    }
-    if (coordinateError) {
-      setSaveError('The position could not be read.');
-      return;
-    }
-    try {
-      const input = buildSiteInput(draft, original);
+    onSubmit: async ({ value }) => {
+      const input = buildSiteInput(value, original);
       if (!isEmptySiteInput(input)) {
-        await saveSite(input);
+        await saveSite.mutateAsync(input);
+        // The editor is about to close, so the debounce window has to end here.
         await flush();
       }
       router.back();
-    } catch (error) {
-      setSaveError(formatErrorLine(describeError(error)));
-    }
-  }, [coordinateError, draft, flush, original, router, saveSite]);
+    },
+  });
+
+  /** Typing a position: the text is the field, the parsed pair follows it. */
+  const onCoordinateText = useCallback(
+    (text: string) => {
+      form.setFieldValue('coordinateText', text);
+      if (text.trim() === '') {
+        form.setFieldValue('latUdeg', null);
+        form.setFieldValue('lonUdeg', null);
+        return;
+      }
+      const parsed = parseCoordinates(text);
+      if (parsed) {
+        form.setFieldValue('latUdeg', parsed.latUdeg);
+        form.setFieldValue('lonUdeg', parsed.lonUdeg);
+      }
+    },
+    [form]
+  );
+
+  /** Tapping the map: the pair is the truth, the text follows it. */
+  const onPick = useCallback(
+    (latUdeg: number, lonUdeg: number) => {
+      form.setFieldValue('latUdeg', latUdeg);
+      form.setFieldValue('lonUdeg', lonUdeg);
+      form.setFieldValue('coordinateText', formatCoordinateInput(latUdeg, lonUdeg));
+    },
+    [form]
+  );
 
   const onDelete = useCallback(() => {
     if (!original) {
@@ -126,18 +128,16 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteSite(original.uuid);
+        onPress: () => {
+          void (async () => {
+            await deleteSite.mutateAsync(original.uuid);
             await flush();
             router.back();
-          } catch (error) {
-            setSaveError(formatErrorLine(describeError(error)));
-          }
+          })();
         },
       },
     ]);
-  }, [deleteSite, flush, original, router]);
+  }, [deleteSite, original, router]);
 
   if (!isNew && !original) {
     return (
@@ -150,101 +150,142 @@ export function SiteEditor({ uuid }: { uuid: number }) {
     );
   }
 
+  // Whatever the save or the delete threw. Both write the same file, so one
+  // line above the form covers both.
+  const failure = saveSite.error ?? deleteSite.error;
+
   return (
     <ScrollView
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
       keyboardDismissMode="on-drag">
-      <Stack.Screen
-        options={{
-          title: isNew ? 'New site' : 'Edit site',
-          headerRight: () => (
-            <Pressable onPress={onSave} accessibilityRole="button" hitSlop={Spacing.two}>
-              <Text style={[styles.headerAction, { color: theme.accent }]}>Save</Text>
-            </Pressable>
-          ),
-        }}
-      />
+      <form.Subscribe selector={(state) => state.isSubmitting}>
+        {(isSubmitting) => (
+          <Stack.Screen
+            options={{
+              title: isNew ? 'New site' : 'Edit site',
+              headerRight: () => (
+                <Pressable
+                  onPress={() => void form.handleSubmit()}
+                  disabled={isSubmitting}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isSubmitting }}
+                  hitSlop={Spacing.two}>
+                  <Text
+                    style={[
+                      styles.headerAction,
+                      { color: theme.accent, opacity: isSubmitting ? 0.5 : 1 },
+                    ]}>
+                    Save
+                  </Text>
+                </Pressable>
+              ),
+            }}
+          />
+        )}
+      </form.Subscribe>
 
-      {saveError ? (
-        <Text style={[styles.error, { color: theme.danger }]}>{saveError}</Text>
+      {failure ? (
+        <Text style={[styles.error, { color: theme.danger }]}>
+          {formatErrorLine(describeError(failure))}
+        </Text>
       ) : null}
 
       <FormSection title="Site">
-        <FormField
-          label="Name"
-          value={draft.name}
-          onChangeText={(name) => patch({ name })}
-          placeholder="Blue Hole"
-          autoCapitalize="words"
-          hint={saveAttempted && !validation.ok ? validation.message : undefined}
-        />
-        <FormField
-          label="Description"
-          value={draft.description}
-          onChangeText={(description) => patch({ description })}
-          placeholder="Wall, 5 minutes by boat"
-        />
-        <FormField
-          label="Notes"
-          value={draft.notes}
-          onChangeText={(notes) => patch({ notes })}
-          multiline
-        />
+        <form.Field name="name">
+          {(field) => (
+            <FormField
+              label="Name"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              placeholder="Blue Hole"
+              autoCapitalize="words"
+              error={fieldError(field.state.meta.errors)}
+            />
+          )}
+        </form.Field>
+        <form.Field name="description">
+          {(field) => (
+            <FormField
+              label="Description"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              placeholder="Wall, 5 minutes by boat"
+            />
+          )}
+        </form.Field>
+        <form.Field name="notes">
+          {(field) => (
+            <FormField
+              label="Notes"
+              value={field.state.value}
+              onChangeText={field.handleChange}
+              onBlur={field.handleBlur}
+              multiline
+            />
+          )}
+        </form.Field>
       </FormSection>
 
       <FormSection
         title="Position"
         footer="Tap the map to move the marker, or type coordinates - decimal degrees, or degrees and minutes with a hemisphere.">
-        <FormField
-          label="Coordinates"
-          value={coordinateText}
-          onChangeText={onCoordinateText}
-          placeholder="47.376900, 8.541700"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          hint={coordinateError ? 'Not a position this can read.' : undefined}
-        />
-        <SiteMap
-          latUdeg={draft.latUdeg}
-          lonUdeg={draft.lonUdeg}
-          editable
-          onPick={onPick}
-          title={draft.name || 'Dive site'}
-        />
-        {draft.latUdeg !== null ? (
-          <FormButtonRow
-            label="Clear position"
-            onPress={() => {
-              patch({ latUdeg: null, lonUdeg: null });
-              setCoordinateText('');
-              setCoordinateError(false);
-            }}
-          />
-        ) : null}
+        <form.Field
+          name="coordinateText"
+          validators={{
+            onChange: ({ value }) =>
+              value.trim() === '' || parseCoordinates(value) !== null
+                ? undefined
+                : 'Not a position this can read.',
+          }}>
+          {(field) => (
+            <FormField
+              label="Coordinates"
+              value={field.state.value}
+              onChangeText={onCoordinateText}
+              onBlur={field.handleBlur}
+              placeholder="47.376900, 8.541700"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              error={fieldError(field.state.meta.errors)}
+            />
+          )}
+        </form.Field>
+
+        <form.Subscribe
+          selector={(state) =>
+            [state.values.latUdeg, state.values.lonUdeg, state.values.name] as const
+          }>
+          {([latUdeg, lonUdeg, name]) => (
+            <>
+              <SiteMap
+                latUdeg={latUdeg}
+                lonUdeg={lonUdeg}
+                editable
+                onPick={onPick}
+                title={name || 'Dive site'}
+              />
+              {latUdeg !== null ? (
+                <FormButtonRow
+                  label="Clear position"
+                  onPress={() => {
+                    form.setFieldValue('latUdeg', null);
+                    form.setFieldValue('lonUdeg', null);
+                    form.setFieldValue('coordinateText', '');
+                  }}
+                />
+              ) : null}
+            </>
+          )}
+        </form.Subscribe>
       </FormSection>
 
-      {duplicates.length > 0 || nearby.length > 0 ? (
-        <FormSection title="Possible duplicate">
-          {duplicates.length > 0 ? (
-            <Text style={{ color: theme.text }}>
-              {duplicates.length === 1
-                ? 'Another site already has this name.'
-                : `${duplicates.length} other sites already have this name.`}
-            </Text>
-          ) : null}
-          {nearby.length > 0 ? (
-            <Text style={{ color: theme.text }}>
-              {`Within 100 m of ${nearby.map((site) => site.name || 'an unnamed site').join(', ')}.`}
-            </Text>
-          ) : null}
-          <Text style={{ color: theme.textSecondary }}>
-            Two sites can share a name and a position; move the dives to one of them if that is not
-            what you meant.
-          </Text>
-        </FormSection>
-      ) : null}
+      <form.Subscribe selector={(state) => state.values}>
+        {(draft) => <DuplicateWarning draft={draft} sites={sites} />}
+      </form.Subscribe>
 
       {!isNew ? (
         <FormSection>
@@ -254,6 +295,46 @@ export function SiteEditor({ uuid }: { uuid: number }) {
 
       <View style={styles.footerSpace} />
     </ScrollView>
+  );
+}
+
+/**
+ * Two sites can share a name and a position, so this is a note rather than a
+ * validation failure - it says what the log already holds and leaves the
+ * decision to the diver.
+ */
+function DuplicateWarning({
+  draft,
+  sites,
+}: {
+  draft: SiteDraft;
+  sites: readonly DiveSite[];
+}) {
+  const theme = useTheme();
+  const duplicates = findDuplicateSites(draft, sites);
+  const nearby = findNearbySites(draft, sites);
+  if (duplicates.length === 0 && nearby.length === 0) {
+    return null;
+  }
+  return (
+    <FormSection title="Possible duplicate">
+      {duplicates.length > 0 ? (
+        <Text style={{ color: theme.text }}>
+          {duplicates.length === 1
+            ? 'Another site already has this name.'
+            : `${duplicates.length} other sites already have this name.`}
+        </Text>
+      ) : null}
+      {nearby.length > 0 ? (
+        <Text style={{ color: theme.text }}>
+          {`Within 100 m of ${nearby.map((site) => site.name || 'an unnamed site').join(', ')}.`}
+        </Text>
+      ) : null}
+      <Text style={{ color: theme.textSecondary }}>
+        Two sites can share a name and a position; move the dives to one of them if that is not what
+        you meant.
+      </Text>
+    </FormSection>
   );
 }
 

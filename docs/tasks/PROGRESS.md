@@ -614,3 +614,59 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   reached from Settings -> "Ungroup all dives" behind a destructive confirm that
   says it removes every trip. `notrip` is deliberately left unset, so no
   `tripflag='NOTRIP'` is written into a file desktop Subsurface would honour.
+
+- 2026-08-16 — Async state moved to TanStack Query, forms to TanStack Form, and
+  zustand dropped. The two stores were a hand-rolled query cache: `log-store.ts`
+  carried its own `idle|loading|ready|error` machine, and three screens read the
+  module inside a `useMemo` keyed on `[logPath, dives]` with
+  `eslint-disable react-hooks/exhaustive-deps` to hide that the deps were
+  invalidation keys rather than inputs. One of them was wrong -
+  `dives/edit/[id].tsx` keyed on `[diveId]` alone, so the editor showed a stale
+  dive if the log was reloaded underneath it. All of those disables are gone.
+
+  What the shape is now: `src/queries/logbook.ts` holds the reads
+  (`useLogbook`, `useDives`, `useSites`, `useDive`, `useProfile`,
+  `useStatistics`), `src/queries/logbook-mutations.ts` the writes, and
+  `src/queries/settings.ts` the preferences file. `src/lib/query-keys.ts` is the
+  single key factory.
+
+  Three invariants the migration had to carry, all of them easy to break later:
+
+  1. **Dive ids are process-local.** Keys derived from the loaded log live under
+     `['log','data']`. A mutation *invalidates* that subtree; a load, import or
+     replace *removes* it and sets `['log']` directly, because invalidating the
+     root would re-run `loadFromXML` and reassign every id underneath the screen
+     that asked. `adoptLogbook()` in logbook-mutations.ts is the only place that
+     does this.
+  2. **Minimal patches.** TanStack Form submits full values, so
+     `buildDivePatch` / `buildSiteInput` still diff against the dive or site the
+     editor loaded. Echoing untouched fields back would resurrect stale values,
+     since `updateDive` / `upsertDiveSite` overwrite exactly the fields named.
+  3. **The `flush()` rethrow contract.** The 400 ms debounce moved out of the
+     store into `src/lib/logbook-persist.ts`, unchanged in behaviour: a write
+     that fails inside the window stashes the error and the next `flush()`
+     rethrows it to the editor that called. `useSaving()` exposes the flag
+     through `useSyncExternalStore`. The `AppState` background flush is now a
+     hook with a real `remove()` cleanup instead of an import-time global
+     subscription that was never unsubscribed.
+
+  Query defaults are the opposite of the web ones (`src/lib/query-client.ts`):
+  `networkMode: 'always'` - required, since there is no network and the default
+  `'online'` would pause every query forever - plus `staleTime`/`gcTime` of
+  `Infinity`, no retries and no refetch-on-anything. Every `queryFn` is
+  synchronous, which is what makes `getStatistics` safe: it implements its filter
+  by marking dives `selected`, and sync queryFns cannot interleave on the JS
+  thread. Do not make them async without revisiting that.
+
+  Forms: both editors are `useForm`. The validation and the patch building stay
+  in `src/models/*` - `validateSiteDraft`, `parseCoordinates`,
+  `validateCylinderDrafts`, `buildCylinderPatches` are called as validators and
+  on submit rather than reimplemented, which is why the Node suite needed no
+  changes at all. Site errors now render in the danger colour like the cylinder
+  ones did (`FormField` gained an `error` prop distinct from `hint`), the
+  cylinder use picker was promoted into `components/form.tsx` as `OptionField`,
+  and both Save buttons disable while the mutation is pending - which they never
+  did before.
+
+  281 tests still pass, untouched; `tests/` and `src/models/` have no diff.
+

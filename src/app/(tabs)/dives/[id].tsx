@@ -1,11 +1,10 @@
 // AI-generated (Claude)
 // Dive detail: the dive's own record plus the profile diagram.
 //
-// `getDive` and `getProfile` are called here rather than cached in the store,
-// because both are per-dive and the store only caches the list. Ids are
-// process-local (see modules/ssrf-core/cpp/API.md), so a reload of the log
-// invalidates this screen - which is why the lookup failing renders "not
-// found" instead of throwing.
+// The dive and its profile are their own queries rather than something derived
+// from the list, because the list rows carry neither. Ids are process-local
+// (see modules/ssrf-core/cpp/API.md), so a reload of the log removes both keys -
+// which is why the lookup failing renders "not found" instead of throwing.
 //
 // This screen is React Native rather than SwiftUI: the profile is a Skia
 // canvas, and a SwiftUI list cannot host one.
@@ -17,8 +16,7 @@ import { ProfileChart } from '@/components/profile-chart';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { getDive, getProfile } from '../../../../modules/ssrf-core/src';
-import type { Cylinder, Dive, PlotInfo, WeightSystem } from '@/models';
+import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
   DiveMode,
   formatDepth,
@@ -32,8 +30,8 @@ import {
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
-import { useLogStore } from '@/store/log-store';
-import { useUnitSystem } from '@/store/settings-store';
+import { useDive, useProfile } from '@/queries/logbook';
+import { useUnitSystem } from '@/queries/settings';
 
 const DIVE_MODE_LABEL: Record<DiveMode, string> = {
   [DiveMode.OC]: 'Open circuit',
@@ -42,47 +40,40 @@ const DIVE_MODE_LABEL: Record<DiveMode, string> = {
   [DiveMode.Freedive]: 'Freedive',
 };
 
-type Loaded = { dive: Dive; profile: PlotInfo };
-
 export default function DiveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
-  // Re-read whenever the log is reloaded: the ids change with it.
-  const logPath = useLogStore((state) => state.path);
-  // ...and whenever a mutation happened: `refresh()` replaces this array, so
-  // its identity is what tells the screen its copy of the dive is stale.
-  const dives = useLogStore((state) => state.dives);
   const unitSystem = useUnitSystem();
   const theme = useTheme();
 
-  const loaded = useMemo<Loaded | { error: string }>(() => {
-    try {
-      return { dive: getDive(diveId), profile: getProfile(diveId) };
-    } catch (error) {
-      return { error: formatErrorLine(describeError(error)) };
-    }
-    // logPath and dives are not read here on purpose - they are the
-    // invalidation keys.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diveId, logPath, dives]);
+  // Both are keyed on the dive id and live under the log subtree, so a reload
+  // drops them: ids are process-local and mean nothing across a load.
+  const diveQuery = useDive(diveId);
+  const profileQuery = useProfile(diveId);
+  const dive = diveQuery.data;
+  const profile = profileQuery.data;
 
   const plot = useMemo(
-    () => ('dive' in loaded ? buildProfilePlot(loaded.profile, loaded.dive.dcs[0]?.events ?? []) : null),
-    [loaded]
+    () => (dive && profile ? buildProfilePlot(profile, dive.dcs[0]?.events ?? []) : null),
+    [dive, profile]
   );
 
-  if ('error' in loaded) {
+  const failure = diveQuery.error ?? profileQuery.error;
+  if (failure) {
     return (
       <StatusView
         kind="error"
         title="Dive not found"
-        description={loaded.error}
+        description={formatErrorLine(describeError(failure))}
         systemImage="questionmark.circle"
       />
     );
   }
 
-  const { dive, profile } = loaded;
+  if (!dive || !profile) {
+    return <StatusView kind="loading" title="Opening dive" />;
+  }
+
   const row = toDiveRow(dive, unitSystem);
   const dc = dive.dcs[0];
 
