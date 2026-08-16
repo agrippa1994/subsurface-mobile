@@ -33,6 +33,7 @@ import { formatDuration, mmToFeet, mmToMeters } from '@/models';
 import {
   depthTicks,
   nearestSampleIndex,
+  profileSummary,
   readoutAt,
   temperatureValue,
   timeTicks,
@@ -305,7 +306,13 @@ export function ProfileChart({ plot, pi, unitSystem, height = 260 }: ProfileChar
         <View
           style={{ height }}
           onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-          collapsable={false}>
+          collapsable={false}
+          // One element to VoiceOver rather than a canvas plus a scatter of axis
+          // labels: the label describes the shape of the dive, since neither the
+          // curve nor the scrubber gesture is reachable without a pointer.
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={profileSummary(plot, unitSystem)}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 

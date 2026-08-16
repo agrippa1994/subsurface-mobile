@@ -84,7 +84,9 @@ describe('a large logbook', () => {
     expect(profile.ms).toBeLessThan(1000);
 
     const dive = await host.getDive(middle.id);
-    const built = await timed(async () => buildProfilePlot(profile.value, dive.events));
+    const built = await timed(async () =>
+      buildProfilePlot(profile.value, dive.dcs[0]?.events ?? [])
+    );
     expect(built.ms).toBeLessThan(100);
 
     // Drawing thins the series to a few hundred points whatever the sample

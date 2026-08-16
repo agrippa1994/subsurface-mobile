@@ -85,6 +85,13 @@ export type DiveRow = {
   /** 0-5, as stored; the UI draws the stars. */
   rating: number;
   invalid: boolean;
+  /**
+   * What VoiceOver reads for the row. The visual row is glanceable shorthand -
+   * "#12", a run of stars, "20.1 m - 42:15" - which a screen reader would
+   * either spell out or skip, so the same facts are written out here as a
+   * sentence and set as the row's accessibility label.
+   */
+  accessibilityLabel: string;
 };
 
 /**
@@ -129,16 +136,51 @@ export function toDiveRow(
     parts.push(formatDuration(dive.durationSec));
   }
 
+  const title = diveRowTitle(dive);
+  const dateText = formatDate(dive.when, locale);
+  const timeText = formatTime(dive.when, locale);
+
+  const spoken: string[] = [title, `${dateText} at ${timeText}`];
+  if (dive.number > 0) {
+    spoken.push(`dive number ${dive.number}`);
+  }
+  if (dive.maxDepthMm > 0) {
+    spoken.push(`maximum depth ${formatDepth(dive.maxDepthMm, system)}`);
+  }
+  if (dive.durationSec > 0) {
+    spoken.push(`duration ${spokenDuration(dive.durationSec)}`);
+  }
+  if (dive.rating > 0) {
+    spoken.push(`rated ${Math.round(dive.rating)} of 5`);
+  }
+  if (dive.invalid) {
+    spoken.push('marked invalid');
+  }
+
   return {
     id: dive.id,
-    title: diveRowTitle(dive),
-    dateText: formatDate(dive.when, locale),
-    timeText: formatTime(dive.when, locale),
+    title,
+    dateText,
+    timeText,
     numberText: dive.number > 0 ? `#${dive.number}` : '',
     detailText: parts.join(' - '),
     rating: dive.rating,
     invalid: dive.invalid,
+    accessibilityLabel: spoken.join(', '),
   };
+}
+
+/** "42 minutes" rather than "42:15", which VoiceOver reads as a time of day. */
+function spokenDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const minuteText = `${rest} ${rest === 1 ? 'minute' : 'minutes'}`;
+  if (hours === 0) {
+    return minuteText;
+  }
+  const hourText = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  return rest === 0 ? hourText : `${hourText} ${minuteText}`;
 }
 
 /** "3 dives - 12 Mar 2024" or, for a range, "... - 12-15 Mar 2024". */

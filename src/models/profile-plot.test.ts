@@ -14,6 +14,7 @@ import {
   depthTicks,
   EMPTY_PROFILE_PLOT,
   nearestSampleIndex,
+  profileSummary,
   readoutAt,
   temperatureValue,
   timeTicks,
@@ -107,6 +108,39 @@ describe('windowPoints', () => {
 
   it('handles an empty series', () => {
     expect(windowPoints([], 0, 100)).toEqual([]);
+  });
+});
+
+describe('profileSummary', () => {
+  const plot = {
+    ...EMPTY_PROFILE_PLOT,
+    maxSec: 2535,
+    maxDepthMm: 20100,
+    depth: [
+      { sec: 0, value: 0 },
+      { sec: 600, value: 20100 },
+      { sec: 2535, value: 0 },
+    ],
+    temperature: [{ sec: 600, value: 283150 }],
+    temperatureRange: { min: 283150, max: 289150 },
+  };
+
+  it('describes the shape of the dive, not the drawing', () => {
+    expect(profileSummary(plot, 'metric')).toBe(
+      'Dive profile. maximum depth 20.1 m at 10:00, total time 42:15, ' +
+        'water temperature 10 C to 16 C, no decompression obligation.'
+    );
+  });
+
+  it('says when the dive went into deco', () => {
+    const deco = { ...plot, ceiling: [{ sec: 900, value: 3000 }] };
+    expect(profileSummary(deco)).toContain('the dive went into decompression');
+  });
+
+  it('says so rather than describing an empty chart', () => {
+    expect(profileSummary(EMPTY_PROFILE_PLOT)).toBe(
+      'Dive profile. This dive has no profile samples.'
+    );
   });
 });
 

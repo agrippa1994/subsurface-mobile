@@ -6,7 +6,13 @@
 // comes from the presentation model in src/models/dive-list.ts - no formatting
 // decisions are made here.
 import { Button, HStack, Host, Image, List, Section, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { buttonStyle, font, foregroundColor, listStyle } from '@expo/ui/swift-ui/modifiers';
+import {
+  accessibilityLabel,
+  buttonStyle,
+  font,
+  foregroundColor,
+  listStyle,
+} from '@expo/ui/swift-ui/modifiers';
 
 import type { DiveListViewProps } from './dive-list-view';
 import { ratingStars, sectionSubtitle, toDiveRow } from '@/models/dive-list';
@@ -37,7 +43,13 @@ export function DiveListView({ sections, unitSystem, onSelectDive }: DiveListVie
                 <Button
                   key={row.id}
                   onPress={() => onSelectDive(row.id)}
-                  modifiers={[buttonStyle('plain')]}>
+                  modifiers={[
+                    buttonStyle('plain'),
+                    // The row's own texts are shorthand (a "#12", a run of star
+                    // images, "20.1 m - 42:15"); VoiceOver reads the sentence
+                    // from the presentation model instead.
+                    accessibilityLabel(row.accessibilityLabel),
+                  ]}>
                   <HStack spacing={12} alignment="center">
                     <VStack spacing={2} alignment="leading">
                       <Text modifiers={[font({ textStyle: 'body', weight: 'semibold' })]}>

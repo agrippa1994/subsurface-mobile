@@ -199,7 +199,7 @@ function Header({ dive }: { dive: Dive }) {
   return (
     <View style={styles.header}>
       {stats.map(([label, value]) => (
-        <View key={label} style={styles.stat}>
+        <View key={label} style={styles.stat} accessible accessibilityLabel={spoken(label, value)}>
           <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
           <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
         </View>
@@ -218,10 +218,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/**
+ * Label and value as one announcement. The dash the screen uses for a field the
+ * dive does not carry is a visual placeholder; VoiceOver says what it means.
+ */
+function spoken(label: string, value: string): string {
+  const text = value.trim() === '-' ? 'not recorded' : value.replace(/\n/g, ', ');
+  return `${label}, ${text}`;
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessible accessibilityLabel={spoken(label, value)}>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
       <Text style={[styles.value, { color: theme.text }]}>{value}</Text>
     </View>

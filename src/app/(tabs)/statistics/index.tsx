@@ -108,17 +108,20 @@ export default function StatisticsScreen() {
 function Tile({ tile }: { tile: StatTile }) {
   const theme = useTheme();
   return (
-    <View style={[styles.tile, { backgroundColor: theme.backgroundElement }]}>
+    // One element to VoiceOver: read apart, "412" and "Dives" are two
+    // announcements that say nothing on their own. The value keeps its single
+    // line - it is a number and a unit - but the label and the detail wrap,
+    // because at the larger Dynamic Type sizes they no longer fit on one.
+    <View
+      style={[styles.tile, { backgroundColor: theme.backgroundElement }]}
+      accessible
+      accessibilityLabel={[tile.label, tile.value, tile.detail].filter(Boolean).join(', ')}>
       <Text style={[styles.tileValue, { color: theme.text }]} numberOfLines={1}>
         {tile.value}
       </Text>
-      <Text style={[styles.tileLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-        {tile.label}
-      </Text>
+      <Text style={[styles.tileLabel, { color: theme.textSecondary }]}>{tile.label}</Text>
       {tile.detail !== '' ? (
-        <Text style={[styles.tileDetail, { color: theme.textSecondary }]} numberOfLines={1}>
-          {tile.detail}
-        </Text>
+        <Text style={[styles.tileDetail, { color: theme.textSecondary }]}>{tile.detail}</Text>
       ) : null}
     </View>
   );

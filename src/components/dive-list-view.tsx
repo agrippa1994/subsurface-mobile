@@ -41,7 +41,9 @@ export function DiveListView({ sections, unitSystem, onSelectDive }: DiveListVie
         const row = toDiveRow(item, unitSystem);
         return (
           <Pressable
+            accessible
             accessibilityRole="button"
+            accessibilityLabel={row.accessibilityLabel}
             onPress={() => onSelectDive(row.id)}
             style={styles.row}>
             <View style={styles.rowMain}>

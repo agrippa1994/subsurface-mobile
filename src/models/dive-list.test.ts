@@ -162,6 +162,31 @@ describe('toDiveRow', () => {
   it('leaves the dive number blank when there is none', () => {
     expect(toDiveRow(summary({ id: 1, number: 0 })).numberText).toBe('');
   });
+
+  it('spells the row out for VoiceOver instead of leaving it shorthand', () => {
+    expect(toDiveRow(dive, 'metric', LOCALE).accessibilityLabel).toBe(
+      'Tauchsee, 13 Dec 2011 at 06:35, dive number 12, maximum depth 20.1 m, ' +
+        'duration 42 minutes, rated 4 of 5'
+    );
+  });
+
+  it('speaks a long dive in hours and minutes, not as a clock time', () => {
+    const long = summary({ id: 1, when: 1323758100, durationSec: 3600 + 5 * 60 });
+    expect(toDiveRow(long, 'metric', LOCALE).accessibilityLabel).toContain(
+      'duration 1 hour 5 minutes'
+    );
+  });
+
+  it('says a dive is invalid, which the row only marks with a word in the corner', () => {
+    const label = toDiveRow(summary({ id: 1, invalid: true }), 'metric', LOCALE).accessibilityLabel;
+    expect(label).toContain('marked invalid');
+  });
+
+  it('leaves out what the dive does not have', () => {
+    const label = toDiveRow(summary({ id: 1, when: 1323758100 }), 'metric', LOCALE)
+      .accessibilityLabel;
+    expect(label).toBe('Unnamed dive, 13 Dec 2011 at 06:35');
+  });
 });
 
 describe('sectionSubtitle', () => {

@@ -338,3 +338,48 @@ export function readoutAt(
 export function temperatureValue(mkelvin: number, system: UnitSystem): number {
   return system === 'imperial' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin);
 }
+
+// --- Accessibility ---------------------------------------------------------
+
+/**
+ * What VoiceOver reads for the diagram. A curve is unreadable to a screen
+ * reader and scrubbing it needs a pointer, so the shape is described instead:
+ * how deep, how long, when the deepest point was, what the water did, and
+ * whether the dive went into deco.
+ */
+export function profileSummary(plot: ProfilePlot, system: UnitSystem = 'metric'): string {
+  if (plot.depth.length === 0) {
+    return 'Dive profile. This dive has no profile samples.';
+  }
+
+  const deepest = plot.depth.reduce((best, point) => (point.value > best.value ? point : best));
+  const parts = [
+    `maximum depth ${formatDepth(plot.maxDepthMm, system)} at ${formatDuration(deepest.sec)}`,
+    `total time ${formatDuration(plot.maxSec)}`,
+  ];
+
+  if (plot.temperature.length > 0) {
+    const { min, max } = plot.temperatureRange;
+    parts.push(
+      min === max
+        ? `water temperature ${formatTemperature(min, system)}`
+        : `water temperature ${formatTemperature(min, system)} to ${formatTemperature(max, system)}`
+    );
+  }
+  if (plot.pressures.length > 0) {
+    parts.push(
+      `tank pressure from ${formatPressure(plot.pressureRange.max, system)} to ${formatPressure(
+        plot.pressureRange.min,
+        system
+      )}`
+    );
+  }
+  parts.push(
+    plot.ceiling.length > 0 ? 'the dive went into decompression' : 'no decompression obligation'
+  );
+  if (plot.events.length > 0) {
+    parts.push(`${plot.events.length} ${plot.events.length === 1 ? 'event' : 'events'}`);
+  }
+
+  return `Dive profile. ${parts.join(', ')}.`;
+}
