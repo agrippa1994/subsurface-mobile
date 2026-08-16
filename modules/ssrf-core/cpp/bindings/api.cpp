@@ -208,16 +208,38 @@ struct dive_site &require_site(uint32_t uuid)
 // Methods
 // ---------------------------------------------------------------------------
 
+// True when the document says it is a Subsurface logbook. An SSRF file with no
+// dives in it is a legitimate thing to open - the app can write one - whereas
+// any other document that yields nothing is a file picked by mistake.
+bool declares_divelog(const std::string &bytes)
+{
+	return bytes.find("<divelog") != std::string::npos;
+}
+
 json load_from_xml(const json &args)
 {
 	auto [contents, name] = read_source(args);
+	// Cleared before anything can fail, so that "the load failed" always means
+	// "the module holds no dives" - src/store/log-store.ts drops its cache on
+	// that basis rather than showing dives the module no longer has.
+	divelog.clear();
 	if (contents.empty())
 		fail("empty logbook: " + name);
 
-	divelog.clear();
 	struct xml_params params;
 	if (parse_xml_buffer(name.c_str(), contents.c_str(), static_cast<int>(contents.size()), &divelog, &params))
 		fail("failed to parse " + name);
+
+	// The XML parser accepts a well-formed document it has no table entry for
+	// and simply produces nothing, so a recipe file or a settings export would
+	// otherwise "load" as an empty logbook and replace what the user was
+	// looking at. Import already refuses such a file (see import_file); a load
+	// has to as well.
+	if (divelog.dives.empty() && divelog.sites.empty() && divelog.trips.empty() &&
+	    !declares_divelog(contents)) {
+		divelog.clear();
+		fail("no dives found in " + name);
+	}
 
 	// Assigns dive numbers, computes surface intervals and CNS, and sorts the
 	// table - the same post-processing the desktop app runs after a load.
@@ -579,6 +601,13 @@ json merge_import_log(struct divelog &log, int imported, int failed)
 	// Consumes `log`. merge_all_trips matches the mobile app's import path.
 	divelog.add_imported_dives(log, import_flags::merge_all_trips);
 	int added = static_cast<int>(divelog.dives.size() - before);
+
+	// The core autogroups the *imported* dives among themselves, so an import
+	// can leave dives outside a trip that a fresh load of the same log would
+	// group. Running the post-load processing here settles the log to exactly
+	// what reopening the file gives - which is the state the app must show,
+	// since the file it just wrote is the source of truth.
+	divelog.process_loaded_dives();
 
 	return json{
 		{ "added", added },
