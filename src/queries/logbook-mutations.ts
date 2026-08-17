@@ -10,6 +10,12 @@
 // The load-shaped mutations go further and *remove* the derived subtree instead
 // of invalidating it, because dive ids are process-local and a cached
 // ['log','data','dive',7] would survive pointing at a different dive.
+//
+// Anything that changes the divelog first waits for the working logbook to be
+// loaded (`ensureLogbookLoaded` / `settleLogbook`). The module holds a single
+// divelog, so a change made while the initial load is still in flight is
+// overwritten the moment that load lands - and it is not saved either, because
+// the same load is what points the persist target at the logbook file.
 
 import {
   useMutation,
@@ -39,7 +45,7 @@ import type {
 import { ensureLogbook } from '@/lib/logbook-file';
 import { flush, schedulePersist, setPersistTarget } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
-import type { Logbook } from '@/queries/logbook';
+import { ensureLogbookLoaded, settleLogbook, type Logbook } from '@/queries/logbook';
 
 /** After an edit: re-read everything derived, leaving the load itself alone. */
 function invalidateData(client: QueryClient): Promise<void> {
@@ -137,7 +143,18 @@ export function useUngroupDives(): UseMutationResult<void, Error, void> {
 export function useImportFile(): UseMutationResult<ImportResult, Error, string> {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (path: string) => importFile(path),
+    mutationFn: async (path: string) => {
+      // The merge goes into whatever the module holds, so it must not start
+      // before the working logbook is in there. A file handed over at launch
+      // (share sheet, AirDrop, a tapped attachment) arrives while the initial
+      // load may still be in flight, and that load would then land *after* the
+      // merge: `loadFromXML` replaces the divelog, so the imported dives would
+      // be gone from the list - and gone from disk too, because the persist
+      // target is set by the same load and was still null when the import
+      // asked for a save.
+      await ensureLogbookLoaded(client);
+      return importFile(path);
+    },
     onSuccess: async () => {
       client.removeQueries({ queryKey: queryKeys.logData() });
       schedulePersist();
@@ -155,6 +172,10 @@ export function useReplaceLogbook(): UseMutationResult<Logbook, Error, string> {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (path: string): Promise<Logbook> => {
+      // Same launch race as the import above, from the other side: a load still
+      // in flight would resolve after this one and put the previous logbook
+      // back, persist target included.
+      await settleLogbook(client);
       const target = await ensureLogbook();
       let lastLoad: LoadResult;
       try {
@@ -190,6 +211,7 @@ export function useReloadLogbook(): UseMutationResult<Logbook, Error, void> {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<Logbook> => {
+      await settleLogbook(client);
       const path = await ensureLogbook();
       return { path, lastLoad: loadFromXML(path) };
     },
@@ -201,7 +223,10 @@ export function useReloadLogbook(): UseMutationResult<Logbook, Error, void> {
 export function useLoadPath(): UseMutationResult<LoadResult, Error, string> {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (path: string) => loadFromXML(path),
+    mutationFn: async (path: string) => {
+      await settleLogbook(client);
+      return loadFromXML(path);
+    },
     onSuccess: (lastLoad, path) => adoptLogbook(client, { path, lastLoad }),
   });
 }
