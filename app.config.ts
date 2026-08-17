@@ -110,6 +110,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-dev-client',
     'expo-sharing',
+    // The keychain the SSI credentials and session token are kept in
+    // (src/lib/ssi/auth.ts). Nothing else in the app stores a secret.
+    'expo-secure-store',
     // Apple Maps on iOS, for picking and showing a dive site's position
     // (task 10). No location permission is requested: the app never needs the
     // diver's own position, only the site's.

@@ -9,6 +9,7 @@ export default function DivesLayout() {
       <Stack.Screen name="index" options={{ title: 'Dives' }} />
       <Stack.Screen name="[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
       <Stack.Screen name="edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
+      <Stack.Screen name="ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
     </Stack>
   );
 }

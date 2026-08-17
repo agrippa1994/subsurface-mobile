@@ -115,6 +115,24 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        <Section
+          title="SSI"
+          footer={
+            <Text>
+              Push a dive to your SSI logbook from the dive itself. Your SSI email and password are
+              kept in this device&apos;s keychain, never in the logbook file. Not affiliated with
+              SSI.
+            </Text>
+          }>
+          <LabeledContent label="Account">
+            <Text>{screen.ssi.account ?? 'Not signed in'}</Text>
+          </LabeledContent>
+          <LabeledContent label="Dive sites">
+            <Text>{screen.ssi.siteCatalogue}</Text>
+          </LabeledContent>
+          <Button label="SSI account" onPress={screen.ssi.open} />
+        </Section>
+
         <Section title="Problems" footer={<Text>{PRIVACY_NOTICE}</Text>}>
           <LabeledContent label="Problem log">
             <Text>{screen.diagnostics}</Text>

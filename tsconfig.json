@@ -20,6 +20,7 @@
   "exclude": [
     "node_modules",
     "subsurface",
+    "ssi-log",
     "ios",
     "android",
     "dist",

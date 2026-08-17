@@ -10,6 +10,7 @@
 
 import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
+import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
@@ -35,6 +36,7 @@ import {
   useReloadLogbook,
   useUngroupDives,
 } from '@/queries/logbook-mutations';
+import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
   useGfSeries,
   useGradientFactors,
@@ -96,6 +98,16 @@ export type SettingsScreen = {
    * were found - the database above needs none of them.
    */
   importSuuntoXmlSample: () => void;
+
+  /** The SSI section: an account elsewhere, so a status and a way in. */
+  ssi: {
+    /** The signed-in email, or null. */
+    account: string | null;
+    /** e.g. "36,281 sites" or "Not downloaded". */
+    siteCatalogue: string;
+    /** Pushes the account screen, where signing in actually happens. */
+    open: () => void;
+  };
 
   /** Version and licence facts for the About section. */
   about: AboutInfo;
@@ -238,6 +250,24 @@ export function useSettingsScreen(): SettingsScreen {
     [importSample],
   );
 
+  // SSI is an account on someone else's server, so Settings only reports what
+  // the app has - the signing in is a screen of its own.
+  const ssiAccount = useSsiAccount();
+  const ssiSites = useSsiSiteIndexInfo();
+  const router = useRouter();
+  const openSsi = useCallback(() => router.push('/settings/ssi'), [router]);
+  const ssi = useMemo(
+    () => ({
+      account: ssiAccount.data?.email ?? null,
+      siteCatalogue:
+        (ssiSites.data?.count ?? 0) === 0
+          ? 'Not downloaded'
+          : `${(ssiSites.data?.count ?? 0).toLocaleString()} sites`,
+      open: openSsi,
+    }),
+    [ssiAccount.data, ssiSites.data, openSsi],
+  );
+
   const about = aboutInfo();
   const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
 
@@ -302,6 +332,7 @@ export function useSettingsScreen(): SettingsScreen {
     loadMalformedLogbook,
     importSuuntoSample,
     importSuuntoXmlSample,
+    ssi,
     about,
     openSource,
     diagnostics,

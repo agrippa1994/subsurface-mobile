@@ -33,6 +33,7 @@ import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive, useProfile } from '@/queries/logbook';
 import { useGfSeries, useUnitSystem } from '@/queries/settings';
+import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
 const DIVE_MODE_LABEL: Record<DiveMode, string> = {
   [DiveMode.OC]: 'Open circuit',
@@ -54,6 +55,9 @@ export default function DiveDetailScreen() {
   // drops them: ids are process-local and mean nothing across a load.
   const diveQuery = useDive(diveId);
   const profileQuery = useProfile(diveId);
+  // Whether the SSI row offers an upload or points at Settings. A network
+  // query, unlike everything else on this screen - see src/queries/ssi.ts.
+  const ssiAccount = useSsiAccount();
   const dive = diveQuery.data;
   const profile = profileQuery.data;
 
@@ -80,6 +84,7 @@ export default function DiveDetailScreen() {
 
   const row = toDiveRow(dive, unitSystem);
   const dc = dive.dcs[0];
+  const synced = isSyncedToSsi(dive);
 
   return (
     <ScrollView
@@ -187,6 +192,26 @@ export default function DiveDetailScreen() {
           ) : null}
         </Section>
       ) : null}
+
+      <Section title="SSI">
+        {ssiAccount.data === null ? (
+          <Row
+            label="Not signed in"
+            value={'Sign in under\nSettings, SSI'}
+          />
+        ) : (
+          <Link href={`/dives/ssi/${dive.id}`} asChild>
+            <Pressable accessibilityRole="button" style={styles.row}>
+              <Text style={[styles.label, { color: theme.accent }]}>
+                {synced ? 'Sync to SSI again' : 'Sync to SSI'}
+              </Text>
+              <Text style={[styles.value, { color: theme.textSecondary }]}>
+                {synced ? 'Already synced' : 'Pick a site, then upload'}
+              </Text>
+            </Pressable>
+          </Link>
+        )}
+      </Section>
 
       {dive.notes.trim() !== '' ? (
         <Section title="Notes">
