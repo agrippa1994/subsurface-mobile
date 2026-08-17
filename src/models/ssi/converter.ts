@@ -30,6 +30,7 @@ import {
 } from '../units';
 import { plotPressureAt } from '../index';
 import type { Dive, DiveSite, PlotInfo } from '../index';
+import { gfNowPercent } from '../profile-plot';
 import { DivePhaseFlag, type CreateDive, type DiveSample } from './create-dive';
 
 /**
@@ -218,8 +219,11 @@ export function buildSsiSamples(profile: PlotInfo): DiveSample[] {
       s: 0,
       te: round(temperatures[index], 2),
       ndl: round(Math.min(entry.ndlSec / 60, 99), 1),
+      // SSI wants both as percentages. The core does not hand them over in the
+      // same unit - surfaceGf already is one, currentGf is a raw fraction of
+      // the M-value - so only the latter is scaled. See gfNowPercent.
       gs: round(entry.surfaceGf, 2),
-      gn: round(entry.currentGf, 2),
+      gn: round(gfNowPercent(entry), 2),
       // Alarms and phase would have to be inferred from the profile; the flags
       // are documented in ./create-dive.ts for whoever wants to try.
       a: 0,

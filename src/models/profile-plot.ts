@@ -109,8 +109,12 @@ function range(values: number[]): Range {
  * (subsurface/core/profile.cpp:967) while `surface_gf` is already multiplied by
  * 100 (:973). The core's own tooltip does exactly this - `100.0 *
  * entry.current_gf` against a raw `entry.surface_gf` (:1409, :1411).
+ *
+ * Exported because the profile is not the only consumer: the SSI converter
+ * sends both curves too, and a second copy of this factor is exactly the sort
+ * of thing that drifts (see src/models/ssi/converter.ts).
  */
-function gfNowPercent(entry: PlotEntry): number {
+export function gfNowPercent(entry: PlotEntry): number {
   return entry.currentGf * 100;
 }
 
