@@ -18,6 +18,8 @@ import {
   formatWeight,
   gramsToKg,
   gramsToLbs,
+  kgToGrams,
+  lbsToGrams,
   metersToMm,
   mbarToBar,
   mbarToPsi,
@@ -86,6 +88,13 @@ describe('volume and weight', () => {
   it('converts grams', () => {
     expect(gramsToKg(4500)).toBe(4.5);
     expect(gramsToLbs(453.6 * 10)).toBeCloseTo(10, 6);
+  });
+
+  it('converts back to grams, landing on the gram it came from', () => {
+    expect(kgToGrams(4.5)).toBe(4500);
+    expect(lbsToGrams(10)).toBe(4536);
+    expect(kgToGrams(gramsToKg(6000))).toBe(6000);
+    expect(lbsToGrams(gramsToLbs(6000))).toBe(6000);
   });
 });
 

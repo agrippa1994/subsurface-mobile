@@ -98,6 +98,15 @@ export function gramsToLbs(grams: number): number {
   return grams / 453.6;
 }
 
+export function kgToGrams(kg: number): number {
+  return Math.round(kg * 1000);
+}
+
+/** The inverse of `gramsToLbs`, for what an imperial weight field accepts back. */
+export function lbsToGrams(lbs: number): number {
+  return Math.round(lbs * 453.6);
+}
+
 // --- Coordinates -----------------------------------------------------------
 
 export function udegToDegrees(udeg: number): number {

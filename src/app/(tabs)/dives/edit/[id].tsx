@@ -22,6 +22,7 @@ import { SuggestField, SuggestionChips } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { CylinderEditor } from '@/features/dives/cylinder-editor';
 import { SitePicker } from '@/features/dives/site-picker';
+import { WeightEditor } from '@/features/dives/weight-editor';
 import { useTheme } from '@/hooks/use-theme';
 import { warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
@@ -40,11 +41,18 @@ import {
   harvestNames,
   harvestSuits,
   harvestTags,
+  harvestWeightDescriptions,
   diveDraftFrom,
   isEmptyPatch,
   parseTagInput,
   type DiveDraft,
 } from '@/models/dive-edit';
+import {
+  buildWeightPatches,
+  validateWeightDrafts,
+  weightDraftsFrom,
+  type WeightDraft,
+} from '@/models/weight-edit';
 import { diveRowTitle } from '@/models/dive-list';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive, useDives, useSites } from '@/queries/logbook';
@@ -52,13 +60,15 @@ import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
 import { useUnitSystem } from '@/queries/settings';
 
 /**
- * The draft, plus the two things that are input rather than data: the raw tag
- * text (so a trailing comma survives being typed) and the cylinder rows, which
- * carry the identity a row needs to survive a re-render (`CylinderDraft.key`).
+ * The draft, plus the things that are input rather than data: the raw tag text
+ * (so a trailing comma survives being typed) and the cylinder and weight rows,
+ * which carry the identity a row needs to survive a re-render (the drafts'
+ * `key`).
  */
 type DiveFormValues = DiveDraft & {
   tagText: string;
   cylinders: CylinderDraft[];
+  weights: WeightDraft[];
 };
 
 export default function DiveEditScreen() {
@@ -104,29 +114,41 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
   const knownTags = useMemo(() => harvestTags(dives), [dives]);
   const knownSuits = useMemo(() => harvestSuits(dives), [dives]);
   const knownCylinders = useMemo(() => harvestCylinderDescriptions(dives), [dives]);
+  const knownWeights = useMemo(() => harvestWeightDescriptions(dives), [dives]);
 
   const form = useForm({
     defaultValues: {
       ...diveDraftFrom(dive),
       tagText: dive.tags.join(', '),
       cylinders: cylinderDraftsFrom(dive, unitSystem),
+      weights: weightDraftsFrom(dive, unitSystem),
     } as DiveFormValues,
     validators: {
       // The per-row messages are already on screen in red next to the fields
       // they belong to; this is the line that says why Save did nothing.
-      onSubmit: ({ value }) =>
-        Object.keys(validateCylinderDrafts(value.cylinders, unitSystem)).length === 0
-          ? undefined
-          : 'Fix the cylinder fields marked in red before saving.',
+      onSubmit: ({ value }) => {
+        if (Object.keys(validateCylinderDrafts(value.cylinders, unitSystem)).length > 0) {
+          return 'Fix the cylinder fields marked in red before saving.';
+        }
+        if (Object.keys(validateWeightDrafts(value.weights, unitSystem)).length > 0) {
+          return 'Fix the weight fields marked in red before saving.';
+        }
+        return undefined;
+      },
     },
     onSubmit: async ({ value }) => {
       const patch: DivePatch = buildDivePatch(dive, value);
       // `buildCylinderPatches` throws if the rows were reordered, which the
       // editor cannot do - so it is a bug rather than a validation failure, and
-      // it is left to reach the form's error state as itself.
+      // it is left to reach the form's error state as itself. The same holds
+      // for `buildWeightPatches`.
       const cylinderPatches = buildCylinderPatches(dive, value.cylinders, unitSystem);
       if (cylinderPatches !== null) {
         patch.cylinders = cylinderPatches;
+      }
+      const weightPatches = buildWeightPatches(dive, value.weights, unitSystem);
+      if (weightPatches !== null) {
+        patch.weightsystems = weightPatches;
       }
       if (!isEmptyPatch(patch)) {
         await updateDive.mutateAsync({ id: dive.id, patch });
@@ -284,6 +306,18 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
             drafts={field.state.value}
             errors={validateCylinderDrafts(field.state.value, unitSystem)}
             descriptions={knownCylinders}
+            unitSystem={unitSystem}
+            onChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="weights">
+        {(field) => (
+          <WeightEditor
+            drafts={field.state.value}
+            errors={validateWeightDrafts(field.state.value, unitSystem)}
+            descriptions={knownWeights}
             unitSystem={unitSystem}
             onChange={field.handleChange}
           />

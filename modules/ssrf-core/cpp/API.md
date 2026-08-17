@@ -193,6 +193,16 @@ directly and avoids the copy.
   and their start/end pressures, so an equipment edit that left them alone would
   report the figures of the dive as it was. Desktop Subsurface does the same
   recomputation in its dive-list model.
+
+  `patch.weightsystems` follows the same whole-list contract, with two
+  differences. Nothing else in a dive refers to a weightsystem - no samples, no
+  events - so any of them can be removed and there is no renumbering to do. And
+  nothing derived depends on the weight carried, so there is no recomputation
+  either; `dive::total_weight()` sums on demand. An entry that names
+  `weightGrams` clears `weightsystem_t::auto_filled`, because a weight the diver
+  typed is no longer one derived from the type; an entry carrying only
+  `sourceIndex` leaves the flag alone. New entries are passed to
+  `add_weightsystem_description()` so `ws_info_table` learns the type.
 - **`previewDive`** is `updateDive` against a throwaway copy of the dive: it
   returns what the dive *would* look like and mutates nothing. It exists for the
   editor's live SAC readout, which depends on gas compressibility
