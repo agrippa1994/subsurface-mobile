@@ -108,6 +108,7 @@ function dive(overrides: Partial<Dive> = {}): Dive {
     dcModel: 'Suunto Vaasa',
     invalid: false,
     cylinderDescriptions: [],
+    weightDescriptions: [],
     notes: 'Nice one',
     wavesize: 0,
     current: 0,

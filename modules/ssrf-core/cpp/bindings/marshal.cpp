@@ -156,16 +156,26 @@ json dive_summary_to_json(const struct dive &d)
 	// The gear the editors autocomplete from. The core has no suit or cylinder
 	// table - the dives are the only record of what this diver owns - so the
 	// corpus has to come off the dive list, which is the one thing the app
-	// keeps cached. Two short strings per dive; the samples stay out of here.
+	// keeps cached. A few short strings per dive; the samples stay out of here.
 	json cylinderDescriptions = json::array();
 	for (const cylinder_t &cyl : d.cylinders) {
 		if (!cyl.type.description.empty())
 			cylinderDescriptions.push_back(cyl.type.description);
 	}
 
+	// ws_info_table does hold weightsystem names, but only the built-in ones
+	// plus whatever this process has parsed - so the dives are still the record
+	// of what the diver actually uses.
+	json weightDescriptions = json::array();
+	for (const weightsystem_t &ws : d.weightsystems) {
+		if (!ws.description.empty())
+			weightDescriptions.push_back(ws.description);
+	}
+
 	return json{
 		{ "suit", d.suit },
 		{ "cylinderDescriptions", std::move(cylinderDescriptions) },
+		{ "weightDescriptions", std::move(weightDescriptions) },
 		{ "id", d.id },
 		{ "number", d.number },
 		{ "when", static_cast<int64_t>(d.when) },

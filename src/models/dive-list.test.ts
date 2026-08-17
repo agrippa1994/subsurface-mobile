@@ -41,6 +41,7 @@ function summary(overrides: Partial<DiveSummary> & { id: number }): DiveSummary 
     suit: '',
     tags: [],
     cylinderDescriptions: [],
+    weightDescriptions: [],
     divemode: DiveMode.OC,
     dcModel: '',
     invalid: false,

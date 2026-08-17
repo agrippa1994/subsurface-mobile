@@ -39,6 +39,7 @@ export type {
   UngroupResult,
   TaxonomyEntry,
   WeightSystem,
+  WeightSystemPatch,
 } from '../../modules/ssrf-core/src/SsrfCore.types';
 
 export {

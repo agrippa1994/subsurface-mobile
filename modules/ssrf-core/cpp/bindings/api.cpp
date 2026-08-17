@@ -542,6 +542,80 @@ void apply_cylinders(struct dive &d, const json &list)
 	}
 }
 
+// Overwrites exactly the fields the entry mentions, like apply_cylinder_patch.
+void apply_weightsystem_patch(weightsystem_t &ws, const json &entry)
+{
+	if (entry.contains("description"))
+		ws.description = get_string(entry, "description");
+	if (entry.contains("weightGrams")) {
+		ws.weight.grams = static_cast<int>(get_int(entry, "weightGrams", 0));
+		// auto_filled means "we derived this weight from the type, so a later
+		// change to the type may overwrite it". A weight the diver has now
+		// typed is no longer that. An entry that only carries a sourceIndex
+		// touches nothing and must leave the flag alone.
+		ws.auto_filled = false;
+	}
+}
+
+/*
+ * `weightsystems` is the whole resulting list, on the same terms as
+ * `cylinders`: an entry with `sourceIndex` keeps the existing weightsystem at
+ * that index, one without is new, and anything left out is removed.
+ *
+ * Simpler than the cylinder case, because nothing else in a dive refers to a
+ * weightsystem: no samples, no events, so no used-check and no renumbering. The
+ * source order rule is kept anyway so both editors can share one patch shape.
+ */
+void apply_weightsystems(struct dive &d, const json &list)
+{
+	if (!list.is_array())
+		fail("'weightsystems' must be an array");
+
+	int previous = -1;
+	bool seen_new = false;
+	std::vector<bool> kept(d.weightsystems.size(), false);
+	for (const json &entry : list) {
+		if (!entry.is_object())
+			fail("each entry of 'weightsystems' must be an object");
+		if (!has_source_index(entry)) {
+			seen_new = true;
+			continue;
+		}
+		if (seen_new)
+			fail("new weightsystems must come after the existing ones");
+		int idx = static_cast<int>(get_int(entry, "sourceIndex", -1));
+		if (idx < 0 || idx >= static_cast<int>(d.weightsystems.size()))
+			fail("weightsystem sourceIndex " + std::to_string(idx) + " out of range");
+		if (idx <= previous)
+			fail("weightsystems may not be reordered");
+		previous = idx;
+		kept[idx] = true;
+	}
+
+	// Back to front, so the indices still to be visited stay valid.
+	for (int idx = static_cast<int>(kept.size()) - 1; idx >= 0; --idx) {
+		if (!kept[idx])
+			d.weightsystems.remove(idx);
+	}
+
+	// What is left is the kept weightsystems in order, so the entries line up
+	// with them one by one and the new ones append past the end.
+	size_t at = 0;
+	for (const json &entry : list) {
+		if (has_source_index(entry)) {
+			apply_weightsystem_patch(d.weightsystems[at], entry);
+			++at;
+		} else {
+			weightsystem_t ws;
+			apply_weightsystem_patch(ws, entry);
+			// So the core's own weight-type table learns a description this
+			// diver types, the same way parsing a file teaches it one.
+			add_weightsystem_description(ws);
+			d.weightsystems.push_back(std::move(ws));
+		}
+	}
+}
+
 // The part of a dive patch that does not touch the divelog itself, so that it
 // can also be applied to a throwaway copy of a dive (see preview_dive()).
 // Registering the dive with a site is deliberately not here: that mutates the
@@ -582,6 +656,11 @@ void apply_dive_patch(struct dive &d, const json &patch)
 		// the desktop app's dive-list model does after an equipment edit.
 		divelog.dives.update_cylinder_related_info(d);
 	}
+
+	// No recomputation here: nothing derived from a dive depends on the weight
+	// the diver carried. `total_weight()` is summed on demand.
+	if (patch.contains("weightsystems"))
+		apply_weightsystems(d, patch["weightsystems"]);
 
 	// The full-text cache indexes notes/buddy/tags, so it is stale now.
 	d.invalidate_cache();

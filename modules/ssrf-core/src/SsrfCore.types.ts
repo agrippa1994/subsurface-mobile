@@ -124,6 +124,8 @@ export type DiveSummary = {
    * table, so the dive list is the only record of the tanks a diver uses.
    */
   cylinderDescriptions: string[];
+  /** The same, for the weight editor: `weightsystem_t::description`. */
+  weightDescriptions: string[];
 };
 
 export type Cylinder = {
@@ -277,6 +279,22 @@ export type CylinderPatch = {
   use?: CylinderUse;
 };
 
+/**
+ * One entry of `DivePatch.weightsystems`, on the same terms as `CylinderPatch`:
+ * only the keys present are written, `sourceIndex` names the weightsystem in
+ * the dive's *current* list that this entry carries forward, an entry without
+ * one is new, and the array is the whole resulting list so anything left out is
+ * removed. Entries must stay in source order, with the new ones last.
+ *
+ * Unlike a cylinder, a weightsystem is never referred to from elsewhere in the
+ * dive, so any of them can be removed.
+ */
+export type WeightSystemPatch = {
+  sourceIndex?: number;
+  description?: string;
+  weightGrams?: number;
+};
+
 export type DivePatch = {
   notes?: string;
   buddy?: string;
@@ -295,6 +313,8 @@ export type DivePatch = {
    * derived `sac`, `otu` and `cns`, because those follow from the cylinders.
    */
   cylinders?: CylinderPatch[];
+  /** The dive's whole weightsystem list after the edit. */
+  weightsystems?: WeightSystemPatch[];
 };
 
 /** One plotted sample. All depths in mm, pressures in mbar, temps in mkelvin. */

@@ -109,6 +109,25 @@ export function harvestCylinderDescriptions(dives: readonly DiveSummary[]): stri
 }
 
 /**
+ * The weight types the core ships with (`ws_info_table` in core/equipment.cpp),
+ * so the very first weight a diver enters still has something to complete
+ * against - unlike suits and cylinders, this corpus has a sensible default set.
+ */
+const COMMON_WEIGHT_TYPES = ['integrated', 'belt', 'ankle', 'backplate', 'clip-on'];
+
+/**
+ * Every weight description in the loaded log, plus the common types, sorted.
+ * The log's own entries win the deduplication, so a diver who writes "Belt"
+ * keeps their capitalisation rather than being offered "belt" beside it.
+ */
+export function harvestWeightDescriptions(dives: readonly DiveSummary[]): string[] {
+  const used = harvestStrings(dives, (dive) => dive.weightDescriptions);
+  const seen = new Set(used.map((name) => name.toLocaleLowerCase()));
+  const extra = COMMON_WEIGHT_TYPES.filter((name) => !seen.has(name));
+  return [...used, ...extra].sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * The shared body of the corpus harvests.
  *
  * `pick` may return undefined, and an entry inside it may be undefined too:

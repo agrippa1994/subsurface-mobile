@@ -28,6 +28,11 @@ import {
   siteDraftFrom,
   validateSiteDraft,
 } from '../src/models/site-edit';
+import {
+  buildWeightPatches,
+  newWeightDraft,
+  weightDraftsFrom,
+} from '../src/models/weight-edit';
 import { fixture, snapshotLog, tempDir } from './harness/fixtures';
 import { diffSnapshots } from './harness/parity';
 import { SsrfHost } from './harness/ssrf-host';
@@ -325,6 +330,136 @@ describe('cylinder edits', () => {
     }
     expect(sampled).not.toBeNull();
     expect(buildCylinderPatches(sampled!, cylinderDraftsFrom(sampled!, 'metric'), 'metric')).toBeNull();
+    await opened.host.close();
+  });
+});
+
+describe('weight edits', () => {
+  /** The first dive the fixture logs any weight for. */
+  async function diveWithWeights(from: SsrfHost): Promise<Dive> {
+    for (const summary of await from.listDives()) {
+      const dive = await from.getDive(summary.id);
+      if (dive.weightsystems.length > 0) {
+        return dive;
+      }
+    }
+    throw new Error('no dive with weightsystems in the fixture');
+  }
+
+  it('changes a weight and its type, and keeps both across a relaunch', async () => {
+    const opened = await freshLogbook('edit-weights.ssrf');
+    const dive = await diveWithWeights(opened.host);
+    const sacBefore = dive.sac;
+
+    const drafts = weightDraftsFrom(dive, 'metric');
+    drafts[0] = { ...drafts[0], description: 'belt', weightText: '7.5' };
+
+    const patches = buildWeightPatches(dive, drafts, 'metric');
+    expect(patches).not.toBeNull();
+    expect(patches![0]).toEqual({ sourceIndex: 0, description: 'belt', weightGrams: 7500 });
+
+    const updated = await opened.host.updateDive(dive.id, { weightsystems: patches! });
+    expect(updated.weightsystems[0].weightGrams).toBe(7500);
+    // A weight the diver typed is no longer one derived from its type.
+    expect(updated.weightsystems[0].autoFilled).toBe(false);
+    // Nothing about gas consumption follows from the weight carried.
+    expect(updated.sac).toBe(sacBefore);
+
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const reloaded = (await host.listDives()).find((d) => d.number === dive.number)!;
+    const full = await host.getDive(reloaded.id);
+    expect(full.weightsystems[0].description).toBe('belt');
+    expect(full.weightsystems[0].weightGrams).toBe(7500);
+    expect(full.totalWeightGrams).toBe(
+      full.weightsystems.reduce((sum, ws) => sum + ws.weightGrams, 0)
+    );
+    // The list row carries the descriptions the editor autocompletes from.
+    expect(reloaded.weightDescriptions).toContain('belt');
+    await host.close();
+  });
+
+  it('adds a weight to a dive that had none, and it survives a relaunch', async () => {
+    const opened = await freshLogbook('add-weight.ssrf');
+
+    let target: Dive | null = null;
+    for (const summary of await opened.host.listDives()) {
+      const dive = await opened.host.getDive(summary.id);
+      if (dive.weightsystems.length === 0) {
+        target = dive;
+        break;
+      }
+    }
+    expect(target).not.toBeNull();
+    const dive = target!;
+
+    const drafts = [{ ...newWeightDraft(), description: 'ankle', weightText: '1.5' }];
+    await opened.host.updateDive(dive.id, {
+      weightsystems: buildWeightPatches(dive, drafts, 'metric')!,
+    });
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const reloaded = (await host.listDives()).find((d) => d.number === dive.number)!;
+    const full = await host.getDive(reloaded.id);
+    expect(full.weightsystems).toHaveLength(1);
+    expect(full.weightsystems[0].description).toBe('ankle');
+    expect(full.weightsystems[0].weightGrams).toBe(1500);
+    expect(full.totalWeightGrams).toBe(1500);
+    await host.close();
+  });
+
+  it('removes every weight, which nothing in the dive refers to', async () => {
+    const opened = await freshLogbook('remove-weights.ssrf');
+    const dive = await diveWithWeights(opened.host);
+
+    const updated = await opened.host.updateDive(dive.id, {
+      weightsystems: buildWeightPatches(dive, [], 'metric')!,
+    });
+    expect(updated.weightsystems).toHaveLength(0);
+    expect(updated.totalWeightGrams).toBe(0);
+
+    await opened.host.saveToXML(opened.path);
+    await opened.host.close();
+
+    host = await relaunch(opened.path);
+    const reloaded = (await host.listDives()).find((d) => d.number === dive.number)!;
+    expect((await host.getDive(reloaded.id)).weightsystems).toHaveLength(0);
+    await host.close();
+  });
+
+  it('rejects a reordered list and a sourceIndex the dive does not have', async () => {
+    const opened = await freshLogbook('bad-weight-patch.ssrf');
+    const dive = await diveWithWeights(opened.host);
+
+    await expect(
+      opened.host.updateDive(dive.id, { weightsystems: [{ sourceIndex: 99 }] })
+    ).rejects.toThrow(/out of range/);
+    await expect(
+      opened.host.updateDive(dive.id, {
+        weightsystems: [{ sourceIndex: 0 }, { sourceIndex: 0 }],
+      })
+    ).rejects.toThrow(/reordered/);
+    await expect(
+      opened.host.updateDive(dive.id, {
+        weightsystems: [{ description: 'new' }, { sourceIndex: 0 }],
+      })
+    ).rejects.toThrow(/after the existing ones/);
+
+    // Every refusal leaves the dive exactly as it was.
+    const after = await opened.host.getDive(dive.id);
+    expect(after.weightsystems).toHaveLength(dive.weightsystems.length);
+    await opened.host.close();
+  });
+
+  it('leaves the weights alone when the editor only opens the dive', async () => {
+    const opened = await freshLogbook('untouched-weights.ssrf');
+    const dive = await diveWithWeights(opened.host);
+    expect(buildWeightPatches(dive, weightDraftsFrom(dive, 'metric'), 'metric')).toBeNull();
+    expect(buildWeightPatches(dive, weightDraftsFrom(dive, 'imperial'), 'imperial')).toBeNull();
     await opened.host.close();
   });
 });

@@ -38,6 +38,7 @@ function summary(overrides: Partial<DiveSummary> = {}): DiveSummary {
     suit: '',
     tags: [],
     cylinderDescriptions: [],
+    weightDescriptions: [],
     divemode: DiveMode.OC,
     dcModel: 'Suunto D5',
     invalid: false,
