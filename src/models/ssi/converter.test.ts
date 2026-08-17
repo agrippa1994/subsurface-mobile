@@ -8,6 +8,12 @@ import { DiveMode, Velocity, type Dive, type DiveSite, type PlotEntry, type Plot
 import type { DiveSample } from './create-dive';
 import { buildSsiSamples, convertDiveToSsi, SAMPLE_INTERVAL_SEC } from './converter';
 import expectedKeys from './__fixtures__/ssi-create-dive-keys.json';
+import { gfNowPercent } from '../profile-plot';
+
+/** The converter rounds every sample field to two decimals. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 function plotEntry(overrides: Partial<PlotEntry> = {}): PlotEntry {
   return {
@@ -375,9 +381,19 @@ describe('buildSsiSamples', () => {
   });
 
   it('carries both gradient factors, which the Suunto path could not', () => {
-    const samples = buildSsiSamples(plot([plotEntry({ sec: 0, surfaceGf: 42.5, currentGf: 12.25 })]));
+    // They do not arrive in the same unit: surfaceGf is already a percentage,
+    // currentGf is a raw fraction of the M-value. SSI wants percentages for
+    // both, so only the second is scaled - sent raw it plotted near zero.
+    const samples = buildSsiSamples(plot([plotEntry({ sec: 0, surfaceGf: 42.5, currentGf: 0.1225 })]));
     expect(samples[0].gs).toBe(42.5);
     expect(samples[0].gn).toBe(12.25);
+  });
+
+  it('scales gf now the same way the profile screen does', () => {
+    // Two copies of the factor is how the two drift apart, so the converter
+    // and the chart go through one helper.
+    const entry = plotEntry({ sec: 0, currentGf: 0.874 });
+    expect(buildSsiSamples(plot([entry]))[0].gn).toBe(round2(gfNowPercent(entry)));
   });
 
   it('omits the pressure of a sample with no cylinder reading', () => {
