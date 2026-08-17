@@ -184,6 +184,36 @@ describe('convertDiveToSsi', () => {
     expect(created.odin_user_log_datetime).toBe('2026-03-14+11:59:59.000');
   });
 
+  it('ignores the "no timezone" sentinel instead of adding it to the date', () => {
+    // TIMEZONE_OFFSET_INVALID is INT_MAX, and most dives carry it. Treated as
+    // an offset it moved the dive 68 years on: a dive on 2026-08-15 was filed
+    // under 2094-09-02 in SSI.
+    const [dc] = dive().dcs;
+    const created = convert({
+      dive: dive({ dcs: [{ ...dc, timezoneOffset: 2147483647 }] }),
+    });
+
+    expect(created.odin_user_log_date).toBe('2026-03-14');
+    expect(created.odin_user_log_entry_time).toBe('10:59');
+  });
+
+  it('ignores any offset no real timezone could have', () => {
+    const [dc] = dive().dcs;
+    for (const offset of [-2147483648, 15 * 3600, Number.NaN]) {
+      const created = convert({ dive: dive({ dcs: [{ ...dc, timezoneOffset: offset }] }) });
+      expect(created.odin_user_log_date).toBe('2026-03-14');
+    }
+  });
+
+  it('still applies a genuine offset, including a half-hour one', () => {
+    const [dc] = dive().dcs;
+    // Nepal is UTC+05:45, so 10:59:59 UTC is a dive at 16:44 local.
+    const created = convert({
+      dive: dive({ dcs: [{ ...dc, timezoneOffset: 5 * 3600 + 45 * 60 }] }),
+    });
+    expect(created.odin_user_log_entry_time).toBe('16:44');
+  });
+
   it('sends depths and durations in both unit systems', () => {
     const created = convert();
     expect(created.odin_user_log_depth_m).toBe(10.25);
