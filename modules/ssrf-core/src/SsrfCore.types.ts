@@ -189,6 +189,12 @@ export type DiveComputer = {
   divemode: DiveMode;
   noO2sensors: number;
   salinity: number;
+  /**
+   * Seconds east of UTC the computer reported. `TIMEZONE_OFFSET_INVALID`
+   * (2147483647, the core's INT_MAX - see subsurface/core/divecomputer.h:23)
+   * when it reported none, which is the common case. That value is a sentinel
+   * and not an offset: adding it to a timestamp moves the dive 68 years on.
+   */
   timezoneOffset: number;
   /** Samples themselves come from `getProfile`, not from here. */
   sampleCount: number;

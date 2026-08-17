@@ -79,13 +79,31 @@ function orNull(value: number): number | null {
 }
 
 /**
+ * Seconds east of UTC the dive was logged at, or 0 when the computer did not
+ * record a zone.
+ *
+ * The core spells "no zone" as TIMEZONE_OFFSET_INVALID, which is INT_MAX
+ * (subsurface/core/divecomputer.h:23) - a sentinel, not an offset, and most
+ * dives carry it. Adding it to a timestamp moves the dive 68 years into the
+ * future, so anything outside the range real zones live in is refused. UTC-12
+ * to UTC+14 is the whole inhabited span, and the half- and quarter-hour zones
+ * inside it are covered by the seconds this is measured in.
+ */
+const MAX_TIMEZONE_OFFSET_SEC = 14 * 3600;
+
+function timezoneOffsetSec(dive: Dive): number {
+  const offset = dive.dcs[0]?.timezoneOffset ?? 0;
+  return Number.isFinite(offset) && Math.abs(offset) <= MAX_TIMEZONE_OFFSET_SEC ? offset : 0;
+}
+
+/**
  * The dive's start as the diver's own clock read it.
  *
- * `dive.when` is UTC seconds and the computer's `timezoneOffset` is the
- * seconds to add to reach local time, so the shifted timestamp read with the
- * UTC getters is the local wall clock. SSI stores no zone, only the reading,
- * which is why the date must not be formatted in the phone's zone: a dive
- * logged in Egypt would otherwise move an hour or two on import.
+ * `dive.when` is UTC seconds and the offset above is the seconds to add to
+ * reach local time, so the shifted timestamp read with the UTC getters is the
+ * local wall clock. SSI stores no zone, only the reading, which is why the
+ * date must not be formatted in the phone's zone: a dive logged in Egypt would
+ * otherwise move an hour or two on import.
  */
 function localParts(dive: Dive): {
   date: string;
@@ -93,8 +111,7 @@ function localParts(dive: Dive): {
   datetime: string;
   iso: string;
 } {
-  const offsetSec = dive.dcs[0]?.timezoneOffset ?? 0;
-  const local = new Date((dive.when + offsetSec) * 1000);
+  const local = new Date((dive.when + timezoneOffsetSec(dive)) * 1000);
 
   const pad = (value: number, width = 2) => String(value).padStart(width, '0');
   const date = `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
