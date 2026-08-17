@@ -123,6 +123,16 @@ export default function SettingsScreen() {
       {action('Export and share', screen.transfer.shareLogbook)}
       {action('Open a logbook', screen.transfer.openLogbook)}
 
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SSI</Text>
+      <Text style={{ color: theme.text }}>
+        {screen.ssi.account ?? 'Not signed in'} - {screen.ssi.siteCatalogue}
+      </Text>
+      <Text style={[styles.note, { color: theme.textSecondary }]}>
+        Push a dive to your SSI logbook from the dive itself. Your SSI email and password are kept
+        in this device&apos;s keychain, never in the logbook file. Not affiliated with SSI.
+      </Text>
+      {action('SSI account', screen.ssi.open)}
+
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Problems</Text>
       <Text style={{ color: theme.text }}>{screen.diagnostics}</Text>
       <Text style={[styles.note, { color: theme.textSecondary }]}>{PRIVACY_NOTICE}</Text>

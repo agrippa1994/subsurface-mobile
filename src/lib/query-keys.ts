@@ -38,4 +38,19 @@ export const queryKeys = {
 
   /** Preferences: a file of its own, untouched by loading a logbook. */
   settings: () => ['settings'] as const,
+
+  /**
+   * Everything about the SSI account and its catalogue. A root of its own for
+   * the same reason as settings: none of it comes out of the logbook, so a
+   * reload must not drop the signed-in account or the downloaded site index.
+   * These are also the app's only keys backed by the network rather than by a
+   * synchronous native call, so the queries under them set their own staleTime
+   * (see src/queries/ssi.ts).
+   */
+  ssi: () => ['ssi'] as const,
+  ssiAccount: () => ['ssi', 'account'] as const,
+  ssiSiteIndex: () => ['ssi', 'site-index'] as const,
+  ssiSiteIndexInfo: () => ['ssi', 'site-index', 'info'] as const,
+  /** The next free dive number, which needs the whole SSI logbook to work out. */
+  ssiNextDiveNumber: () => ['ssi', 'next-dive-number'] as const,
 };
