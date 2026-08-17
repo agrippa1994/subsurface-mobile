@@ -36,7 +36,10 @@ function setSaving(next: boolean): void {
   }
 }
 
-/** Points the debounce at a logbook. Passing null disables writing. */
+/**
+ * Points the debounce at a logbook. Passing null closes it: a change scheduled
+ * while no logbook is open is reported as a save failure, not dropped.
+ */
 export function setPersistTarget(path: string | null): void {
   target = path;
 }
@@ -98,6 +101,12 @@ export function lastPersistError(): unknown {
 
 function persist(): void {
   if (target === null) {
+    // No logbook is open, so there is nowhere to write. This is kept as a
+    // failure rather than skipped: a change that cannot be written is a change
+    // the user is about to be told about and will never get back, and silence
+    // here is what made an import report "complete" while the file on disk
+    // never saw it.
+    lastSaveError = new Error('No logbook is open, so the change could not be saved.');
     setSaving(false);
     return;
   }

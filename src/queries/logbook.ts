@@ -16,7 +16,12 @@
 //     below is gated on the log query having succeeded, and a load removes the
 //     whole ['log'] subtree rather than invalidating it.
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useQuery,
+  type QueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import {
   getDive,
@@ -47,9 +52,14 @@ export type Logbook = {
  *
  * A failed load leaves the module's divelog cleared, so the derived queries
  * below stay disabled rather than showing dives that are no longer there.
+ *
+ * Shared with the mutations rather than inlined into the hook: this load
+ * replaces the module's divelog and sets the persist target, so anything that
+ * changes the log has to be able to wait for it (see
+ * `src/queries/logbook-mutations.ts`).
  */
-export function useLogbook(): UseQueryResult<Logbook> {
-  return useQuery({
+export function logbookQuery() {
+  return queryOptions({
     queryKey: queryKeys.log(),
     queryFn: async (): Promise<Logbook> => {
       const path = await ensureLogbook();
@@ -58,6 +68,27 @@ export function useLogbook(): UseQueryResult<Logbook> {
       return { path, lastLoad };
     },
   });
+}
+
+export function useLogbook(): UseQueryResult<Logbook> {
+  return useQuery(logbookQuery());
+}
+
+/**
+ * Resolves once the working logbook is in the module, loading it if the app has
+ * not got round to it yet. Rejects with whatever the load failed on.
+ */
+export function ensureLogbookLoaded(client: QueryClient): Promise<Logbook> {
+  return client.ensureQueryData(logbookQuery());
+}
+
+/**
+ * Waits for the load above to finish, successfully or not. Used by the
+ * mutations that replace the logbook wholesale: they do not need the loaded
+ * content, but they must not be overtaken by a load that is still in flight.
+ */
+export async function settleLogbook(client: QueryClient): Promise<void> {
+  await ensureLogbookLoaded(client).catch(() => undefined);
 }
 
 /** True once a logbook is in the module and its ids are safe to use. */

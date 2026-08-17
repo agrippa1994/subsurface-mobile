@@ -689,3 +689,32 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Three cases in `tests/editing.test.ts`: the deletion survives a relaunch and
   leaves every other dive, the dive's site stays with its count one lower, and a
   trip disappears once its last dive is gone. 284 tests pass.
+
+- 2026-08-17 — Fix: a dive imported from the share sheet was announced and then
+  lost. Opening a file in the app at launch ("Open in Subsurface", AirDrop, a
+  tapped attachment) reaches `useIncomingFileImports` as soon as the root layout
+  mounts, which is also when the working logbook starts loading. The two raced
+  on the one thing the module has: its divelog. When the import won, the merge
+  went into an empty log, the save found no persist target - `persist()` returned
+  quietly when `target === null` - and the initial `loadFromXML` then replaced
+  the divelog with the file from disk. The alert said "Import complete" for dives
+  that were in neither the list nor the file. The window is widest on a first
+  launch, where `ensureLogbook()` has to copy the bundled sample out of the
+  bundle before it can load anything.
+
+  Two changes, one for each half:
+
+  1. The load is now a shared `logbookQuery()` (`src/queries/logbook.ts`), and
+     every mutation that touches the divelog waits for it first -
+     `ensureLogbookLoaded()` in `useImportFile` (a failed load surfaces as
+     "Import failed" rather than a merge into nothing), `settleLogbook()` in the
+     load-shaped mutations, which do not need the content but must not be
+     overtaken by a load still in flight. `ensureQueryData` dedupes, so this
+     costs nothing once the logbook is open.
+  2. `persist()` with no target is a save *failure* (`src/lib/logbook-persist.ts`)
+     instead of a silent no-op, so a change that cannot reach the file can never
+     again be reported as saved. `flush()` rethrows it, which is what the import
+     alert reads.
+
+  `src/lib/logbook-persist.test.ts` is new and covers the debounce and that
+  guard against a mocked module; the C++ suite is unaffected.
