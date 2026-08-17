@@ -4,7 +4,16 @@
 // so this file runs anywhere and describes the mapping rather than the core.
 import { describe, expect, it } from 'vitest';
 
-import { DiveMode, Velocity, type Dive, type DiveSite, type PlotEntry, type PlotInfo } from '../index';
+import {
+  CylinderUse,
+  DiveMode,
+  Velocity,
+  type Cylinder,
+  type Dive,
+  type DiveSite,
+  type PlotEntry,
+  type PlotInfo,
+} from '../index';
 import type { DiveSample } from './create-dive';
 import { buildSsiSamples, convertDiveToSsi, SAMPLE_INTERVAL_SEC } from './converter';
 import expectedKeys from './__fixtures__/ssi-create-dive-keys.json';
@@ -146,6 +155,28 @@ function dive(overrides: Partial<Dive> = {}): Dive {
   };
 }
 
+function cylinder(overrides: Partial<Cylinder> = {}): Cylinder {
+  return {
+    description: 'AL80',
+    sizeMl: 11000,
+    workingPressureMbar: 232000,
+    gasmix: { o2Permille: 0, hePermille: 0, o2EffectivePermille: 209, heEffectivePermille: 0 },
+    startMbar: 0,
+    endMbar: 0,
+    sampleStartMbar: 0,
+    sampleEndMbar: 0,
+    depthMm: 0,
+    manuallyAdded: false,
+    gasUsedMl: 0,
+    decoGasUsedMl: 0,
+    use: CylinderUse.OcGas,
+    bestmixO2: false,
+    bestmixHe: false,
+    used: true,
+    ...overrides,
+  };
+}
+
 function site(overrides: Partial<DiveSite> = {}): DiveSite {
   return {
     uuid: 3,
@@ -274,26 +305,7 @@ describe('convertDiveToSsi', () => {
   it('takes cylinder pressures from the samples when the diver logged none', () => {
     const created = convert({
       dive: dive({
-        cylinders: [
-          {
-            description: 'AL80',
-            sizeMl: 11000,
-            workingPressureMbar: 232000,
-            gasmix: { o2Permille: 0, hePermille: 0, o2EffectivePermille: 209, heEffectivePermille: 0 },
-            startMbar: 0,
-            endMbar: 0,
-            sampleStartMbar: 200000,
-            sampleEndMbar: 50000,
-            depthMm: 0,
-            manuallyAdded: false,
-            gasUsedMl: 0,
-            decoGasUsedMl: 0,
-            use: 0,
-            bestmixO2: false,
-            bestmixHe: false,
-            used: true,
-          },
-        ],
+        cylinders: [cylinder({ sampleStartMbar: 200000, sampleEndMbar: 50000 })],
       }),
     });
 
@@ -301,6 +313,69 @@ describe('convertDiveToSsi', () => {
     expect(created.odin_user_log_pressure_start_psi).toBe(2901);
     expect(created.odin_user_log_pressure_end_bar).toBe(50);
     expect(created.odin_user_log_tank_vol_l).toBe(11);
+  });
+
+  it('sends the tank size in litres', () => {
+    const created = convert({ dive: dive({ cylinders: [cylinder({ sizeMl: 15000 })] }) });
+    expect(created.odin_user_log_tank_vol_l).toBe(15);
+    // The real SSI request sends litres only, unlike every other measurement.
+    expect(created.odin_user_log_tank_vol_cuft).toBeNull();
+  });
+
+  it('sends no tank size when the logbook has none', () => {
+    // A dive straight off a computer: it records the pressures but cannot know
+    // what cylinder produced them, so sizeMl is 0 until the diver fills it in.
+    const created = convert({
+      dive: dive({ cylinders: [cylinder({ sizeMl: 0, sampleStartMbar: 200000 })] }),
+    });
+    expect(created.odin_user_log_tank_vol_l).toBeNull();
+    expect(created.odin_user_log_pressure_start_bar).toBe(200);
+  });
+
+  it('describes the breathing cylinder, not whichever one is listed first', () => {
+    // Leading with a stage bottle is ordinary on a deco dive, and filing its
+    // size and pressures as the dive's tank would be plainly wrong.
+    const created = convert({
+      dive: dive({
+        cylinders: [
+          cylinder({ description: 'O2 stage', sizeMl: 7000, use: CylinderUse.Oxygen, startMbar: 200000 }),
+          cylinder({ description: 'Backgas', sizeMl: 12000, startMbar: 230000, endMbar: 70000 }),
+        ],
+      }),
+    });
+
+    expect(created.odin_user_log_tank_vol_l).toBe(12);
+    expect(created.odin_user_log_pressure_start_bar).toBe(230);
+  });
+
+  it('prefers a cylinder the dive actually used', () => {
+    const created = convert({
+      dive: dive({
+        cylinders: [
+          cylinder({ description: 'Spare', sizeMl: 3000, used: false, startMbar: 200000 }),
+          cylinder({ description: 'Backgas', sizeMl: 12000, used: true, startMbar: 230000 }),
+        ],
+      }),
+    });
+
+    expect(created.odin_user_log_tank_vol_l).toBe(12);
+  });
+
+  it('still reports a cylinder when the log marks every one unused', () => {
+    const created = convert({
+      dive: dive({
+        cylinders: [cylinder({ sizeMl: 10000, used: false, startMbar: 200000 })],
+      }),
+    });
+
+    expect(created.odin_user_log_tank_vol_l).toBe(10);
+    expect(created.odin_user_log_pressure_start_bar).toBe(200);
+  });
+
+  it('sends no tank fields for a dive with no cylinders', () => {
+    const created = convert({ dive: dive({ cylinders: [] }) });
+    expect(created.odin_user_log_tank_vol_l).toBeNull();
+    expect(created.odin_user_log_pressure_start_bar).toBeNull();
   });
 
   it('leaves an empty note null rather than sending an empty string', () => {
