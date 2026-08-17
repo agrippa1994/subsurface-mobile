@@ -28,8 +28,8 @@ import {
   mmToMeters,
   udegToDegrees,
 } from '../units';
-import { plotPressureAt } from '../index';
-import type { Dive, DiveSite, PlotInfo } from '../index';
+import { CylinderUse, plotPressureAt } from '../index';
+import type { Cylinder, Dive, DiveSite, PlotInfo } from '../index';
 import { gfNowPercent } from '../profile-plot';
 import { DivePhaseFlag, type CreateDive, type DiveSample } from './create-dive';
 
@@ -77,6 +77,22 @@ function celsiusToFahrenheit(c: number): number {
 /** A value the core uses 0 for when it has nothing, mapped to SSI's null. */
 function orNull(value: number): number | null {
   return value > 0 ? value : null;
+}
+
+/**
+ * The cylinder the dive was breathed from, which SSI's single set of tank
+ * fields describes.
+ *
+ * Not simply `cylinders[0]`: a dive's list can lead with a deco or oxygen
+ * cylinder, or with one the diver added and never used, and filing a stage
+ * bottle's size and pressures as the dive's tank would be plainly wrong. So
+ * open-circuit cylinders come first, and among those the one the samples or
+ * gas-switch events actually refer to. The final fallback keeps a dive whose
+ * cylinders are all marked unused from losing its pressures entirely.
+ */
+function primaryCylinder(dive: Dive): Cylinder | undefined {
+  const breathing = dive.cylinders.filter((cylinder) => cylinder.use === CylinderUse.OcGas);
+  return breathing.find((cylinder) => cylinder.used) ?? breathing[0] ?? dive.cylinders[0];
 }
 
 /**
@@ -257,7 +273,9 @@ export function convertDiveToSsi({
 }: SsiConversionInput): CreateDive {
   const when = localParts(dive);
   const dc = dive.dcs[0];
-  const cylinder = dive.cylinders[0];
+  // One cylinder feeds the volume and both pressures, so the three always
+  // describe the same tank.
+  const cylinder = primaryCylinder(dive);
   const samples = buildSsiSamples(profile);
 
   const minTempMkelvin = dive.minTempMkelvin || dive.waterTempMkelvin;
@@ -344,6 +362,12 @@ export function convertDiveToSsi({
     odin_user_log_vis_ft: null,
     odin_user_log_weight_kg: dive.totalWeightGrams > 0 ? round(dive.totalWeightGrams / 1000, 2) : null,
     odin_user_log_weight_lb: null,
+    // Null when the logbook has no size for the tank, which is the normal
+    // state of a dive straight off a computer: a dive computer does not know
+    // what cylinder it was breathing. Filling it in the dive editor is what
+    // gives SSI a number here. Left in litres alone because that is what the
+    // real SSI request does - it sends tank_vol_l and leaves cuft null, unlike
+    // every other measurement, which it sends in both units.
     odin_user_log_tank_vol_l:
       cylinder && cylinder.sizeMl > 0 ? round(mlToLiters(cylinder.sizeMl), 2) : null,
     odin_user_log_tank_vol_cuft: null,
