@@ -15,7 +15,7 @@ there is nothing to automate against the binary a user actually runs.
 | Fact | Value |
 | --- | --- |
 | Desktop | `/Applications/Subsurface.app`, version from its `Info.plist` (was `6.0.5592-CICD-release` when this was written) |
-| App core | pin `e412ccb85`, core version `6.0.5658` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
+| App core | pin `f0dfae794`, core version `6.0.5681` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
 | Data format | `dataformat_version` is a compile-time `3` on both sides (`subsurface/core/version.h`) |
 
 Note the skew direction: the app is built on a core *newer* than the installed

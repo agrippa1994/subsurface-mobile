@@ -14,7 +14,7 @@ export type AboutInfo = {
   buildNumber: string;
   /** The pinned upstream commit the core was vendored from. */
   coreCommit: string;
-  /** The core's own version string, e.g. "6.0.5658". */
+  /** The core's own version string, e.g. "6.0.5681". */
   coreVersion: string;
   sourceUrl: string;
 };

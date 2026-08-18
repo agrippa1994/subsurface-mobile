@@ -19,8 +19,8 @@ either matches or produces a finding.
 | Configuration | **Debug**. `__DEV__` must be true - the Developer section is the import route that needs no picker |
 | Device | iPhone, iOS 26, Developer Mode on, paired and trusted |
 | Host suite | `npm test` green and `SSRF_ASAN=1 npm test` clean before starting |
-| Submodule pin | `e412ccb85` (`git submodule status`) |
-| Core version | `6.0.5658` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
+| Submodule pin | `f0dfae794` (`git submodule status`) |
+| Core version | `6.0.5681` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
 | Logbook | the bundled sample, restored via Settings > Logbook > "Restore the sample logbook" |
 | Appearance | start in dark; section E flips it |
 
@@ -158,8 +158,8 @@ never seen.
   problem log" opens a share sheet with `subsurface-problems.txt`. With an empty
   log it instead alerts "Nothing to share". "Clear it" resets the summary to
   "No problems recorded".
-- **About**: app version **1.0.0**, core version **6.0.5658**, core commit
-  **e412ccb85**, the GPL-2.0 notice, and "Source code and licence" opening the
+- **About**: app version **1.0.0**, core version **6.0.5681**, core commit
+  **f0dfae794**, the GPL-2.0 notice, and "Source code and licence" opening the
   repository in the browser.
 - Nothing is clipped behind the glass tab bar; the last row of the last section
   is reachable. If it is not, the fix is a bottom content inset on the Settings

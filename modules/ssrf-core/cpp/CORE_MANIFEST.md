@@ -8,8 +8,8 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `e412ccb85` ("Import: Fix Bluetooth 'Auto' Mode.") |
-| Core version string | `6.0.5658` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/` submodule | `f0dfae794` ("Derive mobile format selections from presets") |
+| Core version string | `6.0.5681` (from `subsurface/scripts/get-version.sh`) |
 | `subsurface/libdivecomputer` submodule | `ffb7cab4c` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
