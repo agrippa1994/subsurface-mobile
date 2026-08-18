@@ -13,7 +13,7 @@ const INFO: AboutInfo = {
   appVersion: '1.0.0',
   buildNumber: '7',
   coreCommit: 'e412ccb85',
-  coreVersion: '6.0.5658',
+  coreVersion: '6.0.5681',
   sourceUrl: 'https://github.com/agrippa1994/subsurface-mobile',
 };
 
@@ -21,7 +21,7 @@ describe('aboutRows', () => {
   it('names the app build and the core it was built against', () => {
     expect(aboutRows(INFO)).toEqual([
       { label: 'Version', value: '1.0.0 (7)' },
-      { label: 'Subsurface core', value: '6.0.5658' },
+      { label: 'Subsurface core', value: '6.0.5681' },
       { label: 'Core commit', value: 'e412ccb85' },
     ]);
   });
