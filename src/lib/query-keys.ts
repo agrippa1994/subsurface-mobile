@@ -51,6 +51,9 @@ export const queryKeys = {
   ssiAccount: () => ['ssi', 'account'] as const,
   ssiSiteIndex: () => ['ssi', 'site-index'] as const,
   ssiSiteIndexInfo: () => ['ssi', 'site-index', 'info'] as const,
-  /** The next free dive number, which needs the whole SSI logbook to work out. */
-  ssiNextDiveNumber: () => ['ssi', 'next-dive-number'] as const,
+  /**
+   * What a sync needs out of the SSI logbook: the next free dive number and the
+   * diver's buddy list. One key because it is one `get_divelog` call.
+   */
+  ssiLogbook: () => ['ssi', 'logbook'] as const,
 };

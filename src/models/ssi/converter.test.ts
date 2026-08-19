@@ -199,6 +199,7 @@ function convert(overrides: Partial<Parameters<typeof convertDiveToSsi>[0]> = {}
     profile: plot([plotEntry()]),
     site: site(),
     ssiSiteId: 2367,
+    ssiBuddyIds: [],
     nr: 126,
     ...overrides,
   });
@@ -387,6 +388,19 @@ describe('convertDiveToSsi', () => {
     const created = convert();
     expect(created.odin_user_log_nr).toBe(126);
     expect(created.odin_user_log_dive_sites_id).toBe(2367);
+  });
+
+  it('attaches the SSI buddies it was given, and leaves localBuddyIds empty', () => {
+    // localBuddyIds is a key in the SSI app's own on-device database. The
+    // captured request has it empty on a dive that does have a buddy, so
+    // filling it here would be inventing a value SSI never sends.
+    const created = convert({ ssiBuddyIds: [2550906, 42] });
+    expect(created.odin_user_log_buddy_ids).toEqual([2550906, 42]);
+    expect(created.localBuddyIds).toEqual([]);
+  });
+
+  it('sends an empty buddy list for a dive with nobody on it', () => {
+    expect(convert().odin_user_log_buddy_ids).toEqual([]);
   });
 
   it('serializes the datasets into strings, which is what SSI expects', () => {

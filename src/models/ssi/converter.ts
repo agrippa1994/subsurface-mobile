@@ -61,6 +61,12 @@ export type SsiConversionInput = {
   site?: DiveSite;
   /** The SSI site the dive is being filed under. */
   ssiSiteId: number;
+  /**
+   * The SSI buddies on the dive, by their id in the diver's SSI buddy list.
+   * Not derived from `dive.buddy`: that is free text and SSI wants ids, and the
+   * two logbooks share no identity to map between them.
+   */
+  ssiBuddyIds: number[];
   /** The dive's number in the SSI logbook, which is not `dive.number`. */
   nr: number;
 };
@@ -269,6 +275,7 @@ export function convertDiveToSsi({
   profile,
   site,
   ssiSiteId,
+  ssiBuddyIds,
   nr,
 }: SsiConversionInput): CreateDive {
   const when = localParts(dive);
@@ -305,6 +312,9 @@ export function convertDiveToSsi({
     odin_user_log_id: null,
     odin_user_log_nr: nr,
     localSiteId: null,
+    // Always empty, even for a dive that has buddies: the capture shows SSI's
+    // own app sending [] here while the ids go in odin_user_log_buddy_ids.
+    // These are keys in that app's on-device database, not SSI's.
     localBuddyIds: [],
     odin_user_log_crdate: null,
     reset_profile_divelog_number_with_deletion: null,
@@ -340,7 +350,7 @@ export function convertDiveToSsi({
 
     // --- Site, buddies, gear ---
     odin_user_log_dive_sites_id: ssiSiteId,
-    odin_user_log_buddy_ids: [],
+    odin_user_log_buddy_ids: ssiBuddyIds,
     odin_user_log_animal_ids: [],
     odin_user_log_gear: [],
     odin_user_log_gear_details: null,

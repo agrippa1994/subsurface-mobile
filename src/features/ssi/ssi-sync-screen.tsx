@@ -13,6 +13,7 @@
 // one of our sites to one of SSI's is a guess the diver confirms each time.
 
 import { useForm } from '@tanstack/react-form';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -34,6 +35,12 @@ import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { formatDepth, formatDuration, udegToDegrees } from '@/models';
 import { toDiveRow } from '@/models/dive-list';
 import { describeError, formatErrorLine } from '@/models/errors';
+import {
+  describeSsiBuddy,
+  searchSsiBuddies,
+  suggestedSsiBuddies,
+  type SsiBuddy,
+} from '@/models/ssi/buddies';
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
 import { useDive, useProfile, useSites } from '@/queries/logbook';
 import { useSettings } from '@/queries/settings';
@@ -41,6 +48,7 @@ import {
   isSearchable,
   isSyncedToSsi,
   useSsiAccount,
+  useSsiLogbook,
   useSsiNearestSite,
   useSsiSiteIndex,
   useSsiSiteSearch,
@@ -59,6 +67,10 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   // Gated on the account: without one the screen only points at Settings, and
   // the catalogue costs a 2.5 MB download the first time it is asked for.
   const catalogue = useSsiSiteIndex(Boolean(account.data));
+  // The buddy list rides along with the dive number in one `get_divelog`. The
+  // screen never waits on it: a dive can go up without buddies, so a slow or
+  // failed read costs a section, not the sync.
+  const logbook = useSsiLogbook(Boolean(account.data));
   const sync = useSyncDiveToSsi();
 
   const dive = diveQuery.data;
@@ -83,8 +95,10 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const [query, setQuery] = useState('');
   const results = useSsiSiteSearch(catalogue.data, query);
 
+  const [buddyQuery, setBuddyQuery] = useState('');
+
   const form = useForm({
-    defaultValues: { site: null as SsiSite | null },
+    defaultValues: { site: null as SsiSite | null, buddies: [] as SsiBuddy[] },
     validators: {
       onSubmit: ({ value }) =>
         value.site === null
@@ -96,7 +110,13 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
         return;
       }
       try {
-        await sync.mutateAsync({ dive, profile, site, ssiSiteId: value.site.id });
+        await sync.mutateAsync({
+          dive,
+          profile,
+          site,
+          ssiSiteId: value.site.id,
+          ssiBuddyIds: value.buddies.map((buddy) => buddy.id),
+        });
         operationSucceeded();
         router.back();
       } catch (caught) {
@@ -240,6 +260,21 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
                   </Text>
                 ) : null}
               </FormSection>
+
+              <form.Field name="buddies">
+                {(buddyField) => (
+                  <BuddySection
+                    buddies={logbook.data?.buddies ?? []}
+                    selected={buddyField.state.value}
+                    onChange={buddyField.handleChange}
+                    query={buddyQuery}
+                    onQueryChange={setBuddyQuery}
+                    isPending={logbook.isPending}
+                    error={logbook.error}
+                    onRetry={() => void logbook.refetch()}
+                  />
+                )}
+              </form.Field>
             </View>
           }
           renderItem={({ item }) => (
@@ -288,6 +323,207 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
       )}
     </form.Field>
   );
+}
+
+/**
+ * The buddy picker: SSI's own buddy list, tapped to add and tapped again to
+ * remove.
+ *
+ * It deliberately ignores this app's `dive.buddy` field. That is free text and
+ * SSI files buddies by id, and the two logbooks share no identity - a name that
+ * happens to match is a coincidence, not a person, and guessing wrong would
+ * attach a stranger to the dive.
+ */
+function BuddySection({
+  buddies,
+  selected,
+  onChange,
+  query,
+  onQueryChange,
+  isPending,
+  error,
+  onRetry,
+}: {
+  buddies: readonly SsiBuddy[];
+  selected: SsiBuddy[];
+  onChange: (buddies: SsiBuddy[]) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
+  isPending: boolean;
+  error: Error | null;
+  onRetry: () => void;
+}) {
+  const theme = useTheme();
+
+  const chosen = new Set(selected.map((buddy) => buddy.id));
+  // Search once there is something to search for, otherwise the head of the
+  // list, which is the favourites.
+  const offered = (
+    isSearchable(query) ? searchSsiBuddies(buddies, query) : suggestedSsiBuddies(buddies)
+  ).filter((buddy) => !chosen.has(buddy.id));
+
+  return (
+    <FormSection
+      title="SSI buddies"
+      footer="From your own SSI buddy list. This logbook's buddy field is not used: it holds names, and SSI files buddies by id.">
+      {selected.length > 0 ? (
+        <View style={styles.chips}>
+          {selected.map((buddy) => (
+            <BuddyChip
+              key={buddy.id}
+              buddy={buddy}
+              selected
+              onPress={() => onChange(selected.filter((entry) => entry.id !== buddy.id))}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {isPending ? (
+        <View style={styles.pending}>
+          <ActivityIndicator />
+          <Text style={{ color: theme.textSecondary }}>Loading your SSI buddies...</Text>
+        </View>
+      ) : error !== null ? (
+        <View style={styles.pending}>
+          <Text style={[styles.error, { color: theme.danger }]}>
+            {formatErrorLine(describeError(error))}
+          </Text>
+          <Pressable onPress={onRetry} accessibilityRole="button">
+            <Text style={{ color: theme.accent }}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : buddies.length === 0 ? (
+        <Text style={{ color: theme.textSecondary }}>
+          Your SSI logbook has no buddies yet. Add them in the SSI app and they show up here.
+        </Text>
+      ) : (
+        <>
+          <TextInput
+            value={query}
+            onChangeText={onQueryChange}
+            placeholder="Search your SSI buddies"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="words"
+            autoCorrect={false}
+            style={[styles.search, { backgroundColor: theme.background, color: theme.text }]}
+          />
+          {offered.length === 0 ? (
+            <Text style={{ color: theme.textSecondary }}>
+              {isSearchable(query)
+                ? `No SSI buddy matches "${query.trim()}".`
+                : 'Every SSI buddy is already on this dive.'}
+            </Text>
+          ) : (
+            <View style={styles.chips}>
+              {offered.map((buddy) => (
+                <BuddyChip
+                  key={buddy.id}
+                  buddy={buddy}
+                  hint={describeSsiBuddy(buddy)}
+                  onPress={() => onChange([...selected, buddy])}
+                />
+              ))}
+            </View>
+          )}
+        </>
+      )}
+    </FormSection>
+  );
+}
+
+/**
+ * One tappable buddy. Local rather than the shared `SuggestionChips`, which
+ * keys and identifies its entries by their label - two buddies may genuinely
+ * share a name, and picking one of them by string would pick the wrong person.
+ */
+function BuddyChip({
+  buddy,
+  hint,
+  selected = false,
+  onPress,
+}: {
+  buddy: SsiBuddy;
+  hint?: string;
+  selected?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={
+        (selected ? `Remove ${buddy.name}` : `Add ${buddy.name}`) + (buddy.pro ? ', SSI pro' : '')
+      }
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: pressed || selected ? theme.backgroundSelected : theme.background,
+          borderColor: theme.separator,
+        },
+      ]}>
+      <BuddyAvatar buddy={buddy} />
+      <View style={styles.chipBody}>
+        <View style={styles.chipLine}>
+          <Text style={[styles.chipText, { color: theme.text }]}>{buddy.name}</Text>
+          {buddy.pro ? (
+            <Text style={[styles.proBadge, { color: theme.accent, borderColor: theme.accent }]}>
+              PRO
+            </Text>
+          ) : null}
+          {selected ? (
+            <Text style={[styles.chipText, { color: theme.textSecondary }]}>x</Text>
+          ) : null}
+        </View>
+        {hint ? (
+          <Text style={[styles.chipHint, { color: theme.textSecondary }]}>{hint}</Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+/**
+ * The buddy's photo, or their initials. Most SSI accounts have no picture, so
+ * the fallback is the common case and has to look deliberate rather than
+ * broken - and it still tells two buddies apart at a glance.
+ */
+function BuddyAvatar({ buddy }: { buddy: SsiBuddy }) {
+  const theme = useTheme();
+
+  if (buddy.avatarUrl !== '') {
+    return (
+      <Image
+        source={{ uri: buddy.avatarUrl }}
+        style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}
+        contentFit="cover"
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.avatar,
+        styles.avatarFallback,
+        { backgroundColor: theme.backgroundSelected },
+      ]}>
+      <Text style={[styles.avatarInitials, { color: theme.textSecondary }]}>
+        {initialsOf(buddy.name)}
+      </Text>
+    </View>
+  );
+}
+
+/** Up to two initials: "Anna Berger" reads as AB, a one-word name as its first. */
+function initialsOf(name: string): string {
+  const letters = name
+    .split(/\s+/)
+    .filter((part) => part !== '')
+    .map((part) => part[0].toLocaleUpperCase());
+  return letters.length <= 1 ? letters.join('') : `${letters[0]}${letters[letters.length - 1]}`;
 }
 
 function formatDistance(meters: number): string {
@@ -370,5 +606,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Spacing.four,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  chipBody: {
+    gap: Spacing.half,
+  },
+  chipLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  chipText: {
+    fontSize: 15,
+  },
+  chipHint: {
+    fontSize: 12,
+  },
+  proBadge: {
+    borderRadius: Spacing.half,
+    borderWidth: StyleSheet.hairlineWidth,
+    fontSize: 10,
+    fontWeight: '600',
+    paddingHorizontal: Spacing.half,
+  },
+  avatar: {
+    borderRadius: Spacing.four,
+    height: 28,
+    width: 28,
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

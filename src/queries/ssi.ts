@@ -30,7 +30,7 @@ import {
   signOut,
   type SsiAccount,
 } from '@/lib/ssi/auth';
-import { nextSsiDiveNumber, saveSsiDive } from '@/lib/ssi/divelog';
+import { fetchSsiLogbook, saveSsiDive, type SsiLogbook } from '@/lib/ssi/divelog';
 import {
   ensureSiteIndex,
   refreshSiteIndex,
@@ -81,8 +81,8 @@ export function useSsiSignIn(): UseMutationResult<SsiAccount, Error, SsiCredenti
     mutationFn: (credentials: SsiCredentials) => signIn(credentials),
     onSuccess: (account) => {
       client.setQueryData(queryKeys.ssiAccount(), account);
-      // The dive number came from the previous account's logbook.
-      client.removeQueries({ queryKey: queryKeys.ssiNextDiveNumber() });
+      // The dive number and the buddies came from the previous account's logbook.
+      client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
     },
   });
 }
@@ -93,7 +93,7 @@ export function useSsiSignOut(): UseMutationResult<void, Error, void> {
     mutationFn: () => signOut(),
     onSuccess: () => {
       client.setQueryData(queryKeys.ssiAccount(), null);
-      client.removeQueries({ queryKey: queryKeys.ssiNextDiveNumber() });
+      client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
     },
   });
 }
@@ -175,13 +175,14 @@ export function useSsiNearestSite(
 // --- Syncing a dive --------------------------------------------------------
 
 /**
- * The number the dive will be filed under. Kept short-lived: it is a fact about
- * a logbook on someone else's server, and syncing a dive makes it wrong.
+ * The number the dive will be filed under and the buddies it can be filed with.
+ * Kept short-lived: it is a fact about a logbook on someone else's server, and
+ * syncing a dive makes the number wrong.
  */
-export function useSsiNextDiveNumber(enabled = true): UseQueryResult<number> {
+export function useSsiLogbook(enabled = true): UseQueryResult<SsiLogbook> {
   return useQuery({
-    queryKey: queryKeys.ssiNextDiveNumber(),
-    queryFn: ({ signal }) => nextSsiDiveNumber(signal),
+    queryKey: queryKeys.ssiLogbook(),
+    queryFn: ({ signal }) => fetchSsiLogbook(signal),
     enabled,
     staleTime: 5 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
@@ -195,6 +196,12 @@ export type SsiSyncInput = {
   /** The dive's own site, for the position that goes with the dive. */
   site?: DiveSite;
   ssiSiteId: number;
+  /**
+   * The SSI buddies to attach, from the diver's own SSI list. Empty is a
+   * perfectly ordinary answer - it means a solo dive, or one nobody bothered
+   * to name.
+   */
+  ssiBuddyIds: number[];
 };
 
 /**
@@ -209,14 +216,16 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
   const client = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ dive, profile, site, ssiSiteId }: SsiSyncInput) => {
-      const nr = await client.fetchQuery({
-        queryKey: queryKeys.ssiNextDiveNumber(),
-        queryFn: ({ signal }) => nextSsiDiveNumber(signal),
+    mutationFn: async ({ dive, profile, site, ssiSiteId, ssiBuddyIds }: SsiSyncInput) => {
+      const logbook = await client.fetchQuery({
+        queryKey: queryKeys.ssiLogbook(),
+        queryFn: ({ signal }) => fetchSsiLogbook(signal),
         staleTime: 60 * 1000,
       });
 
-      await saveSsiDive(convertDiveToSsi({ dive, profile, site, ssiSiteId, nr }));
+      await saveSsiDive(
+        convertDiveToSsi({ dive, profile, site, ssiSiteId, ssiBuddyIds, nr: logbook.nextNumber })
+      );
 
       if (!isSyncedToSsi(dive)) {
         updateDive(dive.id, { tags: [...dive.tags, SSI_TAG] });
@@ -226,7 +235,7 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
     },
     onSuccess: async () => {
       // The dive gained a tag, and SSI's next free number moved on.
-      client.removeQueries({ queryKey: queryKeys.ssiNextDiveNumber() });
+      client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
       await client.invalidateQueries({ queryKey: queryKeys.logData() });
     },
     retry: false,
