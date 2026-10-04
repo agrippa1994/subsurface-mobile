@@ -473,6 +473,28 @@ export type StatsFilter = {
 
 export type LoadResult = { dives: number; sites: number; trips: number };
 export type SaveResult = { path: string; dives: number };
+
+/**
+ * The three CSV flavours of desktop Subsurface's export dialog:
+ *
+ *  - `details`: the samples as downloaded from the dive computer
+ *    ("CSV details", xml2detailscsv.xslt)
+ *  - `summary`: one row of dive information, no profile
+ *    ("CSV summary", xml2summarycsv.xslt)
+ *  - `profile`: the computed profile panel data ("Profile data",
+ *    save-profiledata.cpp), in the core's raw integer units
+ */
+export type CsvFormat = 'details' | 'summary' | 'profile';
+
+export type CsvExportOptions = {
+  format: CsvFormat;
+  /** Unit system of `details` and `summary`; `profile` has none. Metric by default. */
+  imperial?: boolean;
+  /** Gradient factors `profile` computes the ceiling with, as for getProfile. */
+  gf?: GradientFactors;
+};
+
+export type CsvExportResult = { path: string; format: CsvFormat };
 export type ImportResult = {
   /** Dives new to the logbook. */
   added: number;

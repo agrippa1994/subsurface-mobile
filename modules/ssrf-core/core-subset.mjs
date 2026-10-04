@@ -35,6 +35,7 @@ export const CORE_SOURCES = [
 	'core/parse.cpp',
 	'core/parse-xml.cpp',
 	'core/save-xml.cpp',
+	'core/save-profiledata.cpp',
 	'core/xmlparams.cpp',
 	'core/filterpresettable.cpp',
 	'core/membuffer.cpp',

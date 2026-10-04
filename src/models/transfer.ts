@@ -8,7 +8,7 @@
 // lets the user choose, and whether a file is a whole logbook - which is the
 // difference between "open this instead" and "merge this in".
 
-import type { ImportResult } from '@/models';
+import type { CsvFormat, DiveSummary, ImportResult } from '@/models';
 
 /**
  * What the document picker accepts. iOS matches on UTIs; `public.data` is the
@@ -44,6 +44,36 @@ export function isLogbookName(name: string): boolean {
 export function exportFileName(when: Date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `subsurface-${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}.ssrf`;
+}
+
+/** The CSV formats in the order the export menu offers them, with their labels. */
+export const CSV_FORMATS: readonly { format: CsvFormat; label: string; description: string }[] = [
+  {
+    format: 'details',
+    label: 'Profile samples',
+    description: 'The samples as downloaded from the dive computer.',
+  },
+  {
+    format: 'summary',
+    label: 'Dive summary',
+    description: 'One row of dive details, without the profile.',
+  },
+  {
+    format: 'profile',
+    label: 'Computed profile',
+    description: 'Everything the profile diagram computes, sample by sample.',
+  },
+];
+
+/**
+ * `dive-12-2026-08-14-details.csv`. The date is read in UTC because
+ * `dive::when` is the logged wall-clock time stored as if it were UTC (see
+ * models/dive-list.ts); an unnumbered dive leaves the number out.
+ */
+export function csvFileName(dive: Pick<DiveSummary, 'number' | 'when'>, format: CsvFormat): string {
+  const date = new Date(dive.when * 1000).toISOString().slice(0, 10);
+  const number = dive.number > 0 ? `-${dive.number}` : '';
+  return `dive${number}-${date}-${format}.csv`;
 }
 
 function plural(count: number, noun: string): string {

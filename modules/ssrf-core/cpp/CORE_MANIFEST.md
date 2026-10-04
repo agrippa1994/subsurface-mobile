@@ -22,14 +22,15 @@ before `pod install`; `scripts/build-host.sh` runs it for the host build.
 Include order matters: the core includes its headers by bare name, so an
 overridden header wins by replacing the copy in `cpp/generated/core/`.
 
-## Compiled core sources (38)
+## Compiled core sources (39)
 
 **Model** — `dive.cpp`, `divecomputer.cpp`, `divelist.cpp`, `divelog.cpp`,
 `divesite.cpp`, `device.cpp`, `equipment.cpp`, `event.cpp`, `eventtype.cpp`,
 `gas.cpp`, `gas-model.cpp`, `picture.cpp`, `sample.cpp`, `tag.cpp`,
 `taxonomy.cpp`, `trip.cpp`, `units.cpp`, `pref.cpp`
 
-**Format** — `parse.cpp`, `parse-xml.cpp`, `save-xml.cpp`, `xmlparams.cpp`,
+**Format** — `parse.cpp`, `parse-xml.cpp`, `save-xml.cpp`, `save-profiledata.cpp`,
+`xmlparams.cpp`,
 `filterpresettable.cpp`, `membuffer.cpp`, `time.cpp`, `subsurface-string.cpp`,
 `strtod.cpp`, `errorhelper.cpp`, `sha1.cpp`, `version.cpp`
 

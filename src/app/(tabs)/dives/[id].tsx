@@ -16,6 +16,7 @@ import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
+import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useTheme } from '@/hooks/use-theme';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
@@ -31,6 +32,7 @@ import {
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
+import { CSV_FORMATS } from '@/models/transfer';
 import { useDive, useProfile } from '@/queries/logbook';
 import { useGfSeries, useUnitSystem } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
@@ -213,12 +215,42 @@ export default function DiveDetailScreen() {
         )}
       </Section>
 
+      <CsvExportSection dive={dive} />
+
       {dive.notes.trim() !== '' ? (
         <Section title="Notes">
           <Text style={[styles.notes, { color: theme.text }]}>{dive.notes.trim()}</Text>
         </Section>
       ) : null}
     </ScrollView>
+  );
+}
+
+/**
+ * The CSV flavours of desktop Subsurface's export dialog, one row each. Its own
+ * component so the export hook is only mounted once the dive has loaded.
+ */
+function CsvExportSection({ dive }: { dive: Dive }) {
+  const theme = useTheme();
+  const { busy, share } = useDiveCsvExport(dive);
+  return (
+    <Section title="Export as CSV">
+      {CSV_FORMATS.map(({ format, label, description }) => (
+        <Pressable
+          key={format}
+          accessibilityRole="button"
+          accessibilityHint={description}
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={() => share(format)}
+          style={styles.row}>
+          <Text style={[styles.label, { color: busy ? theme.textSecondary : theme.accent }]}>
+            {label}
+          </Text>
+          <Text style={[styles.value, { color: theme.textSecondary }]}>{description}</Text>
+        </Pressable>
+      ))}
+    </Section>
   );
 }
 

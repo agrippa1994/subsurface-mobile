@@ -15,6 +15,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 
 import type {
+  CsvExportOptions,
+  CsvExportResult,
   DeleteDiveResult,
   Dive,
   DivePatch,
@@ -109,6 +111,20 @@ export class SsrfHost {
 
   saveToXML(path: string): Promise<SaveResult> {
     return this.call<SaveResult>('saveToXML', { path });
+  }
+
+  exportDiveCSV(
+    id: number,
+    path: string,
+    { format, imperial = false, gf }: CsvExportOptions,
+  ): Promise<CsvExportResult> {
+    return this.call<CsvExportResult>('exportDiveCSV', {
+      id,
+      path,
+      format,
+      units: imperial ? 1 : 0,
+      ...gf,
+    });
   }
 
   clear(): Promise<Record<string, never>> {
