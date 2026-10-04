@@ -95,15 +95,19 @@ export type DiveRow = {
 };
 
 /**
- * Dive timestamps are Unix seconds in UTC (`dive::when`). Desktop Subsurface
- * shows them in the diver's own local time, which for a logbook read on a phone
- * means the device timezone - the same choice the mobile app has always made.
+ * `dive::when` is not a UTC instant: the core stores the wall-clock time the
+ * dive was logged at as if it were UTC (`utc_mktime()` on the local fields -
+ * parse-xml for SSRF `time='...'`, libdivecomputer and the Suunto JSON importer
+ * alike), and desktop Subsurface reads it back with the UTC calendar. Formatting
+ * it in the phone's zone would shift every dive by the phone's offset, so it is
+ * formatted in UTC: a dive at 15:25 in Egypt reads 15:25 wherever the phone is.
  */
 function formatDate(when: number, locale?: string): string {
   return new Date(when * 1000).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
@@ -111,6 +115,7 @@ function formatTime(when: number, locale?: string): string {
   return new Date(when * 1000).toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'UTC',
   });
 }
 

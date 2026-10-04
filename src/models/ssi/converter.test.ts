@@ -89,7 +89,7 @@ function dive(overrides: Partial<Dive> = {}): Dive {
   return {
     id: 7,
     number: 42,
-    // 2026-03-14T10:59:59Z, which is 11:59:59 in the +01:00 the computer logged.
+    // 2026-03-14T10:59:59Z: a dive at 10:59:59 on the diver's clock (logged at +01:00).
     when: 1773485999,
     durationSec: 2790,
     maxDepthMm: 10250,
@@ -216,41 +216,25 @@ describe('convertDiveToSsi', () => {
   });
 
   it('reads the date on the diver clock, not the phone clock', () => {
-    // The computer logged +01:00, so 10:59:59 UTC is a dive at 11:59:59.
+    // `when` is the diver's wall clock stored as if it were UTC, so
+    // 2026-03-14T10:59:59Z is a dive at 10:59:59 local.
     const created = convert();
     expect(created.odin_user_log_date).toBe('2026-03-14');
-    expect(created.odin_user_log_entry_time).toBe('11:59');
-    expect(created.odin_user_log_datetime).toBe('2026-03-14+11:59:59.000');
-  });
-
-  it('ignores the "no timezone" sentinel instead of adding it to the date', () => {
-    // TIMEZONE_OFFSET_INVALID is INT_MAX, and most dives carry it. Treated as
-    // an offset it moved the dive 68 years on: a dive on 2026-08-15 was filed
-    // under 2094-09-02 in SSI.
-    const [dc] = dive().dcs;
-    const created = convert({
-      dive: dive({ dcs: [{ ...dc, timezoneOffset: 2147483647 }] }),
-    });
-
-    expect(created.odin_user_log_date).toBe('2026-03-14');
     expect(created.odin_user_log_entry_time).toBe('10:59');
+    expect(created.odin_user_log_datetime).toBe('2026-03-14+10:59:59.000');
   });
 
-  it('ignores any offset no real timezone could have', () => {
+  it('does not add the recorded timezone offset to the time', () => {
+    // The offset is a label next to the time in desktop Subsurface, not a
+    // correction: the core's Suunto JSON importer stores 15:25+03:00 as 15:25
+    // with an offset of +03:00. Adding it moved that dive to 18:25. The "no
+    // timezone" sentinel (INT_MAX) once moved a dive 68 years on.
     const [dc] = dive().dcs;
-    for (const offset of [-2147483648, 15 * 3600, Number.NaN]) {
+    for (const offset of [3 * 3600, 5 * 3600 + 45 * 60, -2147483648, 2147483647, Number.NaN]) {
       const created = convert({ dive: dive({ dcs: [{ ...dc, timezoneOffset: offset }] }) });
       expect(created.odin_user_log_date).toBe('2026-03-14');
+      expect(created.odin_user_log_entry_time).toBe('10:59');
     }
-  });
-
-  it('still applies a genuine offset, including a half-hour one', () => {
-    const [dc] = dive().dcs;
-    // Nepal is UTC+05:45, so 10:59:59 UTC is a dive at 16:44 local.
-    const created = convert({
-      dive: dive({ dcs: [{ ...dc, timezoneOffset: 5 * 3600 + 45 * 60 }] }),
-    });
-    expect(created.odin_user_log_entry_time).toBe('16:44');
   });
 
   it('sends depths and durations in both unit systems', () => {
@@ -300,7 +284,7 @@ describe('convertDiveToSsi', () => {
     expect(created.odin_user_log_divecomputer_name).toBeNull();
     expect(created.odin_user_log_divecomputer_manufacturer).toBeNull();
     expect(created.odin_user_log_si_before).toBeNull();
-    // With no computer there is no zone either, so the timestamp stays UTC.
+    // With no computer the time is still the diver's clock.
     expect(created.odin_user_log_entry_time).toBe('10:59');
   });
 
