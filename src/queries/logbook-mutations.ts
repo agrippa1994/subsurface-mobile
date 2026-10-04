@@ -27,6 +27,7 @@ import {
 import {
   deleteDive,
   deleteDiveSite,
+  exportDiveCSV,
   importFile,
   loadFromXML,
   saveToXML,
@@ -35,6 +36,7 @@ import {
   upsertDiveSite,
 } from '../../modules/ssrf-core/src';
 import type {
+  CsvExportOptions,
   DeleteDiveResult,
   Dive,
   DivePatch,
@@ -238,6 +240,20 @@ export function useExportTo(): UseMutationResult<void, Error, string> {
       // Anything still inside the debounce belongs in the export too.
       await flush();
       saveToXML(path);
+    },
+  });
+}
+
+export type DiveCsvExport = { id: number; path: string; options: CsvExportOptions };
+
+/**
+ * Writes one dive to `path` as CSV for sharing. A read of the in-memory log, so
+ * there is nothing to flush or invalidate.
+ */
+export function useExportDiveCSV(): UseMutationResult<void, Error, DiveCsvExport> {
+  return useMutation({
+    mutationFn: async ({ id, path, options }: DiveCsvExport) => {
+      exportDiveCSV(id, path, options);
     },
   });
 }

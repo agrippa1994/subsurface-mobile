@@ -14,6 +14,9 @@
 // or imperial.
 
 export type {
+  CsvExportOptions,
+  CsvExportResult,
+  CsvFormat,
   Cylinder,
   CylinderPatch,
   DeleteDiveResult,

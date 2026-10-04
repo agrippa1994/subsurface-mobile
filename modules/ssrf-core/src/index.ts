@@ -9,6 +9,8 @@
 import SsrfCoreModule from './SsrfCoreModule';
 import {
   SsrfCoreError,
+  type CsvExportOptions,
+  type CsvExportResult,
   type DeleteDiveResult,
   type Dive,
   type DivePatch,
@@ -77,6 +79,25 @@ export function loadFromXML(pathOrBuffer: string | ArrayBuffer): LoadResult {
  */
 export function saveToXML(path: string): SaveResult {
   return call<SaveResult>('saveToXML', { path });
+}
+
+/**
+ * Writes one dive to `path` as CSV, in one of the formats desktop Subsurface's
+ * export dialog offers. The writers are the core's own, so the file matches a
+ * desktop export of the same dive byte for byte. See api.cpp, export_dive_csv().
+ */
+export function exportDiveCSV(
+  id: number,
+  path: string,
+  { format, imperial = false, gf }: CsvExportOptions,
+): CsvExportResult {
+  return call<CsvExportResult>('exportDiveCSV', {
+    id,
+    path,
+    format,
+    units: imperial ? 1 : 0,
+    ...gf,
+  });
 }
 
 /** Drops the in-memory divelog. */

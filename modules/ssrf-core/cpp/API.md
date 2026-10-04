@@ -80,6 +80,7 @@ rendered metric or imperial.
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
+| `exportDiveCSV` | `{ id, path, format, units?, gfLow?, gfHigh? }` | `{ path, format }` |
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
@@ -156,10 +157,20 @@ directly and avoids the copy.
   raises `gfHigh` to it. `set_gf()` writes a process-global, so they are passed
   on every call rather than configured once: whatever the last `getProfile` set
   is what any later plot would otherwise use.
+- **`exportDiveCSV`** writes one dive as CSV with the core's own writers, one
+  per CSV entry of desktop Subsurface's export dialog: `format` `"details"`
+  (samples, `xml2detailscsv.xslt`), `"summary"` (dive information without the
+  profile, `xml2summarycsv.xslt`) or `"profile"` (computed profile panel data,
+  `save_profiledata()`). Those writers only export "the selected dives", so the
+  selection is set to exactly this dive first. `units` is the stylesheets'
+  `0` metric / `1` imperial (default metric); `"profile"` ignores it and writes
+  raw core units, and takes `gfLow`/`gfHigh` exactly as `getProfile` does. The
+  file is written in place, not atomically - it is an export, not the logbook.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The
-  selection is left in place afterwards; nothing else in the module reads it.
+  selection is left in place afterwards; the only other reader is
+  `exportDiveCSV`, which sets it itself.
   Three fields on the reply are computed by the bindings rather than by the
   core, over that same selection (see `extra_statistics()` in `api.cpp`), because
   the core has no equivalent and aggregating them in TypeScript would put half

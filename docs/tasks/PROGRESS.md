@@ -718,3 +718,23 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   `src/lib/logbook-persist.test.ts` is new and covers the debounce and that
   guard against a mocked module; the C++ suite is unaffected.
+
+- 2026-10-04 — Per-dive CSV export, matching desktop Subsurface's export dialog.
+  The dive detail screen has an "Export as CSV" section with the dialog's three
+  CSV flavours, each written by the core's own code and handed to the share
+  sheet:
+
+  - "Profile samples" - the samples as downloaded (desktop "CSV details",
+    `xml2detailscsv.xslt`).
+  - "Dive summary" - one row of dive information (desktop "CSV summary",
+    `xml2summarycsv.xslt`).
+  - "Computed profile" - the profile panel data (desktop "Profile data",
+    `core/save-profiledata.cpp`, newly added to the compiled subset).
+
+  New module method `exportDiveCSV` in `cpp/bindings/api.cpp`: the core writers
+  only export "the selected dives", so it selects exactly the one dive first.
+  The stylesheets follow the app's unit system, the computed profile the
+  gradient factors the diagram uses (`apply_gradient_factors()`, factored out of
+  `get_profile`). `tests/csv-export.test.ts` covers each format, that no other
+  dive leaks in, the unit switch and argument validation; an ASAN run exporting
+  every format for every dive of three fixture logs is clean.

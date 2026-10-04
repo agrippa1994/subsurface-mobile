@@ -1,7 +1,13 @@
 // AI-generated (Claude)
 import { describe, expect, it } from 'vitest';
 
-import { describeImport, exportFileName, fileExtension, isLogbookName } from './transfer';
+import {
+  csvFileName,
+  describeImport,
+  exportFileName,
+  fileExtension,
+  isLogbookName,
+} from './transfer';
 
 const result = (partial: Partial<Parameters<typeof describeImport>[0]>) =>
   describeImport({ added: 0, merged: 0, failed: 0, dives: 0, sites: 0, ...partial });
@@ -49,5 +55,18 @@ describe('file names', () => {
 
   it('dates the exported file', () => {
     expect(exportFileName(new Date(2026, 7, 14))).toBe('subsurface-2026-08-14.ssrf');
+  });
+});
+
+describe('csvFileName', () => {
+  // 2026-08-14 23:30 as logged: a UTC calendar must not roll it to the 15th.
+  const when = Date.UTC(2026, 7, 14, 23, 30) / 1000;
+
+  it('names the dive number, the date and the format', () => {
+    expect(csvFileName({ number: 12, when }, 'details')).toBe('dive-12-2026-08-14-details.csv');
+  });
+
+  it('leaves the number out of an unnumbered dive', () => {
+    expect(csvFileName({ number: 0, when }, 'summary')).toBe('dive-2026-08-14-summary.csv');
   });
 });

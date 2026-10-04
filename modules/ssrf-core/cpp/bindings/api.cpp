@@ -19,6 +19,7 @@
 #include "core/parse.h"
 #include "core/profile.h"
 #include "core/qthelper.h"
+#include "core/save-profiledata.h"
 #include "core/statistics.h"
 #include "core/subsurface-time.h"
 #include "core/tag.h"
@@ -336,6 +337,24 @@ json get_dive(const json &args)
 static const int GF_MIN = 10;
 static const int GF_MAX = 150;
 
+// Gradient factors. set_gf() writes the process-global buehlmann_config, so
+// they are set on every call that plots rather than once at startup - the
+// caller's preference is the only thing that decides what a plot shows. The
+// defaults are default_prefs' (core/pref.cpp), which this build never copies
+// into `prefs`.
+void apply_gradient_factors(const json &args)
+{
+	int gfLow = static_cast<int>(get_int(args, "gfLow", 30));
+	int gfHigh = static_cast<int>(get_int(args, "gfHigh", 75));
+	gfLow = std::clamp(gfLow, GF_MIN, GF_MAX);
+	gfHigh = std::clamp(gfHigh, GF_MIN, GF_MAX);
+	// A gf_low above gf_high has no meaning for the Buehlmann model; the
+	// stricter of the two wins rather than the call failing.
+	if (gfLow > gfHigh)
+		gfHigh = gfLow;
+	set_gf(static_cast<short>(gfLow), static_cast<short>(gfHigh));
+}
+
 json get_profile(const json &args)
 {
 	const struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
@@ -346,21 +365,7 @@ json get_profile(const json &args)
 	if (dcIndex < 0 || static_cast<size_t>(dcIndex) >= d.dcs.size())
 		fail("dive " + std::to_string(d.id) + " has no divecomputer " + std::to_string(dcIndex));
 
-	// Gradient factors. set_gf() writes the process-global buehlmann_config,
-	// so they are set on every call rather than once at startup - the caller's
-	// preference is the only thing that decides what this plot shows. The
-	// defaults are default_prefs' (core/pref.cpp), which this build never
-	// copies into `prefs`.
-	int gfLow = static_cast<int>(get_int(args, "gfLow", 30));
-	int gfHigh = static_cast<int>(get_int(args, "gfHigh", 75));
-	gfLow = std::clamp(gfLow, GF_MIN, GF_MAX);
-	gfHigh = std::clamp(gfHigh, GF_MIN, GF_MAX);
-	// A gf_low above gf_high has no meaning for the Buehlmann model; the
-	// stricter of the two wins rather than the call failing.
-	if (gfLow > gfHigh)
-		gfHigh = gfLow;
-	set_gf(static_cast<short>(gfLow), static_cast<short>(gfHigh));
-
+	apply_gradient_factors(args);
 	plot_info pi = create_plot_info_new(&d, d.get_dc(dcIndex), nullptr);
 	return plot_info_to_json(pi);
 }
@@ -846,9 +851,9 @@ json get_statistics(const json &args)
 	if (it != args.end() && it->is_object())
 		filter = *it;
 
-	// Note: this leaves the selection set to the filter result. Nothing else in
-	// the module reads dive->selected, and the next getStatistics() overwrites
-	// it, so there is no state to unwind.
+	// Note: this leaves the selection set to the filter result. The only other
+	// reader of dive->selected is exportDiveCSV, which sets it itself, and the
+	// next getStatistics() overwrites it, so there is no state to unwind.
 	int selected = apply_stats_filter(filter);
 
 	json out = stats_summary_to_json(calculate_stats_summary(true));
@@ -856,6 +861,50 @@ json get_statistics(const json &args)
 	out["matched"] = selected;
 	out.update(extra_statistics());
 	return out;
+}
+
+// exportDiveCSV: writes one dive as CSV, in one of the three CSV flavours the
+// desktop app's export dialog offers. All three are the core's own writers,
+// which only know how to export "the selected dives", so the selection is set
+// to exactly this dive first (see get_statistics for why that needs no undo):
+//
+//  - "details": the samples as downloaded from the dive computer, through the
+//    desktop's xml2detailscsv.xslt.
+//  - "summary": one row of dive information, no profile, xml2summarycsv.xslt.
+//  - "profile": the computed profile panel data, save-profiledata.cpp. That
+//    plots the dive, so it takes the same gradient factors as getProfile.
+//
+// `units` picks the stylesheets' unit system (0 metric, 1 imperial) exactly
+// like the desktop dialog's units box; the profile writer has none and always
+// writes the core's raw integer units.
+json export_dive_csv(const json &args)
+{
+	struct dive &target = require_dive(static_cast<int>(require_int(args, "id")));
+	std::string path = get_string(args, "path");
+	if (path.empty())
+		fail("missing required argument 'path'");
+	std::string format = get_string(args, "format", "details");
+	int units = static_cast<int>(get_int(args, "units", 0));
+	if (units != 0 && units != 1)
+		fail("argument 'units' must be 0 (metric) or 1 (imperial)");
+
+	for (auto &d : divelog.dives)
+		d->selected = d.get() == &target;
+
+	if (format == "profile") {
+		apply_gradient_factors(args);
+		if (save_profiledata(path.c_str(), true))
+			fail("failed to write " + path);
+	} else if (format == "details" || format == "summary") {
+		const char *stylesheet = format == "details" ? "xml2detailscsv.xslt" : "xml2summarycsv.xslt";
+		auto [error, message] = export_dives_xslt(path.c_str(), true, units, stylesheet, false);
+		if (error)
+			fail(message.empty() ? "failed to write " + path : message);
+	} else {
+		fail("unknown CSV format '" + format + "'");
+	}
+
+	return json{ { "path", path }, { "format", format } };
 }
 
 // Parses a Suunto DM4/DM5 sqlite database into `log`. `path` must name a real
@@ -1096,6 +1145,8 @@ json dispatch(const std::string &method, const json &args)
 		return get_profile(args);
 	if (method == "getStatistics")
 		return get_statistics(args);
+	if (method == "exportDiveCSV")
+		return export_dive_csv(args);
 	if (method == "importSuunto")
 		return import_suunto(args);
 	if (method == "importFile")
