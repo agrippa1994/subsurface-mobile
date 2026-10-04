@@ -54,6 +54,8 @@ rm -rf modules/ssrf-core/build/host modules/ssrf-core/build/asan
 
 Always clean first: `build-host.sh` rebuilds only `.cpp` files newer than their
 object, so shim/bindings objects are not rebuilt when a core header changes.
+Both the host and the iOS build go through ccache when it is installed
+(`brew install ccache`), so the clean rebuild is mostly cache hits.
 
 Typical failures and fixes:
 
@@ -84,8 +86,7 @@ npm run typecheck
 Then the native iOS build (ios/ is git-ignored and regenerated):
 
 ```sh
-CI=1 npx expo prebuild --platform ios --no-install
-(cd ios && pod install)     # if skia complains: npx install-skia, then retry
+CI=1 npx expo prebuild --platform ios   # also runs pod install
 cd ios && xcodebuild -workspace Subsurface.xcworkspace -scheme Subsurface \
   -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build

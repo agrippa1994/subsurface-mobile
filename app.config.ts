@@ -128,6 +128,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 120,
       },
     ],
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          // Route every C/C++ compile (the vendored Subsurface core, React
+          // Native, the pods) through ccache. A missing ccache only warns at
+          // pod install, so this is safe on machines without it.
+          ccacheEnabled: true,
+        },
+      },
+    ],
     // modules/ssrf-core is picked up by local autolinking
     // (expo-module.config.json); this plugin only vendors the Subsurface core
     // subset into the module before pod install (task 03).
