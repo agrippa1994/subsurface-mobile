@@ -1,32 +1,21 @@
-Bound the o2 sensor loop in fill_o2_values() to the array it writes.
+Bound the o2 sensor loops in fill_o2_values() to the arrays they touch.
 
-`fill_o2_values()` keeps `pressure_t last_sensor[3]` but iterates to
-`dc->no_o2sensors`, which is a uint8_t read straight out of the logbook
-(`no_o2sensors` in parse-xml.cpp:874, or derived by fixup_no_o2sensors()).
-Anything above 3 writes past the end of the stack array; the plot_data side of
-the copy is `std::array<pressure_t, MAX_O2_SENSORS>` with MAX_O2_SENSORS == 6,
-so the bound is simply wrong rather than the file being invalid.
+`fill_o2_values()` iterates to `dc->no_o2sensors`, which is a uint8_t read
+straight out of the logbook (`no_o2sensors` in parse-xml.cpp:872, or derived by
+fixup_no_o2sensors()). Both `last_sensor` and `entry.o2sensor` hold
+MAX_O2_SENSORS (6) entries, so any value above 6 reads and writes past them.
 
-Reachable from this module's getProfile() with a file the app parsed happily:
-subsurface/dives/Liberty_CCR_header_v1_00000011.dlf.xml trips it, which
-AddressSanitizer reports as a stack-buffer-overflow.
+Upstream 874222b4e ("Fix crash if no_o2sensors > 3") resized `last_sensor`
+from 3 to MAX_O2_SENSORS, which fixes the
+subsurface/dives/Liberty_CCR_header_v1_00000011.dlf.xml case that
+AddressSanitizer originally reported, but left the loops unbounded: a logbook
+with no_o2sensors='7' still overflows. This patch keeps only the loop clamps,
+matching what profile.cpp:1084 already does for the same field.
 
-The fix sizes the array like its counterpart and clamps the loops, matching
-what profile.cpp:1084 already does for the same field.
-
-Reported upstream; drop this patch when the pinned core carries the fix.
+Drop this patch when the pinned core clamps these loops itself.
 
 --- a/core/profile.cpp
 +++ b/core/profile.cpp
-@@ -1176,7 +1176,7 @@
-  * for plotting. This function called by: create_plot_info_new() */
- {
- 	int i, j;
--	pressure_t last_sensor[3], o2pressure;
-+	pressure_t last_sensor[MAX_O2_SENSORS], o2pressure;
- 	pressure_t amb_pressure;
-
- 	for (i = 0; i < pi.nr; i++) {
 @@ -1185,10 +1185,10 @@
 
  		if (dc->divemode == CCR || (dc->divemode == PSCR && dc->no_o2sensors)) {

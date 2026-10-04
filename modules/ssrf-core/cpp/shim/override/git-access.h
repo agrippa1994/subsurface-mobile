@@ -42,7 +42,7 @@ struct git_info {
 
 // Always false in the mobile build: logbooks are plain files.
 extern bool is_git_repository(const char *filename, struct git_info *info);
-extern int git_save_dives(struct git_info *, bool select_only);
+extern int git_save_dives(struct git_info *, bool select_only, bool allow_replacement = false);
 extern void clear_git_id();
 extern void set_git_id(const struct git_oid *);
 

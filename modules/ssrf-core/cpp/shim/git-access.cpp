@@ -20,7 +20,7 @@ bool is_git_repository(const char *, struct git_info *)
 	return false;
 }
 
-int git_save_dives(struct git_info *, bool)
+int git_save_dives(struct git_info *, bool, bool)
 {
 	return -1;
 }
