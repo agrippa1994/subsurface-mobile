@@ -150,6 +150,21 @@ describe('toDiveRow', () => {
     expect(row.title).toBe('Tauchsee');
   });
 
+  it('renders the logged wall-clock time whatever zone the phone is in', () => {
+    // `when` is the dive's local time stored as if it were UTC: test29.xml
+    // says time='06:35:00', so a phone in Vienna (UTC+1 in December) must not
+    // turn it into 07:35.
+    const zone = process.env.TZ;
+    process.env.TZ = 'Europe/Vienna';
+    try {
+      const row = toDiveRow(dive, 'metric', LOCALE);
+      expect(row.dateText).toBe('13 Dec 2011');
+      expect(row.timeText).toBe('06:35');
+    } finally {
+      process.env.TZ = zone;
+    }
+  });
+
   it('falls back from site name to trip location to a placeholder', () => {
     expect(toDiveRow(summary({ id: 1, tripLocation: 'Austria' })).title).toBe('Austria');
     expect(toDiveRow(summary({ id: 1 })).title).toBe('Unnamed dive');

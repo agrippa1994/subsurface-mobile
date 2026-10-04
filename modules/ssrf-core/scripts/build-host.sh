@@ -58,6 +58,13 @@ CXXFLAGS=(
 CFLAGS=(-std=c11 -g -O0 -isysroot "$SDK" -I"$GEN" -I"$GEN/core" ${ASAN[@]+"${ASAN[@]}"})
 LDFLAGS=(-isysroot "$SDK" -lxml2 -lxslt -lz -lsqlite3 ${ASAN[@]+"${ASAN[@]}"})
 
+# vendor-core re-copies the whole subset whenever an input changes, which makes
+# every core object look stale; ccache turns that full rebuild into cache hits.
+# Same switch as the iOS build (expo-build-properties ccacheEnabled), and
+# optional in the same way: without ccache the compilers run directly.
+CCACHE=()
+if command -v ccache >/dev/null; then CCACHE=(ccache); fi
+
 sources=()
 while IFS= read -r f; do sources+=("$f"); done < <(
 	# cpp/ already contains the vendored tree (cpp/generated) and the shim.
@@ -74,9 +81,9 @@ for src in "${sources[@]}"; do
 	# full rebuild is slow enough to break the edit/compile rhythm.
 	if [[ -f "$obj" && "$obj" -nt "$src" ]]; then continue; fi
 	if [[ "$src" == *.c ]]; then
-		cc "${CFLAGS[@]}" -c "$src" -o "$obj" || failed=1
+		${CCACHE[@]+"${CCACHE[@]}"} cc "${CFLAGS[@]}" -c "$src" -o "$obj" || failed=1
 	else
-		c++ "${CXXFLAGS[@]}" -c "$src" -o "$obj" || failed=1
+		${CCACHE[@]+"${CCACHE[@]}"} c++ "${CXXFLAGS[@]}" -c "$src" -o "$obj" || failed=1
 	fi
 done
 

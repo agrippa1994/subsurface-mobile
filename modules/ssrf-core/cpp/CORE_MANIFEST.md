@@ -8,9 +8,9 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `f0dfae794` ("Derive mobile format selections from presets") |
-| Core version string | `6.0.5681` (from `subsurface/scripts/get-version.sh`) |
-| `subsurface/libdivecomputer` submodule | `ffb7cab4c` — 0.10.0-devel-Subsurface-NG |
+| `subsurface/` submodule | `204ab17f8` ("desktop: widen default '#' column to account for tree indentation") |
+| Core version string | `6.0.5741` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/libdivecomputer` submodule | `736d0feaf` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
 
@@ -67,7 +67,7 @@ a static C lib" — the enums would then already match by construction.
 | `0002-qt-free-eventtype-and-helpers` | `eventtype.{h,cpp}` | The one file in the subset whose *interface* is `QString`. Ported to `std::string`; `QStringLiteral("%1 (%2)").arg()` becomes concatenation, `gettextFromC::tr()` becomes `translate()`. |
 | `0003-profile-use-std-mutex` | `profile.cpp` | `QMutex planLock` guards the shared deco planner state, used only via `lock()`/`unlock()`. `std::mutex` has the same interface for both. |
 | `0004-device-decode-fingerprint-without-qt` | `device.cpp` | Only Qt use is `QByteArray::fromHex()` when reading a dive computer fingerprint back from the log. Replaced with an inline nibble decoder that skips non-hex characters, as Qt does. |
-| `0005-profile-bound-o2-sensor-loop` | `profile.cpp` | Not a Qt patch: an upstream stack-buffer-overflow. `fill_o2_values()` keeps `pressure_t last_sensor[3]` but loops to `dc->no_o2sensors`, which comes straight out of the logbook and may be up to `MAX_O2_SENSORS` (6). Reachable from `getProfile` with `dives/Liberty_CCR_header_v1_00000011.dlf.xml`. Reported upstream; drop when the pin carries the fix. |
+| `0005-profile-bound-o2-sensor-loop` | `profile.cpp` | Not a Qt patch: an upstream buffer overflow. `fill_o2_values()` loops to `dc->no_o2sensors`, a `uint8_t` straight out of the logbook, over arrays of `MAX_O2_SENSORS` (6). Upstream 874222b4e resized `last_sensor` from 3 to 6 (fixing `dives/Liberty_CCR_header_v1_00000011.dlf.xml`), but the loops are still unbounded, so `no_o2sensors='7'` overflows; the patch keeps only the loop clamps. Drop when the pin clamps them itself. |
 
 | `0006-xslt-match-namespace-declaration` | `parse-xml.cpp` | Also not a Qt patch. `test_xslt_transforms()` selects the Suunto DM4 stylesheet on root `<Dive>` *plus an "xmlns" attribute*, tested with `xmlGetProp()`. libxml2 keeps namespace declarations in `nsDef`, not in the property list, so that test never fires and a Suunto DM4 XML export parses to zero dives. Looks at `nsDef` instead. Report upstream. |
 | `0007-suunto-json-without-fit` | `import-suunto-json.cpp` | Guts `patch_from_fit()` (parses the paired `.fit` through `libdc_buffer_parser()`, i.e. the libdivecomputer download path this build does not compile) and drops `suunto_json_fit_pair_import()` (desktop multi-file selection; needs QFile/QFileInfo and `file.cpp`'s `readfile()`). The JSON-to-dive mapping itself is compiled unchanged. Cost: a dive whose gas mix lives only in the FIT file imports as air. |
@@ -88,7 +88,7 @@ that the submodule pin moved under a hand-written assumption.
 | `divefilter.h` | Declares the `DiveFilter` singleton driving the desktop list. | `FilterData` (the payload of a filter preset, which is part of the file format) |
 | `filterconstraint.h` | `QStringList *` inside the constraint union plus a large translated-label API. | Enums, `filter_constraint` with `std::vector<std::string> *`, token conversions, `filter_constraint_data_to_string` |
 | `selection.h` | `QVector` selection API and Qt signalling. | `current_dive`, `amount_selected`, `select_single_dive`, `select_newest_visible_dive`, `clear_selection`, `getDiveSelection` |
-| `git-access.h` | Includes `git2.h`; cloud/git logbooks are out of scope. | Cloud host macros, `git_info`, `is_git_repository` (always false), `git_save_dives`, `clear_git_id`, `set_git_id` |
+| `git-access.h` | Includes `git2.h`; cloud/git logbooks are out of scope. | Cloud host macros, `git_info`, `is_git_repository` (always false), `git_save_dives` (upstream's three-argument signature), `clear_git_id`, `set_git_id` |
 | `settings/qPrefDiveComputer.h` | QSettings-backed preference object. | `device()` — empty, there is no download flow |
 
 `cpp/shim/include/QJsonDocument`, `QJsonObject`, `QJsonArray` and `QJsonValue`
