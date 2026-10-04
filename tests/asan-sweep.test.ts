@@ -1,7 +1,7 @@
 // AI-generated (Claude)
 // AddressSanitizer sweep over the whole fixture corpus.
 //
-// Opt-in (`SSRF_ASAN=1 npm test`) because it rebuilds the core with
+// Opt-in (`SSRF_ASAN=1 bun run test`) because it rebuilds the core with
 // -fsanitize=address, which takes minutes. Run it after any change to the shim,
 // the bindings or the pinned core: memory errors in this codebase surface as
 // rare, silent data corruption rather than crashes, so the normal suite catches

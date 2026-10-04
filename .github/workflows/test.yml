@@ -21,15 +21,20 @@ jobs:
           # The fixtures are the pinned upstream logbooks in subsurface/dives.
           submodules: recursive
 
+      # Dependencies are locked with bun (bun.lock). Node is still needed:
+      # build-host.sh runs scripts/vendor-core.mjs with node.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - run: npm ci
+      - run: bun install --frozen-lockfile
 
-      - run: npm run typecheck
+      - run: bun run typecheck
 
-      - run: npm run lint
+      - run: bun run lint
 
-      - run: npm test
+      - run: bun run test

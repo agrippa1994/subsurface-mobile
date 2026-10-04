@@ -35,7 +35,7 @@ a fixed commit and consumed read-only. See
 ```sh
 git clone --recurse-submodules <this-repo-url>
 cd subsurface-mobile
-npm install
+bun install
 npx expo prebuild
 npx expo run:ios      # onto a physical device
 ```
@@ -43,9 +43,9 @@ npx expo run:ios      # onto a physical device
 ## Tests
 
 ```sh
-npm test          # vitest: models + golden tests against the real C++ bindings
-npm run typecheck
-npm run lint
+bun run test          # vitest: models + golden tests against the real C++ bindings
+bun run typecheck
+bun run lint
 ```
 
 The golden tests do not mock the native module: they build
@@ -55,7 +55,7 @@ The golden tests do not mock the native module: they build
 required, and the submodule must be checked out.
 
 ```sh
-SSRF_ASAN=1 npm test   # adds the AddressSanitizer sweep over every fixture
+SSRF_ASAN=1 bun run test   # adds the AddressSanitizer sweep over every fixture
 ```
 
 Run that after any change to the C++ shim, the bindings or the pinned core:
