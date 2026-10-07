@@ -3,7 +3,8 @@
 //
 // iOS renders a real SwiftUI List instead - see dive-list-view.ios.tsx. Both
 // variants take the same props and read the same presentation model, so the
-// grouping and the formatting cannot diverge between platforms.
+// grouping and the formatting cannot diverge between platforms. There is no
+// swipe here; a long press offers the same delete as the iOS swipe action.
 import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
@@ -15,9 +16,16 @@ export type DiveListViewProps = {
   sections: DiveTripSection[];
   unitSystem: UnitSystem;
   onSelectDive: (id: number) => void;
+  /** Asks to delete a dive. The screen confirms; the list only reports the gesture. */
+  onDeleteDive: (dive: DiveSummary) => void;
 };
 
-export function DiveListView({ sections, unitSystem, onSelectDive }: DiveListViewProps) {
+export function DiveListView({
+  sections,
+  unitSystem,
+  onSelectDive,
+  onDeleteDive,
+}: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
   // `dives` because that is what they are everywhere else.
@@ -45,6 +53,7 @@ export function DiveListView({ sections, unitSystem, onSelectDive }: DiveListVie
             accessibilityRole="button"
             accessibilityLabel={row.accessibilityLabel}
             onPress={() => onSelectDive(row.id)}
+            onLongPress={() => onDeleteDive(item)}
             style={styles.row}>
             <View style={styles.rowMain}>
               <Text style={[styles.rowTitle, { color: theme.text }]}>{row.title}</Text>
