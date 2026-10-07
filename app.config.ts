@@ -10,10 +10,7 @@ import type { ExpoConfig, ConfigContext } from 'expo/config';
 // this feeds is not decoration: the app links the core, so it has to say what
 // it links and where the source is.
 function corePins(): { commit: string; version: string } {
-  const manifest = readFileSync(
-    join(__dirname, 'modules/ssrf-core/cpp/CORE_MANIFEST.md'),
-    'utf8'
-  );
+  const manifest = readFileSync(join(__dirname, 'modules/ssrf-core/cpp/CORE_MANIFEST.md'), 'utf8');
   const commit = /`subsurface\/` submodule \| `([0-9a-f]+)`/.exec(manifest);
   const version = /Core version string \| `([^`]+)`/.exec(manifest);
   return { commit: commit?.[1] ?? 'unknown', version: version?.[1] ?? 'unknown' };
@@ -143,6 +140,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // (expo-module.config.json); this plugin only vendors the Subsurface core
     // subset into the module before pod install (task 03).
     './modules/ssrf-core/plugin/withSsrfCore',
+    // Debug builds install as a separate testing app next to the production
+    // one, with its own identity, amber icon and sandbox (own logbook).
+    [
+      './plugins/with-ios-variants',
+      {
+        debug: {
+          name: 'Subsurface Dev',
+          bundleIdentifier: 'codes.mani.subsurface-react.dev',
+          scheme: 'subsurface-dev',
+          icon: './assets/subsurface-dev.icon',
+        },
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

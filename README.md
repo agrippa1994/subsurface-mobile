@@ -40,6 +40,21 @@ npx expo prebuild
 npx expo run:ios      # onto a physical device
 ```
 
+## Production and testing app
+
+iOS ships as two separately installable apps, so a build under test never
+touches the logbook of the one you dive with (see
+`plugins/with-ios-variants.js`):
+
+| Build | Bundle identifier | Home screen | Icon | URL scheme |
+| --- | --- | --- | --- | --- |
+| `npx expo run:ios --device` (Debug) | `codes.mani.subsurface-react.dev` | Subsurface Dev | amber (`assets/subsurface-dev.icon`) | `subsurface-dev` |
+| `npx expo run:ios --device --configuration Release` or Xcode Archive | `codes.mani.subsurface-react` | Subsurface | blue (`assets/subsurface.icon`) | `subsurface` |
+
+Each bundle identifier has its own sandbox and keychain: the logbook, settings
+and SSI credentials are not shared. Re-run `npx expo prebuild` after changing
+the plugin or either icon.
+
 ## Tests
 
 ```sh
