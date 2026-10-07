@@ -22,6 +22,16 @@ const CLIENT_PARAMS = {
 };
 
 /**
+ * The User-Agent of the MySSI app, a Flutter app whose HTTP client (dio over
+ * dart:io) sends Dart's default. Since 2026-10-07 SSI only stores a
+ * `save_divelog` whose User-Agent is this one: any other is answered with a
+ * success body carrying a made-up `odin_user_log_id`, and nothing is stored.
+ * Reads are not filtered, but every call sends it so the client looks the same
+ * throughout.
+ */
+const USER_AGENT = 'Dart/3.12 (dart:io)';
+
+/**
  * The shape SSI answers with when the call is refused. It comes back with HTTP
  * 200 and this body rather than a status code, which is why every response is
  * inspected instead of only `response.ok`.
@@ -48,6 +58,61 @@ export class SsiApiError extends Error {
     this.name = 'SsiApiError';
     this.unauthenticated = unauthenticated;
   }
+}
+
+// --- Debug logging ---------------------------------------------------------
+//
+// SSI's API is undocumented and changes without notice, so in development every
+// call is logged: verb, payload, HTTP status and (truncated) response body.
+// Release builds log nothing. Secrets never reach the log: the password, email
+// and session token are redacted from the URL, and a token in a response body
+// (authenticate answers with one) is redacted too.
+
+const SHOULD_LOG = typeof __DEV__ !== 'undefined' && __DEV__;
+const SECRET_PARAMS = new Set(['p', 'l', 'token']);
+const MAX_LOGGED_BODY = 4000;
+
+function redactParams(params: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [
+      key,
+      SECRET_PARAMS.has(key) ? '<redacted>' : value,
+    ]),
+  );
+}
+
+function redactBody(text: string): string {
+  const redacted = text.replace(/("token"\s*:\s*)"[^"]*"/g, '$1"<redacted>"');
+  return redacted.length > MAX_LOGGED_BODY
+    ? `${redacted.slice(0, MAX_LOGGED_BODY)}... (${redacted.length} chars)`
+    : redacted;
+}
+
+function logRequest(method: string, params: Record<string, string>, payload?: unknown): void {
+  if (!SHOULD_LOG) {
+    return;
+  }
+  console.log(`[ssi] ${method} ${params.what ?? '?'}`, redactParams(params));
+  if (payload !== undefined) {
+    console.log(`[ssi] ${params.what ?? '?'} payload:`, JSON.stringify(payload, null, 2));
+  }
+}
+
+function logResponse(params: Record<string, string>, response: Response, text: string): void {
+  if (!SHOULD_LOG) {
+    return;
+  }
+  console.log(
+    `[ssi] ${params.what ?? '?'} -> HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`,
+    redactBody(text),
+  );
+}
+
+function logFailure(params: Record<string, string>, error: unknown): void {
+  if (!SHOULD_LOG) {
+    return;
+  }
+  console.warn(`[ssi] ${params.what ?? '?'} failed:`, error);
 }
 
 function rpcUrl(params: Record<string, string>): string {
@@ -87,12 +152,14 @@ function unwrap<T>(body: unknown): T {
   return body as T;
 }
 
-async function decode<T>(response: Response): Promise<T> {
+async function decode<T>(params: Record<string, string>, response: Response): Promise<T> {
+  const text = await response.text();
+  logResponse(params, response, text);
+
   if (!response.ok) {
     throw new SsiApiError(`SSI returned HTTP ${response.status}.`, false);
   }
 
-  const text = await response.text();
   try {
     return unwrap<T>(JSON.parse(text));
   } catch (caught) {
@@ -103,11 +170,21 @@ async function decode<T>(response: Response): Promise<T> {
   }
 }
 
-export async function ssiGet<T>(
-  params: Record<string, string>,
-  signal?: AbortSignal
-): Promise<T> {
-  return decode<T>(await fetch(rpcUrl(params), { method: 'GET', signal }));
+export async function ssiGet<T>(params: Record<string, string>, signal?: AbortSignal): Promise<T> {
+  logRequest('GET', params);
+  try {
+    return await decode<T>(
+      params,
+      await fetch(rpcUrl(params), {
+        method: 'GET',
+        headers: { 'User-Agent': USER_AGENT },
+        signal,
+      }),
+    );
+  } catch (error) {
+    logFailure(params, error);
+    throw error;
+  }
 }
 
 /**
@@ -118,13 +195,22 @@ export async function ssiGet<T>(
 export async function ssiPost<T>(
   params: Record<string, string>,
   payload: unknown,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(rpcUrl(params), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `json_data=${encodeURIComponent(JSON.stringify(payload))}`,
-    signal,
-  });
-  return decode<T>(response);
+  logRequest('POST', params, payload);
+  try {
+    const response = await fetch(rpcUrl(params), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': USER_AGENT,
+      },
+      body: `json_data=${encodeURIComponent(JSON.stringify(payload))}`,
+      signal,
+    });
+    return await decode<T>(params, response);
+  } catch (error) {
+    logFailure(params, error);
+    throw error;
+  }
 }
