@@ -102,6 +102,15 @@ const SUUNTO_JSON: { name: string; expectedDifferences: string[] }[] = [
   { name: 'suunto_eon_core_nitrox', expectedDifferences: [] },
   { name: 'suunto_nautic_sidemount', expectedDifferences: [] },
   {
+    // Upstream 140b1f24c preserves the explicitly reported 232 bar on JSON
+    // import. Its XML reference writes that pressure, but the explicit flag
+    // is not serialized: loading XML clears start because it rounds to the
+    // first pressure sample (231.533 bar). Keep this difference exact so the
+    // JSON path must retain the reported pressure.
+    name: 'suunto_nautic_multigas',
+    expectedDifferences: ['.dives.0.cylinders.2.startMbar: 232000 -> 0'],
+  },
+  {
     // The Suunto app writes a .fit next to the .json, and the Ocean's JSON
     // export carries neither the gas mix nor the gradient factors - the desktop
     // importer reads them out of the FIT file, which needs the libdivecomputer

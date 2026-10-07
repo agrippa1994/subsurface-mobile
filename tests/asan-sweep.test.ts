@@ -65,6 +65,7 @@ describe.skipIf(!enabled)('AddressSanitizer', () => {
         'Dive_2013-02-02-1614.xml',
         'suunto_ocean_air.json',
         'suunto_nautic_sidemount.json',
+        'suunto_nautic_multigas.json',
         'suunto_eon_core_nitrox.json',
         'suunto_ocean_nitrox.json',
       ]) {

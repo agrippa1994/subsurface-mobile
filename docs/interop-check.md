@@ -15,7 +15,7 @@ there is nothing to automate against the binary a user actually runs.
 | Fact | Value |
 | --- | --- |
 | Desktop | `/Applications/Subsurface.app`, version from its `Info.plist` (was `6.0.5592-CICD-release` when this was written) |
-| App core | pin `204ab17f8`, core version `6.0.5741` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
+| App core | pin `d74b06390`, core version `6.0.5746` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
 | Data format | `dataformat_version` is a compile-time `3` on both sides (`subsurface/core/version.h`) |
 
 Note the skew direction: the app is built on a core *newer* than the installed
@@ -97,6 +97,15 @@ Identify the source before changing anything. A C++ change must be followed by
 `npm test` and `SSRF_ASAN=1 npm test`.
 
 ## Known gap
+
+At core `d74b06390`, upstream's `suunto_nautic_multigas.json` imports cylinder
+2 with an explicit start pressure of 232000 mbar. The upstream XML reference
+also writes 232 bar, but reloading it clears the start pressure to 0 (use the
+sample pressure): the first sample is 231533 mbar, which rounds to the same
+bar, and `start_pressure_is_explicit` is not serialized. This is upstream
+behavior in `dive::fixup_dive()`, not a shim change. The Suunto JSON golden
+test records this exact difference; it does not allow arbitrary pressure
+differences.
 
 No file in `subsurface/dives/`, and not the bundled sample, contains a
 `<filterpreset>`, so `filterconstraint.cpp` - the one non-trivial
