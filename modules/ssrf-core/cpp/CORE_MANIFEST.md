@@ -8,9 +8,9 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `204ab17f8` ("desktop: widen default '#' column to account for tree indentation") |
-| Core version string | `6.0.5741` (from `subsurface/scripts/get-version.sh`) |
-| `subsurface/libdivecomputer` submodule | `736d0feaf` — 0.10.0-devel-Subsurface-NG |
+| `subsurface/` submodule | `d74b06390` ("mobile: bound waitForKeyboard retry in TripDetails.qml trip notes") |
+| Core version string | `6.0.5746` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/libdivecomputer` submodule | `8d3f62970` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
 
