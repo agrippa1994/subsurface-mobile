@@ -33,8 +33,10 @@ Closes task 01's acceptance on hardware. The liquid-glass spike screen was
 removed before task 07 as that task instructed, so the check runs against the
 shipping surfaces instead.
 
-1. The app launches with the generated icon (`scripts/make-icons.mjs`,
-   `assets/subsurface.icon`) and the splash, not the Expo template chevron.
+1. The app installs as "Subsurface Dev" with the amber testing icon
+   (`assets/subsurface-dev.icon`, see `plugins/with-ios-variants.js`) next to
+   any installed production app, and launches with the splash, not the Expo
+   template chevron.
 2. The tab bar is the system glass material and list content scrolls *under* it.
    Four tabs: Dives, Sites, Statistics, Settings.
 3. Settings renders as a real grouped SwiftUI `Form`; the dive list as a real

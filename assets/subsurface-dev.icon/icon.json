@@ -1,0 +1,42 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "extended-srgb:0.98431,0.74902,0.14118,1.00000",
+      "extended-srgb:0.70588,0.32549,0.03529,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.2,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.8,
+        "y" : 1
+      }
+    }
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "profile.svg",
+          "name" : "profile"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
