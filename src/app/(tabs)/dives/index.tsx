@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 
-import { DiveListView } from '@/components/dive-list-view';
+import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
 import { StatusView } from '@/components/status-view';
 import { warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
@@ -23,7 +23,8 @@ import { useUnitSystem } from '@/queries/settings';
 export default function DivesScreen() {
   const router = useRouter();
   const logbook = useLogbook();
-  const { data: dives = [] } = useDives();
+  const divesQuery = useDives();
+  const dives = useMemo(() => divesQuery.data ?? [], [divesQuery.data]);
   const unitSystem = useUnitSystem();
   const deleteDive = useDeleteDive();
 
@@ -75,8 +76,10 @@ export default function DivesScreen() {
     );
   }
 
-  if (!logbook.isSuccess) {
-    return <StatusView kind="loading" title="Opening logbook" />;
+  // The dive query only starts once the logbook is in, so it is still pending
+  // for a moment after; without waiting for it the empty state would flash.
+  if (!logbook.isSuccess || divesQuery.isPending) {
+    return <DiveListSkeleton />;
   }
 
   if (dives.length === 0) {

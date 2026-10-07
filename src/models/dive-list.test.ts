@@ -134,11 +134,13 @@ describe('toDiveRow', () => {
   });
 
   it('renders depth and duration in metric', () => {
-    expect(toDiveRow(dive, 'metric', LOCALE).detailText).toBe('20.1 m - 42:15');
+    const row = toDiveRow(dive, 'metric', LOCALE);
+    expect(row.depthText).toBe('20.1 m');
+    expect(row.durationText).toBe('42:15');
   });
 
   it('renders depth in feet when the setting is imperial', () => {
-    expect(toDiveRow(dive, 'imperial', LOCALE).detailText).toBe('66 ft - 42:15');
+    expect(toDiveRow(dive, 'imperial', LOCALE).depthText).toBe('66 ft');
   });
 
   it('renders date, time and dive number', () => {
@@ -147,6 +149,7 @@ describe('toDiveRow', () => {
     expect(row.dateText).toBe('13 Dec 2011');
     expect(row.timeText).toBe('06:35');
     expect(row.numberText).toBe('#12');
+    expect(row.badgeText).toBe('12');
     expect(row.title).toBe('Tauchsee');
   });
 
@@ -171,14 +174,20 @@ describe('toDiveRow', () => {
   });
 
   it('omits missing depth and duration instead of printing zeroes', () => {
-    expect(toDiveRow(summary({ id: 1, maxDepthMm: 0, durationSec: 0 })).detailText).toBe('');
-    expect(toDiveRow(summary({ id: 1, maxDepthMm: 12000, durationSec: 0 })).detailText).toBe(
-      '12 m'
-    );
+    const empty = toDiveRow(summary({ id: 1, maxDepthMm: 0, durationSec: 0 }));
+    expect(empty.depthText).toBe('');
+    expect(empty.durationText).toBe('');
+    const depthOnly = toDiveRow(summary({ id: 1, maxDepthMm: 12000, durationSec: 0 }));
+    expect(depthOnly.depthText).toBe('12 m');
+    expect(depthOnly.durationText).toBe('');
   });
 
   it('leaves the dive number blank when there is none', () => {
     expect(toDiveRow(summary({ id: 1, number: 0 })).numberText).toBe('');
+  });
+
+  it('still fills the list badge for an unnumbered dive', () => {
+    expect(toDiveRow(summary({ id: 1, number: 0 })).badgeText).toBe('-');
   });
 
   it('spells the row out for VoiceOver instead of leaving it shorthand', () => {

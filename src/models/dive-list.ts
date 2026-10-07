@@ -80,8 +80,15 @@ export type DiveRow = {
   timeText: string;
   /** "#12" or an empty string when the dive is unnumbered. */
   numberText: string;
-  /** e.g. "20.1 m - 42:15". */
-  detailText: string;
+  /**
+   * The dive number for the list's leading badge, e.g. "12". The badge is
+   * always drawn so the rows line up; an unnumbered dive shows "-".
+   */
+  badgeText: string;
+  /** e.g. "20.1 m", or an empty string when the depth is unknown. */
+  depthText: string;
+  /** e.g. "42:15", or an empty string when the duration is unknown. */
+  durationText: string;
   /** 0-5, as stored; the UI draws the stars. */
   rating: number;
   invalid: boolean;
@@ -133,13 +140,8 @@ export function toDiveRow(
   system: UnitSystem = 'metric',
   locale?: string
 ): DiveRow {
-  const parts: string[] = [];
-  if (dive.maxDepthMm > 0) {
-    parts.push(formatDepth(dive.maxDepthMm, system));
-  }
-  if (dive.durationSec > 0) {
-    parts.push(formatDuration(dive.durationSec));
-  }
+  const depthText = dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, system) : '';
+  const durationText = dive.durationSec > 0 ? formatDuration(dive.durationSec) : '';
 
   const title = diveRowTitle(dive);
   const dateText = formatDate(dive.when, locale);
@@ -149,8 +151,8 @@ export function toDiveRow(
   if (dive.number > 0) {
     spoken.push(`dive number ${dive.number}`);
   }
-  if (dive.maxDepthMm > 0) {
-    spoken.push(`maximum depth ${formatDepth(dive.maxDepthMm, system)}`);
+  if (depthText !== '') {
+    spoken.push(`maximum depth ${depthText}`);
   }
   if (dive.durationSec > 0) {
     spoken.push(`duration ${spokenDuration(dive.durationSec)}`);
@@ -168,7 +170,9 @@ export function toDiveRow(
     dateText,
     timeText,
     numberText: dive.number > 0 ? `#${dive.number}` : '',
-    detailText: parts.join(' - '),
+    badgeText: dive.number > 0 ? String(dive.number) : '-',
+    depthText,
+    durationText,
     rating: dive.rating,
     invalid: dive.invalid,
     accessibilityLabel: spoken.join(', '),
@@ -200,4 +204,26 @@ export function sectionSubtitle(section: DiveTripSection, locale?: string): stri
 export function ratingStars(rating: number): string {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return '*'.repeat(filled);
+}
+
+/**
+ * Stand-in rows for the loading skeleton. The views draw them redacted, so only
+ * the length of each text matters: it sets the width of the grey bar. The
+ * lengths vary a little so the skeleton reads as a list rather than a pattern.
+ */
+export function skeletonRows(count = 8): DiveRow[] {
+  const titles = ['Placeholder site', 'Reef', 'A longer dive site name', 'House reef north'];
+  return Array.from({ length: count }, (_, i) => ({
+    id: -1 - i,
+    title: titles[i % titles.length],
+    dateText: '12 Mar 2024',
+    timeText: '09:14',
+    numberText: '',
+    badgeText: '000',
+    depthText: '20.1 m',
+    durationText: '42:15',
+    rating: 0,
+    invalid: false,
+    accessibilityLabel: '',
+  }));
 }
