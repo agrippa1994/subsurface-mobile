@@ -21,6 +21,7 @@ import { StatusView } from '@/components/status-view';
 import { SuggestField, SuggestionChips } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { CylinderEditor } from '@/features/dives/cylinder-editor';
+import { PreviousDiveCard } from '@/features/dives/previous-dive-card';
 import { SitePicker } from '@/features/dives/site-picker';
 import { WeightEditor } from '@/features/dives/weight-editor';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,6 +30,12 @@ import { flush } from '@/lib/logbook-persist';
 import { previewDive } from '../../../../../modules/ssrf-core/src';
 import type { Dive, DivePatch } from '@/models';
 import { formatSac } from '@/models';
+import {
+  copyCylinderSetup,
+  copyWeights,
+  findPreviousDive,
+  mergeNames,
+} from '@/models/copy-previous';
 import {
   buildCylinderPatches,
   cylinderDraftsFrom,
@@ -115,6 +122,11 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
   const knownSuits = useMemo(() => harvestSuits(dives), [dives]);
   const knownCylinders = useMemo(() => harvestCylinderDescriptions(dives), [dives]);
   const knownWeights = useMemo(() => harvestWeightDescriptions(dives), [dives]);
+
+  // The list rows carry no cylinders or weights, so the previous dive is read
+  // in full. NaN keeps the query disabled for the first dive in the log.
+  const previousSummary = useMemo(() => findPreviousDive(dives, dive), [dives, dive]);
+  const { data: previous } = useDive(previousSummary?.id ?? Number.NaN);
 
   const form = useForm({
     defaultValues: {
@@ -220,6 +232,30 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
           ) : null;
         }}
       </form.Subscribe>
+
+      {previous ? (
+        <PreviousDiveCard
+          previous={previous}
+          unitSystem={unitSystem}
+          onCopySite={() => form.setFieldValue('siteUuid', previous.siteUuid)}
+          onCopyBuddies={() =>
+            form.setFieldValue('buddy', (buddy) => mergeNames(buddy, previous.buddy))
+          }
+          onCopyDiveguide={() =>
+            form.setFieldValue('diveguide', (guide) => mergeNames(guide, previous.diveguide))
+          }
+          onCopyCylinders={() =>
+            form.setFieldValue('cylinders', (cylinders) =>
+              copyCylinderSetup(cylinders, previous.cylinders, unitSystem)
+            )
+          }
+          onCopyWeights={() =>
+            form.setFieldValue('weights', (weights) =>
+              copyWeights(weights, previous.weightsystems, unitSystem)
+            )
+          }
+        />
+      ) : null}
 
       <FormSection title="Place">
         <form.Field name="siteUuid">
