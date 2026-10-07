@@ -1,8 +1,8 @@
 // AI-generated (Claude)
 // The "same as last time" card at the top of the dive editor.
 //
-// On a trip the site, the buddy, the guide, the tank and the lead rarely change
-// between dives, so the card offers the previous dive's values as one-tap
+// On a trip the site, the buddy, the guide, the suit, the tank and the lead
+// rarely change between dives, so the card offers the previous dive's values as one-tap
 // copies: one tile per kind, plus "Copy all" for the common case of a freshly
 // imported dive. A tile only appears when the previous dive has something for
 // it, and a copied tile turns into a checkmark so the tap visibly did
@@ -23,7 +23,7 @@ import { formatGasMix, formatWeight, type Dive, type UnitSystem } from '@/models
 import { formatNameList, parseNameList } from '@/models/dive-edit';
 import { toDiveRow } from '@/models/dive-list';
 
-type CopyKind = 'site' | 'buddies' | 'diveguide' | 'cylinders' | 'weights';
+type CopyKind = 'site' | 'buddies' | 'diveguide' | 'suit' | 'cylinders' | 'weights';
 
 type CopyAction = {
   kind: CopyKind;
@@ -39,6 +39,7 @@ export function PreviousDiveCard({
   onCopySite,
   onCopyBuddies,
   onCopyDiveguide,
+  onCopySuit,
   onCopyCylinders,
   onCopyWeights,
 }: {
@@ -47,6 +48,7 @@ export function PreviousDiveCard({
   onCopySite: () => void;
   onCopyBuddies: () => void;
   onCopyDiveguide: () => void;
+  onCopySuit: () => void;
   onCopyCylinders: () => void;
   onCopyWeights: () => void;
 }) {
@@ -77,6 +79,13 @@ export function PreviousDiveCard({
         value: formatNameList(parseNameList(previous.diveguide)),
         symbol: 'person.fill.checkmark',
         run: onCopyDiveguide,
+      },
+      {
+        kind: 'suit',
+        label: 'Suit',
+        value: previous.suit.trim(),
+        symbol: 'tshirt.fill',
+        run: onCopySuit,
       },
       {
         kind: 'cylinders',
