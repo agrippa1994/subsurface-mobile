@@ -15,7 +15,7 @@
 import { useForm } from '@tanstack/react-form';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fieldError, FormButtonRow, FormField, FormSection } from '@/components/form';
 import { SiteMap } from '@/components/site-map';
@@ -162,27 +162,19 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       keyboardDismissMode="on-drag">
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
-          <Stack.Screen
-            options={{
-              title: isNew ? 'New site' : 'Edit site',
-              headerRight: () => (
-                <Pressable
-                  onPress={() => void form.handleSubmit()}
-                  disabled={isSubmitting}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: isSubmitting }}
-                  hitSlop={Spacing.two}>
-                  <Text
-                    style={[
-                      styles.headerAction,
-                      { color: theme.accent, opacity: isSubmitting ? 0.5 : 1 },
-                    ]}>
-                    Save
-                  </Text>
-                </Pressable>
-              ),
-            }}
-          />
+          <>
+            <Stack.Screen options={{ title: isNew ? 'New site' : 'Edit site' }} />
+            {/* A native bar button item, so Save gets the system confirmation
+                style (prominent liquid glass on iOS 26). */}
+            <Stack.Toolbar placement="right">
+              <Stack.Toolbar.Button
+                variant="done"
+                disabled={isSubmitting}
+                onPress={() => void form.handleSubmit()}>
+                Save
+              </Stack.Toolbar.Button>
+            </Stack.Toolbar>
+          </>
         )}
       </form.Subscribe>
 
@@ -342,10 +334,6 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.three,
     gap: Spacing.four,
-  },
-  headerAction: {
-    fontSize: 17,
-    fontWeight: '600',
   },
   error: {
     fontSize: 15,
