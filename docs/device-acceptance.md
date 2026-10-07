@@ -74,8 +74,9 @@ Closes the task 04 gap: 18 dives parsed on device, not only on the host.
 
 - Settings > Transfer > "Import dives" opens the document picker. A `.ssrf` in
   Files (iCloud Drive or On My iPhone) must be selectable, and so must a `.sde`
-  and a `.db` - `IMPORT_DOCUMENT_TYPES` includes `public.data` for exactly that
-  reason (`src/models/transfer.ts:18-24`).
+  and a `.db` - `IMPORT_DOCUMENT_TYPES` includes `application/octet-stream`
+  (which the picker resolves to `public.data`) for exactly that reason
+  (`src/models/transfer.ts`).
 - Pick a logbook: the "Import complete" alert names added and merged dives, and
   the counts on the screen go up.
 - **Cancel** the picker: nothing happens, no alert, no busy row left disabled.

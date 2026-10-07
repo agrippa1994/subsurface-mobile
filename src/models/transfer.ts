@@ -11,16 +11,20 @@
 import type { CsvFormat, DiveSummary, ImportResult } from '@/models';
 
 /**
- * What the document picker accepts. iOS matches on UTIs; `public.data` is the
- * catch-all for the Suunto formats, which have no registered type of their own
- * (.sde, .db) and would otherwise be greyed out in Files.
+ * What the document picker accepts. These are MIME types, not UTIs:
+ * expo-document-picker resolves each entry with `UTType(mimeType:)` and
+ * silently drops the ones that do not resolve, so a UTI such as
+ * `org.subsurface.ssrf` would leave the picker with nothing selectable.
+ * `application/xml` covers .ssrf (its declared type conforms to public.xml,
+ * see app.config.ts). `application/octet-stream` resolves to `public.data`,
+ * the catch-all for the Suunto formats, which have no registered type of
+ * their own (.sde, .db) and would otherwise be greyed out in Files.
  */
 export const IMPORT_DOCUMENT_TYPES = [
-  'org.subsurface.ssrf',
-  'public.xml',
-  'public.json',
-  'public.zip-archive',
-  'public.data',
+  'application/xml',
+  'application/json',
+  'application/zip',
+  'application/octet-stream',
 ];
 
 /** Extensions that hold a whole logbook, which the app can open in place of its own. */
