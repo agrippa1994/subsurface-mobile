@@ -22,7 +22,7 @@ import {
 import { useMemo } from 'react';
 
 import { updateDive } from '../../modules/ssrf-core/src';
-import { flush } from '@/lib/logbook-persist';
+import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
 import {
   readAccount,
@@ -229,7 +229,10 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
 
       if (!isSyncedToSsi(dive)) {
         updateDive(dive.id, { tags: [...dive.tags, SSI_TAG] });
-        // The screen is about to close, so this must not sit in the debounce.
+        // flush() only writes a change that was scheduled, so mark the log dirty
+        // first. The screen is about to close, so this must not sit in the
+        // debounce.
+        schedulePersist();
         await flush();
       }
     },
