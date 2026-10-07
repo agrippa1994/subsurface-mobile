@@ -12,7 +12,7 @@
 // initial data.
 import { QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -21,7 +21,7 @@ import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
 import { usePortraitLock } from '@/hooks/use-landscape';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
 import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
-import { createQueryClient } from '@/lib/query-client';
+import { queryClient } from '@/lib/query-client';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useLogbook } from '@/queries/logbook';
 
@@ -49,10 +49,6 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Pro
 }
 
 export default function RootLayout() {
-  // One client for the life of the app. useState rather than a module constant
-  // so a fast refresh in development cannot leave two clients behind.
-  const [queryClient] = useState(createQueryClient);
-
   useEffect(() => {
     installProblemHandlers();
   }, []);

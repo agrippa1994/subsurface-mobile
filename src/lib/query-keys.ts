@@ -6,8 +6,8 @@
 //
 //   - a mutation invalidates ['log', 'data'], which re-reads the dives, sites,
 //     profiles and statistics but must NOT re-run loadFromXML;
-//   - a load, import or replace removes ['log'] wholesale, because dive ids are
-//     process-local and are reassigned on every loadFromXML. A key such as
+//   - a load, import or replace resets ['log', 'data'] wholesale, because dive
+//     ids are process-local and are reassigned on every loadFromXML. A key such as
 //     ['log','data','dive',7] cached across a load points at a different dive
 //     (see modules/ssrf-core/cpp/API.md).
 //
