@@ -39,6 +39,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'codes.mani.subsurface-react',
     // Liquid glass requires iOS 26. Bump if the toolchain needs a higher floor.
     deploymentTarget: '26.0',
+    // Runs natively on iPad. Not requiring full screen lets the window be
+    // resized (Split View, Stage Manager, iPadOS 26 windowing); iPadOS only
+    // allows that when every orientation is declared, which `orientation`
+    // above already does.
+    supportsTablet: true,
+    requireFullScreen: false,
     infoPlist: {
       // Document types the app opens (task 11): its own logbooks plus the dive
       // exports it can import. Tapping one of these in Files or Mail offers
