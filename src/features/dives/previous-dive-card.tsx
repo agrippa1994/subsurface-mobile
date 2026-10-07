@@ -1,12 +1,13 @@
 // AI-generated (Claude)
 // The "same as last time" card at the top of the dive editor.
 //
-// On a trip the buddy, the tank and the lead rarely change between dives, so
-// the card offers the previous dive's values as one-tap copies: one tile per
-// kind, plus "Copy all" for the common case of a freshly imported dive. A tile
-// only appears when the previous dive has something for it, and a copied tile
-// turns into a checkmark so the tap visibly did something - the values
-// themselves land further down the form, usually off screen.
+// On a trip the site, the buddy, the guide, the tank and the lead rarely change
+// between dives, so the card offers the previous dive's values as one-tap
+// copies: one tile per kind, plus "Copy all" for the common case of a freshly
+// imported dive. A tile only appears when the previous dive has something for
+// it, and a copied tile turns into a checkmark so the tap visibly did
+// something - the values themselves land further down the form, usually off
+// screen.
 //
 // Nothing is saved here: the copies go into the form, where they can still be
 // corrected before Save.
@@ -22,7 +23,7 @@ import { formatGasMix, formatWeight, type Dive, type UnitSystem } from '@/models
 import { formatNameList, parseNameList } from '@/models/dive-edit';
 import { toDiveRow } from '@/models/dive-list';
 
-type CopyKind = 'buddies' | 'cylinders' | 'weights';
+type CopyKind = 'site' | 'buddies' | 'diveguide' | 'cylinders' | 'weights';
 
 type CopyAction = {
   kind: CopyKind;
@@ -35,13 +36,17 @@ type CopyAction = {
 export function PreviousDiveCard({
   previous,
   unitSystem,
+  onCopySite,
   onCopyBuddies,
+  onCopyDiveguide,
   onCopyCylinders,
   onCopyWeights,
 }: {
   previous: Dive;
   unitSystem: UnitSystem;
+  onCopySite: () => void;
   onCopyBuddies: () => void;
+  onCopyDiveguide: () => void;
   onCopyCylinders: () => void;
   onCopyWeights: () => void;
 }) {
@@ -51,14 +56,27 @@ export function PreviousDiveCard({
   const actions: CopyAction[] = (
     [
       {
+        kind: 'site',
+        label: 'Site',
+        // A dive without a site has nothing to copy, even if a trip location
+        // would give it a title.
+        value: previous.siteUuid === 0 ? '' : previous.siteName.trim() || 'Unnamed site',
+        symbol: 'mappin.and.ellipse',
+        run: onCopySite,
+      },
+      {
         kind: 'buddies',
         label: 'Buddies',
-        value: formatNameList([
-          ...parseNameList(previous.buddy),
-          ...parseNameList(previous.diveguide),
-        ]),
+        value: formatNameList(parseNameList(previous.buddy)),
         symbol: 'person.2.fill',
         run: onCopyBuddies,
+      },
+      {
+        kind: 'diveguide',
+        label: 'Divemaster',
+        value: formatNameList(parseNameList(previous.diveguide)),
+        symbol: 'person.fill.checkmark',
+        run: onCopyDiveguide,
       },
       {
         kind: 'cylinders',
@@ -67,7 +85,7 @@ export function PreviousDiveCard({
           .map(
             (cylinder) =>
               cylinder.description.trim() ||
-              formatGasMix(cylinder.gasmix.o2Permille, cylinder.gasmix.hePermille)
+              formatGasMix(cylinder.gasmix.o2Permille, cylinder.gasmix.hePermille),
           )
           .join(', '),
         symbol: 'cylinder.fill',
@@ -80,7 +98,7 @@ export function PreviousDiveCard({
           previous.weightsystems.length > 0
             ? formatWeight(
                 previous.weightsystems.reduce((sum, weight) => sum + weight.weightGrams, 0),
-                unitSystem
+                unitSystem,
               )
             : '',
         symbol: 'scalemass.fill',
@@ -135,42 +153,61 @@ export function PreviousDiveCard({
       </View>
 
       <View style={styles.tiles}>
-        {actions.map((action) => {
-          const done = copied.has(action.kind);
-          return (
-            <Pressable
-              key={action.kind}
-              accessibilityRole="button"
-              accessibilityLabel={`Copy ${action.label.toLowerCase()}: ${action.value}`}
-              accessibilityState={{ checked: done }}
-              onPress={() => copy([action])}
-              style={({ pressed }) => [
-                styles.tile,
-                {
-                  backgroundColor: pressed ? theme.backgroundSelected : theme.background,
-                  borderColor: done ? theme.accent : theme.separator,
-                },
-              ]}>
-              <View style={styles.tileHeader}>
-                <SymbolView
-                  name={done ? 'checkmark.circle.fill' : action.symbol}
-                  size={15}
-                  tintColor={theme.accent}
-                  fallback={null}
-                />
-                <Text style={[styles.tileLabel, { color: theme.accent }]} numberOfLines={1}>
-                  {action.label}
-                </Text>
-              </View>
-              <Text style={[styles.tileValue, { color: theme.text }]} numberOfLines={1}>
-                {action.value}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {tileRows(actions).map((rowActions) => (
+          <View key={rowActions[0].kind} style={styles.tileRow}>
+            {rowActions.map((action) => {
+              const done = copied.has(action.kind);
+              return (
+                <Pressable
+                  key={action.kind}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Copy ${action.label.toLowerCase()}: ${action.value}`}
+                  accessibilityState={{ checked: done }}
+                  onPress={() => copy([action])}
+                  style={({ pressed }) => [
+                    styles.tile,
+                    {
+                      backgroundColor: pressed ? theme.backgroundSelected : theme.background,
+                      borderColor: done ? theme.accent : theme.separator,
+                    },
+                  ]}>
+                  <View style={styles.tileHeader}>
+                    <SymbolView
+                      name={done ? 'checkmark.circle.fill' : action.symbol}
+                      size={15}
+                      tintColor={theme.accent}
+                      fallback={null}
+                    />
+                    <Text style={[styles.tileLabel, { color: theme.accent }]} numberOfLines={1}>
+                      {action.label}
+                    </Text>
+                  </View>
+                  <Text style={[styles.tileValue, { color: theme.text }]} numberOfLines={1}>
+                    {action.value}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
     </View>
   );
+}
+
+/**
+ * The tiles split into rows that are as even as possible - four as two pairs,
+ * five as three and two - so no tile ends up alone and stretched across the
+ * card. Three to a row at most, or a site name has no room left.
+ */
+function tileRows<T>(items: readonly T[]): T[][] {
+  const rowCount = Math.ceil(items.length / 3);
+  const perRow = Math.ceil(items.length / rowCount);
+  const rows: T[][] = [];
+  for (let at = 0; at < items.length; at += perRow) {
+    rows.push(items.slice(at, at + perRow));
+  }
+  return rows;
 }
 
 const styles = StyleSheet.create({
@@ -206,6 +243,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tiles: {
+    gap: Spacing.two,
+  },
+  tileRow: {
     flexDirection: 'row',
     gap: Spacing.two,
   },

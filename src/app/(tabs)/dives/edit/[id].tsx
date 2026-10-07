@@ -237,10 +237,13 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
         <PreviousDiveCard
           previous={previous}
           unitSystem={unitSystem}
-          onCopyBuddies={() => {
-            form.setFieldValue('buddy', (buddy) => mergeNames(buddy, previous.buddy));
-            form.setFieldValue('diveguide', (guide) => mergeNames(guide, previous.diveguide));
-          }}
+          onCopySite={() => form.setFieldValue('siteUuid', previous.siteUuid)}
+          onCopyBuddies={() =>
+            form.setFieldValue('buddy', (buddy) => mergeNames(buddy, previous.buddy))
+          }
+          onCopyDiveguide={() =>
+            form.setFieldValue('diveguide', (guide) => mergeNames(guide, previous.diveguide))
+          }
           onCopyCylinders={() =>
             form.setFieldValue('cylinders', (cylinders) =>
               copyCylinderSetup(cylinders, previous.cylinders, unitSystem)
