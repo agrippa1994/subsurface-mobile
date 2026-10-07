@@ -74,7 +74,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Logbook" footer={<Text>{screen.logbookPath ?? 'not loaded'}</Text>}>
+        <Section title="Logbook">
           <LabeledContent label="Dives">
             <Text>{String(screen.diveCount)}</Text>
           </LabeledContent>
@@ -84,8 +84,6 @@ export default function SettingsScreen() {
           <LabeledContent label="Trips">
             <Text>{String(screen.tripCount)}</Text>
           </LabeledContent>
-          <Button label="Reload from disk" onPress={screen.reload} />
-          <Button label="Restore the sample logbook" onPress={screen.restoreSample} />
           <Button label="Ungroup all dives" role="destructive" onPress={screen.ungroupDives} />
         </Section>
 
@@ -150,22 +148,6 @@ export default function SettingsScreen() {
           <Button label="Source code and licence" onPress={screen.openSource} />
         </Section>
 
-        {__DEV__ ? (
-          <Section
-            title="Developer"
-            footer={
-              <Text>Loads throwaway files to exercise the list&apos;s empty and error states.</Text>
-            }>
-            <Button label="Import the Suunto sample" onPress={screen.importSuuntoSample} />
-            <Button label="Import the Suunto XML sample" onPress={screen.importSuuntoXmlSample} />
-            <Button label="Load an empty logbook" onPress={screen.loadEmptyLogbook} />
-            <Button
-              label="Load a malformed logbook"
-              role="destructive"
-              onPress={screen.loadMalformedLogbook}
-            />
-          </Section>
-        ) : null}
       </Form>
     </Host>
   );

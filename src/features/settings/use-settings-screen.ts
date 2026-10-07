@@ -1,12 +1,6 @@
 // AI-generated (Claude)
 // Everything the Settings screen does, minus the rendering, so the iOS and the
 // portable variant of the screen cannot drift apart.
-//
-// The developer actions exist because task 07's acceptance asks for the empty
-// and error states to be checked against real files: they write a logbook with
-// no dives, and a file that is not XML at all, and load them through the same
-// path a picked file takes. They also stand in for the file picker, which a
-// simulator cannot drive.
 
 import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
@@ -22,20 +16,9 @@ import { groupDivesByTrip, NO_TRIP_LABEL } from '@/models/dive-list';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
-import {
-  resetLogbook,
-  sampleSuuntoPath,
-  sampleSuuntoXmlPath,
-  writeScratchFile,
-} from '@/lib/logbook-file';
 import type { UnitSystem } from '@/models';
-import { useDives, useLogbook, useSites } from '@/queries/logbook';
-import {
-  useImportFile,
-  useLoadPath,
-  useReloadLogbook,
-  useUngroupDives,
-} from '@/queries/logbook-mutations';
+import { useDives, useSites } from '@/queries/logbook';
+import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
   useGfSeries,
@@ -45,9 +28,6 @@ import {
   useSetUnitSystem,
   useUnitSystem,
 } from '@/queries/settings';
-
-const EMPTY_LOGBOOK = "<divelog program='subsurface' version='3'>\n  <dives/>\n</divelog>\n";
-const MALFORMED_LOGBOOK = 'this is not a logbook\n';
 
 export type SettingsScreen = {
   /** Import and export (task 11), so the screen has one object to render from. */
@@ -70,11 +50,6 @@ export type SettingsScreen = {
   setShowGfSurface: (show: boolean) => void;
   diveCount: number;
   siteCount: number;
-  logbookPath: string | null;
-  /** Reloads the working logbook from disk. */
-  reload: () => void;
-  /** Deletes the working logbook and seeds it from the bundled sample again. */
-  restoreSample: () => void;
   /**
    * Takes every dive out of its trip, after confirming. Trips a build that
    * still autogrouped wrote into the logbook cannot be told from ones the user
@@ -84,20 +59,6 @@ export type SettingsScreen = {
   ungroupDives: () => void;
   /** Trips in the loaded log, so the row can say what would be removed. */
   tripCount: number;
-  loadEmptyLogbook: () => void;
-  loadMalformedLogbook: () => void;
-  /**
-   * Imports the bundled Suunto DM4 database into the loaded log. The user-facing
-   * import is `transfer.importFile`; this one needs no file picker, which is
-   * what makes it usable from a simulator.
-   */
-  importSuuntoSample: () => void;
-  /**
-   * Imports the bundled Suunto DM4 XML export. That path runs through the XSLT
-   * stylesheets the native module ships, so it is the on-device check that they
-   * were found - the database above needs none of them.
-   */
-  importSuuntoXmlSample: () => void;
 
   /** The SSI section: an account elsewhere, so a status and a way in. */
   ssi: {
@@ -165,10 +126,6 @@ export function useSettingsScreen(): SettingsScreen {
 
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
-  const path = useLogbook().data?.path ?? null;
-  const reloadLogbook = useReloadLogbook();
-  const loadPath = useLoadPath();
-  const importSuuntoFile = useImportFile();
   const ungroupInLog = useUngroupDives();
   // A trip reaches the app only as its location string, so the count is taken
   // off the same sections the dive list shows rather than from the module.
@@ -176,15 +133,6 @@ export function useSettingsScreen(): SettingsScreen {
     () => groupDivesByTrip(dives).filter((section) => section.title !== NO_TRIP_LABEL).length,
     [dives],
   );
-
-  const reload = useCallback(() => {
-    reloadLogbook.mutate();
-  }, [reloadLogbook]);
-
-  const restoreSample = useCallback(() => {
-    resetLogbook();
-    reloadLogbook.mutate();
-  }, [reloadLogbook]);
 
   const ungroupDives = useCallback(() => {
     if (tripCount === 0) {
@@ -217,38 +165,6 @@ export function useSettingsScreen(): SettingsScreen {
       ],
     );
   }, [tripCount, ungroupInLog]);
-
-  const loadEmptyLogbook = useCallback(() => {
-    loadPath.mutate(writeScratchFile('empty-logbook.ssrf', EMPTY_LOGBOOK));
-  }, [loadPath]);
-
-  const loadMalformedLogbook = useCallback(() => {
-    loadPath.mutate(writeScratchFile('malformed-logbook.ssrf', MALFORMED_LOGBOOK));
-  }, [loadPath]);
-
-  // The sample paths resolve an asset, which is the one asynchronous step; a
-  // failure to find it is reported rather than left as a floating rejection.
-  const importSample = useCallback(
-    (resolve: () => Promise<string>) => {
-      void resolve()
-        .then((path) => importSuuntoFile.mutateAsync(path))
-        .catch((error: unknown) => {
-          operationFailed();
-          Alert.alert('Import failed', describeError(error).message);
-        });
-    },
-    [importSuuntoFile],
-  );
-
-  const importSuuntoSample = useCallback(
-    () => importSample(sampleSuuntoPath),
-    [importSample],
-  );
-
-  const importSuuntoXmlSample = useCallback(
-    () => importSample(sampleSuuntoXmlPath),
-    [importSample],
-  );
 
   // SSI is an account on someone else's server, so Settings only reports what
   // the app has - the signing in is a screen of its own.
@@ -323,15 +239,8 @@ export function useSettingsScreen(): SettingsScreen {
     setShowGfSurface,
     diveCount: dives.length,
     siteCount: sites.length,
-    logbookPath: path,
-    reload,
-    restoreSample,
     ungroupDives,
     tripCount,
-    loadEmptyLogbook,
-    loadMalformedLogbook,
-    importSuuntoSample,
-    importSuuntoXmlSample,
     ssi,
     about,
     openSource,

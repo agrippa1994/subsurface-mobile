@@ -46,9 +46,7 @@ export type Logbook = {
 };
 
 /**
- * The working logbook: seeded from the bundled sample on first run, then parsed
- * into the module. The only genuinely asynchronous step in the whole data layer
- * is `ensureLogbook`, which may have to copy the sample out of the bundle.
+ * The working logbook: created empty on first run, then parsed into the module.
  *
  * A failed load leaves the module's divelog cleared, so the derived queries
  * below stay disabled rather than showing dives that are no longer there.
@@ -62,7 +60,7 @@ export function logbookQuery() {
   return queryOptions({
     queryKey: queryKeys.log(),
     queryFn: async (): Promise<Logbook> => {
-      const path = await ensureLogbook();
+      const path = ensureLogbook();
       const lastLoad = loadFromXML(path);
       setPersistTarget(path);
       return { path, lastLoad };
