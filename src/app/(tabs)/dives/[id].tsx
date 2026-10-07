@@ -11,7 +11,7 @@
 // look - section titles over rounded cards of separated rows - so it sits
 // next to the native screens without looking off.
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Children, Fragment, isValidElement, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -57,6 +57,7 @@ export default function DiveDetailScreen() {
   // both series are in every plot_info, so toggling one costs no recomputation.
   const { showGfNow, showGfSurface } = useGfSeries();
   const theme = useTheme();
+  const router = useRouter();
 
   // Both are keyed on the dive id and live under the log subtree, so a reload
   // drops them: ids are process-local and mean nothing across a load.
@@ -107,18 +108,14 @@ export default function DiveDetailScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <Stack.Screen
-        options={{
-          title: row.title,
-          headerRight: () => (
-            <Link href={`/dives/edit/${dive.id}`} asChild>
-              <Pressable accessibilityRole="button" hitSlop={Spacing.two}>
-                <Text style={[styles.headerAction, { color: theme.accent }]}>Edit</Text>
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ title: row.title }} />
+      {/* A native bar button item rather than a custom headerRight view, so it
+          gets the system Edit look (liquid glass on iOS 26). */}
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button onPress={() => router.push(`/dives/edit/${dive.id}`)}>
+          Edit
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
       <Header
         dive={dive}
@@ -682,9 +679,5 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
     padding: Spacing.three,
-  },
-  headerAction: {
-    fontSize: 17,
-    fontWeight: '600',
   },
 });
