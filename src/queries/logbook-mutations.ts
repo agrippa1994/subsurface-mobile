@@ -7,7 +7,7 @@
 // (`['log','data']`, not one key): the module owns the divelog, so the only
 // honest thing the cache can do after a mutation is re-read it.
 //
-// The load-shaped mutations go further and *remove* the derived subtree instead
+// The load-shaped mutations go further and *reset* the derived subtree instead
 // of invalidating it, because dive ids are process-local and a cached
 // ['log','data','dive',7] would survive pointing at a different dive.
 //
@@ -55,14 +55,25 @@ function invalidateData(client: QueryClient): Promise<void> {
 }
 
 /**
- * After a load: point the cache at the new logbook and drop every id-bearing
- * answer that belonged to the old one. The root key is set rather than
- * invalidated so that nothing re-runs `loadFromXML` behind this.
+ * After a load or merge: drop every id-bearing answer that belonged to the old
+ * divelog. Reset rather than removed: `removeQueries` only empties the cache, so
+ * a mounted screen (the dive list sits in its tab the whole time) keeps showing
+ * what it last read until something else re-renders it. A reset clears the data
+ * just the same and refetches whatever is on screen.
  */
-function adoptLogbook(client: QueryClient, logbook: Logbook): void {
+function resetData(client: QueryClient): Promise<void> {
+  return client.resetQueries({ queryKey: queryKeys.logData() });
+}
+
+/**
+ * After a load: point the cache at the new logbook and reset everything read
+ * out of the old one. The root key is set rather than invalidated so that
+ * nothing re-runs `loadFromXML` behind this.
+ */
+async function adoptLogbook(client: QueryClient, logbook: Logbook): Promise<void> {
   setPersistTarget(logbook.path);
   client.setQueryData(queryKeys.log(), logbook);
-  client.removeQueries({ queryKey: queryKeys.logData() });
+  await resetData(client);
 }
 
 export function useUpdateDive(): UseMutationResult<Dive, Error, { id: number; patch: DivePatch }> {
@@ -139,7 +150,7 @@ export function useUngroupDives(): UseMutationResult<void, Error, void> {
  * logbook straight away - an import is not a change the user would expect to
  * lose, so it does not wait for the mutation debounce.
  *
- * The merge renumbers dives, so this drops the derived subtree rather than
+ * The merge renumbers dives, so this resets the derived subtree rather than
  * invalidating it.
  */
 export function useImportFile(): UseMutationResult<ImportResult, Error, string> {
@@ -158,7 +169,7 @@ export function useImportFile(): UseMutationResult<ImportResult, Error, string> 
       return importFile(path);
     },
     onSuccess: async () => {
-      client.removeQueries({ queryKey: queryKeys.logData() });
+      await resetData(client);
       schedulePersist();
       await flush();
     },
@@ -186,7 +197,7 @@ export function useReplaceLogbook(): UseMutationResult<Logbook, Error, string> {
         // A failed parse leaves the module's divelog cleared, so the app would
         // be sitting on a cache of dives that are no longer there. Put the
         // working logbook back before handing the failure to the screen.
-        adoptLogbook(client, { path: target, lastLoad: loadFromXML(target) });
+        await adoptLogbook(client, { path: target, lastLoad: loadFromXML(target) });
         throw error;
       }
       // The loaded content now belongs to the app's own logbook, not to the
@@ -194,7 +205,7 @@ export function useReplaceLogbook(): UseMutationResult<Logbook, Error, string> {
       return { path: target, lastLoad };
     },
     onSuccess: async (logbook) => {
-      adoptLogbook(client, logbook);
+      await adoptLogbook(client, logbook);
       schedulePersist();
       await flush();
     },

@@ -35,3 +35,14 @@ export function createQueryClient(): QueryClient {
     },
   });
 }
+
+/**
+ * The app's one client, created when this module is first imported rather than
+ * inside a component. The cache must outlive any remount of the root layout:
+ * the module holds a single divelog, so a second client would be a second view
+ * of it that the mutations started from the old tree never invalidate. A file
+ * opened from another app is the case that bit: the import alert outlived a
+ * router reset, and opening the file left the list on dive ids the module no
+ * longer had.
+ */
+export const queryClient = createQueryClient();

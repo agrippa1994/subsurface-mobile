@@ -54,20 +54,13 @@ export function useIncomingFileImports(): void {
   const { handleIncoming } = useTransfer();
   const router = useRouter();
 
-  // Expo Router sees the same incoming URL and tries to match it as a route.
-  // A `file:///.../Inbox/TestDive.SDE` matches nothing, so the app is left
-  // sitting on the "page could not be found" screen behind the import alert.
-  // The dive list is where an import belongs anyway, so the app goes there -
-  // once when the URL arrives, and once more after the file has been dealt
-  // with, because the router may still be settling the failed match by then.
+  // The router itself ignores file URLs (see src/app/+native-intent.ts), so
+  // nothing navigates on its own; the dive list is where an import belongs, so
+  // the app goes there.
   const handle = useCallback(
     async (uri: string) => {
-      router.replace('/dives');
-      try {
-        await handleIncoming(uri);
-      } finally {
-        router.replace('/dives');
-      }
+      router.navigate('/dives');
+      await handleIncoming(uri);
     },
     [handleIncoming, router]
   );
