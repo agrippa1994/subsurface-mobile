@@ -6,8 +6,8 @@
 // what iOS does everywhere.
 //
 // The startup work lives here because it must happen once per launch, before
-// any screen reads the logbook: the working logbook is opened here, seeded from
-// the bundled sample on first run - see src/lib/logbook-file.ts. Preferences
+// any screen reads the logbook: the working logbook is opened here, created
+// empty on first run - see src/lib/logbook-file.ts. Preferences
 // need no startup step; they are read synchronously as the settings query's
 // initial data.
 import { QueryClientProvider } from '@tanstack/react-query';

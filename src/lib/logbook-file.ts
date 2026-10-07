@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// Where the logbook lives on the device, and how the bundled sample gets there.
+// Where the logbook lives on the device.
 //
 // The SSRF file is the source of truth (see docs/tasks/00-overview-and-
 // conventions.md): there is no database, the app keeps one working logbook in
@@ -7,7 +7,6 @@
 // mutation. Documents survives app updates and is what iTunes/Files share when
 // that gets switched on.
 
-import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
 
 /** The working logbook. Everything the user imports is merged into this file. */
@@ -26,79 +25,22 @@ export function toNativePath(uri: string): string {
   return uri.startsWith('file://') ? decodeURI(uri.slice('file://'.length)) : uri;
 }
 
-/**
- * Resolves a bundled asset to a readable local path. In a release build the
- * asset is inside the app bundle; in development Metro serves it and expo-asset
- * caches it to disk first.
- */
-async function bundledAssetPath(module: number, what: string): Promise<string> {
-  const [asset] = await Asset.loadAsync(module);
-  const uri = asset.localUri ?? asset.uri;
-  if (!uri) {
-    throw new Error(`the bundled ${what} could not be resolved`);
-  }
-  return toNativePath(uri);
-}
-
-// Metro resolves assets through require(); an import would be transformed into
-// a module reference rather than an asset handle.
-/* eslint-disable @typescript-eslint/no-require-imports */
-export function sampleLogPath(): Promise<string> {
-  return bundledAssetPath(require('@/assets/sample/sample-log.ssrf'), 'sample logbook');
-}
-
-/** The Suunto DM4 database the developer tools import, no file picker needed. */
-export function sampleSuuntoPath(): Promise<string> {
-  return bundledAssetPath(require('@/assets/sample/suunto-sample.db'), 'Suunto sample');
-}
+/** What a first launch starts from: a logbook with no dives in it. */
+const EMPTY_LOGBOOK = "<divelog program='subsurface' version='3'>\n  <dives/>\n</divelog>\n";
 
 /**
- * A Suunto DM4 *XML* export (one dive, profile in base64 blobs). Unlike the
- * database above it goes through the XSLT stylesheets, so importing it is what
- * proves on device that the module found its bundled stylesheets.
+ * Makes sure a working logbook exists and returns its path, creating an empty
+ * one on first run. An existing logbook is never overwritten.
  */
-export function sampleSuuntoXmlPath(): Promise<string> {
-  return bundledAssetPath(require('@/assets/sample/suunto-dm4-sample.xml'), 'Suunto XML sample');
-}
-/* eslint-enable @typescript-eslint/no-require-imports */
-
-/**
- * Makes sure a working logbook exists and returns its path, seeding it from the
- * bundled sample on first run so the app has content before anything is
- * imported. An existing logbook is never overwritten.
- */
-export async function ensureLogbook(): Promise<string> {
+export function ensureLogbook(): string {
   const target = logbookFile();
   if (!target.exists) {
     const documents = new Directory(Paths.document);
     if (!documents.exists) {
       documents.create({ intermediates: true });
     }
-    const sample = new File(await sampleLogPath());
-    sample.copySync(target);
+    target.create();
+    target.write(EMPTY_LOGBOOK);
   }
   return toNativePath(target.uri);
-}
-
-/** Drops the working logbook, so the next launch seeds the sample again. */
-export function resetLogbook(): void {
-  const target = logbookFile();
-  if (target.exists) {
-    target.delete();
-  }
-}
-
-/**
- * Writes `contents` to a throwaway file in the cache directory and returns its
- * path. Used by the developer tools in Settings to exercise the list's empty
- * and error states against real files.
- */
-export function writeScratchFile(name: string, contents: string): string {
-  const file = new File(Paths.cache, name);
-  if (file.exists) {
-    file.delete();
-  }
-  file.create();
-  file.write(contents);
-  return toNativePath(file.uri);
 }

@@ -178,7 +178,7 @@ export function useReplaceLogbook(): UseMutationResult<Logbook, Error, string> {
       // in flight would resolve after this one and put the previous logbook
       // back, persist target included.
       await settleLogbook(client);
-      const target = await ensureLogbook();
+      const target = ensureLogbook();
       let lastLoad: LoadResult;
       try {
         lastLoad = loadFromXML(path);
@@ -198,38 +198,6 @@ export function useReplaceLogbook(): UseMutationResult<Logbook, Error, string> {
       schedulePersist();
       await flush();
     },
-  });
-}
-
-/**
- * Re-reads the working logbook from disk, seeding it from the bundled sample if
- * it is not there. Deleting the file first (`resetLogbook`) and then calling
- * this is how Settings restores the sample.
- *
- * This is a mutation rather than a refetch of the log query because it must
- * also drop the derived subtree: a re-read reassigns every dive id.
- */
-export function useReloadLogbook(): UseMutationResult<Logbook, Error, void> {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: async (): Promise<Logbook> => {
-      await settleLogbook(client);
-      const path = await ensureLogbook();
-      return { path, lastLoad: loadFromXML(path) };
-    },
-    onSuccess: (logbook) => adoptLogbook(client, logbook),
-  });
-}
-
-/** Loads an arbitrary logbook, replacing whatever the module held. */
-export function useLoadPath(): UseMutationResult<LoadResult, Error, string> {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: async (path: string) => {
-      await settleLogbook(client);
-      return loadFromXML(path);
-    },
-    onSuccess: (lastLoad, path) => adoptLogbook(client, { path, lastLoad }),
   });
 }
 

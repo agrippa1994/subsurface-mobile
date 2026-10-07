@@ -108,11 +108,6 @@ export default function SettingsScreen() {
       <Text style={{ color: theme.text }}>
         {screen.diveCount} dives, {screen.siteCount} sites
       </Text>
-      <Text style={[styles.path, { color: theme.textSecondary }]}>
-        {screen.logbookPath ?? 'not loaded'}
-      </Text>
-      {action('Reload from disk', screen.reload)}
-      {action('Restore the sample logbook', screen.restoreSample)}
       {action(
         screen.tripCount > 0 ? `Ungroup all dives (${screen.tripCount} trips)` : 'Ungroup all dives',
         screen.ungroupDives,
@@ -150,15 +145,6 @@ export default function SettingsScreen() {
       </Text>
       {action('Source code and licence', screen.openSource)}
 
-      {__DEV__ ? (
-        <>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Developer</Text>
-          {action('Import the Suunto sample', screen.importSuuntoSample)}
-          {action('Import the Suunto XML sample', screen.importSuuntoXmlSample)}
-          {action('Load an empty logbook', screen.loadEmptyLogbook)}
-          {action('Load a malformed logbook', screen.loadMalformedLogbook)}
-        </>
-      ) : null}
     </ScrollView>
   );
 }
@@ -186,9 +172,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
-  },
-  path: {
-    fontSize: 12,
   },
   note: {
     fontSize: 13,
