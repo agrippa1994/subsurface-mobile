@@ -236,6 +236,7 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
           onCopyDiveguide={() =>
             form.setFieldValue('diveguide', (guide) => mergeNames(guide, previous.diveguide))
           }
+          onCopySuit={() => form.setFieldValue('suit', previous.suit.trim())}
           onCopyCylinders={() =>
             form.setFieldValue('cylinders', (cylinders) =>
               copyCylinderSetup(cylinders, previous.cylinders, unitSystem)
