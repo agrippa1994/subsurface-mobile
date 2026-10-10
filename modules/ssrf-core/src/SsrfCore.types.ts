@@ -471,6 +471,38 @@ export type StatsFilter = {
   includeInvalid?: boolean;
 };
 
+/** Arguments of `nitroxPlan`. Gradient factors default to the core's 30/75. */
+export type NitroxPlanInput = {
+  depthMm: number;
+  /** 210-1000. */
+  o2Permille: number;
+  /** Working pO2 limit, 1000-1600. Defaults to 1400. */
+  maxPo2Mbar?: number;
+  /** g/10l: 10300 sea water (the default), 10000 fresh. */
+  salinity?: number;
+  gfLow?: number;
+  gfHigh?: number;
+};
+
+/** Result of `nitroxPlan` - see cpp/API.md. */
+export type NitroxPlan = {
+  /** Maximum operating depth at the working pO2. */
+  modMm: number;
+  /** Maximum operating depth at 1.6 bar. */
+  contingencyModMm: number;
+  /** Air's maximum operating depth at the working pO2. */
+  airModMm: number;
+  /** Richest mix the working pO2 allows at the depth, rounded down to a percent. */
+  bestMixPermille: number;
+  ambientMbar: number;
+  /** pO2 of the mix at the depth. */
+  po2Mbar: number;
+  /** No-decompression limit of a square dive on the mix; null past 300 min. */
+  ndlMin: number | null;
+  /** The same on air. */
+  airNdlMin: number | null;
+};
+
 export type LoadResult = { dives: number; sites: number; trips: number };
 export type SaveResult = { path: string; dives: number };
 

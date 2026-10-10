@@ -26,6 +26,8 @@ import type {
   GradientFactors,
   ImportResult,
   LoadResult,
+  NitroxPlan,
+  NitroxPlanInput,
   PlotInfo,
   SaveResult,
   StatsFilter,
@@ -166,6 +168,10 @@ export class SsrfHost {
 
   getStatistics(filter?: StatsFilter): Promise<StatsSummary> {
     return this.call<StatsSummary>('getStatistics', filter ? { filter } : {});
+  }
+
+  nitroxPlan(input: NitroxPlanInput): Promise<NitroxPlan> {
+    return this.call<NitroxPlan>('nitroxPlan', input);
   }
 
   listDiveSites(): Promise<DiveSite[]> {

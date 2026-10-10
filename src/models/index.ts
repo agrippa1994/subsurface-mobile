@@ -31,6 +31,8 @@ export type {
   GradientFactors,
   ImportResult,
   LoadResult,
+  NitroxPlan,
+  NitroxPlanInput,
   PlotEntry,
   PlotInfo,
   SaveResult,

@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// The four sections of the app, as a native tab bar. On iOS 26 this is the
+// The five sections of the app, as a native tab bar. On iOS 26 this is the
 // system liquid-glass tab bar; nothing here draws it by hand.
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
@@ -19,6 +19,11 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="statistics">
         <NativeTabs.Trigger.Label>Statistics</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="chart.bar" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="tools">
+        <NativeTabs.Trigger.Label>Tools</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="wrench.and.screwdriver" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="settings">

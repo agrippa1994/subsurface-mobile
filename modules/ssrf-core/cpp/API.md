@@ -80,6 +80,7 @@ rendered metric or imperial.
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
+| `nitroxPlan` | `{ depthMm, o2Permille, maxPo2Mbar?, salinity?, gfLow?, gfHigh? }` | `NitroxPlan` |
 | `exportDiveCSV` | `{ id, path, format, units?, gfLow?, gfHigh? }` | `{ path, format }` |
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
@@ -166,6 +167,18 @@ directly and avoids the copy.
   `0` metric / `1` imperial (default metric); `"profile"` ignores it and writes
   raw core units, and takes `gfLow`/`gfHigh` exactly as `getProfile` does. The
   file is written in place, not atomically - it is an export, not the logbook.
+- **`nitroxPlan`** reads no logbook state. For one nitrox mix and one depth it
+  returns `modMm` (at `maxPo2Mbar`, default 1400) and `contingencyModMm` (at
+  1600) from `dive::gas_mod()`, `bestMixPermille` from `dive::best_o2()`, the
+  ambient pressure and pO2 at the depth, and `ndlMin` / `airNdlMin`: the
+  Buehlmann no-decompression time of a square dive at that depth on the mix and
+  on air. The NDL is the loop `calculate_ndl_tts()` runs in `core/profile.cpp`,
+  started from surface-saturated tissues: minutes are added until the ceiling
+  leaves the surface, and the last minute without one is the answer. `null`
+  means no limit within 300 minutes. A scratch `dive` carries the surface
+  pressure (1 atm) and `salinity` (10300 sea, 10000 fresh). The gradient
+  factors are applied as for `getProfile`, and `prefs.modpO2` is set to the
+  working pO2 because `best_o2()` reads it from there.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The

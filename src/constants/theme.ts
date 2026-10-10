@@ -7,9 +7,9 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-// `accent` and `danger` are the system tint colours (systemBlue / systemRed) in
-// their light and dark variants, so a button drawn by us sits next to a native
-// one without looking off.
+// `accent`, `warning` and `danger` are the system tint colours (systemBlue /
+// systemOrange / systemRed) in their light and dark variants, so a button drawn
+// by us sits next to a native one without looking off.
 export const Colors = {
   light: {
     text: '#000000',
@@ -18,6 +18,7 @@ export const Colors = {
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
     accent: '#007AFF',
+    warning: '#C93400',
     danger: '#D70015',
     separator: '#D8D8DD',
   },
@@ -28,6 +29,7 @@ export const Colors = {
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
     accent: '#0A84FF',
+    warning: '#FF9F0A',
     danger: '#FF453A',
     separator: '#38383A',
   },

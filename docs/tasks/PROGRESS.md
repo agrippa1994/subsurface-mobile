@@ -738,3 +738,19 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   `get_profile`). `tests/csv-export.test.ts` covers each format, that no other
   dive leaks in, the unit switch and argument validation; an ASAN run exporting
   every format for every dive of three fixture logs is clean.
+
+- 2026-10-09 — Tools tab, with a nitrox calculator as its first tool. The tab
+  lists the tools from `src/features/tools/tools.ts`, so the next one is a
+  screen under `src/app/(tabs)/tools/` plus one entry there.
+
+  The calculator takes the O2 percentage, the working pO2 limit (1.2-1.6),
+  the planned depth and salt or fresh water, and shows the MOD at the working
+  limit and at 1.6, the pO2 at depth, the best mix for the depth, and the
+  no-decompression limit of a square dive on the mix beside the same limit on
+  air. New module method `nitroxPlan` in `cpp/bindings/api.cpp`: the MOD is
+  `dive::gas_mod()`, the best mix `dive::best_o2()`, and the NDL the loop
+  `calculate_ndl_tts()` runs in `core/profile.cpp`, from surface-saturated
+  tissues with the gradient factors from Settings. `tests/nitrox.test.ts`
+  checks it against textbook MODs and a plain ZHL-16C air NDL;
+  `src/models/nitrox.test.ts` covers the presentation. An ASAN run over a grid
+  of depths and mixes is clean.

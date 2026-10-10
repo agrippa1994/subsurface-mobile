@@ -17,6 +17,7 @@
 #include "core/errorhelper.h"
 #include "core/gas.h"
 #include "core/parse.h"
+#include "core/pref.h"
 #include "core/profile.h"
 #include "core/qthelper.h"
 #include "core/save-profiledata.h"
@@ -863,6 +864,103 @@ json get_statistics(const json &args)
 	return out;
 }
 
+// Bounds the nitrox calculator accepts. The depth range is the one a
+// recreational or technical open-circuit dive can sensibly ask about; below
+// 3 m the core's own profile code does not compute an NDL either
+// (calculate_ndl_tts in core/profile.cpp).
+static const int NITROX_MIN_DEPTH_MM = 3000;
+static const int NITROX_MAX_DEPTH_MM = 100000;
+static const int NITROX_MIN_PO2_MBAR = 1000;
+static const int NITROX_MAX_PO2_MBAR = 1600;
+
+// The NDL is searched in whole minutes, as the profile does, up to this cap.
+// Past it the answer is "no practical limit" - a square dive that long is a
+// gas question, not a deco one - and the loop would only burn time.
+static const int NDL_STEP_SEC = 60;
+static const int NDL_CAP_SEC = 300 * 60;
+
+// No-decompression time of a square dive: arrive at `depth` with tissues
+// saturated at the surface, stay on `mix` until the Buehlmann ceiling leaves
+// the surface. This is the loop calculate_ndl_tts() runs for every profile
+// sample (core/profile.cpp), applied from a clean tissue state rather than
+// from wherever a recorded dive left it. Returns the minutes that can be
+// spent without a ceiling, or -1 when that reaches the cap.
+int square_ndl_minutes(const struct dive &d, depth_t depth, struct gasmix mix)
+{
+	struct deco_state ds;
+	double surface_bar = d.get_surface_pressure().mbar / 1000.0;
+	clear_deco(&ds, surface_bar, false);
+	double ambient_bar = d.depth_to_bar(depth);
+	for (int sec = 0; sec < NDL_CAP_SEC; sec += NDL_STEP_SEC) {
+		add_segment(&ds, ambient_bar, mix, NDL_STEP_SEC, 0, OC, 0, false);
+		double tolerance = tissue_tolerance_calc(&ds, &d, ambient_bar, false);
+		if (deco_allowed_depth(tolerance, surface_bar, &d, true).mm > 0)
+			return sec / 60;
+	}
+	return -1;
+}
+
+// nitroxPlan: the Tools tab's nitrox calculator. For one mix it reports the
+// maximum operating depth at the working pO2 and at the 1.6 bar contingency
+// limit, the best mix for the planned depth, the pO2 there, and the
+// no-decompression limit at that depth - beside the same limit on air, so the
+// benefit of the mix is a number rather than a claim.
+//
+// Everything is the core's: dive::gas_mod(), dive::best_o2() and the Buehlmann
+// model in deco.cpp. The dive is a scratch one; it only carries the surface
+// pressure and salinity that every depth/pressure conversion in the core reads
+// off a dive.
+json nitrox_plan(const json &args)
+{
+	int depth_mm = static_cast<int>(require_int(args, "depthMm"));
+	int o2 = static_cast<int>(require_int(args, "o2Permille"));
+	int po2_max = static_cast<int>(get_int(args, "maxPo2Mbar", 1400));
+	int salinity = static_cast<int>(get_int(args, "salinity", SEAWATER_SALINITY));
+	if (depth_mm < NITROX_MIN_DEPTH_MM || depth_mm > NITROX_MAX_DEPTH_MM)
+		fail("argument 'depthMm' must be between " + std::to_string(NITROX_MIN_DEPTH_MM) + " and " +
+		     std::to_string(NITROX_MAX_DEPTH_MM));
+	if (o2 < 210 || o2 > 1000)
+		fail("argument 'o2Permille' must be between 210 and 1000");
+	if (po2_max < NITROX_MIN_PO2_MBAR || po2_max > NITROX_MAX_PO2_MBAR)
+		fail("argument 'maxPo2Mbar' must be between " + std::to_string(NITROX_MIN_PO2_MBAR) + " and " +
+		     std::to_string(NITROX_MAX_PO2_MBAR));
+	if (salinity != SEAWATER_SALINITY && salinity != FRESHWATER_SALINITY)
+		fail("argument 'salinity' must be " + std::to_string(SEAWATER_SALINITY) + " (sea) or " +
+		     std::to_string(FRESHWATER_SALINITY) + " (fresh)");
+
+	apply_gradient_factors(args);
+
+	struct dive d;
+	d.surface_pressure = 1_atm;
+	d.dcs[0].surface_pressure = 1_atm;
+	d.dcs[0].salinity = salinity;
+
+	struct gasmix nitrox = { fraction_t{ .permille = o2 }, 0_percent };
+	struct gasmix air = { fraction_t{ .permille = O2_IN_AIR }, 0_percent };
+	depth_t depth{ .mm = depth_mm };
+	depth_t exact{ .mm = 1 };
+
+	// best_o2() reads the limit from the preferences, which this build never
+	// fills in; set it for the call rather than reimplement the formula.
+	prefs.modpO2 = po2_max / 1000.0;
+	fraction_t best = d.best_o2(depth, false);
+
+	int ndl = square_ndl_minutes(d, depth, nitrox);
+	int air_ndl = square_ndl_minutes(d, depth, air);
+	int ambient = d.depth_to_mbar(depth);
+
+	return json{
+		{ "modMm", d.gas_mod(nitrox, pressure_t{ .mbar = po2_max }, exact).mm },
+		{ "contingencyModMm", d.gas_mod(nitrox, 1600_mbar, exact).mm },
+		{ "bestMixPermille", best.permille },
+		{ "ambientMbar", ambient },
+		{ "po2Mbar", static_cast<int>(lrint(ambient * o2 / 1000.0)) },
+		{ "ndlMin", ndl < 0 ? json(nullptr) : json(ndl) },
+		{ "airNdlMin", air_ndl < 0 ? json(nullptr) : json(air_ndl) },
+		{ "airModMm", d.gas_mod(air, pressure_t{ .mbar = po2_max }, exact).mm },
+	};
+}
+
 // exportDiveCSV: writes one dive as CSV, in one of the three CSV flavours the
 // desktop app's export dialog offers. All three are the core's own writers,
 // which only know how to export "the selected dives", so the selection is set
@@ -1145,6 +1243,8 @@ json dispatch(const std::string &method, const json &args)
 		return get_profile(args);
 	if (method == "getStatistics")
 		return get_statistics(args);
+	if (method == "nitroxPlan")
+		return nitrox_plan(args);
 	if (method == "exportDiveCSV")
 		return export_dive_csv(args);
 	if (method == "importSuunto")
