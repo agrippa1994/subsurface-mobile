@@ -20,6 +20,8 @@ import {
   type GradientFactors,
   type ImportResult,
   type LoadResult,
+  type NitroxPlan,
+  type NitroxPlanInput,
   type PlotInfo,
   type SaveResult,
   type StatsFilter,
@@ -172,6 +174,15 @@ export function getProfile(id: number, dcIndex = 0, gf?: GradientFactors): PlotI
  */
 export function getStatistics(filter?: StatsFilter): StatsSummary {
   return call<StatsSummary>('getStatistics', filter ? { filter } : {});
+}
+
+/**
+ * Nitrox calculator: MOD, best mix, pO2 and the no-decompression limit of a
+ * square dive on the mix and on air. Pure core math (gas_mod, best_o2 and the
+ * Buehlmann model in deco.cpp); it reads nothing from the logbook.
+ */
+export function nitroxPlan(input: NitroxPlanInput): NitroxPlan {
+  return call<NitroxPlan>('nitroxPlan', input);
 }
 
 export function listDiveSites(): DiveSite[] {
