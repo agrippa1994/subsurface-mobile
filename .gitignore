@@ -44,3 +44,12 @@ modules/git-sync/android/vendor/build/.work/
 # Android module build output (Gradle / CMake).
 modules/*/android/build/
 modules/*/android/.cxx/
+modules/*/android/.gradle/
+modules/*/android/.kotlin/
+
+# Android Studio / Gradle local state, and signing keys.
+local.properties
+.idea/
+*.iml
+*.jks
+*.keystore
