@@ -10,7 +10,8 @@
 // canvas, and a SwiftUI list cannot host one. It still draws the grouped-list
 // look - section titles over rounded cards of separated rows - so it sits
 // next to the native screens without looking off.
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { HeaderAction } from '@/components/header-action';
+import { SymbolView, type SymbolViewProps } from '@/components/symbol';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Children, Fragment, isValidElement, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -111,11 +112,7 @@ export default function DiveDetailScreen() {
       <Stack.Screen options={{ title: row.title }} />
       {/* A native bar button item rather than a custom headerRight view, so it
           gets the system Edit look (liquid glass on iOS 26). */}
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Button onPress={() => router.push(`/dives/edit/${dive.id}`)}>
-          Edit
-        </Stack.Toolbar.Button>
-      </Stack.Toolbar>
+      <HeaderAction label="Edit" onPress={() => router.push(`/dives/edit/${dive.id}`)} />
 
       <Header
         dive={dive}

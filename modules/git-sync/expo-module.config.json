@@ -1,7 +1,10 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
     "podspecPath": "GitSync.podspec",
     "modules": ["GitSyncModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.gitsync.GitSyncModule"]
   }
 }

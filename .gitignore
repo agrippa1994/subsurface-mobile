@@ -37,3 +37,19 @@ modules/ssrf-core/build/
 modules/ssrf-core/ios/vendor/build/.work/
 # git-sync: libgit2/libssh2/OpenSSL cross-build scratch.
 modules/git-sync/ios/vendor/build/.work/
+# ssrf-core: Android libxml2/libxslt cross-build scratch.
+modules/ssrf-core/android/vendor/build/.work/
+# git-sync: Android libgit2/libssh2/OpenSSL cross-build scratch.
+modules/git-sync/android/vendor/build/.work/
+# Android module build output (Gradle / CMake).
+modules/*/android/build/
+modules/*/android/.cxx/
+modules/*/android/.gradle/
+modules/*/android/.kotlin/
+
+# Android Studio / Gradle local state, and signing keys.
+local.properties
+.idea/
+*.iml
+*.jks
+*.keystore

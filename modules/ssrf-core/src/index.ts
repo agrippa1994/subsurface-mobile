@@ -251,3 +251,15 @@ export function ungroupDives(): UngroupResult {
 // task 07, and everything they proved is covered by the API above.
 
 export default SsrfCoreModule;
+
+/**
+ * Android only: copies a `content://` file (what "Open with" hands the app)
+ * into the cache under its display name and returns the plain path the core
+ * can read. Throws on any other platform, where no such URL arrives.
+ */
+export function copyContentUri(uri: string): Promise<string> {
+  if (!SsrfCoreModule.copyContentUri) {
+    throw new Error('copyContentUri is only available on Android');
+  }
+  return SsrfCoreModule.copyContentUri(uri);
+}

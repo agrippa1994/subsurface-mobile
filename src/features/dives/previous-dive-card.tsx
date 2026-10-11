@@ -12,7 +12,7 @@
 // Nothing is saved here: the copies go into the form, where they can still be
 // corrected before Save.
 
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { SymbolView, type SymbolViewProps } from '@/components/symbol';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 

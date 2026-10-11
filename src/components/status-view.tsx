@@ -5,6 +5,7 @@
 // This variant is what Android (task 13) and web render.
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { SymbolView, type SFSymbol } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -12,18 +13,28 @@ export type StatusViewProps = {
   kind: 'loading' | 'empty' | 'error';
   title: string;
   description?: string;
-  /** SF Symbol name; only the iOS variant uses it. */
-  systemImage?: string;
+  /** SF Symbol name; drawn as its Material Symbol on Android. */
+  systemImage?: SFSymbol;
   actionLabel?: string;
   onAction?: () => void;
 };
 
-export function StatusView({ kind, title, description, actionLabel, onAction }: StatusViewProps) {
+export function StatusView({
+  kind,
+  title,
+  description,
+  systemImage,
+  actionLabel,
+  onAction,
+}: StatusViewProps) {
   const theme = useTheme();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {kind === 'loading' ? <ActivityIndicator /> : null}
+      {kind === 'loading' ? <ActivityIndicator color={theme.accent} /> : null}
+      {kind !== 'loading' && systemImage ? (
+        <SymbolView name={systemImage} size={48} tintColor={theme.textSecondary} fallback={null} />
+      ) : null}
       <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       {description ? (
         <Text style={[styles.description, { color: theme.textSecondary }]}>{description}</Text>

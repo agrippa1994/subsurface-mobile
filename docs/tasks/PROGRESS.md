@@ -17,7 +17,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 11 — Suunto import + SSRF import/export
 - [~] 12 — Polish + TestFlight beta (polish, robustness, release config done;
       TestFlight upload blocked on an Apple Developer account)
-- [ ] 13 — Android parity (later phase)
+- [~] 13 — Android parity (app builds and runs on Android; physical-device pass pending)
 
 ## Notes / blockers
 
@@ -792,3 +792,34 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   with `git fsck` / `git log --graph` on the far side), fast-forward and
   extraction paths, and with encrypted Ed25519, RSA (PEM and OpenSSH, with and
   without passphrase) and ECDSA keys.
+
+- 2026-10-11 — Task 13: the app builds and runs on Android, iOS unchanged.
+
+  Native: `modules/ssrf-core/android` compiles the same `cpp/` tree as the
+  podspec through CMake, behind a JNI facade (`src/main/cpp/ssrfcore-jni.cpp`)
+  and a Kotlin module with the same `call(method, argsJson)` entry point.
+  libxml2 2.13.8, libxslt 1.1.43 and SQLite 3.54.0 are cross-built by
+  `android/vendor/build/build-deps.sh` (the NDK ships none of them) into static
+  archives for `arm64-v8a` and `x86_64`; the app builds only those two ABIs
+  (`expo-build-properties` `buildArchs`). The XSLT stylesheets ship as APK
+  assets and are copied out once per process. `modules/git-sync/android` is the
+  libgit2 bridge ported to C++/JNI (`git-sync-jni.cpp`), on libgit2 1.9.7 /
+  libssh2 1.11.1 / OpenSSL 3.5.9 cross-built by
+  `android/vendor/build/build-libgit2.sh`; the Ed25519 key comes from libcrypto
+  (Android's own needs API 33).
+
+  UI: SF Symbols are mapped to Material Symbols in `src/components/symbol.tsx`
+  (tabs use `md=`); the navigation-bar action is `src/components/header-action`
+  - Stack.Toolbar on iOS, a header-right button on Android, since Android's
+  toolbar draws bitmap icons only. Settings on Android is rebuilt from the
+  grouped form cards. "Open with" works through VIEW intent filters; the
+  content:// file is copied into the cache under its display name by the new
+  Android-only `copyContentUri`. The site map stays iOS-only (Apple Maps).
+
+  Verified on a Pixel 9 Pro emulator (API 36, arm64): Suunto DM5 import
+  (SQLite) and UDDF import (XSLT) through "Open with", dive list, profile,
+  statistics, editor, sites, nitrox, settings; git sync against a local sshd -
+  host-key prompt with the right fingerprint, commit and push (5 dives on the
+  server), pull fast-forward of a server-side commit. vitest, typecheck and an
+  iOS simulator build are green. Not yet done: a physical Android device and
+  the golden tests on Android.

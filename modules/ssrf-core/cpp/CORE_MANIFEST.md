@@ -128,13 +128,21 @@ arriving transitively through a Qt header.
 
 ## Native dependencies
 
-| Library | iOS | Host (macOS) |
-| --- | --- | --- |
-| libxml2 | SDK (`libxml2.tbd`, headers under `$(SDKROOT)/usr/include/libxml2`) | SDK |
-| sqlite3 | SDK (`libsqlite3.tbd`) — needed by `import-suunto.cpp` | SDK |
-| zlib | SDK | SDK |
-| libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | SDK (headers and library) |
-| libzip | not used — see `cpp/bindings/zip-reader.cpp`; neither SDK ships it, and the archive formats only need the container decoded | not used |
+| Library | iOS | Android | Host (macOS) |
+| --- | --- | --- | --- |
+| libxml2 | SDK (`libxml2.tbd`, headers under `$(SDKROOT)/usr/include/libxml2`) | **vendored** 2.13.8 | SDK |
+| sqlite3 | SDK (`libsqlite3.tbd`) — needed by `import-suunto.cpp` | **vendored** 3.54.0 (amalgamation) | SDK |
+| zlib | SDK | NDK (`libz`) | SDK |
+| libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | **vendored** 1.1.43 | SDK (headers and library) |
+| libzip | not used — see `cpp/bindings/zip-reader.cpp`; neither SDK ships it, and the archive formats only need the container decoded | not used | not used |
+
+On Android the NDK ships none of libxml2, libxslt or SQLite. All three are
+cross-built from source by `android/vendor/build/build-deps.sh` (NDK 27.1, the
+one React Native pins; API 24) into static archives per ABI under
+`android/vendor/<abi>/` (`arm64-v8a`, `x86_64`), with the headers in
+`android/vendor/include/`. `android/CMakeLists.txt` compiles the same `cpp/`
+tree the podspec does and links them; the JNI entry point is
+`android/src/main/cpp/ssrfcore-jni.cpp`.
 
 ## Vendored third-party sources
 
@@ -183,7 +191,10 @@ Documented in `cpp/API.md`. Adding a method touches `api.cpp` and
 `scripts/vendor-core.mjs` also copies `subsurface/xslt/*.{xslt,xsl}` into
 `resources/xslt/` (git-ignored, like `cpp/generated`). The podspec ships that
 directory as the `SsrfCoreResources` bundle, and `ios/SsrfCoreBridge.mm` points
-the core at it once, before the first call. The core loads a stylesheet by name
+the core at it once, before the first call. On Android `android/build.gradle`
+packages the same directory as APK assets (`assets/xslt`), and
+`SsrfCoreModule.kt` copies them into the app's files directory once per process
+before pointing the core there - libxslt cannot read out of the APK. The core loads a stylesheet by name
 at runtime for every non-SSRF XML format it reads (`get_stylesheet()` in
 `cpp/shim/qthelper.cpp`); upstream serves them out of Qt resources.
 

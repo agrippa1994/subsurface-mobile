@@ -1,10 +1,13 @@
 // AI-generated (Claude)
-// "Open in Subsurface" from Files, Mail or AirDrop.
+// "Open in Subsurface" from Files, Mail or AirDrop (iOS), or "Open with" from a
+// file manager, a mail or a chat app (Android).
 //
 // iOS hands the app a `file://` URL - a copy in the app's Inbox for a file sent
-// by another app, or the file itself when it was opened in place. The URL
-// arrives the same way a deep link does, either as the URL that launched the
-// app or through the linking event while it is running, so both are handled.
+// by another app, or the file itself when it was opened in place. Android hands
+// it a `content://` URL of the sending app's content provider (see the intent
+// filters in app.config.ts). Either arrives the same way a deep link does,
+// either as the URL that launched the app or through the linking event while
+// it is running, so both are handled.
 //
 // Anything that is not a file URL is a real deep link and is left to
 // expo-router.
@@ -15,8 +18,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useTransfer } from './use-transfer';
 
-function isFileUrl(url: string): boolean {
-  return url.startsWith('file://');
+export function isFileUrl(url: string): boolean {
+  return url.startsWith('file://') || url.startsWith('content://');
 }
 
 /**

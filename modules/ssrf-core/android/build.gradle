@@ -11,7 +11,37 @@ android {
   defaultConfig {
     versionCode 1
     versionName "0.1.0"
+
+    externalNativeBuild {
+      cmake {
+        // React Native links libc++ as a shared library; every native
+        // library in the app has to use the same one.
+        arguments "-DANDROID_STL=c++_shared"
+        cppFlags "-fexceptions", "-frtti"
+      }
+    }
+    ndk {
+      // The ABIs android/vendor/build/build-deps.sh builds libxml2,
+      // libxslt and SQLite for: devices and Apple Silicon emulators, Intel emulators.
+      abiFilters "arm64-v8a", "x86_64"
+    }
   }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+
+  // The XSLT stylesheets the core loads at runtime, materialized out of the
+  // submodule by scripts/vendor-core.mjs into resources/xslt. Packaged as
+  // assets/xslt; SsrfCoreModule.kt copies them out to a real directory.
+  sourceSets {
+    main {
+      assets.srcDirs += ["${projectDir}/../resources"]
+    }
+  }
+
   lintOptions {
     abortOnError false
   }
