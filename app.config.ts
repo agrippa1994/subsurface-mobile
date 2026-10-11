@@ -192,5 +192,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.extra,
     core: corePins(),
     sourceUrl: 'https://github.com/agrippa1994/subsurface-mobile',
+    eas: {
+      projectId: 'dac5cff9-2dc1-4201-914f-3f785a783589',
+    },
   },
 });
