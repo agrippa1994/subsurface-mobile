@@ -13,7 +13,9 @@ const path = require('path');
 
 const withSsrfCore = (config) => {
   const script = path.join(__dirname, '..', 'scripts', 'vendor-core.mjs');
-  execFileSync('node', [script], { stdio: 'inherit' });
+  // The script's progress goes to stderr: tools such as eas-cli evaluate the
+  // config in a subprocess and parse its stdout as JSON.
+  execFileSync('node', [script], { stdio: ['ignore', 2, 2] });
   return config;
 };
 
