@@ -11,7 +11,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { DiveSummary, StatsSummary } from '../src/models';
-import { depthHistogram, divesOverTime, durationHistogram, summaryTiles } from '../src/models/statistics';
+import {
+  depthHistogram,
+  divesOverTime,
+  durationHistogram,
+  sacOverTime,
+  summaryTiles,
+} from '../src/models/statistics';
 import { fixture } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
 
@@ -130,6 +136,27 @@ describe('the buckets the bindings add', () => {
     }
   });
 
+  it('lines the core monthly buckets up with the timeline', () => {
+    // sacOverTime takes the year of monthly[i] from timeline[i].
+    expect(summary.monthly).toHaveLength(summary.timeline.length);
+    summary.monthly.forEach((month, index) => {
+      expect(month.period).toBe(summary.timeline[index].month);
+      expect(month.selectionSize).toBe(summary.timeline[index].dives);
+    });
+  });
+
+  it('averages SAC only over the dives that have one', async () => {
+    // The list rows carry no SAC; it is on the full dive.
+    const full = await Promise.all(dives.map((dive) => host.getDive(dive.id)));
+    const sacs = full.map((dive) => dive.sac).filter((sac) => sac > 100);
+    expect(sacs.length).toBeGreaterThan(0);
+    expect(summary.total.minSacMlPerMin).toBe(Math.min(...sacs));
+    expect(summary.total.maxSacMlPerMin).toBe(Math.max(...sacs));
+    expect(summary.total.avgSacMlPerMin).toBeGreaterThanOrEqual(summary.total.minSacMlPerMin);
+    expect(summary.total.avgSacMlPerMin).toBeLessThanOrEqual(summary.total.maxSacMlPerMin);
+    expect(sacOverTime(summary).length).toBeGreaterThan(0);
+  });
+
   it('agrees with the core on the yearly totals', () => {
     for (const year of summary.yearly) {
       const months = summary.timeline.filter((entry) => entry.year === year.period);
@@ -172,7 +199,8 @@ describe('filters recompute in the module', () => {
     expect(divesOverTime(filtered)).toEqual([]);
     expect(depthHistogram(filtered)).toEqual([]);
     expect(durationHistogram(filtered)).toEqual([]);
-    expect(summaryTiles(filtered).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '0']);
+    expect(sacOverTime(filtered)).toEqual([]);
+    expect(summaryTiles(filtered).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
   });
 
   it('restores the full picture once the filter is dropped', async () => {

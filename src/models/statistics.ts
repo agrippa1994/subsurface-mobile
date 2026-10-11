@@ -12,7 +12,10 @@ import type { StatsFilter, StatsSummary } from './index';
 import {
   formatDepth,
   formatDuration,
+  formatSac,
   formatTemperature,
+  mlToCuft,
+  mlToLiters,
   mmToFeet,
   mmToMeters,
   type UnitSystem,
@@ -44,8 +47,8 @@ export type ChartGranularity = 'month' | 'year';
 // --- Summary tiles ---------------------------------------------------------
 
 /**
- * The headline numbers: dives, bottom time, depth and how many distinct sites
- * they were spread over. `matched` is the filter's own count, and equals
+ * The headline numbers: dives, bottom time, depth, air consumption and how many
+ * distinct sites they were spread over. `matched` is the filter's own count, and equals
  * `total.selectionSize` except that the latter drops dives flagged invalid.
  */
 export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric'): StatTile[] {
@@ -72,12 +75,25 @@ export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric
       detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, system)}` : '',
     },
     {
+      key: 'sac',
+      label: 'Avg SAC',
+      value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, system) : '-',
+      detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, system),
+    },
+    {
       key: 'sites',
       label: 'Dive sites',
       value: String(summary.siteCount),
       detail: temperatureRange(summary, system),
     },
   ];
+}
+
+function sacRange(minMlPerMin: number, maxMlPerMin: number, system: UnitSystem): string {
+  if (minMlPerMin <= 0 || maxMlPerMin <= 0) {
+    return '';
+  }
+  return `${formatSac(minMlPerMin, system)} to ${formatSac(maxMlPerMin, system)}`;
 }
 
 /** Bottom time is hours-and-minutes, not the `h:mm:ss` a single dive gets. */
@@ -177,6 +193,70 @@ export function divesOverTime(
   return bars;
 }
 
+// --- SAC over time --------------------------------------------------------
+
+/**
+ * Average SAC (AMV) per year or month, straight off the core's `avg_sac`. That
+ * is a time-weighted mean over the dives that have a SAC at all (the core skips
+ * anything under 0.1 l/min), so periods without one are left out rather than
+ * drawn as zero: an empty month here means "unknown", not "no air breathed".
+ *
+ * The core's monthly buckets carry only the month in `period`; they line up
+ * one-to-one with `timeline`, which the bindings build over the same dives in
+ * the same order, so the year is taken from there.
+ */
+export function sacOverTime(
+  summary: StatsSummary,
+  system: UnitSystem = 'metric',
+  granularity: ChartGranularity = pickGranularity(summary)
+): StatBar[] {
+  const bars: StatBar[] = [];
+
+  if (granularity === 'year') {
+    for (const year of summary.yearly) {
+      if (year.avgSacMlPerMin > 0) {
+        const name = String(year.period);
+        bars.push(sacBar(name, name, name, year.avgSacMlPerMin, system));
+      }
+    }
+    return bars;
+  }
+
+  let previousYear: number | null = null;
+  summary.monthly.forEach((month, index) => {
+    const entry = summary.timeline[index];
+    if (!entry || month.avgSacMlPerMin <= 0) {
+      return;
+    }
+    const name = MONTH_NAMES[entry.month - 1];
+    // The year goes on the first bar of each year, since months may be missing.
+    const label = entry.year !== previousYear ? String(entry.year) : name;
+    previousYear = entry.year;
+    const key = `${entry.year}-${entry.month}`;
+    bars.push(sacBar(key, label, `${name} ${entry.year}`, month.avgSacMlPerMin, system));
+  });
+  return bars;
+}
+
+function sacBar(
+  key: string,
+  label: string,
+  period: string,
+  mlPerMin: number,
+  system: UnitSystem
+): StatBar {
+  return {
+    key: `sac-${key}`,
+    label,
+    value: system === 'imperial' ? mlToCuft(mlPerMin) : mlToLiters(mlPerMin),
+    caption: `${period}: ${formatSac(mlPerMin, system)} average`,
+  };
+}
+
+export function sacAxisUnit(system: UnitSystem = 'metric'): string {
+  return system === 'imperial' ? 'cuft/min' : 'l/min';
+}
+
 // --- Distributions ---------------------------------------------------------
 
 /**
@@ -246,11 +326,16 @@ function diveCount(n: number): string {
 // --- Axis ------------------------------------------------------------------
 
 /**
- * Y axis for a count chart: 0 to a round number at or above the tallest bar,
+ * Y axis for a bar chart: 0 to a round number at or above the tallest bar,
  * with at most `maxTicks` labelled steps. Returns 0..1 for an empty chart so a
- * caller never divides by zero.
+ * caller never divides by zero. Counts keep whole steps; `integer: false` lets
+ * a rate such as a SAC in cubic feet step by fractions.
  */
-export function countAxis(bars: readonly StatBar[], maxTicks = 5): { max: number; ticks: number[] } {
+export function countAxis(
+  bars: readonly StatBar[],
+  maxTicks = 5,
+  integer = true
+): { max: number; ticks: number[] } {
   const peak = bars.reduce((acc, bar) => Math.max(acc, bar.value), 0);
   if (peak <= 0) {
     return { max: 1, ticks: [0, 1] };
@@ -258,12 +343,16 @@ export function countAxis(bars: readonly StatBar[], maxTicks = 5): { max: number
 
   const rawStep = peak / (maxTicks - 1);
   const magnitude = 10 ** Math.floor(Math.log10(rawStep));
-  const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= rawStep) ?? magnitude * 10;
-  const max = Math.ceil(peak / step) * step;
+  const nice = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= rawStep) ?? magnitude * 10;
+  const step = integer ? Math.max(1, nice) : nice;
+  // Rounded to the step's own precision, so 0.1 + 0.2 does not label a tick.
+  const decimals = Math.max(0, -Math.floor(Math.log10(step)));
+  const round = (value: number) => Number(value.toFixed(decimals));
+  const max = round(Math.ceil(peak / step) * step);
 
   const ticks: number[] = [];
-  for (let value = 0; value <= max + step / 2; value += step) {
-    ticks.push(Math.round(value));
+  for (let i = 0; i * step <= max + step / 2; i += 1) {
+    ticks.push(round(i * step));
   }
   return { max, ticks };
 }
