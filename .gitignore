@@ -35,3 +35,5 @@ modules/ssrf-core/resources/xslt/
 modules/ssrf-core/build/
 # ssrf-core: libxslt cross-build scratch (sources + per-slice installs).
 modules/ssrf-core/ios/vendor/build/.work/
+# git-sync: libgit2/libssh2/OpenSSL cross-build scratch.
+modules/git-sync/ios/vendor/build/.work/

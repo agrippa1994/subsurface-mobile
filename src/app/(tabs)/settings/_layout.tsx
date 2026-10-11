@@ -7,6 +7,7 @@ export default function SettingsLayout() {
     <Stack screenOptions={{ headerLargeTitle: true }}>
       <Stack.Screen name="index" options={{ title: 'Settings' }} />
       <Stack.Screen name="ssi" options={{ title: 'SSI', headerLargeTitle: false }} />
+      <Stack.Screen name="git" options={{ title: 'Git sync', headerLargeTitle: false }} />
     </Stack>
   );
 }

@@ -128,6 +128,15 @@ export default function SettingsScreen() {
       </Text>
       {action('SSI account', screen.ssi.open)}
 
+      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Git sync</Text>
+      <Text style={{ color: theme.text }}>
+        {screen.git.repository} - {screen.git.lastSync}
+      </Text>
+      {screen.git.ready
+        ? action(screen.git.busy ? 'Syncing...' : 'Sync now', screen.git.sync)
+        : null}
+      {action('Git sync settings', screen.git.open)}
+
       <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Problems</Text>
       <Text style={{ color: theme.text }}>{screen.diagnostics}</Text>
       <Text style={[styles.note, { color: theme.textSecondary }]}>{PRIVACY_NOTICE}</Text>
