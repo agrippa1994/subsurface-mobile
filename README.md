@@ -3,7 +3,7 @@
 A new mobile app for [Subsurface](https://subsurface-divelog.org/) dive logs,
 built with Expo + @expo/ui, consuming the upstream Subsurface C++ core read-only.
 
-iOS ships first; Android is a later phase.
+Runs on iOS (liquid glass, iOS 26) and Android (Material, API 24+, 64-bit).
 
 ## Scope (v1)
 
@@ -27,6 +27,9 @@ a fixed commit and consumed read-only. See
 - Xcode + iOS 26 SDK, a physical iOS device (liquid glass and the native C++
   module do not run in Expo Go or the simulator).
 - Node LTS, `git`, CocoaPods.
+- For Android: Android SDK with NDK 27.1.12297006 (the one React Native pins),
+  JDK 17, and `ANDROID_HOME` set. Devices and emulators must be 64-bit
+  (`arm64-v8a` or `x86_64`).
 - Expo dev-client, SDK 54+ (not Expo Go — a custom native module requires
   `expo prebuild` + a dev client).
 
@@ -38,7 +41,17 @@ cd subsurface-mobile
 bun install
 npx expo prebuild
 npx expo run:ios      # onto a physical device
+npx expo run:android  # onto a device or emulator
 ```
+
+The native libraries the C++ modules link are committed prebuilt, per platform:
+`modules/*/ios/vendor` (xcframeworks) and `modules/*/android/vendor` (static
+archives per ABI). Rebuild them only when bumping a version, with the
+`build-*.sh` script next to each.
+
+On Android the dive-site map is not shown (it is Apple Maps); coordinates are
+typed instead. Everything else - import, profile, statistics, editing, export,
+SSI and git sync - works the same.
 
 ## Production and testing app
 

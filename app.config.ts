@@ -93,9 +93,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    // Android is a later phase (task 13); config kept from the template.
-    // The package id only exists so `expo prebuild` does not stop to ask for
-    // one - nothing Android-side is built yet.
     package: 'codes.mani.subsurfacereact',
     adaptiveIcon: {
       backgroundColor: '#062C53',
@@ -104,6 +101,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // "Open with" for the files the app reads (task 13), the counterpart of
+    // CFBundleDocumentTypes above. The file arrives as a content:// URL - see
+    // src/features/transfer/use-incoming-files.ts. Providers are loose about
+    // MIME types (an .ssrf is usually octet-stream), so the generic ones are
+    // listed too; the import itself tells a bad file apart.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        category: ['DEFAULT', 'BROWSABLE'],
+        data: [
+          { scheme: 'content', mimeType: 'application/xml' },
+          { scheme: 'content', mimeType: 'text/xml' },
+          { scheme: 'content', mimeType: 'application/json' },
+          { scheme: 'content', mimeType: 'application/zip' },
+          { scheme: 'content', mimeType: 'application/octet-stream' },
+          { scheme: 'file', mimeType: 'application/xml' },
+          { scheme: 'file', mimeType: 'text/xml' },
+        ],
+      },
+    ],
   },
   web: {
     output: 'static',
@@ -117,7 +134,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // (src/lib/ssi/auth.ts). Nothing else in the app stores a secret.
     'expo-secure-store',
     // Apple Maps on iOS, for picking and showing a dive site's position
-    // (task 10). No location permission is requested: the app never needs the
+    // (task 10). Not used on Android, which would need a Google Maps API key;
+    // the site screens show the coordinates instead. No location permission is requested: the app never needs the
     // diver's own position, only the site's.
     'expo-maps',
     [
@@ -139,6 +157,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           // Native, the pods) through ccache. A missing ccache only warns at
           // pod install, so this is safe on machines without it.
           ccacheEnabled: true,
+        },
+        android: {
+          // The ABIs the native modules' static dependencies (libxml2,
+          // libxslt, libgit2) are cross-built for: devices and Apple Silicon
+          // emulators, Intel emulators. 32-bit devices are not supported.
+          buildArchs: ['arm64-v8a', 'x86_64'],
         },
       },
     ],

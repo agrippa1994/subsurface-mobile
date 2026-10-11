@@ -3,9 +3,10 @@
 //
 // The rows come from the same module read as the dive list; how one renders is
 // decided in models/site-edit.ts so the vitest suite covers it.
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { HeaderAction } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -21,13 +22,7 @@ export default function SitesScreen() {
   // A native bar button item, so New gets the system add button (liquid glass
   // on iOS 26) instead of a custom header view.
   const header = (
-    <Stack.Toolbar placement="right">
-      <Stack.Toolbar.Button
-        icon="plus"
-        accessibilityLabel="New dive site"
-        onPress={() => router.push('/sites/new')}
-      />
-    </Stack.Toolbar>
+    <HeaderAction label="New dive site" icon="plus" onPress={() => router.push('/sites/new')} />
   );
 
   if (!logbook.isSuccess) {

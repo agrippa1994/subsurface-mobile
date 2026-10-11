@@ -6,7 +6,7 @@
 // SwiftUI Form cannot host the last two. The visual language still follows the
 // grouped-list convention - a section title above a rounded card of rows.
 
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol';
 import { forwardRef } from 'react';
 import {
   Pressable,
@@ -251,6 +251,9 @@ const styles = StyleSheet.create({
   input: {
     fontSize: 17,
     paddingVertical: Spacing.one,
+    // Android pads a TextInput on every side; zero it so the text lines up
+    // with the label above, as it does on iOS.
+    paddingHorizontal: 0,
   },
   inputMultiline: {
     minHeight: 96,

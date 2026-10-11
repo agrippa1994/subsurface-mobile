@@ -8,7 +8,7 @@
 // Unlike a cylinder, a weightsystem is not referred to from anywhere else in
 // the dive - no samples, no gas-switch events - so every row can be removed.
 
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField, FormSection } from '@/components/form';

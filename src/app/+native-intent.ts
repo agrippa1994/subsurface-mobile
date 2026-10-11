@@ -1,7 +1,8 @@
 // AI-generated (Claude)
 // System URLs before the router sees them.
 //
-// A file opened from Files, Mail or AirDrop arrives as a `file://` URL through
+// A file opened from Files, Mail or AirDrop arrives as a `file://` URL (on
+// Android, a `content://` one from the sending app) through
 // the same channel as a deep link. It is not a route: left alone, the router
 // matches it against nothing, lands on "page could not be found", and resets
 // its tree to get there - remounting every screen in the middle of the import
@@ -10,7 +11,7 @@
 // own, so the router is told to ignore it.
 
 export function redirectSystemPath({ path, initial }: { path: string; initial: boolean }) {
-  if (path.startsWith('file://')) {
+  if (path.startsWith('file://') || path.startsWith('content://')) {
     // A launch has to land somewhere; the index redirects to the dive list.
     return initial ? '/' : null;
   }

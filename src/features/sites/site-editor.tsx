@@ -15,8 +15,9 @@
 import { useForm } from '@tanstack/react-form';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { HeaderAction } from '@/components/header-action';
 import { fieldError, FormButtonRow, FormField, FormSection } from '@/components/form';
 import { SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
@@ -166,14 +167,12 @@ export function SiteEditor({ uuid }: { uuid: number }) {
             <Stack.Screen options={{ title: isNew ? 'New site' : 'Edit site' }} />
             {/* A native bar button item, so Save gets the system confirmation
                 style (prominent liquid glass on iOS 26). */}
-            <Stack.Toolbar placement="right">
-              <Stack.Toolbar.Button
-                variant="done"
-                disabled={isSubmitting}
-                onPress={() => void form.handleSubmit()}>
-                Save
-              </Stack.Toolbar.Button>
-            </Stack.Toolbar>
+            <HeaderAction
+              label="Save"
+              done
+              disabled={isSubmitting}
+              onPress={() => void form.handleSubmit()}
+            />
           </>
         )}
       </form.Subscribe>
@@ -224,7 +223,12 @@ export function SiteEditor({ uuid }: { uuid: number }) {
 
       <FormSection
         title="Position"
-        footer="Tap the map to move the marker, or type coordinates - decimal degrees, or degrees and minutes with a hemisphere.">
+        footer={
+          // The map is Apple Maps, so only iOS has one to tap (site-map.tsx).
+          Platform.OS === 'ios'
+            ? 'Tap the map to move the marker, or type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
+            : 'Type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
+        }>
         <form.Field
           name="coordinateText"
           validators={{

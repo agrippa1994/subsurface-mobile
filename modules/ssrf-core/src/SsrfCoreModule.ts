@@ -8,6 +8,8 @@ declare class SsrfCoreModule extends NativeModule<{}> implements SsrfCoreNativeM
   add(a: number, b: number): number;
   smokeSerializeMinimalLog(): string | null;
   smokeCountDivesInFile(path: string): number;
+  /** Android only: copies a content:// file into the cache, returns its path. */
+  copyContentUri?(uri: string): Promise<string>;
 }
 
 export default requireNativeModule<SsrfCoreModule>('SsrfCore');

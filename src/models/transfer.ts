@@ -22,6 +22,8 @@ import type { CsvFormat, DiveSummary, ImportResult } from '@/models';
  */
 export const IMPORT_DOCUMENT_TYPES = [
   'application/xml',
+  // What Android file providers commonly report for .xml files.
+  'text/xml',
   'application/json',
   'application/zip',
   'application/octet-stream',

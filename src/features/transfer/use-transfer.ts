@@ -12,6 +12,7 @@ import { Alert } from 'react-native';
 
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { toNativePath } from '@/lib/logbook-file';
+import { copyContentUri } from '../../../modules/ssrf-core/src';
 import { describeError } from '@/models/errors';
 import {
   IMPORT_DOCUMENT_TYPES,
@@ -146,15 +147,29 @@ export function useTransfer(): Transfer {
   }, [exportTo]);
 
   const handleIncoming = useCallback(
-    async (uri: string) => {
+    async (incoming: string) => {
+      // Android hands over a content:// URL, which the core cannot fopen().
+      // The file is copied into the cache under the name the sender gave it -
+      // the name is what tells a logbook from a dive export below.
+      let uri = incoming;
+      if (incoming.startsWith('content://')) {
+        try {
+          uri = `file://${encodeURI(await copyContentUri(incoming))}`;
+        } catch (error) {
+          operationFailed();
+          Alert.alert('Could not open', describeFailure(error));
+          return;
+        }
+      }
       const path = toNativePath(uri);
       const name = path.slice(path.lastIndexOf('/') + 1);
       // iOS drops the file into Documents/Inbox and never cleans up after
-      // itself, so whatever it left there goes once it has been read.
+      // itself, so whatever it left there goes once it has been read; the
+      // Android cache copy likewise.
       const done = async (work: Promise<void>) => {
         await work;
         const inbox = new File(uri);
-        if (path.includes('/Documents/Inbox/') && inbox.exists) {
+        if ((path.includes('/Documents/Inbox/') || uri !== incoming) && inbox.exists) {
           inbox.delete();
         }
       };

@@ -15,6 +15,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { HeaderAction } from '@/components/header-action';
 import { fieldError, FormButtonRow, FormField, FormSection, RatingField } from '@/components/form';
 import { NameField } from '@/components/name-field';
 import { StatusView } from '@/components/status-view';
@@ -204,14 +205,12 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
             <Stack.Screen options={{ title: 'Edit dive' }} />
             {/* A native bar button item, so Save gets the system confirmation
                 style (prominent liquid glass on iOS 26). */}
-            <Stack.Toolbar placement="right">
-              <Stack.Toolbar.Button
-                variant="done"
-                disabled={isSubmitting}
-                onPress={() => void form.handleSubmit()}>
-                Save
-              </Stack.Toolbar.Button>
-            </Stack.Toolbar>
+            <HeaderAction
+              label="Save"
+              done
+              disabled={isSubmitting}
+              onPress={() => void form.handleSubmit()}
+            />
           </>
         )}
       </form.Subscribe>

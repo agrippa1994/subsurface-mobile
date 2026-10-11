@@ -10,7 +10,7 @@
 // the bindings refuse it (api.cpp, apply_cylinders) - so the row does not offer
 // a delete button for one, rather than offering it and failing on save.
 
-import { SymbolView } from 'expo-symbols';
+import { SymbolView } from '@/components/symbol';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FormField, FormSection, OptionField } from '@/components/form';

@@ -1,8 +1,11 @@
 // AI-generated (Claude)
-// Settings, portable fallback (Android in task 13, and web). iOS renders a
-// native Form instead - see index.ios.tsx.
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// Settings, portable variant (Android, and web). iOS renders a native Form
+// instead - see index.ios.tsx. The sections, rows and footers mirror that one,
+// built from the same grouped cards the editors use (components/form.tsx), with
+// the platform's own Switch.
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { FormButtonRow, FormSection, OptionField } from '@/components/form';
 import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,186 +13,222 @@ import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/mode
 import { GF_RANGE } from '@/models/settings';
 import type { UnitSystem } from '@/models';
 
+const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
+  { value: 'metric', label: 'Metric' },
+  { value: 'imperial', label: 'Imperial' },
+];
+
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
   const theme = useTheme();
-
-  const unitOption = (system: UnitSystem, label: string) => (
-    <Pressable
-      key={system}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: screen.unitSystem === system }}
-      onPress={() => screen.setUnitSystem(system)}
-      style={[
-        styles.segment,
-        {
-          backgroundColor:
-            screen.unitSystem === system ? theme.backgroundSelected : theme.backgroundElement,
-        },
-      ]}>
-      <Text style={{ color: theme.text }}>{label}</Text>
-    </Pressable>
-  );
-
-  // Stands in for the iOS variant's native Stepper. The value sits between the
-  // two buttons so the row reads the same way.
-  const stepper = (label: string, value: number, onChange: (percent: number) => void) => (
-    <View key={label} style={styles.stepper}>
-      <Text style={{ color: theme.text }}>{`${label}  ${value}%`}</Text>
-      <View style={styles.segments}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Decrease ${label}`}
-          disabled={value <= GF_RANGE.min}
-          onPress={() => onChange(value - 1)}
-          style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-          <Text style={{ color: theme.text }}>-</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Increase ${label}`}
-          disabled={value >= GF_RANGE.max}
-          onPress={() => onChange(value + 1)}
-          style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-          <Text style={{ color: theme.text }}>+</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-
-  // Stands in for the iOS variant's native Toggle. A switch to the screen
-  // reader, whatever it looks like here.
-  const toggle = (label: string, value: boolean, onChange: (show: boolean) => void) => (
-    <Pressable
-      key={label}
-      accessibilityRole="switch"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: value }}
-      onPress={() => onChange(!value)}
-      style={[
-        styles.stepper,
-        { backgroundColor: value ? theme.backgroundSelected : theme.backgroundElement },
-      ]}>
-      <Text style={{ color: theme.text }}>{label}</Text>
-      <Text style={{ color: theme.textSecondary }}>{value ? 'On' : 'Off'}</Text>
-    </Pressable>
-  );
-
-  const action = (label: string, onPress: () => void) => (
-    <Pressable key={label} accessibilityRole="button" onPress={onPress} style={styles.action}>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
-  );
 
   return (
     <ScrollView
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Units</Text>
-      <View style={styles.segments}>
-        {unitOption('metric', 'Metric')}
-        {unitOption('imperial', 'Imperial')}
-      </View>
+      <FormSection title="Units">
+        <OptionField options={UNIT_OPTIONS} value={screen.unitSystem} onChange={screen.setUnitSystem} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Decompression</Text>
-      {stepper('GF low', screen.gfLow, screen.setGfLow)}
-      {stepper('GF high', screen.gfHigh, screen.setGfHigh)}
-      {toggle('Show GF at depth', screen.showGfNow, screen.setShowGfNow)}
-      {toggle('Show surface GF', screen.showGfSurface, screen.setShowGfSurface)}
-      <Text style={[styles.note, { color: theme.textSecondary }]}>
-        Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
-        profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75. The two
-        curves show tissue loading against the limit: GF at depth for the moment itself, surface GF
-        for what the diver would carry on surfacing right then.
-      </Text>
+      <FormSection
+        title="Decompression"
+        footer={
+          "Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive profile - lower is more conservative. Subsurface's defaults are 30 and 75. The two curves show tissue loading against the limit: GF at depth for the moment itself, surface GF for what the diver would carry on surfacing right then."
+        }>
+        <StepperRow label="GF low" value={screen.gfLow} onChange={screen.setGfLow} />
+        <StepperRow label="GF high" value={screen.gfHigh} onChange={screen.setGfHigh} />
+        <SwitchRow label="Show GF at depth" value={screen.showGfNow} onChange={screen.setShowGfNow} />
+        <SwitchRow
+          label="Show surface GF"
+          value={screen.showGfSurface}
+          onChange={screen.setShowGfSurface}
+        />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Logbook</Text>
-      <Text style={{ color: theme.text }}>
-        {screen.diveCount} dives, {screen.siteCount} sites
-      </Text>
-      {action(
-        screen.tripCount > 0 ? `Ungroup all dives (${screen.tripCount} trips)` : 'Ungroup all dives',
-        screen.ungroupDives,
-      )}
+      <FormSection title="Logbook">
+        <ValueRow label="Dives" value={String(screen.diveCount)} />
+        <ValueRow label="Dive sites" value={String(screen.siteCount)} />
+        <ValueRow label="Trips" value={String(screen.tripCount)} />
+        <FormButtonRow label="Ungroup all dives" destructive onPress={screen.ungroupDives} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Transfer</Text>
-      {action('Import dives', screen.transfer.importFile)}
-      {action('Export and share', screen.transfer.shareLogbook)}
-      {action('Open a logbook', screen.transfer.openLogbook)}
+      <FormSection
+        title="Transfer"
+        footer="Import adds the dives in a Subsurface logbook or a Suunto export to this one. Open replaces it.">
+        <ActionRow label="Import dives" onPress={screen.transfer.importFile} />
+        <ActionRow label="Export and share" onPress={screen.transfer.shareLogbook} />
+        <ActionRow label="Open a logbook" onPress={screen.transfer.openLogbook} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SSI</Text>
-      <Text style={{ color: theme.text }}>
-        {screen.ssi.account ?? 'Not signed in'} - {screen.ssi.siteCatalogue}
-      </Text>
-      <Text style={[styles.note, { color: theme.textSecondary }]}>
-        Push a dive to your SSI logbook from the dive itself. Your SSI email and password are kept
-        in this device&apos;s keychain, never in the logbook file. Not affiliated with SSI.
-      </Text>
-      {action('SSI account', screen.ssi.open)}
+      <FormSection
+        title="SSI"
+        footer="Push a dive to your SSI logbook from the dive itself. Your SSI email and password are kept in this device's encrypted storage, never in the logbook file. Not affiliated with SSI.">
+        <ValueRow label="Account" value={screen.ssi.account ?? 'Not signed in'} />
+        <ValueRow label="Dive sites" value={screen.ssi.siteCatalogue} />
+        <ActionRow label="SSI account" onPress={screen.ssi.open} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Git sync</Text>
-      <Text style={{ color: theme.text }}>
-        {screen.git.repository} - {screen.git.lastSync}
-      </Text>
-      {screen.git.ready
-        ? action(screen.git.busy ? 'Syncing...' : 'Sync now', screen.git.sync)
-        : null}
-      {action('Git sync settings', screen.git.open)}
+      <FormSection
+        title="Git sync"
+        footer="Keep the logbook in a git repository over SSH, to back it up and share it between devices.">
+        <ValueRow label="Repository" value={screen.git.repository} />
+        <ValueRow label="Last sync" value={screen.git.lastSync} />
+        {screen.git.ready ? (
+          <ActionRow
+            label={screen.git.busy ? 'Syncing...' : 'Sync now'}
+            disabled={screen.git.busy}
+            onPress={screen.git.sync}
+          />
+        ) : null}
+        <ActionRow label="Git sync settings" onPress={screen.git.open} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Problems</Text>
-      <Text style={{ color: theme.text }}>{screen.diagnostics}</Text>
-      <Text style={[styles.note, { color: theme.textSecondary }]}>{PRIVACY_NOTICE}</Text>
-      {action('Share the problem log', screen.shareDiagnostics)}
-      {action('Clear it', screen.clearDiagnostics)}
+      <FormSection title="Problems" footer={PRIVACY_NOTICE}>
+        <ValueRow label="Problem log" value={screen.diagnostics} />
+        <ActionRow label="Share the problem log" onPress={screen.shareDiagnostics} />
+        <FormButtonRow label="Clear it" destructive onPress={screen.clearDiagnostics} />
+      </FormSection>
 
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>About</Text>
-      {aboutRows(screen.about).map((row) => (
-        <Text key={row.label} style={{ color: theme.text }}>
-          {`${row.label}: ${row.value}`}
-        </Text>
-      ))}
-      <Text style={[styles.note, { color: theme.textSecondary }]}>
-        {`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}
-      </Text>
-      {action('Source code and licence', screen.openSource)}
-
+      <FormSection title="About" footer={`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
+        {aboutRows(screen.about).map((row) => (
+          <ValueRow key={row.label} label={row.label} value={row.value} />
+        ))}
+        <ActionRow label="Source code and licence" onPress={screen.openSource} />
+      </FormSection>
     </ScrollView>
+  );
+}
+
+/** A label and a read-only value, the counterpart of SwiftUI's LabeledContent. */
+function ValueRow({ label, value }: { label: string; value: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rowLabel, { color: theme.text }]}>{label}</Text>
+      <Text style={[styles.rowValue, { color: theme.textSecondary }]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** A button row, in the accent colour. */
+function ActionRow({
+  label,
+  onPress,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed || disabled ? { opacity: 0.5 } : null]}>
+      <Text style={[styles.rowLabel, { color: theme.accent }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SwitchRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rowLabel, { color: theme.text }]}>{label}</Text>
+      <Switch
+        accessibilityLabel={label}
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: theme.accent }}
+      />
+    </View>
+  );
+}
+
+/** Stands in for the iOS variant's native Stepper: the value, then - and +. */
+function StepperRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (percent: number) => void;
+}) {
+  const theme = useTheme();
+  const step = (delta: number, symbol: string, enabled: boolean) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${delta < 0 ? 'Decrease' : 'Increase'} ${label}`}
+      accessibilityState={{ disabled: !enabled }}
+      disabled={!enabled}
+      onPress={() => onChange(value + delta)}
+      style={({ pressed }) => [
+        styles.stepButton,
+        { borderColor: theme.separator },
+        pressed || !enabled ? { opacity: 0.4 } : null,
+      ]}>
+      <Text style={[styles.stepSymbol, { color: theme.accent }]}>{symbol}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={styles.row}>
+      <Text style={[styles.rowLabel, { color: theme.text }]}>{`${label}  ${value}%`}</Text>
+      <View style={styles.stepper}>
+        {step(-1, '-', value > GF_RANGE.min)}
+        {step(1, '+', value < GF_RANGE.max)}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
     padding: Spacing.three,
-    gap: Spacing.two,
+    gap: Spacing.four,
   },
-  sectionTitle: {
-    marginTop: Spacing.three,
-    fontSize: 13,
-    textTransform: 'uppercase',
-  },
-  segments: {
+  row: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.three,
+    minHeight: 32,
+  },
+  rowLabel: {
+    fontSize: 17,
+  },
+  rowValue: {
+    flexShrink: 1,
+    fontSize: 15,
+    textAlign: 'right',
   },
   stepper: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.two,
   },
-  segment: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+  stepButton: {
+    width: 40,
+    height: 32,
     borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  note: {
-    fontSize: 13,
-  },
-  action: {
-    paddingVertical: Spacing.two,
-  },
-  actionLabel: {
-    fontSize: 17,
-    color: '#0A84FF',
+  stepSymbol: {
+    fontSize: 20,
   },
 });
