@@ -754,3 +754,41 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   checks it against textbook MODs and a plain ZHL-16C air NDL;
   `src/models/nitrox.test.ts` covers the presentation. An ASAN run over a grid
   of depths and mixes is clean.
+
+- 2026-10-10 — Git sync of the logbook over SSH. Settings has a "Git sync"
+  section (status, "Sync now") and a screen of its own: the repository URL,
+  branch, file path and commit author; the SSH key; "Commit and push" and
+  "Pull"; the trusted host keys.
+
+  New native module `modules/git-sync`: libgit2 1.9.7 with libssh2 1.11.1 on
+  OpenSSL 3.5.9 (libcrypto only), cross-built into a static xcframework by
+  `ios/vendor/build/build-libgit2.sh`, like libxslt. HTTPS is off. The
+  Objective-C bridge (`ios/GitSyncBridge.m`) exposes git primitives on a bare
+  repository in Application Support - fetch, push (fast-forward only), commit a
+  file on top of a parent's tree, move a branch, extract a file, ahead/behind -
+  and nothing is ever checked out: the logbook is committed straight from the
+  app's own file.
+
+  The sync itself is TypeScript (`src/lib/git/sync.ts`): fetch, flush and
+  commit the working logbook, then push / take the server's file byte for byte
+  (fast-forward) / merge. A merge is the core's import of the server's logbook
+  into the loaded one, committed with both parents - SSRF is XML, which a line
+  merge would wreck. The cost, stated on the screen: a dive deleted on one side
+  and kept on the other comes back. A first sync against a repository with
+  history merges into it rather than overwriting it; a device with an empty
+  logbook simply takes the server's.
+
+  Keys: generated as Ed25519 (CryptoKit supplies the seed, `src/models/git/
+  ssh-key.ts` writes the OpenSSH file - checked against `ssh-keygen -y` in the
+  tests) or imported from a file (OpenSSH or PEM, passphrase optional). The
+  private key lives in the keychain, never on disk; the public key can be
+  shared to add it to the git host. Host keys are trusted on first use: the
+  first connection stops with the server's SHA256 fingerprint for the user to
+  accept, and a changed key is refused with a warning.
+
+  Verified: vitest for the models and the sync sequencing (fake repository);
+  the bridge end to end in the simulator against a local sshd and a bare repo,
+  with the fingerprint, mismatch, push, refused push, merge commit (checked
+  with `git fsck` / `git log --graph` on the far side), fast-forward and
+  extraction paths, and with encrypted Ed25519, RSA (PEM and OpenSSH, with and
+  without passphrase) and ECDSA keys.

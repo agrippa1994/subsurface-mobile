@@ -61,7 +61,7 @@ function invalidateData(client: QueryClient): Promise<void> {
  * what it last read until something else re-renders it. A reset clears the data
  * just the same and refetches whatever is on screen.
  */
-function resetData(client: QueryClient): Promise<void> {
+export function resetData(client: QueryClient): Promise<void> {
   return client.resetQueries({ queryKey: queryKeys.logData() });
 }
 
@@ -70,7 +70,7 @@ function resetData(client: QueryClient): Promise<void> {
  * out of the old one. The root key is set rather than invalidated so that
  * nothing re-runs `loadFromXML` behind this.
  */
-async function adoptLogbook(client: QueryClient, logbook: Logbook): Promise<void> {
+export async function adoptLogbook(client: QueryClient, logbook: Logbook): Promise<void> {
   setPersistTarget(logbook.path);
   client.setQueryData(queryKeys.log(), logbook);
   await resetData(client);

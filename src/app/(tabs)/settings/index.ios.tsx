@@ -131,6 +131,30 @@ export default function SettingsScreen() {
           <Button label="SSI account" onPress={screen.ssi.open} />
         </Section>
 
+        <Section
+          title="Git sync"
+          footer={
+            <Text>
+              Keep the logbook in a git repository over SSH, to back it up and share it between
+              devices.
+            </Text>
+          }>
+          <LabeledContent label="Repository">
+            <Text>{screen.git.repository}</Text>
+          </LabeledContent>
+          <LabeledContent label="Last sync">
+            <Text>{screen.git.lastSync}</Text>
+          </LabeledContent>
+          {screen.git.ready ? (
+            <Button
+              label={screen.git.busy ? 'Syncing...' : 'Sync now'}
+              modifiers={[disabled(screen.git.busy)]}
+              onPress={screen.git.sync}
+            />
+          ) : null}
+          <Button label="Git sync settings" onPress={screen.git.open} />
+        </Section>
+
         <Section title="Problems" footer={<Text>{PRIVACY_NOTICE}</Text>}>
           <LabeledContent label="Problem log">
             <Text>{screen.diagnostics}</Text>

@@ -9,6 +9,7 @@ import * as Sharing from 'expo-sharing';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 
+import { useGitSyncRunner } from '@/features/git/use-git-sync-runner';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
@@ -19,6 +20,7 @@ import type { AboutInfo } from '@/models/about';
 import type { UnitSystem } from '@/models';
 import { useDives, useSites } from '@/queries/logbook';
 import { useUngroupDives } from '@/queries/logbook-mutations';
+import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
   useGfSeries,
@@ -70,6 +72,19 @@ export type SettingsScreen = {
     open: () => void;
   };
 
+  /** The git sync section: a status, a sync button and a way to set it up. */
+  git: {
+    /** e.g. "git@github.com:you/logbook.git", or "Not set up". */
+    repository: string;
+    /** e.g. "Today, 14:02", "Never", or what is missing before a sync can run. */
+    lastSync: string;
+    /** Whether a URL and a key are both there, so "Sync now" can work. */
+    ready: boolean;
+    busy: boolean;
+    sync: () => void;
+    open: () => void;
+  };
+
   /** Version and licence facts for the About section. */
   about: AboutInfo;
   /** Opens the source repository, which the GPL notice points at. */
@@ -80,6 +95,11 @@ export type SettingsScreen = {
   shareDiagnostics: () => void;
   clearDiagnostics: () => void;
 };
+
+const lastSyncFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 function aboutInfo(): AboutInfo {
   const extra = Constants.expoConfig?.extra ?? {};
@@ -184,6 +204,31 @@ export function useSettingsScreen(): SettingsScreen {
     [ssiAccount.data, ssiSites.data, openSsi],
   );
 
+  // Git sync is set up on a screen of its own; Settings shows where it stands
+  // and offers the one action people use daily.
+  const gitConfig = useGitSyncConfig();
+  const gitKey = useGitKey();
+  const gitRunner = useGitSyncRunner();
+  const openGit = useCallback(() => router.push('/settings/git'), [router]);
+  const git = useMemo(() => {
+    const hasKey = gitKey.data != null;
+    const configured = gitConfig.url !== '';
+    return {
+      repository: configured ? gitConfig.url : 'Not set up',
+      lastSync: !configured
+        ? 'Not set up'
+        : !hasKey
+          ? 'No SSH key'
+          : gitConfig.lastSyncAt === null
+            ? 'Never'
+            : lastSyncFormatter.format(gitConfig.lastSyncAt),
+      ready: configured && hasKey,
+      busy: gitRunner.busy,
+      sync: () => gitRunner.run('sync'),
+      open: openGit,
+    };
+  }, [gitConfig, gitKey.data, gitRunner, openGit]);
+
   const about = aboutInfo();
   const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
 
@@ -242,6 +287,7 @@ export function useSettingsScreen(): SettingsScreen {
     ungroupDives,
     tripCount,
     ssi,
+    git,
     about,
     openSource,
     diagnostics,

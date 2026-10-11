@@ -56,4 +56,15 @@ export const queryKeys = {
    * diver's buddy list. One key because it is one `get_divelog` call.
    */
   ssiLogbook: () => ['ssi', 'logbook'] as const,
+
+  /**
+   * The git sync: its settings file, the key in the keychain (as a summary -
+   * the private key itself is never cached), and where the branches stand. A
+   * root of its own for the same reason as SSI: none of it comes out of the
+   * logbook.
+   */
+  git: () => ['git'] as const,
+  gitConfig: () => ['git', 'config'] as const,
+  gitKey: () => ['git', 'key'] as const,
+  gitStatus: () => ['git', 'status'] as const,
 };
