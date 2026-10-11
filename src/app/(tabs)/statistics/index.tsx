@@ -22,6 +22,8 @@ import {
   divesOverTime,
   durationHistogram,
   pickGranularity,
+  sacAxisUnit,
+  sacOverTime,
   summaryTiles,
   type StatTile,
 } from '@/models/statistics';
@@ -44,6 +46,10 @@ export default function StatisticsScreen() {
     [summary, unitSystem]
   );
   const durations = useMemo(() => (summary ? durationHistogram(summary) : []), [summary]);
+  const sacs = useMemo(
+    () => (summary ? sacOverTime(summary, unitSystem) : []),
+    [summary, unitSystem]
+  );
 
   if (screen.loading) {
     return <StatusView kind="loading" title="Opening logbook" />;
@@ -71,7 +77,8 @@ export default function StatisticsScreen() {
     );
   }
 
-  const timeLabel = pickGranularity(summary) === 'year' ? 'Dives per year' : 'Dives per month';
+  const perYear = pickGranularity(summary) === 'year';
+  const timeLabel = perYear ? 'Dives per year' : 'Dives per month';
 
   return (
     <ScrollView
@@ -99,6 +106,14 @@ export default function StatisticsScreen() {
         axisUnit={depthAxisUnit(unitSystem)}
       />
       <BarChart title="Dives by duration" bars={durations} axisUnit="min" />
+      <BarChart
+        title={perYear ? 'Average SAC per year' : 'Average SAC per month'}
+        bars={sacs}
+        axisUnit={sacAxisUnit(unitSystem)}
+        integer={false}
+        hint="Tap a bar for its average"
+        emptyText="No dives with a known SAC. It needs cylinder sizes and pressures."
+      />
     </ScrollView>
   );
 }

@@ -1,7 +1,7 @@
 // AI-generated (Claude)
 // The bar chart used by every statistics chart.
 //
-// One series per chart - a count - so there is no legend and no categorical
+// One series per chart - a count, or a rate such as SAC - so there is no legend and no categorical
 // cycling: every bar wears the first categorical slot, and only the tapped bar
 // changes colour. Skia draws the marks; the axis labels and the readout are
 // React Native text on top of the canvas, the same split the profile chart
@@ -36,6 +36,10 @@ export type BarChartProps = {
   height?: number;
   /** Shown instead of the chart when there is nothing to draw. */
   emptyText?: string;
+  /** False for a rate rather than a count, so the axis may step by fractions. */
+  integer?: boolean;
+  /** Line above the chart until a bar is tapped. */
+  hint?: string;
 };
 
 export function BarChart({
@@ -44,12 +48,14 @@ export function BarChart({
   axisUnit,
   height = 160,
   emptyText = 'No dives match this filter.',
+  integer = true,
+  hint = 'Tap a bar for its count',
 }: BarChartProps) {
   const colors = ChartColors[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const [width, setWidth] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const axis = useMemo(() => countAxis(bars), [bars]);
+  const axis = useMemo(() => countAxis(bars, 5, integer), [bars, integer]);
   const chartWidth = Math.max(0, width - PAD.left - PAD.right);
   const chartHeight = Math.max(0, height - PAD.top - PAD.bottom);
   const slot = bars.length > 0 ? chartWidth / bars.length : 0;
@@ -95,7 +101,7 @@ export function BarChart({
     <View style={styles.container}>
       <ThemedText type="smallBold">{title}</ThemedText>
       <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-        {caption || (bars.length > 0 ? 'Tap a bar for its count' : ' ')}
+        {caption || (bars.length > 0 ? hint : ' ')}
       </ThemedText>
 
       {bars.length === 0 ? (

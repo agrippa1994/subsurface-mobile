@@ -16,6 +16,8 @@ import {
   formatTotalTime,
   isFiltered,
   pickGranularity,
+  sacAxisUnit,
+  sacOverTime,
   summaryTiles,
   toStatsFilter,
 } from './statistics';
@@ -86,6 +88,9 @@ describe('summaryTiles', () => {
       avgDepthMm: 18000,
       minTempMkelvin: 278150,
       maxTempMkelvin: 300150,
+      avgSacMlPerMin: 15400,
+      minSacMlPerMin: 11000,
+      maxSacMlPerMin: 21250,
     }),
     matched: 4,
     siteCount: 3,
@@ -97,22 +102,25 @@ describe('summaryTiles', () => {
       ['Dives', '4'],
       ['Total time', '3 h 25 min'],
       ['Max depth', '42.5 m'],
+      ['Avg SAC', '15.4 l/min'],
       ['Dive sites', '3'],
     ]);
     expect(tiles[1].detail).toBe('avg 51:15');
     expect(tiles[2].detail).toBe('avg 18 m');
-    expect(tiles[3].detail).toBe('5 C to 27 C');
+    expect(tiles[3].detail).toBe('11 l/min to 21.3 l/min');
+    expect(tiles[4].detail).toBe('5 C to 27 C');
   });
 
   it('converts to imperial', () => {
     const tiles = summaryTiles(filled, 'imperial');
     expect(tiles[2].value).toBe('139 ft');
-    expect(tiles[3].detail).toBe('41 F to 80.6 F');
+    expect(tiles[3].value).toBe('0.54 cuft/min');
+    expect(tiles[4].detail).toBe('41 F to 80.6 F');
   });
 
   it('stays readable with no dives at all', () => {
     const tiles = summaryTiles(summary());
-    expect(tiles.map((tile) => tile.value)).toEqual(['0', '0 min', '-', '0']);
+    expect(tiles.map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
     expect(tiles.every((tile) => tile.detail === '')).toBe(true);
   });
 
@@ -176,6 +184,50 @@ describe('divesOverTime', () => {
   });
 });
 
+describe('sacOverTime', () => {
+  const sac = (period: number, avgSacMlPerMin: number) => stats({ period, avgSacMlPerMin });
+
+  it('plots each month with a SAC and skips the ones without', () => {
+    const bars = sacOverTime(
+      summary({
+        timeline: [month(2023, 11, 2), month(2024, 1, 1), month(2024, 3, 4)],
+        monthly: [sac(11, 16000), sac(1, 0), sac(3, 14500)],
+      })
+    );
+    expect(bars.map((bar) => [bar.label, bar.value])).toEqual([
+      ['2023', 16],
+      ['2024', 14.5],
+    ]);
+    expect(bars[1].caption).toBe('Mar 2024: 14.5 l/min average');
+  });
+
+  it('labels the year only on its first bar', () => {
+    const bars = sacOverTime(
+      summary({
+        timeline: [month(2024, 1, 1), month(2024, 2, 1)],
+        monthly: [sac(1, 15000), sac(2, 15000)],
+      })
+    );
+    expect(bars.map((bar) => bar.label)).toEqual(['2024', 'Feb']);
+  });
+
+  it('uses the yearly buckets over a long span and converts to cubic feet', () => {
+    const long = summary({
+      timeline: [month(2019, 1, 1), month(2024, 1, 1)],
+      yearly: [sac(2019, 20000), sac(2024, 14158)],
+    });
+    const bars = sacOverTime(long, 'imperial');
+    expect(bars.map((bar) => bar.label)).toEqual(['2019', '2024']);
+    expect(bars[1].value).toBeCloseTo(0.5, 3);
+    expect(bars[1].caption).toBe('2024: 0.5 cuft/min average');
+    expect(sacAxisUnit('imperial')).toBe('cuft/min');
+  });
+
+  it('is empty when no dive has a SAC', () => {
+    expect(sacOverTime(summary())).toEqual([]);
+  });
+});
+
 describe('histograms', () => {
   const buckets = summary({
     // Entry 0 is the core's combined total; the rest are 10 m buckets.
@@ -226,6 +278,15 @@ describe('countAxis', () => {
     const axis = countAxis([{ key: 'a', label: 'a', value: 3, caption: '' }]);
     expect(axis.max).toBe(3);
     expect(axis.ticks).toEqual([0, 1, 2, 3]);
+  });
+
+  it('keeps a one-dive chart on whole steps', () => {
+    expect(countAxis([{ key: 'a', label: 'a', value: 1, caption: '' }]).ticks).toEqual([0, 1]);
+  });
+
+  it('steps by fractions for a rate', () => {
+    const axis = countAxis([{ key: 'a', label: 'a', value: 0.62, caption: '' }], 5, false);
+    expect(axis).toEqual({ max: 0.8, ticks: [0, 0.2, 0.4, 0.6, 0.8] });
   });
 
   it('never returns a zero range', () => {
