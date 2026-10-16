@@ -62,13 +62,13 @@ export function BarChart({
   const barWidth = Math.max(1, slot - BAR_GAP);
 
   const grid = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (const tick of axis.ticks) {
       const y = PAD.top + chartHeight - (tick / axis.max) * chartHeight;
       path.moveTo(PAD.left, y);
       path.lineTo(PAD.left + chartWidth, y);
     }
-    return path;
+    return path.detach();
   }, [axis, chartHeight, chartWidth]);
 
   // Labels are thinned rather than rotated or shrunk: with a bar per month over
