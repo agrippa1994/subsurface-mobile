@@ -22,6 +22,7 @@ import {
   Skia,
   vec,
   type SkPath,
+  type SkPathBuilder,
 } from '@shopify/react-native-skia';
 import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, useColorScheme } from 'react-native';
@@ -80,8 +81,12 @@ function clampWindow(view: TimeWindow, maxSec: number): TimeWindow {
   return { from, to: from + span };
 }
 
-function buildLine(points: Point[], x: (sec: number) => number, y: (v: number) => number): SkPath {
-  const path = Skia.Path.Make();
+function lineBuilder(
+  points: Point[],
+  x: (sec: number) => number,
+  y: (v: number) => number
+): SkPathBuilder {
+  const path = Skia.PathBuilder.Make();
   points.forEach((point, index) => {
     const px = x(point.sec);
     const py = y(point.value);
@@ -94,19 +99,23 @@ function buildLine(points: Point[], x: (sec: number) => number, y: (v: number) =
   return path;
 }
 
+function buildLine(points: Point[], x: (sec: number) => number, y: (v: number) => number): SkPath {
+  return lineBuilder(points, x, y).detach();
+}
+
 function buildArea(
   points: Point[],
   x: (sec: number) => number,
   y: (v: number) => number,
   baselineY: number
 ): SkPath {
-  const path = buildLine(points, x, y);
+  const path = lineBuilder(points, x, y);
   if (points.length > 0) {
     path.lineTo(x(points[points.length - 1].sec), baselineY);
     path.lineTo(x(points[0].sec), baselineY);
     path.close();
   }
-  return path;
+  return path.detach();
 }
 
 export function ProfileChart({
@@ -219,7 +228,7 @@ export function ProfileChart({
   ]);
 
   const grid = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (const tick of depthTicks(depthAxisMax, unitSystem)) {
       const y = yDepth(tick.value);
       path.moveTo(PAD.left, y);
@@ -232,7 +241,7 @@ export function ProfileChart({
       path.moveTo(x(tick.value), PAD.top);
       path.lineTo(x(tick.value), PAD.top + chartHeight);
     }
-    return path;
+    return path.detach();
   }, [chartHeight, chartWidth, depthAxisMax, plot.maxSec, unitSystem, view, x, yDepth]);
 
   const visibleEvents = useMemo(
@@ -454,10 +463,10 @@ export function ProfileChart({
               <Group>
                 <Path
                   path={(() => {
-                    const path = Skia.Path.Make();
+                    const path = Skia.PathBuilder.Make();
                     path.moveTo(x(readout.sec), PAD.top);
                     path.lineTo(x(readout.sec), PAD.top + chartHeight);
-                    return path;
+                    return path.detach();
                   })()}
                   style="stroke"
                   strokeWidth={1}
