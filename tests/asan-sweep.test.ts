@@ -6,8 +6,8 @@
 // the bindings or the pinned core: memory errors in this codebase surface as
 // rare, silent data corruption rather than crashes, so the normal suite catches
 // them only by luck. Both bugs found in task 06 - the dangling `current_dive`
-// in cpp/shim/selection.cpp and the upstream o2-sensor stack overflow now
-// carried as patch 0005 - were found exactly this way.
+// in cpp/shim/selection.cpp and the upstream o2-sensor stack overflow (patch
+// 0005 until upstream clamped the loop in po2.cpp) - were found exactly this way.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';

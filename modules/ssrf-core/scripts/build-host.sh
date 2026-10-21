@@ -15,7 +15,7 @@
 #
 # The sanitizer build is worth running against the whole fixture corpus after
 # any change to the shim or the bindings: it is how the dangling `current_dive`
-# in shim/selection.cpp and the upstream o2-sensor overflow (patch 0005) were
+# in shim/selection.cpp and the upstream o2-sensor overflow (once patch 0005) were
 # found, both of which only showed up as rare, silent data corruption otherwise.
 #
 # Host libxml2/libxslt come from the macOS SDK. On iOS the SDK ships the

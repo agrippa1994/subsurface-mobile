@@ -56,6 +56,7 @@ export const CORE_SOURCES = [
 	'core/plannernotes.cpp',
 	'core/profile.cpp',
 	'core/gaspressures.cpp',
+	'core/po2.cpp',
 	'core/statistics.cpp',
 ];
 
@@ -84,7 +85,6 @@ export const PATCHES = [
 	'0002-qt-free-eventtype-and-helpers.patch',
 	'0003-profile-use-std-mutex.patch',
 	'0004-device-decode-fingerprint-without-qt.patch',
-	'0005-profile-bound-o2-sensor-loop.patch',
 	'0006-xslt-match-namespace-declaration.patch',
 	'0007-suunto-json-without-fit.patch',
 ];

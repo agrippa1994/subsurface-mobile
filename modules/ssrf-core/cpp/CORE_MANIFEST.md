@@ -8,9 +8,9 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `d74b06390` ("mobile: bound waitForKeyboard retry in TripDetails.qml trip notes") |
-| Core version string | `6.0.5746` (from `subsurface/scripts/get-version.sh`) |
-| `subsurface/libdivecomputer` submodule | `8d3f62970` — 0.10.0-devel-Subsurface-NG |
+| `subsurface/` submodule | `8ded5db24` ("preferences: add editor to manage global cylinder types") |
+| Core version string | `6.0.5770` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/libdivecomputer` submodule | `780067110` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
 
@@ -22,7 +22,7 @@ before `pod install`; `scripts/build-host.sh` runs it for the host build.
 Include order matters: the core includes its headers by bare name, so an
 overridden header wins by replacing the copy in `cpp/generated/core/`.
 
-## Compiled core sources (39)
+## Compiled core sources (40)
 
 **Model** — `dive.cpp`, `divecomputer.cpp`, `divelist.cpp`, `divelog.cpp`,
 `divesite.cpp`, `device.cpp`, `equipment.cpp`, `event.cpp`, `eventtype.cpp`,
@@ -37,7 +37,7 @@ overridden header wins by replacing the copy in `cpp/generated/core/`.
 **Importers** — `import-suunto.cpp`, `import-suunto-json.cpp`
 
 **Math** — `deco.cpp`, `planner.cpp`, `plannernotes.cpp`, `profile.cpp`,
-`gaspressures.cpp`, `statistics.cpp`
+`gaspressures.cpp`, `po2.cpp`, `statistics.cpp`
 
 All headers in `subsurface/core/*.h` are copied (they include each other by
 bare name; cherry-picking them would only add churn).
@@ -68,8 +68,6 @@ a static C lib" — the enums would then already match by construction.
 | `0002-qt-free-eventtype-and-helpers` | `eventtype.{h,cpp}` | The one file in the subset whose *interface* is `QString`. Ported to `std::string`; `QStringLiteral("%1 (%2)").arg()` becomes concatenation, `gettextFromC::tr()` becomes `translate()`. |
 | `0003-profile-use-std-mutex` | `profile.cpp` | `QMutex planLock` guards the shared deco planner state, used only via `lock()`/`unlock()`. `std::mutex` has the same interface for both. |
 | `0004-device-decode-fingerprint-without-qt` | `device.cpp` | Only Qt use is `QByteArray::fromHex()` when reading a dive computer fingerprint back from the log. Replaced with an inline nibble decoder that skips non-hex characters, as Qt does. |
-| `0005-profile-bound-o2-sensor-loop` | `profile.cpp` | Not a Qt patch: an upstream buffer overflow. `fill_o2_values()` loops to `dc->no_o2sensors`, a `uint8_t` straight out of the logbook, over arrays of `MAX_O2_SENSORS` (6). Upstream 874222b4e resized `last_sensor` from 3 to 6 (fixing `dives/Liberty_CCR_header_v1_00000011.dlf.xml`), but the loops are still unbounded, so `no_o2sensors='7'` overflows; the patch keeps only the loop clamps. Drop when the pin clamps them itself. |
-
 | `0006-xslt-match-namespace-declaration` | `parse-xml.cpp` | Also not a Qt patch. `test_xslt_transforms()` selects the Suunto DM4 stylesheet on root `<Dive>` *plus an "xmlns" attribute*, tested with `xmlGetProp()`. libxml2 keeps namespace declarations in `nsDef`, not in the property list, so that test never fires and a Suunto DM4 XML export parses to zero dives. Looks at `nsDef` instead. Report upstream. |
 | `0007-suunto-json-without-fit` | `import-suunto-json.cpp` | Guts `patch_from_fit()` (parses the paired `.fit` through `libdc_buffer_parser()`, i.e. the libdivecomputer download path this build does not compile) and drops `suunto_json_fit_pair_import()` (desktop multi-file selection; needs QFile/QFileInfo and `file.cpp`'s `readfile()`). The JSON-to-dive mapping itself is compiled unchanged. Cost: a dive whose gas mix lives only in the FIT file imports as air. |
 
