@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.0.2',
+  version: '1.1.0',
   // The app declares every orientation so the dive profile can go full screen
   // when the device is turned (src/hooks/use-landscape.ts). Every other screen
   // is held in portrait at runtime by expo-screen-orientation, which needs the
@@ -37,6 +37,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // drawn by scripts/make-icons.mjs, which also writes the PNG fallbacks.
     icon: './assets/subsurface.icon',
     bundleIdentifier: 'codes.mani.subsurface-react',
+    // Signing team for prebuild (DEVELOPMENT_TEAM) and EAS.
+    appleTeamId: 'PZP46GS9KE',
     // Liquid glass requires iOS 26. Bump if the toolchain needs a higher floor.
     deploymentTarget: '26.0',
     // Runs natively on iPad. Not requiring full screen lets the window be
@@ -90,6 +92,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // app merges it into its own logbook and deletes the copy.
       // File sharing is on so the logbook is reachable from the Files app.
       UIFileSharingEnabled: true,
+      // The MCP server in Settings (src/lib/mcp/server.ts) listens on the
+      // local network; iOS may ask before it lets clients there reach it.
+      NSLocalNetworkUsageDescription:
+        'The MCP server you can switch on in Settings lets AI assistants on your local network read your logbook.',
     },
   },
   android: {

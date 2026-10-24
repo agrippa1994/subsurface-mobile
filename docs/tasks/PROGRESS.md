@@ -823,3 +823,46 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   server), pull fast-forward of a server-side commit. vitest, typecheck and an
   iOS simulator build are green. Not yet done: a physical Android device and
   the golden tests on Android.
+
+- 2026-10-24 — MCP server: an AI assistant on the local network can read the
+  logbook while the user has it switched on in Settings.
+
+  Native: `modules/http-server` is a plain HTTP/1.1 listener - Network.framework
+  on iOS, a `ServerSocket` on Android - that hands each request to JS as an
+  `onRequest` event and writes back what JS answers (`respond`). One request
+  per connection, bodies up to 1 MiB, `Expect: 100-continue` honoured, a 504
+  if JS takes over a minute. It also lists the device's IPv4 addresses, which
+  `src/models/mcp/address.ts` labels (Wi-Fi, Ethernet, VPN - Tailscale
+  included -, Hotspot, Cellular) and orders; Settings shows a URL with a copy
+  button for every one of them, re-read every few seconds while it runs.
+
+  Protocol (`src/models/mcp/protocol.ts`): MCP's Streamable HTTP transport at
+  `/mcp`, stateless - POST with a JSON reply, 202 for notifications, 405 for
+  GET/DELETE, protocol versions 2024-11-05 through 2025-11-25. No
+  authentication, as asked; what is checked is what keeps a web page out
+  (a foreign `Origin` is refused, only `application/json` is accepted, so a
+  cross-origin page needs a preflight the server never approves).
+
+  Tools (`src/models/mcp/tools.ts`), all read-only: `list_dives` (filters,
+  paging), `get_dive` (notes, cylinders, weights, conditions, site, dive
+  computers and events; by id or by dive number), `get_statistics` (the core's
+  statistics.cpp, by year / month / trip / mode / depth / temperature /
+  duration), `list_dive_sites` and `export_dive_csv` - the computed profile by
+  default (save-profiledata.cpp, at the app's gradient factors unless given),
+  or the details / summary CSV. Each argument is declared once
+  (`src/models/mcp/args.ts`), which yields both the published JSON Schema and
+  the check a call goes through; `list_dives` filters with the same predicate
+  as the bindings' `apply_stats_filter`, so a list and the statistics for one
+  filter count the same dives. Replies (`src/models/mcp/format.ts`) are metric
+  with the unit in the key, converted by `src/models/units.ts`; unknown values
+  are null rather than the core's 0.
+
+  The server is never started by itself: not at launch, not from a saved
+  preference. Its state is one value (`off` / `starting` / `running` /
+  `interrupted`, src/lib/mcp/server.ts); when iOS takes the socket while the
+  app is suspended it is `interrupted`, still switched on, and listens again
+  on the return to the foreground.
+
+  Verified: vitest - the protocol against a stub, the tools through the host
+  binary against `abitofeverything.ssrf` (counts, filters, paging, unit
+  conversion and the profile CSV checked against what the core returns).

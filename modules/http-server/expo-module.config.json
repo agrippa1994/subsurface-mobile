@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "podspecPath": "HttpServer.podspec",
+    "modules": ["HttpServerModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.httpserver.HttpServerModule"]
+  }
+}

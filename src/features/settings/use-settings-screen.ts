@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 
 import { useGitSyncRunner } from '@/features/git/use-git-sync-runner';
+import { useMcpSection, type McpSection } from '@/features/mcp/use-mcp-section';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
@@ -84,6 +85,9 @@ export type SettingsScreen = {
     sync: () => void;
     open: () => void;
   };
+
+  /** The MCP server: a switch, where it stands, and its URL to copy. */
+  mcp: McpSection;
 
   /** Version and licence facts for the About section. */
   about: AboutInfo;
@@ -229,6 +233,8 @@ export function useSettingsScreen(): SettingsScreen {
     };
   }, [gitConfig, gitKey.data, gitRunner, openGit]);
 
+  const mcp = useMcpSection();
+
   const about = aboutInfo();
   const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
 
@@ -288,6 +294,7 @@ export function useSettingsScreen(): SettingsScreen {
     tripCount,
     ssi,
     git,
+    mcp,
     about,
     openSource,
     diagnostics,
