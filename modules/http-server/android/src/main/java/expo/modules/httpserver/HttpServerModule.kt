@@ -53,8 +53,10 @@ class HttpServerModule : Module() {
       server = null
     }
 
-    Function("respond") { id: String, status: Int, contentType: String, body: String ->
-      server?.respond(id, Response(status, contentType, body.toByteArray(Charsets.UTF_8)))
+    // The headers are JS's to choose; only the framing ones (Content-Length,
+    // Connection) are written here.
+    Function("respond") { id: String, status: Int, headers: Map<String, String>, body: String ->
+      server?.respond(id, Response(status, headers, body.toByteArray(Charsets.UTF_8)))
     }
 
     Function("addresses") {
@@ -73,7 +75,7 @@ private const val MAX_REQUEST_BYTES = 1 shl 20
 /** How long JS gets to answer before the client is sent a 504. */
 private const val RESPONSE_TIMEOUT_SECONDS = 60L
 
-private class Response(val status: Int, val contentType: String, val body: ByteArray)
+private class Response(val status: Int, val headers: Map<String, String>, val body: ByteArray)
 
 private class BadRequest(val status: Int, message: String) : Exception(message)
 
@@ -155,7 +157,7 @@ private class HttpListener(
 }
 
 private fun text(status: Int, message: String) =
-  Response(status, "text/plain", "$message\n".toByteArray(Charsets.UTF_8))
+  Response(status, mapOf("Content-Type" to "text/plain"), "$message\n".toByteArray(Charsets.UTF_8))
 
 /** Reads one request: the head up to the blank line, then Content-Length bytes. */
 private fun readRequest(input: InputStream, output: OutputStream): Map<String, Any> {
@@ -207,31 +209,13 @@ private fun readRequest(input: InputStream, output: OutputStream): Map<String, A
 
 private fun write(output: OutputStream, response: Response) {
   val head = StringBuilder()
-  head.append("HTTP/1.1 ${response.status} ${reasonPhrase(response.status)}\r\n")
-  head.append("Content-Length: ${response.body.size}\r\n")
-  if (response.body.isNotEmpty()) head.append("Content-Type: ${response.contentType}\r\n")
-  if (response.status == 405) head.append("Allow: POST\r\n")
-  head.append("Cache-Control: no-store\r\nConnection: close\r\n\r\n")
+  // Clients read the status code, not the phrase; RFC 9112 lets it be anything.
+  head.append("HTTP/1.1 ${response.status} ${if (response.status < 400) "OK" else "Error"}\r\n")
+  for ((name, value) in response.headers) head.append("$name: $value\r\n")
+  head.append("Content-Length: ${response.body.size}\r\nConnection: close\r\n\r\n")
   output.write(head.toString().toByteArray(Charsets.US_ASCII))
   output.write(response.body)
   output.flush()
-}
-
-private fun reasonPhrase(status: Int) = when (status) {
-  200 -> "OK"
-  202 -> "Accepted"
-  204 -> "No Content"
-  400 -> "Bad Request"
-  403 -> "Forbidden"
-  404 -> "Not Found"
-  405 -> "Method Not Allowed"
-  406 -> "Not Acceptable"
-  413 -> "Payload Too Large"
-  415 -> "Unsupported Media Type"
-  500 -> "Internal Server Error"
-  501 -> "Not Implemented"
-  504 -> "Gateway Timeout"
-  else -> "Status"
 }
 
 private fun interfaceAddresses(): List<Map<String, String>> {

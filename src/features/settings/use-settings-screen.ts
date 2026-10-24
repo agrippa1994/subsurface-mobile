@@ -2,30 +2,21 @@
 // Everything the Settings screen does, minus the rendering, so the iOS and the
 // portable variant of the screen cannot drift apart.
 
-import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, Linking } from 'react-native';
-
-import { networkAddresses } from '../../../modules/http-server/src';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Linking } from 'react-native';
 
 import { useGitSyncRunner } from '@/features/git/use-git-sync-runner';
+import { useMcpSection, type McpSection } from '@/features/mcp/use-mcp-section';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
-import { startMcpServer, stopMcpServer, useMcpServer } from '@/lib/mcp/server';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { groupDivesByTrip, NO_TRIP_LABEL } from '@/models/dive-list';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
-import {
-  labelAddresses,
-  mcpUrl,
-  type AddressKind,
-  type LabelledAddress,
-} from '@/models/mcp/address';
 import type { AboutInfo } from '@/models/about';
 import type { UnitSystem } from '@/models';
 import { useDives, useSites } from '@/queries/logbook';
@@ -108,106 +99,6 @@ export type SettingsScreen = {
   shareDiagnostics: () => void;
   clearDiagnostics: () => void;
 };
-
-export type McpUrl = {
-  /** What the address is on: "Wi-Fi", "VPN" (Tailscale and the like), ... */
-  kind: AddressKind;
-  /** e.g. `http://192.168.1.20:8765/mcp`. */
-  url: string;
-};
-
-export type McpSection = {
-  /** The switch: on while the server runs or is starting. */
-  on: boolean;
-  setOn: (on: boolean) => void;
-  /** e.g. "Off", "Starting...", "Running", or why it stopped. */
-  status: string;
-  /** One per device address while running, Wi-Fi first; empty otherwise. */
-  urls: McpUrl[];
-  /** Copies one of `urls`; `copied` names it for a moment afterwards, for its button label. */
-  copyUrl: (url: string) => void;
-  copied: string | null;
-};
-
-/** How often the addresses are re-read while the section is on screen. */
-const ADDRESS_POLL_MS = 5000;
-
-/**
- * The Settings section of the MCP server (src/lib/mcp/server.ts). The URLs are
- * built from the device's addresses, re-read every few seconds while the
- * server runs: joining another Wi-Fi or bringing a VPN up changes them without
- * the app ever leaving the foreground.
- */
-function useMcpSection(): McpSection {
-  const server = useMcpServer();
-  const [addresses, setAddresses] = useState<LabelledAddress[]>([]);
-  const [copied, setCopied] = useState<string | null>(null);
-  const running = server.status === 'running';
-
-  useEffect(() => {
-    // Stale addresses left over from a previous run are never shown: `urls`
-    // below is empty unless the server runs.
-    if (!running) {
-      return;
-    }
-    const read = () => {
-      const next = labelAddresses(networkAddresses());
-      // Same list, same state object, so an unchanged poll renders nothing.
-      setAddresses((current) =>
-        JSON.stringify(current) === JSON.stringify(next) ? current : next,
-      );
-    };
-    read();
-    const timer = setInterval(read, ADDRESS_POLL_MS);
-    const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active') {
-        read();
-      }
-    });
-    return () => {
-      clearInterval(timer);
-      subscription.remove();
-    };
-  }, [running]);
-
-  useEffect(() => {
-    if (copied === null) {
-      return;
-    }
-    const timer = setTimeout(() => setCopied(null), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  const urls = useMemo(
-    () =>
-      server.status === 'running'
-        ? addresses.map((entry) => ({ kind: entry.kind, url: mcpUrl(entry.address, server.port) }))
-        : [],
-    [server, addresses],
-  );
-
-  const status =
-    server.status === 'running'
-      ? urls.length > 0
-        ? 'Running'
-        : 'Running, no network'
-      : server.status === 'starting'
-        ? 'Starting...'
-        : server.error
-          ? `Stopped: ${server.error}`
-          : 'Off';
-
-  const setOn = useCallback((on: boolean) => (on ? startMcpServer() : stopMcpServer()), []);
-
-  const copyUrl = useCallback((url: string) => {
-    void Clipboard.setStringAsync(url).then(() => {
-      operationSucceeded();
-      setCopied(url);
-    });
-  }, []);
-
-  return { on: server.status !== 'stopped', setOn, status, urls, copyUrl, copied };
-}
 
 const lastSyncFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',

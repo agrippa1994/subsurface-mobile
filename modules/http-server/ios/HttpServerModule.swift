@@ -36,8 +36,10 @@ public class HttpServerModule: Module {
       self.server = nil
     }
 
-    Function("respond") { (id: String, status: Int, contentType: String, body: String) in
-      self.server?.respond(id: id, status: status, contentType: contentType, body: body)
+    // The headers are JS's to choose; only the framing ones (Content-Length,
+    // Connection) are written here.
+    Function("respond") { (id: String, status: Int, headers: [String: String], body: String) in
+      self.server?.respond(id: id, status: status, headers: headers, body: body)
     }
 
     // The device's IPv4 addresses, for the URL Settings shows. Loopback and
@@ -151,10 +153,10 @@ private final class HttpListener {
     onStop(message)
   }
 
-  func respond(id: String, status: Int, contentType: String, body: String) {
+  func respond(id: String, status: Int, headers: [String: String], body: String) {
     queue.async {
       guard let connection = self.pending.removeValue(forKey: id) else { return }
-      self.send(connection, status: status, contentType: contentType, body: Data(body.utf8))
+      self.send(connection, status: status, headers: headers, body: Data(body.utf8))
     }
   }
 
@@ -181,7 +183,7 @@ private final class HttpListener {
       switch parseRequest(buffer) {
       case .incomplete(let expectContinue):
         if buffer.count > maxRequestBytes + 16 * 1024 {
-          self.send(connection, status: 413, contentType: "text/plain", body: Data("Request too large\n".utf8))
+          self.sendText(connection, status: 413, "Request too large")
           return
         }
         if isComplete {
@@ -194,7 +196,7 @@ private final class HttpListener {
         }
         self.receive(connection, buffer: buffer)
       case .invalid(let status, let message):
-        self.send(connection, status: status, contentType: "text/plain", body: Data("\(message)\n".utf8))
+        self.sendText(connection, status: status, message)
       case .complete(let request):
         self.dispatch(connection, request)
       }
@@ -207,7 +209,7 @@ private final class HttpListener {
     pending[id] = connection
     queue.asyncAfter(deadline: .now() + responseTimeout) { [weak self] in
       guard let self, let connection = self.pending.removeValue(forKey: id) else { return }
-      self.send(connection, status: 504, contentType: "text/plain", body: Data("No response\n".utf8))
+      self.sendText(connection, status: 504, "No response")
     }
     onRequest([
       "id": id,
@@ -218,16 +220,18 @@ private final class HttpListener {
     ])
   }
 
-  private func send(_ connection: NWConnection, status: Int, contentType: String, body: Data) {
-    var head = "HTTP/1.1 \(status) \(reasonPhrase(status))\r\n"
-    head += "Content-Length: \(body.count)\r\n"
-    if !body.isEmpty {
-      head += "Content-Type: \(contentType)\r\n"
+  /** The listener's own errors, before or instead of JS answering. */
+  private func sendText(_ connection: NWConnection, status: Int, _ message: String) {
+    send(connection, status: status, headers: ["Content-Type": "text/plain"], body: Data("\(message)\n".utf8))
+  }
+
+  private func send(_ connection: NWConnection, status: Int, headers: [String: String], body: Data) {
+    // Clients read the status code, not the phrase; RFC 9112 lets it be anything.
+    var head = "HTTP/1.1 \(status) \(status < 400 ? "OK" : "Error")\r\n"
+    for (name, value) in headers {
+      head += "\(name): \(value)\r\n"
     }
-    if status == 405 {
-      head += "Allow: POST\r\n"
-    }
-    head += "Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+    head += "Content-Length: \(body.count)\r\nConnection: close\r\n\r\n"
     var data = Data(head.utf8)
     data.append(body)
     connection.send(content: data, completion: .contentProcessed { _ in connection.cancel() })
@@ -288,25 +292,6 @@ private func parseRequest(_ buffer: Data) -> ParseResult {
       path: String(requestLine[1]),
       headers: headers,
       body: buffer[bodyStart..<(bodyStart + length)]))
-}
-
-private func reasonPhrase(_ status: Int) -> String {
-  switch status {
-  case 200: return "OK"
-  case 202: return "Accepted"
-  case 204: return "No Content"
-  case 400: return "Bad Request"
-  case 403: return "Forbidden"
-  case 404: return "Not Found"
-  case 405: return "Method Not Allowed"
-  case 406: return "Not Acceptable"
-  case 413: return "Payload Too Large"
-  case 415: return "Unsupported Media Type"
-  case 500: return "Internal Server Error"
-  case 501: return "Not Implemented"
-  case 504: return "Gateway Timeout"
-  default: return "Status"
-  }
 }
 
 // MARK: - Addresses

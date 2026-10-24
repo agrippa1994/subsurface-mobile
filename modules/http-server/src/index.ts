@@ -9,8 +9,16 @@ import type { HttpRequest, HttpResponse, NetworkAddress } from './HttpServer.typ
 export * from './HttpServer.types';
 
 /**
+ * The native module holds one listener, and starting replaces it. Each start
+ * takes a generation; events and `stop` act only for the current one, so a
+ * start that has been superseded can neither answer requests nor stop the
+ * listener that replaced it.
+ */
+let generation = 0;
+
+/**
  * Starts listening on `port` (0: any free port) and resolves with the port
- * bound. A running listener is stopped first. Each request reaches `handler`,
+ * bound. A running listener is replaced. Each request reaches `handler`,
  * whose answer is sent back; a handler that throws answers 500, and one that
  * takes over a minute is answered 504 by the native side.
  */
@@ -19,7 +27,11 @@ export async function startServer(
   handler: (request: HttpRequest) => HttpResponse | Promise<HttpResponse>,
   onStop: (error: string | null) => void,
 ): Promise<{ port: number; stop: () => Promise<void> }> {
+  const mine = ++generation;
   const requests = HttpServerModule.addListener('onRequest', (request) => {
+    if (mine !== generation) {
+      return;
+    }
     void (async () => {
       let response: HttpResponse;
       try {
@@ -27,22 +39,27 @@ export async function startServer(
       } catch (error) {
         response = {
           status: 500,
-          contentType: 'text/plain',
+          headers: { 'Content-Type': 'text/plain' },
           body: `${error instanceof Error ? error.message : String(error)}\n`,
         };
       }
       HttpServerModule.respond(
         request.id,
         response.status,
-        response.contentType ?? 'text/plain',
+        response.headers ?? {},
         response.body ?? '',
       );
     })();
   });
-  const stops = HttpServerModule.addListener('onStop', ({ error }) => {
+  const release = () => {
     requests.remove();
     stops.remove();
-    onStop(error);
+  };
+  const stops = HttpServerModule.addListener('onStop', ({ error }) => {
+    release();
+    if (mine === generation) {
+      onStop(error);
+    }
   });
 
   try {
@@ -50,14 +67,14 @@ export async function startServer(
     return {
       port: bound,
       stop: async () => {
-        requests.remove();
-        stops.remove();
-        await HttpServerModule.stop();
+        release();
+        if (mine === generation) {
+          await HttpServerModule.stop();
+        }
       },
     };
   } catch (error) {
-    requests.remove();
-    stops.remove();
+    release();
     throw error;
   }
 }

@@ -17,8 +17,8 @@ export type HttpRequest = {
 
 export type HttpResponse = {
   status: number;
-  /** Ignored when `body` is empty. */
-  contentType?: string;
+  /** Written as given; Content-Length and Connection are the listener's. */
+  headers?: Record<string, string>;
   body?: string;
 };
 

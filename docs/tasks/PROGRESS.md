@@ -849,12 +849,19 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   statistics.cpp, by year / month / trip / mode / depth / temperature /
   duration), `list_dive_sites` and `export_dive_csv` - the computed profile by
   default (save-profiledata.cpp, at the app's gradient factors unless given),
-  or the details / summary CSV. Values are converted to metric with the unit
-  in the key; unknown values are null rather than the core's 0.
+  or the details / summary CSV. Each argument is declared once
+  (`src/models/mcp/args.ts`), which yields both the published JSON Schema and
+  the check a call goes through; `list_dives` filters with the same predicate
+  as the bindings' `apply_stats_filter`, so a list and the statistics for one
+  filter count the same dives. Replies (`src/models/mcp/format.ts`) are metric
+  with the unit in the key, converted by `src/models/units.ts`; unknown values
+  are null rather than the core's 0.
 
   The server is never started by itself: not at launch, not from a saved
-  preference. When iOS takes the socket while the app is suspended, it is
-  started again on the return to the foreground if the switch is still on.
+  preference. Its state is one value (`off` / `starting` / `running` /
+  `interrupted`, src/lib/mcp/server.ts); when iOS takes the socket while the
+  app is suspended it is `interrupted`, still switched on, and listens again
+  on the return to the foreground.
 
   Verified: vitest - the protocol against a stub, the tools through the host
   binary against `abitofeverything.ssrf` (counts, filters, paging, unit

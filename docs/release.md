@@ -29,8 +29,8 @@ What a build would need, in order. Everything below is task 12, step 6.
    year), an App Store Connect app record for the bundle id
    `codes.mani.subsurface-react`, and the Team ID.
 2. **Fill in `eas.json`.** `submit.production.ios.ascAppId` is the App Store
-   Connect app id (a number), `appleTeamId` the Team ID. Both are placeholders
-   in the committed file on purpose - they are account facts, not repo facts.
+   Connect app id (a number), a placeholder until the app record exists. The
+   Team ID (`PZP46GS9KE`) is `ios.appleTeamId` in `app.config.ts`.
 3. **`eas login`** and `eas build:configure` once, which creates the EAS project
    id and stores signing credentials.
 

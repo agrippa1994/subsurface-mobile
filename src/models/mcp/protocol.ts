@@ -17,7 +17,8 @@
 // Pure TypeScript; the native listener (modules/http-server) only moves bytes.
 
 import type { HttpRequest, HttpResponse } from '../../../modules/http-server/src/HttpServer.types';
-import { MCP_TOOLS, ToolArgumentError, type McpLogbook, type McpTool } from './tools';
+import { ToolArgumentError } from './args';
+import { MCP_TOOLS, READ_ONLY, type McpLogbook, type McpTool } from './tools';
 
 /** Newest first. The newest is offered to a client asking for anything else. */
 export const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -44,12 +45,36 @@ const INSTRUCTIONS =
   'computed profile of a dive. Times are the local time of the dive. Values are metric; the ' +
   'unit is in each field name.';
 
+/** A JSON-RPC error a method fails with; anything else thrown is an internal error. */
+class RpcError extends Error {
+  constructor(
+    readonly code: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 function rpcError(id: JsonRpcId, code: number, message: string): JsonRpcResponse {
   return { jsonrpc: '2.0', id, error: { code, message } };
 }
 
+const NO_STORE = { 'Cache-Control': 'no-store' };
+
 function json(status: number, body: unknown): HttpResponse {
-  return { status, contentType: 'application/json', body: JSON.stringify(body) };
+  return {
+    status,
+    headers: { ...NO_STORE, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+function text(status: number, message: string, headers: Record<string, string> = {}): HttpResponse {
+  return {
+    status,
+    headers: { ...NO_STORE, 'Content-Type': 'text/plain', ...headers },
+    body: `${message}\n`,
+  };
 }
 
 function errorMessage(error: unknown): string {
@@ -77,21 +102,17 @@ export function createMcpHandler(
     const name = params.name;
     const tool = typeof name === 'string' ? byName.get(name) : undefined;
     if (!tool) {
-      throw Object.assign(new Error(`Unknown tool: ${String(name)}`), { code: INVALID_PARAMS });
+      throw new RpcError(INVALID_PARAMS, `Unknown tool: ${String(name)}`);
     }
     const args = params.arguments ?? {};
-    if (typeof args !== 'object' || Array.isArray(args)) {
-      throw Object.assign(new Error('"arguments" must be an object'), { code: INVALID_PARAMS });
+    if (typeof args !== 'object' || args === null || Array.isArray(args)) {
+      throw new RpcError(INVALID_PARAMS, '"arguments" must be an object');
     }
     try {
-      const result = await tool.run(args as Record<string, unknown>, logbook);
-      if (result.text !== undefined) {
-        return { content: [{ type: 'text', text: result.text }] };
-      }
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result.data) }],
-        structuredContent: result.data,
-      };
+      const output = await tool.call(args as Record<string, unknown>, logbook);
+      return typeof output === 'string'
+        ? { content: [{ type: 'text', text: output }] }
+        : { content: [{ type: 'text', text: JSON.stringify(output) }], structuredContent: output };
     } catch (error) {
       // Reported in the result, not as a protocol error, so the model sees
       // what went wrong and can correct the call.
@@ -123,7 +144,7 @@ export function createMcpHandler(
             title: tool.title,
             description: tool.description,
             inputSchema: tool.inputSchema,
-            ...(tool.annotations ? { annotations: tool.annotations } : {}),
+            annotations: READ_ONLY,
           })),
         };
       case 'tools/call':
@@ -134,7 +155,7 @@ export function createMcpHandler(
       case 'prompts/list':
         return { prompts: [] };
       default:
-        throw Object.assign(new Error(`Method not found: ${method}`), { code: METHOD_NOT_FOUND });
+        throw new RpcError(METHOD_NOT_FOUND, `Method not found: ${method}`);
     }
   }
 
@@ -163,7 +184,7 @@ export function createMcpHandler(
       const result = await dispatch(method, (params ?? {}) as Record<string, unknown>);
       return { jsonrpc: '2.0', id: requestId, result };
     } catch (error) {
-      const code = (error as { code?: number }).code ?? INTERNAL_ERROR;
+      const code = error instanceof RpcError ? error.code : INTERNAL_ERROR;
       return rpcError(requestId, code, errorMessage(error));
     }
   }
@@ -171,31 +192,23 @@ export function createMcpHandler(
   return async (request) => {
     const path = request.path.split('?')[0];
     if (path !== MCP_PATH && path !== `${MCP_PATH}/`) {
-      return {
-        status: 404,
-        contentType: 'text/plain',
-        body: `Not found. The MCP endpoint is ${MCP_PATH}\n`,
-      };
+      return text(404, `Not found. The MCP endpoint is ${MCP_PATH}`);
     }
 
     const origin = request.headers.origin;
     if (origin && origin !== 'null' && hostOf(origin) !== hostOf(request.headers.host ?? '')) {
-      return {
-        status: 403,
-        contentType: 'text/plain',
-        body: 'Cross-origin requests are not allowed\n',
-      };
+      return text(403, 'Cross-origin requests are not allowed');
     }
 
     // GET would open a server-to-client stream and DELETE end a session; this
     // server has neither.
     if (request.method !== 'POST') {
-      return { status: 405 };
+      return text(405, 'Send JSON-RPC as a POST', { Allow: 'POST' });
     }
 
     const contentType = (request.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
     if (contentType !== 'application/json') {
-      return { status: 415, contentType: 'text/plain', body: 'Send application/json\n' };
+      return text(415, 'Send application/json');
     }
 
     let payload: unknown;

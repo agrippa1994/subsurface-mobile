@@ -12,7 +12,7 @@ type HttpServerEvents = {
 declare class HttpServerModule extends NativeModule<HttpServerEvents> {
   start(port: number): Promise<number>;
   stop(): Promise<void>;
-  respond(id: string, status: number, contentType: string, body: string): void;
+  respond(id: string, status: number, headers: Record<string, string>, body: string): void;
   addresses(): NetworkAddress[];
 }
 

@@ -52,7 +52,7 @@ describe('MCP over HTTP', () => {
       },
     });
     expect(reply.status).toBe(200);
-    expect(reply.contentType).toBe('application/json');
+    expect(reply.headers?.['Content-Type']).toBe('application/json');
     expect(reply.json).toMatchObject({
       jsonrpc: '2.0',
       id: 1,
@@ -123,6 +123,32 @@ describe('MCP over HTTP', () => {
     expect(badArgs.json.result.content[0].text).toMatch(/^Invalid arguments: "from"/);
   });
 
+  it('checks arguments against the published schema', async () => {
+    const call = async (name: string, args: Record<string, unknown>) =>
+      (
+        await rpc({
+          jsonrpc: '2.0',
+          id: 11,
+          method: 'tools/call',
+          params: { name, arguments: args },
+        })
+      ).json.result as { isError?: boolean; content: { text: string }[] };
+
+    expect((await call('list_dives', { colour: 'blue' })).content[0].text).toMatch(
+      /Unknown argument "colour"/,
+    );
+    expect((await call('list_dives', { limit: 0 })).content[0].text).toMatch(
+      /"limit" must be between 1/,
+    );
+    expect((await call('list_dives', { limit: 2.5 })).content[0].text).toMatch(/integer/);
+    expect((await call('list_dives', { order: 'random' })).content[0].text).toMatch(
+      /newest, oldest/,
+    );
+    expect((await call('get_statistics', { groupBy: ['weekday'] })).isError).toBe(true);
+    // null is how some clients leave an optional argument out.
+    expect((await call('list_dives', { limit: null })).isError).toBeUndefined();
+  });
+
   it('rejects an unknown tool as invalid params', async () => {
     const reply = await rpc({
       jsonrpc: '2.0',
@@ -142,7 +168,9 @@ describe('MCP over HTTP', () => {
   });
 
   it('turns away what is not a JSON-RPC POST to /mcp', async () => {
-    expect((await handler(request({ method: 'GET' }))).status).toBe(405);
+    const get = await handler(request({ method: 'GET' }));
+    expect(get.status).toBe(405);
+    expect(get.headers?.Allow).toBe('POST');
     expect((await handler(request({ method: 'DELETE' }))).status).toBe(405);
     expect((await handler(request({ path: '/' }))).status).toBe(404);
     expect(
