@@ -3,6 +3,7 @@
 // instead - see index.ios.tsx. The sections, rows and footers mirror that one,
 // built from the same grouped cards the editors use (components/form.tsx), with
 // the platform's own Switch.
+import { Fragment } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { FormButtonRow, FormSection, OptionField } from '@/components/form';
@@ -82,6 +83,22 @@ export default function SettingsScreen() {
           />
         ) : null}
         <ActionRow label="Git sync settings" onPress={screen.git.open} />
+      </FormSection>
+
+      <FormSection
+        title="MCP server"
+        footer="Lets an AI assistant on a computer in the same network, or on your VPN, read this logbook - dives, statistics, notes, cylinders, weights and the computed profile as CSV. Read-only, and without a password: anyone who can reach one of these addresses can connect while it runs. It answers only while the app is open, and is off again on the next launch.">
+        <SwitchRow label="Run MCP server" value={screen.mcp.on} onChange={screen.mcp.setOn} />
+        <ValueRow label="Status" value={screen.mcp.status} />
+        {screen.mcp.urls.map(({ kind, url }) => (
+          <Fragment key={url}>
+            <ValueRow label={kind} value={url} />
+            <ActionRow
+              label={screen.mcp.copied === url ? 'Copied' : `Copy ${kind} URL`}
+              onPress={() => screen.mcp.copyUrl(url)}
+            />
+          </Fragment>
+        ))}
       </FormSection>
 
       <FormSection title="Problems" footer={PRIVACY_NOTICE}>

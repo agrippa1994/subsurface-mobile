@@ -90,6 +90,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // app merges it into its own logbook and deletes the copy.
       // File sharing is on so the logbook is reachable from the Files app.
       UIFileSharingEnabled: true,
+      // The MCP server in Settings (src/lib/mcp/server.ts) listens on the
+      // local network; iOS may ask before it lets clients there reach it.
+      NSLocalNetworkUsageDescription:
+        'The MCP server you can switch on in Settings lets AI assistants on your local network read your logbook.',
     },
   },
   android: {

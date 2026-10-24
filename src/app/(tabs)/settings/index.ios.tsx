@@ -12,7 +12,8 @@ import {
   Text,
   Toggle,
 } from '@expo/ui/swift-ui';
-import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
+import { disabled, pickerStyle, tag, textSelection } from '@expo/ui/swift-ui/modifiers';
+import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
@@ -153,6 +154,34 @@ export default function SettingsScreen() {
             />
           ) : null}
           <Button label="Git sync settings" onPress={screen.git.open} />
+        </Section>
+
+        <Section
+          title="MCP server"
+          footer={
+            <Text>
+              Lets an AI assistant on a computer in the same network, or on your VPN, read this
+              logbook - dives, statistics, notes, cylinders, weights and the computed profile as
+              CSV. Read-only, and without a password: anyone who can reach one of these addresses
+              can connect while it runs. It answers only while the app is open, and is off again
+              on the next launch.
+            </Text>
+          }>
+          <Toggle label="Run MCP server" isOn={screen.mcp.on} onIsOnChange={screen.mcp.setOn} />
+          <LabeledContent label="Status">
+            <Text>{screen.mcp.status}</Text>
+          </LabeledContent>
+          {screen.mcp.urls.map(({ kind, url }) => (
+            <Fragment key={url}>
+              <LabeledContent label={kind}>
+                <Text modifiers={[textSelection(true)]}>{url}</Text>
+              </LabeledContent>
+              <Button
+                label={screen.mcp.copied === url ? 'Copied' : `Copy ${kind} URL`}
+                onPress={() => screen.mcp.copyUrl(url)}
+              />
+            </Fragment>
+          ))}
         </Section>
 
         <Section title="Problems" footer={<Text>{PRIVACY_NOTICE}</Text>}>
