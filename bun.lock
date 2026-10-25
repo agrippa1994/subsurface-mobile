@@ -9,6 +9,7 @@
         "@shopify/react-native-skia": "2.14.0",
         "@tanstack/react-form": "^1.33.5",
         "@tanstack/react-query": "^5.104.5",
+        "divessi-client": "0.0.2",
         "expo": "~58.0.17",
         "expo-asset": "~58.0.18",
         "expo-build-properties": "~58.0.11",
@@ -743,6 +744,8 @@
     "destroy": ["destroy@1.2.0", "", {}, "sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
+
+    "divessi-client": ["divessi-client@0.0.2", "", {}, "sha512-wE+z1QhLgiIe2S79wa+XvbTY/zHiffWnfX7/3yg0H1AWEq6bsyMtHVCgiNWVJbH1kvw+MXk1E3bBVoZp/H4/hQ=="],
 
     "dnssd-advertise": ["dnssd-advertise@1.1.6", "", {}, "sha512-Ndrrf6BMPalkQPd/zubL+4YghH2J9NspapQ09uDXwYbvOPkP0oaqf5CkcwJ0b50kS2O3ul6yVu+jz+RY62Cejg=="],
 

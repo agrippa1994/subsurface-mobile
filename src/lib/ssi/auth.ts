@@ -15,7 +15,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 import { normalizeCredentials, type SsiCredentials } from '@/models/ssi/credentials';
-import { ssiGet, SsiApiError } from './api';
+import { createSsiClient, ssiData, SsiApiError } from './api';
 
 const CREDENTIALS_KEY = 'ssi-credentials';
 const TOKEN_KEY = 'ssi-token';
@@ -27,14 +27,6 @@ const TOKEN_KEY = 'ssi-token';
  */
 const KEYCHAIN_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-};
-
-/** The successful half of the `authenticate` response. */
-type AuthenticatedResponse = {
-  authenticated: true;
-  token: string;
-  authenticated_email?: string;
-  imperial?: boolean;
 };
 
 export type SsiAccount = {
@@ -82,11 +74,9 @@ export async function readAccount(): Promise<SsiAccount | null> {
 /** Exchanges credentials for a session token. Does not store anything. */
 export async function authenticate(credentials: SsiCredentials): Promise<string> {
   const { email, password } = normalizeCredentials(credentials);
-  const response = await ssiGet<AuthenticatedResponse>({
-    what: 'authenticate',
-    l: email,
-    p: password,
-  });
+  const response = await ssiData(
+    createSsiClient().authenticate({ l: email, p: password })
+  );
 
   if (typeof response.token !== 'string' || response.token === '') {
     throw new SsiApiError('SSI accepted the sign-in but sent no session token.', false);

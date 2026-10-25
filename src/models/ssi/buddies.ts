@@ -21,87 +21,18 @@
 // This file stays free of the file system and the network so vitest can cover
 // the matching rules directly.
 
+import type { Buddy, DiveLog } from 'divessi-client';
+
 import { MAX_RESULTS, MIN_QUERY_LENGTH } from './sites';
 
-/** One buddy, reduced to the fields the picker shows or matches on. */
-export type SsiBuddy = {
-  id: number;
-  /** "Firstname Lastname". Never empty - an entry without one is dropped. */
-  name: string;
-  /** Often empty. Matched on as well as shown, since some divers only use it. */
-  nickname: string;
-  city: string;
-  /** An ISO-3166 alpha-3 code such as "AUT", or empty. */
-  country: string;
-  /** Starred in SSI. */
-  favorite: boolean;
-  /**
-   * An SSI professional - divemaster, instructor - with an active leader
-   * number. Worth showing: it is usually why they were on the dive.
-   */
-  pro: boolean;
-  /**
-   * The buddy's photo, as an absolute URL, or empty when there is none. SSI
-   * sends this ready to use; a value that is not an http(s) URL is dropped
-   * rather than guessed at, since the base it would be relative to is unknown.
-   */
-  avatarUrl: string;
-  /**
-   * The last dive in the SSI logbook this buddy was on, as "YYYY-MM-DD", or
-   * empty for a buddy who has never been on one. The picker's sort key.
-   */
-  lastDive: string;
-  /** How many dives in the SSI logbook they were on. */
-  dives: number;
-};
-
-/**
- * The fields of a `logbook_buddies` entry this app reads. Everything else -
- * email, phone, address, certifications, image timestamps - is dropped.
- */
-export type RawSsiBuddy = {
-  id?: unknown;
-  firstname?: unknown;
-  lastname?: unknown;
-  /** SSI's other spelling of the given name. Used when `firstname` is absent. */
-  forename?: unknown;
-  nickname?: unknown;
-  city?: unknown;
-  country?: unknown;
-  /** 0 or 1, not a boolean. */
-  favorite?: unknown;
-  /** Non-zero for a buddy the diver has removed. SSI keeps the row. */
-  deleted?: unknown;
-  /** The professional's number. A string in some rows, a number in others. */
-  leader_nr?: unknown;
-  /** Whether that number is still current. A pro needs both. */
-  leader_active?: unknown;
-  /** An absolute URL, or empty. */
-  image?: unknown;
-};
-
-/**
- * The fields of a `logbook_details` entry the buddy history is built from. The
- * rest of a logged dive - depths, gases, datasets - is nothing to do with who
- * was on it.
- */
-export type RawSsiLogbookDetail = {
-  odin_user_log_buddy_ids?: unknown;
-  /** "YYYY-MM-DD". Compared as a string, which sorts correctly in that format. */
-  odin_user_log_date?: unknown;
-  /** Non-zero for a dive the diver has deleted. SSI keeps the row. */
-  odin_user_log_deleted?: unknown;
-};
+/** The display and history fields inferred from the buddy mapping. */
+export type SsiBuddy = ReturnType<typeof reduceSsiBuddies>[number];
 
 /** How often and how recently each buddy has been on a dive, keyed by id. */
 export type SsiBuddyHistory = ReadonlyMap<number, { lastDive: string; dives: number }>;
 
-function text(value: unknown): string {
+function text(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function isTruthyFlag(value: unknown): boolean {
-  return typeof value === 'number' ? value !== 0 : value === true;
 }
 
 /**
@@ -111,12 +42,12 @@ function isTruthyFlag(value: unknown): boolean {
  * dive with: SSI's buddy list itself has no usage in it, only the dives do.
  * Deleted dives are skipped - they are not dives you were on.
  */
-export function buddyDiveHistory(details: readonly RawSsiLogbookDetail[]): SsiBuddyHistory {
+export function buddyDiveHistory(details: readonly DiveLog[]): SsiBuddyHistory {
   const history = new Map<number, { lastDive: string; dives: number }>();
 
   for (const detail of details) {
     const ids = detail.odin_user_log_buddy_ids;
-    if (isTruthyFlag(detail.odin_user_log_deleted) || !Array.isArray(ids)) {
+    if (detail.odin_user_log_deleted === true || !Array.isArray(ids)) {
       continue;
     }
     const date = text(detail.odin_user_log_date);
@@ -145,7 +76,7 @@ export function buddyDiveHistory(details: readonly RawSsiLogbookDetail[]): SsiBu
  * `firstname`/`lastname` first, then `forename`, then the nickname on its own -
  * a buddy added by nickname alone is still a buddy worth offering.
  */
-function nameOf(raw: RawSsiBuddy): string {
+function nameOf(raw: Buddy): string {
   const first = text(raw.firstname) || text(raw.forename);
   const last = text(raw.lastname);
   return [first, last].filter((part) => part !== '').join(' ') || text(raw.nickname);
@@ -155,13 +86,13 @@ function nameOf(raw: RawSsiBuddy): string {
  * An SSI professional: a leader number that is still active. Both halves are
  * needed - the number outlives the rating, and a lapsed pro is not one.
  */
-function isPro(raw: RawSsiBuddy): boolean {
+function isPro(raw: Buddy): boolean {
   const number = typeof raw.leader_nr === 'number' ? String(raw.leader_nr) : text(raw.leader_nr);
-  return number !== '' && number !== '0' && isTruthyFlag(raw.leader_active);
+  return number !== '' && number !== '0' && raw.leader_active === true;
 }
 
 /** SSI sends this ready to use, so anything else is not a picture we can show. */
-function avatarUrlOf(raw: RawSsiBuddy): string {
+function avatarUrlOf(raw: Buddy): string {
   const url = text(raw.image);
   return url.startsWith('https://') || url.startsWith('http://') ? url : '';
 }
@@ -179,16 +110,16 @@ function avatarUrlOf(raw: RawSsiBuddy): string {
  * on a boat the person you want is almost always the one from yesterday.
  */
 export function reduceSsiBuddies(
-  raw: readonly RawSsiBuddy[],
+  raw: readonly Buddy[],
   history: SsiBuddyHistory = new Map()
-): SsiBuddy[] {
-  const buddies: SsiBuddy[] = [];
+) {
+  const buddies = [];
 
   for (const entry of raw) {
     if (typeof entry.id !== 'number' || !Number.isFinite(entry.id)) {
       continue;
     }
-    if (isTruthyFlag(entry.deleted)) {
+    if (entry.deleted === true) {
       continue;
     }
 
@@ -204,7 +135,7 @@ export function reduceSsiBuddies(
       nickname: text(entry.nickname),
       city: text(entry.city),
       country: text(entry.country),
-      favorite: isTruthyFlag(entry.favorite),
+      favorite: entry.favorite === true,
       pro: isPro(entry),
       avatarUrl: avatarUrlOf(entry),
       lastDive: seen?.lastDive ?? '',

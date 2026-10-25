@@ -1,28 +1,18 @@
 // AI-generated (Claude)
 // The two authenticated calls a dive sync needs.
 //
-// `get_divelog` returns the user's whole SSI logbook, which is large; only two
-// things in it matter here, so the response is typed down to those and read in
-// one call rather than two. `save_divelog` returns nothing worth reading: SSI
-// answers a rejected write with the refusal body that src/lib/ssi/api.ts turns
-// into an SsiApiError, so a call that returns at all succeeded.
+// The library handles requests and decoding; the app reduces the logbook to
+// the next dive number and buddy suggestions, and rejects SSI's refusal bodies.
+
+import type { DiveLog } from 'divessi-client';
 
 import {
   buddyDiveHistory,
   reduceSsiBuddies,
-  type RawSsiBuddy,
-  type RawSsiLogbookDetail,
   type SsiBuddy,
 } from '@/models/ssi/buddies';
-import type { CreateDive } from '@/models/ssi/create-dive';
-import { ssiGet, ssiPost } from './api';
+import { createSsiClient, ssiData } from './api';
 import { withToken } from './auth';
-
-/** As much of the `get_divelog` response as the sync screen needs. */
-type DivelogResponse = {
-  logbook_details?: (RawSsiLogbookDetail & { odin_user_log_nr?: number })[];
-  logbook_buddies?: RawSsiBuddy[];
-};
 
 export type SsiLogbook = {
   /**
@@ -45,7 +35,7 @@ export type SsiLogbook = {
 /** Reads the SSI logbook, reduced to what a sync needs from it. */
 export async function fetchSsiLogbook(signal?: AbortSignal): Promise<SsiLogbook> {
   const divelog = await withToken((token) =>
-    ssiGet<DivelogResponse>({ what: 'get_divelog', token }, signal)
+    ssiData(createSsiClient(token).get_divelog(undefined, { signal }))
   );
 
   const details = divelog.logbook_details ?? [];
@@ -53,11 +43,16 @@ export async function fetchSsiLogbook(signal?: AbortSignal): Promise<SsiLogbook>
 
   return {
     nextNumber: highest + 1,
-    buddies: reduceSsiBuddies(divelog.logbook_buddies ?? [], buddyDiveHistory(details)),
+    buddies: reduceSsiBuddies(
+      divelog.logbook_buddies ?? [],
+      buddyDiveHistory(details)
+    ),
   };
 }
 
 /** Writes one dive into the SSI logbook. */
-export async function saveSsiDive(dive: CreateDive, signal?: AbortSignal): Promise<void> {
-  await withToken((token) => ssiPost({ what: 'save_divelog', token }, dive, signal));
+export async function saveSsiDive(dive: DiveLog, signal?: AbortSignal): Promise<void> {
+  await withToken((token) =>
+    ssiData(createSsiClient(token).save_divelog({ json_data: dive }, { signal }))
+  );
 }

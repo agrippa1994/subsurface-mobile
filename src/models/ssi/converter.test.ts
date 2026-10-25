@@ -3,6 +3,7 @@
 // its plot are handed in as literals rather than read out of the native module,
 // so this file runs anywhere and describes the mapping rather than the core.
 import { describe, expect, it } from 'vitest';
+import { createClient, type DiveRecord } from 'divessi-client';
 
 import {
   CylinderUse,
@@ -14,7 +15,6 @@ import {
   type PlotEntry,
   type PlotInfo,
 } from '../index';
-import type { DiveSample } from './create-dive';
 import { buildSsiSamples, convertDiveToSsi, SAMPLE_INTERVAL_SEC } from './converter';
 import expectedKeys from './__fixtures__/ssi-create-dive-keys.json';
 import { gfNowPercent } from '../profile-plot';
@@ -201,11 +201,29 @@ function convert(overrides: Partial<Parameters<typeof convertDiveToSsi>[0]> = {}
     ssiSiteId: 2367,
     ssiBuddyIds: [],
     nr: 126,
+    diveRef: '3c2b0d44-c43e-4f77-a9c4-4eaedb06548a',
     ...overrides,
   });
 }
 
 describe('convertDiveToSsi', () => {
+  it('uploads the complete converted payload through divessi-client', async () => {
+    const created = convert();
+    let uploaded: unknown;
+    const client = createClient({
+      token: 'test-token',
+      fetch: async (_url, init) => {
+        uploaded = JSON.parse(new URLSearchParams(init.body).get('json_data')!);
+        return Response.json({ odin_user_log_id: 42 });
+      },
+    });
+
+    await client.save_divelog({ json_data: created });
+    expect(uploaded).toEqual(created);
+    expect(created.odin_user_log_apple_watch).toBe(false);
+    expect(created.odin_user_log_dive_on_own_risk).toBe(false);
+  });
+
   it('sends every field the real SSI app sends, and no others', () => {
     // SSI does not treat a missing key like an explicit null, so a field this
     // converter forgets is a field silently lost on import - which a shape
@@ -276,7 +294,13 @@ describe('convertDiveToSsi', () => {
     expect(created.odin_user_log_divecomputer_manufacturer).toBe('Suunto');
     expect(created.odin_user_log_divecomputer_name).toBe('Suunto Vaasa');
     expect(created.odin_user_log_divecomputer_ref).toBe('Suunto Vaasa_260510001342');
-    expect(created.odin_user_log_divecomputer_dive_ref).toBe('2026-03-14T10:59:59.000Z');
+  });
+
+  it('uses the upload reference independently of the dive date and hardware', () => {
+    const first = '3c2b0d44-c43e-4f77-a9c4-4eaedb06548a';
+    const second = '9b16903f-c179-49d0-8bca-621d4e7c18a5';
+    expect(convert({ diveRef: first }).odin_user_log_divecomputer_dive_ref).toBe(first);
+    expect(convert({ diveRef: second }).odin_user_log_divecomputer_dive_ref).toBe(second);
   });
 
   it('survives a dive with no computer at all', () => {
@@ -476,7 +500,7 @@ describe('buildSsiSamples', () => {
       pressures: { sensor: [200000, 0], interpolated: [0, 0] },
     });
 
-    const samples: DiveSample[] = buildSsiSamples(withPressure);
+    const samples: DiveRecord[] = buildSsiSamples(withPressure);
     expect(samples[0].pressure).toBe(200);
     expect(samples[1].pressure).toBeUndefined();
   });
