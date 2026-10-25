@@ -19,6 +19,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { uuid } from 'expo';
 import { useMemo } from 'react';
 
 import { updateDive } from '../../modules/ssrf-core/src';
@@ -224,7 +225,10 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
       });
 
       await saveSsiDive(
-        convertDiveToSsi({ dive, profile, site, ssiSiteId, ssiBuddyIds, nr: logbook.nextNumber })
+        convertDiveToSsi({
+          dive, profile, site, ssiSiteId, ssiBuddyIds, nr: logbook.nextNumber,
+          diveRef: uuid.v4(),
+        })
       );
 
       if (!isSyncedToSsi(dive)) {

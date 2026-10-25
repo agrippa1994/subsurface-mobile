@@ -19,6 +19,10 @@
 //     those with whole separate field families (the `_ccr_`, `_scr_` and
 //     `_frd_` blocks) that we have no capture of.
 
+import type { DiveLog, DiveRecord } from 'divessi-client';
+import type { Cylinder, Dive, DiveSite, PlotInfo } from '../index';
+import { CylinderUse, plotPressureAt } from '../index';
+import { gfNowPercent } from '../profile-plot';
 import {
   mbarToBar,
   mbarToPsi,
@@ -28,10 +32,6 @@ import {
   mmToMeters,
   udegToDegrees,
 } from '../units';
-import { CylinderUse, plotPressureAt } from '../index';
-import type { Cylinder, Dive, DiveSite, PlotInfo } from '../index';
-import { gfNowPercent } from '../profile-plot';
-import { DivePhaseFlag, type CreateDive, type DiveSample } from './create-dive';
 
 /**
  * The interval the SSI app records at, and therefore the grid the datasets are
@@ -40,6 +40,9 @@ import { DivePhaseFlag, type CreateDive, type DiveSample } from './create-dive';
  * dive and buy nothing: its charts cannot resolve it.
  */
 export const SAMPLE_INTERVAL_SEC = 5;
+
+/** The legacy imported profile marks every sample as dive-active (bit 27). */
+const SSI_DIVE_ACTIVE_FLAG = 0x08000000;
 
 /**
  * Field values lifted verbatim from the request the real SSI app sends
@@ -69,6 +72,8 @@ export type SsiConversionInput = {
   ssiBuddyIds: number[];
   /** The dive's number in the SSI logbook, which is not `dive.number`. */
   nr: number;
+  /** Fresh random UUID generated for this upload. */
+  diveRef: string;
 };
 
 function round(value: number, digits: number): number {
@@ -116,7 +121,6 @@ function localParts(dive: Dive): {
   date: string;
   time: string;
   datetime: string;
-  iso: string;
 } {
   const local = new Date(dive.when * 1000);
 
@@ -133,7 +137,6 @@ function localParts(dive: Dive): {
     // lenient about it - the captured request has something odder still - but
     // this is the form its own importer emits.
     datetime: `${date}+${hours}:${minutes}:${seconds}.${pad(local.getUTCMilliseconds(), 3)}`,
-    iso: new Date(dive.when * 1000).toISOString(),
   };
 }
 
@@ -209,14 +212,14 @@ function filledTemperatures(profile: PlotInfo, points: { entryIndex: number }[])
 }
 
 /** The per-sample records SSI stores alongside the flat datasets. */
-export function buildSsiSamples(profile: PlotInfo): DiveSample[] {
+export function buildSsiSamples(profile: PlotInfo): DiveRecord[] {
   const points = resample(profile);
   const temperatures = filledTemperatures(profile, points);
 
   return points.map((point, index) => {
     const entry = profile.entry[point.entryIndex];
     const pressureMbar = plotPressureAt(profile, point.entryIndex, 0);
-    const sample: DiveSample = {
+    const sample: DiveRecord = {
       n: index + 1,
       t: point.sec * 1000,
       d: round(mmToMeters(entry.depthMm), 2),
@@ -230,10 +233,9 @@ export function buildSsiSamples(profile: PlotInfo): DiveSample[] {
       // the M-value - so only the latter is scaled. See gfNowPercent.
       gs: round(entry.surfaceGf, 2),
       gn: round(gfNowPercent(entry), 2),
-      // Alarms and phase would have to be inferred from the profile; the flags
-      // are documented in ./create-dive.ts for whoever wants to try.
+      // Alarms and phase would have to be inferred from the profile.
       a: 0,
-      mf: DivePhaseFlag.DIVE,
+      mf: SSI_DIVE_ACTIVE_FLAG,
       o: false,
       dr: false,
     };
@@ -261,7 +263,8 @@ export function convertDiveToSsi({
   ssiSiteId,
   ssiBuddyIds,
   nr,
-}: SsiConversionInput): CreateDive {
+  diveRef,
+}: SsiConversionInput): DiveLog {
   const when = localParts(dive);
   const dc = dive.dcs[0];
   // One cylinder feeds the volume and both pressures, so the three always
@@ -279,7 +282,9 @@ export function convertDiveToSsi({
 
   const hasPressure = samples.some((sample) => sample.pressure !== undefined);
   const tankPressureDataset = hasPressure
-    ? dataset(samples.map((sample) => sample.pressure ?? null))
+    ? dataset(
+        samples.map((sample) => (typeof sample.pressure === 'number' ? sample.pressure : null)),
+      )
     : null;
 
   // "Suunto EON Steel" -> manufacturer "Suunto", which is how SSI groups
@@ -354,7 +359,8 @@ export function convertDiveToSsi({
     odin_user_log_var_tanktype_id: SSI_CONSTANTS.varTanktypeId,
     odin_user_log_vis_m: null,
     odin_user_log_vis_ft: null,
-    odin_user_log_weight_kg: dive.totalWeightGrams > 0 ? round(dive.totalWeightGrams / 1000, 2) : null,
+    odin_user_log_weight_kg:
+      dive.totalWeightGrams > 0 ? round(dive.totalWeightGrams / 1000, 2) : null,
     odin_user_log_weight_lb: null,
     // Null when the logbook has no size for the tank, which is the normal
     // state of a dive straight off a computer: a dive computer does not know
@@ -511,10 +517,10 @@ export function convertDiveToSsi({
     odin_user_log_divecomputer_ble_id: null,
     odin_user_log_divecomputer_firmware: dc?.fwVersion || null,
     odin_user_log_divecomputer_manufacturer: manufacturer,
-    // How SSI recognises "the same computer" and "the same dive" across
-    // imports, so re-syncing updates rather than duplicating on its side.
+    // The hardware reference stays stable across uploads.
     odin_user_log_divecomputer_ref: model ? `${model}_${serial ?? ''}` : null,
-    odin_user_log_divecomputer_dive_ref: when.iso,
+    // Each upload has its own random dive reference.
+    odin_user_log_divecomputer_dive_ref: diveRef,
     odin_user_log_divecomputer_imported: false,
     odin_user_log_divecomputer_raw_data_header: null,
     odin_user_log_divecomputer_raw_data_details: null,
@@ -523,13 +529,13 @@ export function convertDiveToSsi({
     odin_user_log_divecomputer_productname: null,
 
     // --- Datasets ---
-    odin_user_log_depthDataset: dataset(samples.map((sample) => sample.d)),
-    odin_user_log_tempDataset: dataset(samples.map((sample) => sample.te)),
+    odin_user_log_depthDataset: dataset(samples.map((sample) => sample.d ?? null)),
+    odin_user_log_tempDataset: dataset(samples.map((sample) => sample.te ?? null)),
     odin_user_log_alarmDataset: null,
     // Unlike the Suunto path, which had no reliable gf-at-depth series, both
     // curves come out of the core's plot - the same two the profile draws.
     odin_user_log_gfnowDataset: dataset(samples.map((sample) => sample.gn ?? 0)),
-    odin_user_log_gfSurfDataset: dataset(samples.map((sample) => sample.gs)),
+    odin_user_log_gfSurfDataset: dataset(samples.map((sample) => sample.gs ?? null)),
     odin_user_log_deepestDecoDataset: null,
     odin_user_log_tankPressureDataset: tankPressureDataset,
     odin_user_log_pressureDataset: tankPressureDataset,
@@ -662,7 +668,7 @@ export function convertDiveToSsi({
     odin_user_log_pos_end_longitude: null,
 
     // --- Apple Watch ---
-    odin_user_log_apple_watch: 0,
+    odin_user_log_apple_watch: false,
     odin_user_log_apple_watch_log_id: null,
     odin_user_log_apple_watch_id: null,
     odin_user_log_apple_watch_app_version: null,
@@ -680,8 +686,8 @@ export function convertDiveToSsi({
     odin_user_log_gyroDataset: null,
 
     // --- Misc ---
-    odin_user_log_dive_on_own_risk: 0,
+    odin_user_log_dive_on_own_risk: false,
     odin_user_log_dive_on_own_risk_os_app: null,
     odin_user_log_housing_local_dive_media: null,
-  } satisfies CreateDive;
+  } satisfies DiveLog;
 }

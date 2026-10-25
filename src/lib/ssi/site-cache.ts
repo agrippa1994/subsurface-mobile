@@ -13,13 +13,13 @@
 //
 // The URL needs no authentication; it is fetched before the user has an account.
 
-import { Directory, File, Paths } from 'expo-file-system';
+import type { SitesResponse } from 'divessi-client';
+import { File, Paths } from 'expo-file-system';
 import { unzipSync } from 'fflate';
 
-import { reduceSsiSites, type RawSsiSite, type SsiSite } from '@/models/ssi/sites';
+import { reduceSsiSites, type SsiSite } from '@/models/ssi/sites';
 
-const CATALOGUE_URL =
-  'https://api.divessi.com/app/APP_CACHE_SITES.zip?ssiapp=0815_ADR&lang=en&version=ADR_4.1.268-ssi&context=s';
+import { createSsiClient } from './api';
 
 /** The reduced catalogue, in app documents so it survives a cache eviction. */
 const INDEX_FILENAME = 'ssi-sites-index.json';
@@ -90,50 +90,32 @@ function write(file: File, contents: string): void {
 /**
  * Downloads, unzips and reduces the catalogue, replacing whatever was stored.
  *
- * The ZIP goes to the cache directory rather than documents, because it is
- * disposable and its 2.5 MB should not count against the user's backup. It is
- * deleted as soon as it has been read, along with the 18 MB string it decodes
- * to - only the reduction outlives this call.
+ * The client downloads the ZIP as bytes. Only the reduced catalogue and its
+ * metadata are persisted; the archive never needs a temporary file.
  */
 export async function downloadSiteIndex(): Promise<SsiSite[]> {
-  const scratch = new Directory(Paths.cache, 'ssi');
-  if (!scratch.exists) {
-    scratch.create({ intermediates: true });
+  const { data } = await createSsiClient().initialSites();
+  const entries = unzipSync(new Uint8Array(data));
+  const name = Object.keys(entries).find((entry) => entry.endsWith('.json'));
+  if (name === undefined) {
+    throw new Error('The dive site download contained no catalogue.');
   }
 
-  const archive = await File.downloadFileAsync(CATALOGUE_URL, scratch);
-
-  try {
-    const entries = unzipSync(archive.bytesSync());
-    const name = Object.keys(entries).find((entry) => entry.endsWith('.json'));
-    if (name === undefined) {
-      throw new Error('The dive site download contained no catalogue.');
-    }
-
-    const raw = JSON.parse(new TextDecoder().decode(entries[name])) as {
-      divesites?: RawSsiSite[];
-    };
-    const sites = reduceSsiSites(raw.divesites ?? []);
-    if (sites.length === 0) {
-      throw new Error('The dive site catalogue came back empty.');
-    }
-
-    // The index first: the sidecar is what `siteIndexInfo` trusts, so it must
-    // not claim a catalogue that is not fully written yet.
-    write(indexFile(), JSON.stringify(sites));
-    write(
-      infoFile(),
-      JSON.stringify({ count: sites.length, downloadedAt: Date.now() } satisfies SsiSiteIndexInfo)
-    );
-
-    return sites;
-  } finally {
-    try {
-      archive.delete();
-    } catch {
-      // A leftover in the cache directory is the OS's problem to reclaim.
-    }
+  const raw = JSON.parse(new TextDecoder().decode(entries[name])) as SitesResponse;
+  const sites = reduceSsiSites(raw.divesites ?? []);
+  if (sites.length === 0) {
+    throw new Error('The dive site catalogue came back empty.');
   }
+
+  // The index first: the sidecar is what `siteIndexInfo` trusts, so it must
+  // not claim a catalogue that is not fully written yet.
+  write(indexFile(), JSON.stringify(sites));
+  write(
+    infoFile(),
+    JSON.stringify({ count: sites.length, downloadedAt: Date.now() } satisfies SsiSiteIndexInfo)
+  );
+
+  return sites;
 }
 
 /**

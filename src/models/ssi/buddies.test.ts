@@ -2,6 +2,7 @@
 // Unit tests for the SSI buddy list model. Pure TypeScript: no network - the
 // `logbook_buddies` array is passed in directly.
 import { describe, expect, it } from 'vitest';
+import type { Buddy, DiveLog } from 'divessi-client';
 
 import {
   buddyDiveHistory,
@@ -9,8 +10,6 @@ import {
   reduceSsiBuddies,
   searchSsiBuddies,
   suggestedSsiBuddies,
-  type RawSsiBuddy,
-  type RawSsiLogbookDetail,
   type SsiBuddy,
 } from './buddies';
 import { MAX_RESULTS } from './sites';
@@ -33,7 +32,7 @@ function ssiBuddy(overrides: Partial<SsiBuddy> = {}): SsiBuddy {
 
 describe('buddyDiveHistory', () => {
   it('counts the dives each buddy was on and dates the most recent', () => {
-    const details: RawSsiLogbookDetail[] = [
+    const details: DiveLog[] = [
       { odin_user_log_buddy_ids: [1, 2], odin_user_log_date: '2026-03-14' },
       { odin_user_log_buddy_ids: [1], odin_user_log_date: '2026-07-02' },
       { odin_user_log_buddy_ids: [1], odin_user_log_date: '2026-05-01' },
@@ -45,8 +44,8 @@ describe('buddyDiveHistory', () => {
   });
 
   it('skips deleted dives and entries with no buddy array', () => {
-    const details: RawSsiLogbookDetail[] = [
-      { odin_user_log_buddy_ids: [1], odin_user_log_date: '2026-07-02', odin_user_log_deleted: 1 },
+    const details: DiveLog[] = [
+      { odin_user_log_buddy_ids: [1], odin_user_log_date: '2026-07-02', odin_user_log_deleted: true },
       { odin_user_log_date: '2026-07-03' },
       { odin_user_log_buddy_ids: [1], odin_user_log_date: '2026-01-01' },
     ];
@@ -57,7 +56,7 @@ describe('buddyDiveHistory', () => {
 
 describe('reduceSsiBuddies', () => {
   it('keeps only the fields the picker needs', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       {
         id: 2550906,
         firstname: 'Anna',
@@ -65,13 +64,13 @@ describe('reduceSsiBuddies', () => {
         nickname: 'Ani',
         city: 'Graz',
         country: 'AUT',
-        favorite: 1,
-        deleted: 0,
+        favorite: true,
+        deleted: false,
         leader_nr: '123456',
-        leader_active: 1,
+        leader_active: true,
         image: 'https://example.com/anna.jpg',
         email: 'ignored@example.com',
-      } as RawSsiBuddy,
+      },
     ];
 
     const history = buddyDiveHistory([
@@ -95,10 +94,10 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('is a pro only with an active leader number', () => {
-    const raw: RawSsiBuddy[] = [
-      { id: 1, firstname: 'Lapsed', leader_nr: '123456', leader_active: 0 },
-      { id: 2, firstname: 'Nonpro', leader_nr: 0, leader_active: 1 },
-      { id: 3, firstname: 'Instructor', leader_nr: 123456, leader_active: 1 },
+    const raw: Buddy[] = [
+      { id: 1, firstname: 'Lapsed', leader_nr: '123456', leader_active: false },
+      { id: 2, firstname: 'Nonpro', leader_nr: 0, leader_active: true },
+      { id: 3, firstname: 'Instructor', leader_nr: 123456, leader_active: true },
     ];
 
     const pros = reduceSsiBuddies(raw).filter((buddy) => buddy.pro);
@@ -106,7 +105,7 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('takes the avatar only when SSI sent a usable URL', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       { id: 1, firstname: 'Absolute', image: 'https://example.com/a.jpg' },
       { id: 2, firstname: 'Relative', image: '/uploads/b.jpg' },
       { id: 3, firstname: 'Empty', image: '' },
@@ -120,9 +119,8 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('drops entries with no numeric id', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       { firstname: 'No', lastname: 'Id' },
-      { id: '7', firstname: 'String', lastname: 'Id' },
       { id: 7, firstname: 'Real', lastname: 'Id' },
     ];
 
@@ -130,16 +128,16 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('drops the buddies SSI has marked deleted, whose rows it keeps anyway', () => {
-    const raw: RawSsiBuddy[] = [
-      { id: 1, firstname: 'Gone', deleted: 1 },
-      { id: 2, firstname: 'Here', deleted: 0 },
+    const raw: Buddy[] = [
+      { id: 1, firstname: 'Gone', deleted: true },
+      { id: 2, firstname: 'Here', deleted: false },
     ];
 
     expect(reduceSsiBuddies(raw).map((buddy) => buddy.name)).toEqual(['Here']);
   });
 
   it('falls back from firstname to forename, and then to the nickname alone', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       { id: 1, forename: 'Tom', lastname: 'Kaiser' },
       { id: 2, nickname: 'Doc' },
       { id: 3, firstname: '   ', lastname: '  ' },
@@ -150,9 +148,9 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('leads with the most recent dive buddy, ahead of a favourite', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       { id: 1, firstname: 'Zoe' },
-      { id: 2, firstname: 'Alex', favorite: 1 },
+      { id: 2, firstname: 'Alex', favorite: true },
       { id: 3, firstname: 'Tom' },
     ];
     const history = buddyDiveHistory([
@@ -169,10 +167,10 @@ describe('reduceSsiBuddies', () => {
   });
 
   it('falls back to favourites then names among buddies with no shared dive', () => {
-    const raw: RawSsiBuddy[] = [
+    const raw: Buddy[] = [
       { id: 1, firstname: 'Zoe' },
       { id: 2, firstname: 'Alex' },
-      { id: 3, firstname: 'Tom', favorite: 1 },
+      { id: 3, firstname: 'Tom', favorite: true },
     ];
 
     expect(reduceSsiBuddies(raw).map((buddy) => buddy.name)).toEqual(['Tom', 'Alex', 'Zoe']);

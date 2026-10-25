@@ -12,18 +12,12 @@
 // This file stays free of the file system and the network so vitest can cover
 // the matching rules directly.
 
+import type { Site } from 'divessi-client';
+
 import { distanceMeters } from '../site-edit';
 
-/** One catalogue entry, reduced to the fields the picker shows or matches on. */
-export type SsiSite = {
-  id: number;
-  name: string;
-  /** Decimal degrees, unlike the core's own sites, which are microdegrees. */
-  lat: number;
-  lon: number;
-  /** Often empty in the real data, so never the only thing shown for a site. */
-  country: string;
-};
+/** The compact cache entry inferred from the catalogue mapping. */
+export type SsiSite = ReturnType<typeof reduceSsiSites>[number];
 
 /** Shortest query that searches. One letter would match most of the catalogue. */
 export const MIN_QUERY_LENGTH = 2;
@@ -38,18 +32,6 @@ export const MAX_RESULTS = 20;
  */
 export const NEAREST_MAX_METERS = 5000;
 
-/**
- * The rows of the raw dump we keep. Everything else in the file - aliases,
- * addresses, animal ids, currents - is dropped on the floor.
- */
-export type RawSsiSite = {
-  odin_dive_sites_id?: unknown;
-  odin_dive_sites_name?: unknown;
-  odin_dive_sites_lat?: unknown;
-  odin_dive_sites_lon?: unknown;
-  odin_dive_sites_meta_country?: unknown;
-};
-
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -61,8 +43,8 @@ function isFiniteNumber(value: unknown): value is number {
  * the real dump. Sites without a position are kept - they are still findable by
  * name - with 0/0 standing in, which `nearestSsiSite` skips.
  */
-export function reduceSsiSites(raw: readonly RawSsiSite[]): SsiSite[] {
-  const sites: SsiSite[] = [];
+export function reduceSsiSites(raw: readonly Site[]) {
+  const sites = [];
 
   for (const entry of raw) {
     if (!isFiniteNumber(entry.odin_dive_sites_id)) {
@@ -75,6 +57,7 @@ export function reduceSsiSites(raw: readonly RawSsiSite[]): SsiSite[] {
     sites.push({
       id: entry.odin_dive_sites_id,
       name: entry.odin_dive_sites_name,
+      // Decimal degrees; the core's own sites use microdegrees.
       lat: isFiniteNumber(entry.odin_dive_sites_lat) ? entry.odin_dive_sites_lat : 0,
       lon: isFiniteNumber(entry.odin_dive_sites_lon) ? entry.odin_dive_sites_lon : 0,
       country:

@@ -2,6 +2,7 @@
 // Unit tests for the SSI dive-site catalogue model. Pure TypeScript: no
 // download, no file system - the catalogue is passed in as an array.
 import { describe, expect, it } from 'vitest';
+import type { Site } from 'divessi-client';
 
 import {
   describeSsiSite,
@@ -9,7 +10,6 @@ import {
   nearestSsiSite,
   reduceSsiSites,
   searchSsiSites,
-  type RawSsiSite,
   type SsiSite,
 } from './sites';
 
@@ -19,7 +19,7 @@ function ssiSite(overrides: Partial<SsiSite> = {}): SsiSite {
 
 describe('reduceSsiSites', () => {
   it('keeps only the fields the picker needs', () => {
-    const raw: RawSsiSite[] = [
+    const raw: Site[] = [
       {
         odin_dive_sites_id: 20,
         odin_dive_sites_name: 'Uberlingen - Seezeichen 24',
@@ -35,11 +35,10 @@ describe('reduceSsiSites', () => {
   });
 
   it('drops entries with no id or no usable name', () => {
-    const raw: RawSsiSite[] = [
+    const raw: Site[] = [
       { odin_dive_sites_name: 'No id' },
       { odin_dive_sites_id: 2 },
-      // The real dump genuinely carries non-string names.
-      { odin_dive_sites_id: 3, odin_dive_sites_name: 12345 },
+      { odin_dive_sites_id: 3, odin_dive_sites_name: null },
       { odin_dive_sites_id: 4, odin_dive_sites_name: '' },
       { odin_dive_sites_id: 5, odin_dive_sites_name: 'Keeper' },
     ];
