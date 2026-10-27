@@ -35,8 +35,11 @@ import { formatDuration, mmToFeet, mmToMeters } from '@/models';
 import {
   depthTicks,
   nearestSampleIndex,
+  pressureAxis,
   profileSummary,
   readoutAt,
+  readoutLayout,
+  temperatureAxis,
   temperatureValue,
   timeTicks,
   windowPoints,
@@ -44,7 +47,9 @@ import {
   type ProfilePlot,
 } from '@/models/profile-plot';
 
-const PAD = { left: 34, right: 10, top: 10, bottom: 20 };
+const PAD = { left: 34, top: 10, bottom: 20 };
+/** Right padding: wider when the pressure or temperature band carries labels. */
+const PAD_RIGHT = { plain: 10, axis: 34 };
 /** Points drawn per series. Beyond this the curve is thinned, keeping extremes. */
 const MAX_POINTS = 600;
 /** The temperature series lives in the bottom band, out of the depth curve's way. */
@@ -131,7 +136,29 @@ export function ProfileChart({
   const [view, setView] = useState<TimeWindow>({ from: 0, to: plot.maxSec });
   const [scrubSec, setScrubSec] = useState<number | null>(null);
 
-  const chartWidth = Math.max(0, width - PAD.left - PAD.right);
+  // The pressure and temperature bands are labelled at their edges on the right,
+  // in the colour of their curve.
+  const rightAxis = useMemo(
+    () =>
+      [
+        {
+          key: 'pressure',
+          band: PRESSURE_BAND,
+          color: colors.pressure,
+          labels: pressureAxis(plot, unitSystem),
+        },
+        {
+          key: 'temperature',
+          band: TEMPERATURE_BAND,
+          color: colors.temperature,
+          labels: temperatureAxis(plot, unitSystem),
+        },
+      ].flatMap(({ labels, ...axis }) => labels.map((label) => ({ ...label, ...axis }))),
+    [colors.pressure, colors.temperature, plot, unitSystem]
+  );
+  const padRight = rightAxis.length > 0 ? PAD_RIGHT.axis : PAD_RIGHT.plain;
+
+  const chartWidth = Math.max(0, width - PAD.left - padRight);
   const chartHeight = Math.max(0, height - PAD.top - PAD.bottom);
 
   // The depth axis is rounded out to the next gridline so the deepest point is
@@ -151,15 +178,19 @@ export function ProfileChart({
     (mm: number) => PAD.top + (mm / depthAxisMax) * chartHeight,
     [chartHeight, depthAxisMax]
   );
-  const bandY = useCallback(
-    (value: number, min: number, max: number, band: { top: number; bottom: number }) => {
-      const usable = max - min || 1;
-      const t = (value - min) / usable;
+  /** `t` runs from 0 at the bottom edge of the band to 1 at its top. */
+  const bandPositionY = useCallback(
+    (t: number, band: { top: number; bottom: number }) => {
       const top = PAD.top + band.top * chartHeight;
       const bottom = PAD.top + band.bottom * chartHeight;
       return bottom - t * (bottom - top);
     },
     [chartHeight]
+  );
+  const bandY = useCallback(
+    (value: number, min: number, max: number, band: { top: number; bottom: number }) =>
+      bandPositionY((value - min) / (max - min || 1), band),
+    [bandPositionY]
   );
 
   const paths = useMemo(() => {
@@ -251,21 +282,16 @@ export function ProfileChart({
 
   const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, unitSystem);
 
-  // One string per field rather than one joined line: the row wraps, so a dive
+  // One view per field rather than one joined line: the row wraps, so a dive
   // carrying temperature, several cylinders, both gradient factors and a ceiling
-  // reads in full instead of being clipped at the right edge.
-  const readoutFields = readout
-    ? [
-        readout.timeText,
-        readout.depthText,
-        readout.temperatureText,
-        ...readout.pressureTexts,
-        showGfNow && readout.gfNowText ? `GF ${readout.gfNowText}` : null,
-        showGfSurface && readout.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null,
-        readout.inDeco && readout.ceilingText ? `ceiling ${readout.ceilingText}` : null,
-        !readout.inDeco && readout.ndlText ? `NDL ${readout.ndlText}` : null,
-      ].filter((field): field is string => Boolean(field))
-    : [];
+  // reads in full instead of being clipped at the right edge. The fields are a
+  // fixed set, each as wide as its longest value in this dive, and are laid
+  // out even before scrubbing starts (invisibly, under the hint) - so neither
+  // the readout nor the chart below it moves while the finger does.
+  const readoutSlots = useMemo(
+    () => readoutLayout(pi, unitSystem, { showGfNow, showGfSurface }),
+    [pi, showGfNow, showGfSurface, unitSystem]
+  );
 
   // --- Gestures ------------------------------------------------------------
 
@@ -355,17 +381,28 @@ export function ProfileChart({
   return (
     <View>
       <View style={styles.readoutRow}>
-        {readoutFields.length > 0 ? (
-          readoutFields.map((field, index) => (
-            <Text key={`${index}-${field}`} style={[styles.readout, { color: colors.label }]}>
-              {field}
+        {readoutSlots.map((slot) => (
+          <View key={slot.key}>
+            {/* Zero-height copies of the widest values: they size the slot. */}
+            {slot.widest.map((widest) => (
+              <Text
+                key={widest}
+                style={[styles.readout, styles.readoutSizer]}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants">
+                {widest}
+              </Text>
+            ))}
+            <Text style={[styles.readout, { color: colors.label }]}>
+              {readout ? slot.read(readout) : ' '}
             </Text>
-          ))
-        ) : (
-          <Text style={[styles.readout, { color: colors.label }]}>
+          </View>
+        ))}
+        {readout === null ? (
+          <Text style={[styles.readout, styles.readoutHint, { color: colors.label }]}>
             Drag to scrub, pinch to zoom, double tap to reset
           </Text>
-        )}
+        ) : null}
       </View>
 
       <GestureDetector gesture={gesture}>
@@ -493,6 +530,23 @@ export function ProfileChart({
             </Text>
           ))}
 
+          {rightAxis.map((label) => (
+            <Text
+              key={`${label.key}-${label.position}`}
+              style={[
+                styles.axisLabel,
+                styles.rightAxisLabel,
+                {
+                  color: label.color,
+                  top: bandPositionY(label.position, label.band) - 7,
+                  left: PAD.left + chartWidth + 4,
+                  width: padRight - 4,
+                },
+              ]}>
+              {label.label}
+            </Text>
+          ))}
+
           {timeTicks(plot.maxSec)
             .filter((tick) => tick.value >= view.from && tick.value <= view.to)
             .map((tick) => (
@@ -590,11 +644,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
+  readoutSizer: {
+    height: 0,
+    opacity: 0,
+  },
+  readoutHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
   axisLabel: {
     position: 'absolute',
     fontSize: 10,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
+  },
+  rightAxisLabel: {
+    textAlign: 'left',
   },
   timeLabel: {
     width: 32,

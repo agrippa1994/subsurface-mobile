@@ -15,6 +15,8 @@
 import type { DiveEvent, PlotEntry, PlotInfo } from './index';
 import { EventSeverity, plotPressureAt } from './index';
 import {
+  mbarToBar,
+  mbarToPsi,
   mkelvinToCelsius,
   mkelvinToFahrenheit,
   mmToFeet,
@@ -328,7 +330,8 @@ export type ProfileReadout = {
   timeText: string;
   depthText: string;
   temperatureText: string | null;
-  pressureTexts: string[];
+  /** One entry per cylinder, in cylinder order; null where it has no reading. */
+  pressures: { cylinder: number; text: string | null }[];
   inDeco: boolean;
   ceilingText: string | null;
   ndlText: string | null;
@@ -374,12 +377,10 @@ export function readoutAt(
   }
   const entry = pi.entry[index];
 
-  const pressureTexts: string[] = [];
+  const pressures: ProfileReadout['pressures'] = [];
   for (let cylinder = 0; cylinder < pi.nrCylinders; cylinder++) {
     const mbar = plotPressureAt(pi, index, cylinder);
-    if (mbar > 0) {
-      pressureTexts.push(formatPressure(mbar, system));
-    }
+    pressures.push({ cylinder, text: mbar > 0 ? formatPressure(mbar, system) : null });
   }
 
   return {
@@ -388,7 +389,7 @@ export function readoutAt(
     depthText: formatDepth(entry.depthMm, system),
     temperatureText:
       entry.temperatureMkelvin > 0 ? formatTemperature(entry.temperatureMkelvin, system) : null,
-    pressureTexts,
+    pressures,
     inDeco: entry.inDeco,
     ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, system) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
@@ -400,6 +401,125 @@ export function readoutAt(
 /** Temperature in the displayed unit, for scaling the temperature series. */
 export function temperatureValue(mkelvin: number, system: UnitSystem): number {
   return system === 'imperial' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin);
+}
+
+// --- Readout layout --------------------------------------------------------
+
+/**
+ * One field of the scrubber readout. `widest` are the longest strings the field
+ * takes anywhere in this dive, so the renderer can reserve that width and the
+ * row does not jump about as the values change length; `read` gives the field's
+ * text for one sample.
+ */
+export type ReadoutSlot = {
+  key: string;
+  widest: string[];
+  read: (readout: ProfileReadout) => string;
+};
+
+/** Shown in a slot whose quantity has no value at this sample. */
+const NO_VALUE = '-';
+
+type Read = (readout: ProfileReadout) => string | null;
+
+/**
+ * The readout fields of one dive. A fixed set - a field is in it when the dive
+ * has a value for it somewhere - so fields never appear, vanish or reorder
+ * while scrubbing. Built once per dive: the widths are measured by formatting
+ * every sample with the very readers that fill the field, so they cannot drift
+ * from the formatters.
+ */
+export function readoutLayout(
+  pi: PlotInfo,
+  system: UnitSystem = 'metric',
+  options: { showGfNow?: boolean; showGfSurface?: boolean } = {}
+): ReadoutSlot[] {
+  const samples = pi.entry.flatMap((entry) => readoutAt(pi, entry.sec, system) ?? []);
+
+  // A slot with several readers (NDL or ceiling) shows the first that has a
+  // value, and reserves the width of the longest of each kind.
+  const slot = (key: string, ...reads: Read[]): ReadoutSlot => ({
+    key,
+    widest: reads
+      .map((read) =>
+        samples.reduce<string>((longest, sample) => {
+          const text = read(sample);
+          return text !== null && text.length > longest.length ? text : longest;
+        }, '')
+      )
+      .filter((text) => text.length > 0),
+    read: (readout) => reads.map((read) => read(readout)).find((text) => text !== null) ?? NO_VALUE,
+  });
+
+  const optional = [
+    slot('temperature', (r) => r.temperatureText),
+    ...Array.from({ length: pi.nrCylinders }, (_, cylinder) =>
+      slot(`pressure-${cylinder}`, (r) => r.pressures[cylinder]?.text ?? null)
+    ),
+    options.showGfNow ? slot('gf-now', (r) => (r.gfNowText ? `GF ${r.gfNowText}` : null)) : null,
+    options.showGfSurface
+      ? slot('gf-surface', (r) => (r.gfSurfaceText ? `sGF ${r.gfSurfaceText}` : null))
+      : null,
+    slot(
+      'deco',
+      (r) => (r.inDeco && r.ceilingText ? `ceiling ${r.ceilingText}` : null),
+      (r) => (!r.inDeco && r.ndlText ? `NDL ${r.ndlText}` : null)
+    ),
+  ].filter((candidate): candidate is ReadoutSlot => candidate !== null);
+
+  return [
+    slot('time', (r) => r.timeText),
+    slot('depth', (r) => r.depthText),
+    ...optional.filter((candidate) => candidate.widest.length > 0),
+  ];
+}
+
+// --- Band axes -------------------------------------------------------------
+
+/**
+ * One label on the axis of a banded series. `position` is where it sits in the
+ * band: 0 at the bottom edge, 1 at the top - the renderer owns the pixels.
+ */
+export type BandLabel = { position: number; label: string };
+
+/**
+ * The extremes of a banded series, since that is exactly what the band spans:
+ * the series is stretched from its minimum (bottom) to its maximum (top).
+ * A flat series is drawn along the bottom edge, so it gets one label there.
+ * Values are unit-less like the depth axis; the legend names the unit.
+ */
+function bandLabels(min: number, max: number): BandLabel[] {
+  // A narrow range would print the same integer twice, so it keeps a decimal.
+  const digits = max - min < 2 ? 1 : 0;
+  const bottom = min.toFixed(digits);
+  const top = max.toFixed(digits);
+  return bottom === top
+    ? [{ position: 0, label: bottom }]
+    : [
+        { position: 0, label: bottom },
+        { position: 1, label: top },
+      ];
+}
+
+/** Axis labels for the temperature band, or none when the dive has no temperature. */
+export function temperatureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[] {
+  if (plot.temperature.length < 2) {
+    return [];
+  }
+  return bandLabels(
+    temperatureValue(plot.temperatureRange.min, system),
+    temperatureValue(plot.temperatureRange.max, system)
+  );
+}
+
+/** Axis labels for the tank pressure band, or none when no cylinder has readings. */
+export function pressureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[] {
+  if (plot.pressures.length === 0) {
+    return [];
+  }
+  const displayed = (mbar: number) =>
+    Math.round(system === 'imperial' ? mbarToPsi(mbar) : mbarToBar(mbar));
+  return bandLabels(displayed(plot.pressureRange.min), displayed(plot.pressureRange.max));
 }
 
 // --- Accessibility ---------------------------------------------------------
