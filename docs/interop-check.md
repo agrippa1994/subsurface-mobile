@@ -15,7 +15,7 @@ there is nothing to automate against the binary a user actually runs.
 | Fact | Value |
 | --- | --- |
 | Desktop | `/Applications/Subsurface.app`, version from its `Info.plist` (was `6.0.5592-CICD-release` when this was written) |
-| App core | pin `8ded5db24`, core version `6.0.5770` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
+| App core | pin `11a4e6306`, core version `6.0.5789` (`modules/ssrf-core/cpp/CORE_MANIFEST.md`) |
 | Data format | `dataformat_version` is a compile-time `3` on both sides (`subsurface/core/version.h`) |
 
 Note the skew direction: the app is built on a core *newer* than the installed
@@ -98,7 +98,7 @@ Identify the source before changing anything. A C++ change must be followed by
 
 ## Known gap
 
-At core `8ded5db24`, upstream's `suunto_nautic_multigas.json` imports cylinder
+At core `11a4e6306`, upstream's `suunto_nautic_multigas.json` imports cylinder
 2 with an explicit start pressure of 232000 mbar. The upstream XML reference
 also writes 232 bar, but reloading it clears the start pressure to 0 (use the
 sample pressure): the first sample is 231533 mbar, which rounds to the same

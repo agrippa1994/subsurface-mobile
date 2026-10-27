@@ -12,8 +12,8 @@ import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, type AboutInfo } from './abo
 const INFO: AboutInfo = {
   appVersion: '1.0.0',
   buildNumber: '7',
-  coreCommit: '8ded5db24',
-  coreVersion: '6.0.5770',
+  coreCommit: '11a4e6306',
+  coreVersion: '6.0.5789',
   sourceUrl: 'https://github.com/agrippa1994/subsurface-mobile',
 };
 
@@ -21,8 +21,8 @@ describe('aboutRows', () => {
   it('names the app build and the core it was built against', () => {
     expect(aboutRows(INFO)).toEqual([
       { label: 'Version', value: '1.0.0 (7)' },
-      { label: 'Subsurface core', value: '6.0.5770' },
-      { label: 'Core commit', value: '8ded5db24' },
+      { label: 'Subsurface core', value: '6.0.5789' },
+      { label: 'Core commit', value: '11a4e6306' },
     ]);
   });
 

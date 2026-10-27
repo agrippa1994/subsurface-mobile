@@ -8,8 +8,8 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `8ded5db24` ("preferences: add editor to manage global cylinder types") |
-| Core version string | `6.0.5770` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/` submodule | `11a4e6306` ("mobile planner: recalculate preview when start time changes") |
+| Core version string | `6.0.5789` (from `subsurface/scripts/get-version.sh`) |
 | `subsurface/libdivecomputer` submodule | `780067110` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
