@@ -5,10 +5,12 @@
 // line up down the list and never get truncated away with a long site name.
 // Depth and duration sit stacked on the trailing edge for the same reason.
 //
-// Rows are plain-styled Buttons rather than tap gestures so they get the
-// system's row highlight and accessibility behaviour for free. Swiping a row
-// from the trailing edge offers Delete; the screen confirms before anything is
-// removed, so the button has no destructive role - that role makes SwiftUI
+// Rows are Buttons in the List's default style rather than tap gestures, so
+// the whole cell is the tap target and they get the system's row highlight and
+// accessibility behaviour for free. That style tints its label with the
+// accent colour, so the row content sets the system label colour. Swiping a
+// row from the trailing edge offers Delete; the screen confirms before anything
+// is removed, so the button has no destructive role - that role makes SwiftUI
 // animate the row away before the user has answered. Everything shown
 // comes from the presentation model in src/models/dive-list.ts - no formatting
 // decisions are made here.
@@ -31,7 +33,6 @@ import {
   accessibilityHidden,
   accessibilityLabel,
   background,
-  buttonStyle,
   disabled,
   font,
   foregroundStyle,
@@ -43,6 +44,7 @@ import {
   shapes,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
+import { PlatformColor } from 'react-native';
 
 import type { DiveListViewProps } from './dive-list-view';
 import { ratingStars, sectionSubtitle, skeletonRows, toDiveRow, type DiveRow } from '@/models/dive-list';
@@ -53,13 +55,16 @@ const ACCENT = '#007AFF';
 const ACCENT_FILL = '#007AFF1F';
 const DESTRUCTIVE = '#FF3B30';
 const STAR = '#FFB300';
+// The system label colour, not the hierarchical 'primary' style: that one
+// resolves against the button's accent tint and would leave the row blue.
+const LABEL = PlatformColor('label');
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 const TERTIARY = { type: 'hierarchical', style: 'tertiary' } as const;
 
 function DiveRowContent({ row }: { row: DiveRow }) {
   const stars = ratingStars(row.rating).length;
   return (
-    <HStack spacing={12} alignment="center">
+    <HStack spacing={12} alignment="center" modifiers={[foregroundStyle(LABEL)]}>
       <Text
         modifiers={[
           font({ textStyle: 'subheadline', weight: 'semibold', design: 'rounded' }),
@@ -144,7 +149,6 @@ export function DiveListView({
                   <Button
                     onPress={() => onSelectDive(row.id)}
                     modifiers={[
-                      buttonStyle('plain'),
                       // The row's own texts are shorthand (a bare "12", a run of
                       // star images, "20.1 m" over "42:15"); VoiceOver reads the
                       // sentence from the presentation model instead.
