@@ -90,7 +90,10 @@ export function SiteDetail({ uuid }: { uuid: number }) {
                     accessibilityRole="button"
                     accessibilityLabel={diveRow.accessibilityLabel}
                     onPress={() => router.push(`/sites/dive/${diveRow.id}`)}
-                    style={({ pressed }) => [styles.diveRow, pressed ? { opacity: 0.6 } : null]}
+                    style={({ pressed }) => [
+                      styles.diveRow,
+                      pressed ? { backgroundColor: theme.backgroundSelected } : null,
+                    ]}
                   >
                     <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]}>
                       <Text style={[styles.badgeText, { color: theme.accent }]}>
@@ -144,19 +147,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
+  // Cancels the card's padding, so each row - and its pressed highlight - runs
+  // edge to edge like a cell of the main dive list, the whole cell the tap
+  // target. The radius keeps the first and last highlight inside the card.
   diveList: {
-    marginVertical: -Spacing.two,
+    margin: -Spacing.three,
+    borderRadius: Spacing.three,
+    overflow: 'hidden',
   },
   diveRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + Spacing.one,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    // Badge width plus the row's gap: the line starts where the date does.
-    marginLeft: 44 + Spacing.three,
+    // Row inset plus badge width plus the row's gap: the line starts where the
+    // date does.
+    marginLeft: Spacing.three + 44 + Spacing.three,
   },
   badge: {
     minWidth: 44,
