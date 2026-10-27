@@ -1,12 +1,19 @@
 // AI-generated (Claude)
-// Dive sites: the list, the way into the editor, and the way to a new site.
+// Dive sites: a map or a list of them, the way into one site, and the way to a
+// new site.
+//
+// iOS opens on the map (Apple Maps) and offers the list as a toggle in the
+// navigation bar. Android has no map provider configured, so it only ever
+// shows the list.
 //
 // The rows come from the same module read as the dive list; how one renders is
 // decided in models/site-edit.ts so the vitest suite covers it.
-import { useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
+import { SitesMap } from '@/components/sites-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -18,11 +25,28 @@ export default function SitesScreen() {
   const { data: sites = [] } = useSites();
   const router = useRouter();
   const theme = useTheme();
+  const [mode, setMode] = useState<'map' | 'list'>(HAS_MAP ? 'map' : 'list');
 
-  // A native bar button item, so New gets the system add button (liquid glass
+  const openNew = () => router.push('/sites/new');
+  const openSite = (uuid: number) => router.push(`/sites/${uuid}`);
+
+  // Native bar button items, so New gets the system add button (liquid glass
   // on iOS 26) instead of a custom header view.
-  const header = (
-    <HeaderAction label="New dive site" icon="plus" onPress={() => router.push('/sites/new')} />
+  const header = HAS_MAP ? (
+    <>
+      {/* A large title has no scroll view to collapse into over a map. */}
+      <Stack.Screen options={{ headerLargeTitle: mode === 'list' }} />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={mode === 'map' ? 'list.bullet' : 'map'}
+          accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
+          onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
+        />
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New dive site" onPress={openNew} />
+      </Stack.Toolbar>
+    </>
+  ) : (
+    <HeaderAction label="New dive site" icon="plus" onPress={openNew} />
   );
 
   if (!logbook.isSuccess) {
@@ -44,8 +68,19 @@ export default function SitesScreen() {
           description="Sites appear here once a logbook with sites is loaded, or when you add one."
           systemImage="mappin.slash"
           actionLabel="New site"
-          onAction={() => router.push('/sites/new')}
+          onAction={openNew}
         />
+      </>
+    );
+  }
+
+  if (mode === 'map') {
+    return (
+      <>
+        {header}
+        <View style={styles.map}>
+          <SitesMap sites={sites} onSelectSite={openSite} />
+        </View>
       </>
     );
   }
@@ -63,7 +98,7 @@ export default function SitesScreen() {
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push(`/sites/${item.uuid}`)}
+            onPress={() => openSite(item.uuid)}
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.row,
@@ -81,7 +116,13 @@ export default function SitesScreen() {
   );
 }
 
+/** Only iOS has a map (Apple Maps); Android has no Google Maps key configured. */
+const HAS_MAP = Platform.OS === 'ios';
+
 const styles = StyleSheet.create({
+  map: {
+    flex: 1,
+  },
   content: {
     paddingVertical: Spacing.two,
     paddingBottom: Spacing.six,

@@ -133,7 +133,8 @@ export function SiteEditor({ uuid }: { uuid: number }) {
           void (async () => {
             await deleteSite.mutateAsync(original.uuid);
             await flush();
-            router.back();
+            // Past the site's own page too: it would only say "not found".
+            router.dismissTo('/sites');
           })();
         },
       },

@@ -330,3 +330,61 @@ export function toSiteRow(site: DiveSite): SiteRow {
 export function sortSitesByName(sites: readonly DiveSite[]): DiveSite[] {
   return [...sites].sort((a, b) => a.name.localeCompare(b.name) || a.uuid - b.uuid);
 }
+
+// --- Map -------------------------------------------------------------------
+
+/** Where a map opens: a centre in degrees and an Apple Maps zoom level. */
+export type MapCamera = { latitude: number; longitude: number; zoom: number };
+
+/** Zoom of a map around a single site: close enough to see the reef. */
+export const SITE_ZOOM = 13;
+/** Zoom of a map with nothing to show: the whole world. */
+export const WORLD_ZOOM = 1;
+
+/** Sites the map can place: the ones with a position. */
+export function mappableSites(sites: readonly DiveSite[]): DiveSite[] {
+  return sites.filter((site) => site.hasGps);
+}
+
+/**
+ * The camera that frames every site with a position. Longitudes are framed
+ * across the antimeridian when that is the shorter way round, so a trip to
+ * Fiji does not open on a map of the whole Pacific's other side.
+ */
+export function fitSitesCamera(sites: readonly DiveSite[]): MapCamera {
+  const placed = mappableSites(sites);
+  if (placed.length === 0) {
+    return { latitude: 0, longitude: 0, zoom: WORLD_ZOOM };
+  }
+
+  const lats = placed.map((site) => udegToDegrees(site.latUdeg));
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+
+  // The narrowest longitude band holding every site is the circle minus its
+  // widest empty gap between neighbouring sites.
+  const lons = placed.map((site) => udegToDegrees(site.lonUdeg)).sort((a, b) => a - b);
+  let gap = lons[0] + 360 - lons[lons.length - 1];
+  let west = lons[0];
+  for (let i = 1; i < lons.length; i++) {
+    if (lons[i] - lons[i - 1] > gap) {
+      gap = lons[i] - lons[i - 1];
+      west = lons[i];
+    }
+  }
+  const lonSpan = 360 - gap;
+  let longitude = west + lonSpan / 2;
+  if (longitude > 180) {
+    longitude -= 360;
+  }
+
+  const span = Math.max(maxLat - minLat, lonSpan);
+  // At zoom z the map is about 360 / 2^z degrees wide; the factor leaves a
+  // margin so the outermost pins are not on the edge.
+  const zoom = span === 0 ? SITE_ZOOM : Math.log2(360 / (span * 1.6));
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude,
+    zoom: Math.min(SITE_ZOOM, Math.max(WORLD_ZOOM, zoom)),
+  };
+}

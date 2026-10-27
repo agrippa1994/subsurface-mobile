@@ -8,11 +8,14 @@ import {
   distanceMeters,
   findDuplicateSites,
   findNearbySites,
+  fitSitesCamera,
   formatCoordinateInput,
   formatCoordinates,
   isEmptySiteInput,
+  mappableSites,
   parseCoordinates,
   siteDraftFrom,
+  SITE_ZOOM,
   sortSitesByName,
   toSiteRow,
   validateSiteDraft,
@@ -224,5 +227,36 @@ describe('rows', () => {
   it('sorts by name', () => {
     const sorted = sortSitesByName([site({ uuid: 2, name: 'Zoo' }), site({ uuid: 1, name: 'Arch' })]);
     expect(sorted.map((s) => s.name)).toEqual(['Arch', 'Zoo']);
+  });
+});
+
+describe('map camera', () => {
+  const at = (uuid: number, lat: number, lon: number) =>
+    site({ uuid, latUdeg: lat * 1_000_000, lonUdeg: lon * 1_000_000 });
+
+  it('leaves sites without a position off the map', () => {
+    expect(mappableSites([site({ hasGps: false }), site({ uuid: 2 })]).map((s) => s.uuid)).toEqual([2]);
+  });
+
+  it('opens on the whole world when nothing has a position', () => {
+    expect(fitSitesCamera([site({ hasGps: false })])).toEqual({ latitude: 0, longitude: 0, zoom: 1 });
+  });
+
+  it('zooms in on a single site', () => {
+    expect(fitSitesCamera([at(1, 10, 20)])).toEqual({ latitude: 10, longitude: 20, zoom: SITE_ZOOM });
+  });
+
+  it('centres on the box around every site', () => {
+    const camera = fitSitesCamera([at(1, 10, 20), at(2, 20, 40)]);
+    expect(camera.latitude).toBeCloseTo(15);
+    expect(camera.longitude).toBeCloseTo(30);
+    expect(camera.zoom).toBeGreaterThan(1);
+    expect(camera.zoom).toBeLessThan(SITE_ZOOM);
+  });
+
+  it('frames across the antimeridian when that is shorter', () => {
+    const camera = fitSitesCamera([at(1, -17, 178), at(2, -17, -178)]);
+    expect(Math.abs(camera.longitude)).toBeCloseTo(180);
+    expect(camera.zoom).toBeGreaterThan(5);
   });
 });

@@ -12,7 +12,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { degreesToUdeg, udegToDegrees } from '@/models';
-import { formatCoordinates } from '@/models/site-edit';
+import { formatCoordinates, SITE_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
 
 export type SiteMapProps = {
   latUdeg: number | null;
@@ -23,11 +23,6 @@ export type SiteMapProps = {
   height?: number;
   title?: string;
 };
-
-/** Zoom level of a fresh pick: close enough to see the reef, wide enough to pan. */
-const SITE_ZOOM = 13;
-/** What the map shows before the site has a position: the whole world. */
-const WORLD_ZOOM = 1;
 
 export function SiteMap({
   latUdeg,
