@@ -276,7 +276,7 @@ export function windowPoints(
   points: readonly Point[],
   fromSec: number,
   toSec: number,
-  maxCount = 600,
+  maxCount = 600
 ): Point[] {
   if (points.length === 0) {
     return [];
@@ -330,7 +330,8 @@ export type ProfileReadout = {
   timeText: string;
   depthText: string;
   temperatureText: string | null;
-  pressureTexts: string[];
+  /** One entry per cylinder, in cylinder order; null where it has no reading. */
+  pressures: { cylinder: number; text: string | null }[];
   inDeco: boolean;
   ceilingText: string | null;
   ndlText: string | null;
@@ -368,7 +369,7 @@ export function nearestSampleIndex(pi: PlotInfo, sec: number): number {
 export function readoutAt(
   pi: PlotInfo,
   sec: number,
-  system: UnitSystem = 'metric',
+  system: UnitSystem = 'metric'
 ): ProfileReadout | null {
   const index = nearestSampleIndex(pi, sec);
   if (index < 0) {
@@ -376,12 +377,10 @@ export function readoutAt(
   }
   const entry = pi.entry[index];
 
-  const pressureTexts: string[] = [];
+  const pressures: ProfileReadout['pressures'] = [];
   for (let cylinder = 0; cylinder < pi.nrCylinders; cylinder++) {
     const mbar = plotPressureAt(pi, index, cylinder);
-    if (mbar > 0) {
-      pressureTexts.push(formatPressure(mbar, system));
-    }
+    pressures.push({ cylinder, text: mbar > 0 ? formatPressure(mbar, system) : null });
   }
 
   return {
@@ -390,7 +389,7 @@ export function readoutAt(
     depthText: formatDepth(entry.depthMm, system),
     temperatureText:
       entry.temperatureMkelvin > 0 ? formatTemperature(entry.temperatureMkelvin, system) : null,
-    pressureTexts,
+    pressures,
     inDeco: entry.inDeco,
     ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, system) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
@@ -404,9 +403,75 @@ export function temperatureValue(mkelvin: number, system: UnitSystem): number {
   return system === 'imperial' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin);
 }
 
-/** Tank pressure in the displayed unit (bar or psi). */
-function pressureValue(mbar: number, system: UnitSystem): number {
-  return system === 'imperial' ? mbarToPsi(mbar) : mbarToBar(mbar);
+// --- Readout layout --------------------------------------------------------
+
+/**
+ * One field of the scrubber readout. `widest` are the longest strings the field
+ * takes anywhere in this dive, so the renderer can reserve that width and the
+ * row does not jump about as the values change length; `read` gives the field's
+ * text for one sample.
+ */
+export type ReadoutSlot = {
+  key: string;
+  widest: string[];
+  read: (readout: ProfileReadout) => string;
+};
+
+/** Shown in a slot whose quantity has no value at this sample. */
+const NO_VALUE = '-';
+
+type Read = (readout: ProfileReadout) => string | null;
+
+/**
+ * The readout fields of one dive. A fixed set - a field is in it when the dive
+ * has a value for it somewhere - so fields never appear, vanish or reorder
+ * while scrubbing. Built once per dive: the widths are measured by formatting
+ * every sample with the very readers that fill the field, so they cannot drift
+ * from the formatters.
+ */
+export function readoutLayout(
+  pi: PlotInfo,
+  system: UnitSystem = 'metric',
+  options: { showGfNow?: boolean; showGfSurface?: boolean } = {}
+): ReadoutSlot[] {
+  const samples = pi.entry.flatMap((entry) => readoutAt(pi, entry.sec, system) ?? []);
+
+  // A slot with several readers (NDL or ceiling) shows the first that has a
+  // value, and reserves the width of the longest of each kind.
+  const slot = (key: string, ...reads: Read[]): ReadoutSlot => ({
+    key,
+    widest: reads
+      .map((read) =>
+        samples.reduce<string>((longest, sample) => {
+          const text = read(sample);
+          return text !== null && text.length > longest.length ? text : longest;
+        }, '')
+      )
+      .filter((text) => text.length > 0),
+    read: (readout) => reads.map((read) => read(readout)).find((text) => text !== null) ?? NO_VALUE,
+  });
+
+  const optional = [
+    slot('temperature', (r) => r.temperatureText),
+    ...Array.from({ length: pi.nrCylinders }, (_, cylinder) =>
+      slot(`pressure-${cylinder}`, (r) => r.pressures[cylinder]?.text ?? null)
+    ),
+    options.showGfNow ? slot('gf-now', (r) => (r.gfNowText ? `GF ${r.gfNowText}` : null)) : null,
+    options.showGfSurface
+      ? slot('gf-surface', (r) => (r.gfSurfaceText ? `sGF ${r.gfSurfaceText}` : null))
+      : null,
+    slot(
+      'deco',
+      (r) => (r.inDeco && r.ceilingText ? `ceiling ${r.ceilingText}` : null),
+      (r) => (!r.inDeco && r.ndlText ? `NDL ${r.ndlText}` : null)
+    ),
+  ].filter((candidate): candidate is ReadoutSlot => candidate !== null);
+
+  return [
+    slot('time', (r) => r.timeText),
+    slot('depth', (r) => r.depthText),
+    ...optional.filter((candidate) => candidate.widest.length > 0),
+  ];
 }
 
 // --- Band axes -------------------------------------------------------------
@@ -443,7 +508,7 @@ export function temperatureAxis(plot: ProfilePlot, system: UnitSystem): BandLabe
   }
   return bandLabels(
     temperatureValue(plot.temperatureRange.min, system),
-    temperatureValue(plot.temperatureRange.max, system),
+    temperatureValue(plot.temperatureRange.max, system)
   );
 }
 
@@ -452,120 +517,9 @@ export function pressureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[]
   if (plot.pressures.length === 0) {
     return [];
   }
-  return bandLabels(
-    Math.round(pressureValue(plot.pressureRange.min, system)),
-    Math.round(pressureValue(plot.pressureRange.max, system)),
-  );
-}
-
-// --- Readout layout --------------------------------------------------------
-
-/**
- * One field of the scrubber readout. `text` is what the current sample says
- * (null while not scrubbing); `widest` are the longest strings the field can
- * take anywhere in this dive, so the renderer can reserve that width and the
- * row does not jump about as the values change length.
- */
-export type ReadoutSlot = { key: string; text: string | null; widest: string[] };
-
-/** Shown in a slot whose quantity has no value at this sample. */
-const NO_VALUE = '-';
-
-/** A string as wide as any integer up to `max`, in tabular digits. */
-function digitsOf(max: number): string {
-  return '0'.repeat(String(Math.max(0, Math.round(Math.abs(max)))).length);
-}
-
-/**
- * The readout fields for one dive: a fixed set, decided by what the dive
- * carries rather than by the sample under the finger, so fields never appear,
- * vanish or reorder while scrubbing.
- */
-export function readoutSlots(
-  plot: ProfilePlot,
-  pi: PlotInfo,
-  readout: ProfileReadout | null,
-  system: UnitSystem = 'metric',
-  options: { showGfNow?: boolean; showGfSurface?: boolean } = {},
-): ReadoutSlot[] {
-  const imperial = system === 'imperial';
-  const index = readout ? nearestSampleIndex(pi, readout.sec) : -1;
-  const value = (text: string | null) => (readout ? (text ?? NO_VALUE) : null);
-
-  const depthWidest = imperial
-    ? `${digitsOf(mmToFeet(plot.maxDepthMm))} ft`
-    : `${digitsOf(mmToMeters(plot.maxDepthMm))}.0 m`;
-
-  const slots: ReadoutSlot[] = [
-    {
-      key: 'time',
-      text: value(readout?.timeText ?? null),
-      widest: [formatDuration(plot.maxSec).replace(/\d/g, '0')],
-    },
-    { key: 'depth', text: value(readout?.depthText ?? null), widest: [depthWidest] },
-  ];
-
-  if (plot.temperature.length > 0) {
-    const { min, max } = plot.temperatureRange;
-    const low = temperatureValue(min, system);
-    const high = temperatureValue(max, system);
-    const sign = low < 0 ? '-' : '';
-    slots.push({
-      key: 'temperature',
-      text: value(readout?.temperatureText ?? null),
-      widest: [
-        `${sign}${digitsOf(Math.max(Math.abs(low), Math.abs(high)))}.0 ${imperial ? 'F' : 'C'}`,
-      ],
-    });
-  }
-
-  // Per cylinder, not per reading: the readout's own list skips cylinders
-  // without a value at that moment, which would shift the others along.
-  const pressureWidest = `${digitsOf(pressureValue(plot.pressureRange.max, system))} ${
-    imperial ? 'psi' : 'bar'
-  }`;
-  for (const series of plot.pressures) {
-    const mbar = index >= 0 ? plotPressureAt(pi, index, series.cylinder) : 0;
-    slots.push({
-      key: `pressure-${series.cylinder}`,
-      text: value(mbar > 0 ? formatPressure(mbar, system) : null),
-      widest: [pressureWidest],
-    });
-  }
-
-  const gfWidest = digitsOf(Math.max(100, plot.gfRange.max));
-  if (options.showGfNow && plot.gfNow.length > 0) {
-    slots.push({
-      key: 'gf-now',
-      text: value(readout?.gfNowText ? `GF ${readout.gfNowText}` : null),
-      widest: [`GF ${gfWidest}%`],
-    });
-  }
-  if (options.showGfSurface && plot.gfSurface.length > 0) {
-    slots.push({
-      key: 'gf-surface',
-      text: value(readout?.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null),
-      widest: [`sGF ${gfWidest}%`],
-    });
-  }
-
-  // NDL and ceiling share a slot: a sample shows one or the other.
-  const maxNdlSec = pi.entry.reduce((max, entry) => Math.max(max, entry.ndlSec), 0);
-  if (maxNdlSec > 0 || plot.ceiling.length > 0) {
-    let deco: string | null = null;
-    if (readout?.inDeco && readout.ceilingText) {
-      deco = `ceiling ${readout.ceilingText}`;
-    } else if (readout && !readout.inDeco && readout.ndlText) {
-      deco = `NDL ${readout.ndlText}`;
-    }
-    const widest = [`NDL ${formatDuration(maxNdlSec).replace(/\d/g, '0')}`];
-    if (plot.ceiling.length > 0) {
-      widest.push(`ceiling ${depthWidest}`);
-    }
-    slots.push({ key: 'deco', text: value(deco), widest });
-  }
-
-  return slots;
+  const displayed = (mbar: number) =>
+    Math.round(system === 'imperial' ? mbarToPsi(mbar) : mbarToBar(mbar));
+  return bandLabels(displayed(plot.pressureRange.min), displayed(plot.pressureRange.max));
 }
 
 // --- Accessibility ---------------------------------------------------------
@@ -582,7 +536,7 @@ export function profileSummary(
   // A curve that is drawn but never spoken does not exist to VoiceOver, so the
   // shown series decide what the summary mentions. Their peak is the number
   // that matters: it is the worst the dive got.
-  gf: { showGfNow?: boolean; showGfSurface?: boolean } = {},
+  gf: { showGfNow?: boolean; showGfSurface?: boolean } = {}
 ): string {
   if (plot.depth.length === 0) {
     return 'Dive profile. This dive has no profile samples.';
@@ -599,19 +553,19 @@ export function profileSummary(
     parts.push(
       min === max
         ? `water temperature ${formatTemperature(min, system)}`
-        : `water temperature ${formatTemperature(min, system)} to ${formatTemperature(max, system)}`,
+        : `water temperature ${formatTemperature(min, system)} to ${formatTemperature(max, system)}`
     );
   }
   if (plot.pressures.length > 0) {
     parts.push(
       `tank pressure from ${formatPressure(plot.pressureRange.max, system)} to ${formatPressure(
         plot.pressureRange.min,
-        system,
-      )}`,
+        system
+      )}`
     );
   }
   parts.push(
-    plot.ceiling.length > 0 ? 'the dive went into decompression' : 'no decompression obligation',
+    plot.ceiling.length > 0 ? 'the dive went into decompression' : 'no decompression obligation'
   );
   if (gf.showGfNow && plot.gfNow.length > 0) {
     const peak = Math.max(...plot.gfNow.map((point) => point.value));

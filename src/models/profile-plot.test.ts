@@ -17,7 +17,7 @@ import {
   pressureAxis,
   profileSummary,
   readoutAt,
-  readoutSlots,
+  readoutLayout,
   temperatureAxis,
   temperatureValue,
   timeTicks,
@@ -131,7 +131,7 @@ describe('profileSummary', () => {
   it('describes the shape of the dive, not the drawing', () => {
     expect(profileSummary(plot, 'metric')).toBe(
       'Dive profile. maximum depth 20.1 m at 10:00, total time 42:15, ' +
-        'water temperature 10 C to 16 C, no decompression obligation.',
+        'water temperature 10 C to 16 C, no decompression obligation.'
     );
   });
 
@@ -142,12 +142,12 @@ describe('profileSummary', () => {
 
   it('says so rather than describing an empty chart', () => {
     expect(profileSummary(EMPTY_PROFILE_PLOT)).toBe(
-      'Dive profile. This dive has no profile samples.',
+      'Dive profile. This dive has no profile samples.'
     );
     // Even with both curves asked for: there is nothing to speak.
     const gf = { showGfNow: true, showGfSurface: true };
     expect(profileSummary(EMPTY_PROFILE_PLOT, 'metric', gf)).toBe(
-      'Dive profile. This dive has no profile samples.',
+      'Dive profile. This dive has no profile samples.'
     );
   });
 });
@@ -326,30 +326,32 @@ describe('a logbook with temperature, pressure and deco', () => {
     expect(sawCeiling).toBe(true);
   });
 
-  // The readout must not jump while scrubbing: the same fields at every sample,
-  // and no value longer than the width reserved for it (tabular digits, so
-  // character count is width).
-  it('keeps the scrubber readout fields fixed in number and width', async () => {
+  // The readout must not jump while scrubbing: no value longer than the width
+  // reserved for its field (tabular digits, so character count is width), and
+  // the fields a logbook like this carries are all there.
+  it('reserves enough width for every scrubber readout value', async () => {
     const options = { showGfNow: true, showGfSurface: true };
+    const seen = new Set<string>();
     for (const system of ['metric', 'imperial'] as const) {
       for (const summary of await host.listDives()) {
         const profile = await host.getProfile(summary.id);
-        const plot = buildProfilePlot(profile);
-        const idle = readoutSlots(plot, profile, null, system, options);
-        expect(idle.every((slot) => slot.text === null)).toBe(true);
-        const keys = idle.map((slot) => slot.key);
+        const slots = readoutLayout(profile, system, options);
+        expect(slots.slice(0, 2).map((slot) => slot.key)).toEqual(['time', 'depth']);
 
         for (const entry of profile.entry) {
-          const readout = readoutAt(profile, entry.sec, system);
-          const slots = readoutSlots(plot, profile, readout, system, options);
-          expect(slots.map((slot) => slot.key)).toEqual(keys);
+          const readout = readoutAt(profile, entry.sec, system)!;
           for (const slot of slots) {
+            seen.add(slot.key.replace(/-\d+$/, ''));
+            const text = slot.read(readout);
             const reserved = Math.max(...slot.widest.map((widest) => widest.length));
-            expect(slot.text?.length, `${slot.key} "${slot.text}"`).toBeLessThanOrEqual(reserved);
+            expect(text.length, `${slot.key} "${text}"`).toBeLessThanOrEqual(reserved);
           }
         }
       }
     }
+    expect([...seen].sort()).toEqual(
+      ['deco', 'depth', 'gf-now', 'gf-surface', 'pressure', 'temperature', 'time'].sort()
+    );
   });
 
   // The two gradient factors reach TS in different units - current_gf is a
@@ -409,7 +411,7 @@ describe('a logbook with temperature, pressure and deco', () => {
       const readout = readoutAt(profile, entry.sec, 'metric');
       expect(readout!.gfSurfaceText).toBe(`${Math.round(entry.surfaceGf)}%`);
       expect(readout!.gfNowText).toBe(
-        entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null,
+        entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null
       );
       return;
     }
@@ -424,10 +426,10 @@ describe('a logbook with temperature, pressure and deco', () => {
 
     expect(profileSummary(plot, 'metric')).not.toMatch(/gradient factor/);
     expect(profileSummary(plot, 'metric', { showGfSurface: true })).toMatch(
-      /highest surface gradient factor \d+ percent/,
+      /highest surface gradient factor \d+ percent/
     );
     expect(profileSummary(plot, 'metric', { showGfNow: true })).toMatch(
-      /highest gradient factor at depth \d+ percent/,
+      /highest gradient factor at depth \d+ percent/
     );
   });
 

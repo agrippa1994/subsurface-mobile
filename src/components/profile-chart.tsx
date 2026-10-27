@@ -38,19 +38,18 @@ import {
   pressureAxis,
   profileSummary,
   readoutAt,
-  readoutSlots,
+  readoutLayout,
   temperatureAxis,
   temperatureValue,
   timeTicks,
   windowPoints,
-  type BandLabel,
   type Point,
   type ProfilePlot,
 } from '@/models/profile-plot';
 
-const PAD = { left: 34, right: 10, top: 10, bottom: 20 };
-/** Right padding when the temperature or pressure band carries axis labels. */
-const PAD_RIGHT_WITH_AXIS = 34;
+const PAD = { left: 34, top: 10, bottom: 20 };
+/** Right padding: wider when the pressure or temperature band carries labels. */
+const PAD_RIGHT = { plain: 10, axis: 34 };
 /** Points drawn per series. Beyond this the curve is thinned, keeping extremes. */
 const MAX_POINTS = 600;
 /** The temperature series lives in the bottom band, out of the depth curve's way. */
@@ -90,7 +89,7 @@ function clampWindow(view: TimeWindow, maxSec: number): TimeWindow {
 function lineBuilder(
   points: Point[],
   x: (sec: number) => number,
-  y: (v: number) => number,
+  y: (v: number) => number
 ): SkPathBuilder {
   const path = Skia.PathBuilder.Make();
   points.forEach((point, index) => {
@@ -113,7 +112,7 @@ function buildArea(
   points: Point[],
   x: (sec: number) => number,
   y: (v: number) => number,
-  baselineY: number,
+  baselineY: number
 ): SkPath {
   const path = lineBuilder(points, x, y);
   if (points.length > 0) {
@@ -137,10 +136,27 @@ export function ProfileChart({
   const [view, setView] = useState<TimeWindow>({ from: 0, to: plot.maxSec });
   const [scrubSec, setScrubSec] = useState<number | null>(null);
 
-  const temperatureLabels = useMemo(() => temperatureAxis(plot, unitSystem), [plot, unitSystem]);
-  const pressureLabels = useMemo(() => pressureAxis(plot, unitSystem), [plot, unitSystem]);
-  const padRight =
-    temperatureLabels.length > 0 || pressureLabels.length > 0 ? PAD_RIGHT_WITH_AXIS : PAD.right;
+  // The pressure and temperature bands are labelled at their edges on the right,
+  // in the colour of their curve.
+  const rightAxis = useMemo(
+    () =>
+      [
+        {
+          key: 'pressure',
+          band: PRESSURE_BAND,
+          color: colors.pressure,
+          labels: pressureAxis(plot, unitSystem),
+        },
+        {
+          key: 'temperature',
+          band: TEMPERATURE_BAND,
+          color: colors.temperature,
+          labels: temperatureAxis(plot, unitSystem),
+        },
+      ].flatMap(({ labels, ...axis }) => labels.map((label) => ({ ...label, ...axis }))),
+    [colors.pressure, colors.temperature, plot, unitSystem]
+  );
+  const padRight = rightAxis.length > 0 ? PAD_RIGHT.axis : PAD_RIGHT.plain;
 
   const chartWidth = Math.max(0, width - PAD.left - padRight);
   const chartHeight = Math.max(0, height - PAD.top - PAD.bottom);
@@ -156,21 +172,25 @@ export function ProfileChart({
   const span = Math.max(1, view.to - view.from);
   const x = useCallback(
     (sec: number) => PAD.left + ((sec - view.from) / span) * chartWidth,
-    [chartWidth, span, view.from],
+    [chartWidth, span, view.from]
   );
   const yDepth = useCallback(
     (mm: number) => PAD.top + (mm / depthAxisMax) * chartHeight,
-    [chartHeight, depthAxisMax],
+    [chartHeight, depthAxisMax]
   );
-  const bandY = useCallback(
-    (value: number, min: number, max: number, band: { top: number; bottom: number }) => {
-      const usable = max - min || 1;
-      const t = (value - min) / usable;
+  /** `t` runs from 0 at the bottom edge of the band to 1 at its top. */
+  const bandPositionY = useCallback(
+    (t: number, band: { top: number; bottom: number }) => {
       const top = PAD.top + band.top * chartHeight;
       const bottom = PAD.top + band.bottom * chartHeight;
       return bottom - t * (bottom - top);
     },
-    [chartHeight],
+    [chartHeight]
+  );
+  const bandY = useCallback(
+    (value: number, min: number, max: number, band: { top: number; bottom: number }) =>
+      bandPositionY((value - min) / (max - min || 1), band),
+    [bandPositionY]
   );
 
   const paths = useMemo(() => {
@@ -191,7 +211,7 @@ export function ProfileChart({
       const windowed = windowPoints(points, view.from, view.to, MAX_POINTS);
       return windowed.length > 1
         ? buildLine(windowed, x, (percent) =>
-            bandY(percent, plot.gfRange.min, plot.gfRange.max, GF_BAND),
+            bandY(percent, plot.gfRange.min, plot.gfRange.max, GF_BAND)
           )
         : null;
     };
@@ -201,21 +221,25 @@ export function ProfileChart({
       depthLine: buildLine(depthPoints, x, yDepth),
       // The ceiling is drawn as the water column the diver may not ascend into:
       // from the surface down to the ceiling depth.
-      ceilingArea: ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
+      ceilingArea:
+        ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
       ceilingLine: ceilingPoints.length > 1 ? buildLine(ceilingPoints, x, yDepth) : null,
       gfNow: gfLine(plot.gfNow, showGfNow),
       gfSurface: gfLine(plot.gfSurface, showGfSurface),
       temperature:
         temperaturePoints.length > 1
           ? buildLine(temperaturePoints, x, (mkelvin) =>
-              bandY(temperatureValue(mkelvin, unitSystem), tempMin, tempMax, TEMPERATURE_BAND),
+              bandY(temperatureValue(mkelvin, unitSystem), tempMin, tempMax, TEMPERATURE_BAND)
             )
           : null,
       pressures: plot.pressures
         .map((series) => ({
           cylinder: series.cylinder,
-          path: buildLine(windowPoints(series.points, view.from, view.to, MAX_POINTS), x, (mbar) =>
-            bandY(mbar, plot.pressureRange.min, plot.pressureRange.max, PRESSURE_BAND),
+          path: buildLine(
+            windowPoints(series.points, view.from, view.to, MAX_POINTS),
+            x,
+            (mbar) =>
+              bandY(mbar, plot.pressureRange.min, plot.pressureRange.max, PRESSURE_BAND)
           ),
         }))
         .filter((series) => series.path.countPoints() > 1),
@@ -253,7 +277,7 @@ export function ProfileChart({
 
   const visibleEvents = useMemo(
     () => plot.events.filter((event) => event.sec >= view.from && event.sec <= view.to),
-    [plot.events, view.from, view.to],
+    [plot.events, view.from, view.to]
   );
 
   const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, unitSystem);
@@ -264,7 +288,10 @@ export function ProfileChart({
   // fixed set, each as wide as its longest value in this dive, and are laid
   // out even before scrubbing starts (invisibly, under the hint) - so neither
   // the readout nor the chart below it moves while the finger does.
-  const slots = readoutSlots(plot, pi, readout, unitSystem, { showGfNow, showGfSurface });
+  const readoutSlots = useMemo(
+    () => readoutLayout(pi, unitSystem, { showGfNow, showGfSurface }),
+    [pi, showGfNow, showGfSurface, unitSystem]
+  );
 
   // --- Gestures ------------------------------------------------------------
 
@@ -279,11 +306,11 @@ export function ProfileChart({
         const nextSpan = currentSpan / factor;
         return clampWindow(
           { from: anchorSec - ratio * nextSpan, to: anchorSec + (1 - ratio) * nextSpan },
-          plot.maxSec,
+          plot.maxSec
         );
       });
     },
-    [chartWidth, plot.maxSec],
+    [chartWidth, plot.maxSec]
   );
 
   const panBy = useCallback(
@@ -293,7 +320,7 @@ export function ProfileChart({
         return clampWindow({ from: current.from - seconds, to: current.to - seconds }, plot.maxSec);
       });
     },
-    [chartWidth, plot.maxSec],
+    [chartWidth, plot.maxSec]
   );
 
   const scrubTo = useCallback(
@@ -302,7 +329,7 @@ export function ProfileChart({
       const sec = view.from + Math.min(Math.max(ratio, 0), 1) * (view.to - view.from);
       setScrubSec(Math.round(sec));
     },
-    [chartWidth, view.from, view.to],
+    [chartWidth, view.from, view.to]
   );
 
   // `onChange` hands over the per-frame delta, so no gesture state is kept
@@ -336,12 +363,6 @@ export function ProfileChart({
 
   // --- Labels --------------------------------------------------------------
 
-  const bandLabelY = (label: BandLabel, band: { top: number; bottom: number }) => {
-    const top = PAD.top + band.top * chartHeight;
-    const bottom = PAD.top + band.bottom * chartHeight;
-    return bottom - label.position * (bottom - top);
-  };
-
   const depthLabel = (mm: number) =>
     unitSystem === 'imperial' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
 
@@ -360,20 +381,21 @@ export function ProfileChart({
   return (
     <View>
       <View style={styles.readoutRow}>
-        {slots.map((slot) => (
+        {readoutSlots.map((slot) => (
           <View key={slot.key}>
             {/* Zero-height copies of the widest values: they size the slot. */}
-            {slot.widest.map((widest, index) => (
+            {slot.widest.map((widest) => (
               <Text
-                key={index}
+                key={widest}
                 style={[styles.readout, styles.readoutSizer]}
                 accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              >
+                importantForAccessibility="no-hide-descendants">
                 {widest}
               </Text>
             ))}
-            <Text style={[styles.readout, { color: colors.label }]}>{slot.text ?? ' '}</Text>
+            <Text style={[styles.readout, { color: colors.label }]}>
+              {readout ? slot.read(readout) : ' '}
+            </Text>
           </View>
         ))}
         {readout === null ? (
@@ -393,8 +415,7 @@ export function ProfileChart({
           // curve nor the scrubber gesture is reachable without a pointer.
           accessible
           accessibilityRole="image"
-          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}
-        >
+          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 
@@ -454,7 +475,11 @@ export function ProfileChart({
             ) : null}
             {/* Dashed, so it is told from gf at depth without relying on the tint. */}
             {paths?.gfSurface ? (
-              <Path path={paths.gfSurface} style="stroke" strokeWidth={2} color={colors.gfSurface}>
+              <Path
+                path={paths.gfSurface}
+                style="stroke"
+                strokeWidth={2}
+                color={colors.gfSurface}>
                 <DashPathEffect intervals={[5, 4]} />
               </Path>
             ) : null}
@@ -500,44 +525,24 @@ export function ProfileChart({
               style={[
                 styles.axisLabel,
                 { color: colors.label, top: yDepth(tick.value) - 7, left: 0, width: PAD.left - 4 },
-              ]}
-            >
+              ]}>
               {depthLabel(tick.value)}
             </Text>
           ))}
 
-          {pressureLabels.map((label) => (
+          {rightAxis.map((label) => (
             <Text
-              key={`pressure-${label.position}`}
+              key={`${label.key}-${label.position}`}
               style={[
                 styles.axisLabel,
                 styles.rightAxisLabel,
                 {
-                  color: colors.pressure,
-                  top: bandLabelY(label, PRESSURE_BAND) - 7,
+                  color: label.color,
+                  top: bandPositionY(label.position, label.band) - 7,
                   left: PAD.left + chartWidth + 4,
                   width: padRight - 4,
                 },
-              ]}
-            >
-              {label.label}
-            </Text>
-          ))}
-
-          {temperatureLabels.map((label) => (
-            <Text
-              key={`temperature-${label.position}`}
-              style={[
-                styles.axisLabel,
-                styles.rightAxisLabel,
-                {
-                  color: colors.temperature,
-                  top: bandLabelY(label, TEMPERATURE_BAND) - 7,
-                  left: PAD.left + chartWidth + 4,
-                  width: padRight - 4,
-                },
-              ]}
-            >
+              ]}>
               {label.label}
             </Text>
           ))}
@@ -551,8 +556,7 @@ export function ProfileChart({
                   styles.axisLabel,
                   styles.timeLabel,
                   { color: colors.label, left: x(tick.value) - 16, top: height - PAD.bottom + 2 },
-                ]}
-              >
+                ]}>
                 {tick.label}
               </Text>
             ))}
