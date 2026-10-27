@@ -5,8 +5,12 @@
 // read, grouped by the presentation model, and shows the loading / empty /
 // error placeholders around it. Deleting from the list (a swipe on iOS) asks
 // first, the same way the dive editor does - a deleted dive is gone for good.
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+//
+// The header search bar narrows the list by site, trip, buddy, dive guide,
+// dive number or date (see searchDives); while a query is typed, the list says
+// how many dives it kept.
+import { Stack, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
@@ -15,7 +19,13 @@ import { warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
 import type { DiveSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
-import { diveRowTitle, groupDivesByTrip } from '@/models/dive-list';
+import {
+  buildDiveSearchIndex,
+  diveRowTitle,
+  groupDivesByTrip,
+  searchDives,
+  searchResultsText,
+} from '@/models/dive-list';
 import { useDives, useLogbook } from '@/queries/logbook';
 import { useDeleteDive } from '@/queries/logbook-mutations';
 import { useUnitSystem } from '@/queries/settings';
@@ -28,7 +38,11 @@ export default function DivesScreen() {
   const unitSystem = useUnitSystem();
   const deleteDive = useDeleteDive();
 
-  const sections = useMemo(() => groupDivesByTrip(dives), [dives]);
+  const [query, setQuery] = useState('');
+  const searchIndex = useMemo(() => buildDiveSearchIndex(dives), [dives]);
+  const searching = query.trim() !== '';
+  const matches = useMemo(() => searchDives(searchIndex, query), [searchIndex, query]);
+  const sections = useMemo(() => groupDivesByTrip(matches), [matches]);
 
   const onDeleteDive = useCallback(
     (dive: DiveSummary) => {
@@ -63,6 +77,17 @@ export default function DivesScreen() {
     [deleteDive],
   );
 
+  // Also shown over the loading skeleton: the search field makes the navigation
+  // bar taller, so adding it only once the dives are in would shift the list.
+  const searchBar = (
+    <Stack.SearchBar
+      placeholder="Site, buddy, date"
+      autoCapitalize="none"
+      onChangeText={(event) => setQuery(event.nativeEvent.text)}
+      onCancelButtonPress={() => setQuery('')}
+    />
+  );
+
   if (logbook.isError) {
     return (
       <StatusView
@@ -79,7 +104,12 @@ export default function DivesScreen() {
   // The dive query only starts once the logbook is in, so it is still pending
   // for a moment after; without waiting for it the empty state would flash.
   if (!logbook.isSuccess || divesQuery.isPending) {
-    return <DiveListSkeleton />;
+    return (
+      <>
+        {searchBar}
+        <DiveListSkeleton />
+      </>
+    );
   }
 
   if (dives.length === 0) {
@@ -93,12 +123,31 @@ export default function DivesScreen() {
     );
   }
 
+  // Only reachable while searching: the log itself has dives at this point.
+  if (matches.length === 0) {
+    return (
+      <>
+        {searchBar}
+        <StatusView
+          kind="empty"
+          title="No matching dives"
+          description={`No dive matches "${query.trim()}". Try a site, buddy or date.`}
+          systemImage="magnifyingglass"
+        />
+      </>
+    );
+  }
+
   return (
-    <DiveListView
-      sections={sections}
-      unitSystem={unitSystem}
-      onSelectDive={(id) => router.push(`/dives/${id}`)}
-      onDeleteDive={onDeleteDive}
-    />
+    <>
+      {searchBar}
+      <DiveListView
+        sections={sections}
+        unitSystem={unitSystem}
+        onSelectDive={(id) => router.push(`/dives/${id}`)}
+        onDeleteDive={onDeleteDive}
+        resultsText={searching ? searchResultsText(matches.length, dives.length) : undefined}
+      />
+    </>
   );
 }

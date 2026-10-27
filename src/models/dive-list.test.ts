@@ -11,9 +11,12 @@ import { join } from 'node:path';
 import type { DiveSummary } from './index';
 import { DiveMode } from './index';
 import {
+  buildDiveSearchIndex,
   groupDivesByTrip,
   NO_TRIP_LABEL,
   ratingStars,
+  searchDives,
+  searchResultsText,
   sectionSubtitle,
   sortDivesNewestFirst,
   toDiveRow,
@@ -118,6 +121,53 @@ describe('groupDivesByTrip', () => {
 
   it('returns nothing for an empty log', () => {
     expect(groupDivesByTrip([])).toEqual([]);
+  });
+});
+
+describe('searchDives', () => {
+  // 2011-12-13 09:00 and 2024-03-12 15:25, both wall-clock-as-UTC.
+  const dives = [
+    summary({ id: 1, number: 7, when: 1323766800, siteName: 'Blue Hole', buddy: 'Anna, Ben' }),
+    summary({ id: 2, number: 42, when: 1710257100, siteName: 'House Reef', tripLocation: 'Dahab' }),
+    summary({ id: 3, when: 1710257100, siteName: 'Canyon', diveguide: 'Anna' }),
+  ];
+  const index = buildDiveSearchIndex(dives, LOCALE);
+  const ids = (query: string) => searchDives(index, query).map((d) => d.id);
+
+  it('returns every dive for a blank query', () => {
+    expect(ids('')).toEqual([1, 2, 3]);
+    expect(ids('   ')).toEqual([1, 2, 3]);
+  });
+
+  it('matches site, trip, buddy and dive guide case-insensitively', () => {
+    expect(ids('blue')).toEqual([1]);
+    expect(ids('dahab')).toEqual([2]);
+    expect(ids('BEN')).toEqual([1]);
+    expect(ids('anna')).toEqual([1, 3]);
+  });
+
+  it('matches the date in several spellings', () => {
+    expect(ids('13 Dec 2011')).toEqual([1]);
+    expect(ids('2024-03')).toEqual([2, 3]);
+    expect(ids('march')).toEqual([2, 3]);
+    expect(ids('12/03/2024')).toEqual([2, 3]);
+  });
+
+  it('matches the dive number', () => {
+    expect(ids('#42')).toEqual([2]);
+  });
+
+  it('requires every word to match', () => {
+    expect(ids('anna 2024')).toEqual([3]);
+    expect(ids('anna dahab')).toEqual([]);
+  });
+});
+
+describe('searchResultsText', () => {
+  it('counts the matches against the whole log', () => {
+    expect(searchResultsText(3, 120)).toBe('3 of 120 dives');
+    expect(searchResultsText(1, 1)).toBe('1 dive found');
+    expect(searchResultsText(5, 5)).toBe('5 dives found');
   });
 });
 

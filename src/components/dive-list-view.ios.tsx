@@ -134,10 +134,21 @@ export function DiveListView({
   unitSystem,
   onSelectDive,
   onDeleteDive,
+  resultsText,
 }: DiveListViewProps) {
   return (
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('insetGrouped')]}>
+        {resultsText ? (
+          <Section
+            header={
+              <Text modifiers={[font({ textStyle: 'subheadline' }), foregroundStyle(SECONDARY)]}>
+                {resultsText}
+              </Text>
+            }>
+            {null}
+          </Section>
+        ) : null}
         {sections.map((section) => (
           <Section
             key={section.key}
