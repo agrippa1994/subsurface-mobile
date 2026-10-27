@@ -35,16 +35,22 @@ import { formatDuration, mmToFeet, mmToMeters } from '@/models';
 import {
   depthTicks,
   nearestSampleIndex,
+  pressureAxis,
   profileSummary,
   readoutAt,
+  readoutSlots,
+  temperatureAxis,
   temperatureValue,
   timeTicks,
   windowPoints,
+  type BandLabel,
   type Point,
   type ProfilePlot,
 } from '@/models/profile-plot';
 
 const PAD = { left: 34, right: 10, top: 10, bottom: 20 };
+/** Right padding when the temperature or pressure band carries axis labels. */
+const PAD_RIGHT_WITH_AXIS = 34;
 /** Points drawn per series. Beyond this the curve is thinned, keeping extremes. */
 const MAX_POINTS = 600;
 /** The temperature series lives in the bottom band, out of the depth curve's way. */
@@ -84,7 +90,7 @@ function clampWindow(view: TimeWindow, maxSec: number): TimeWindow {
 function lineBuilder(
   points: Point[],
   x: (sec: number) => number,
-  y: (v: number) => number
+  y: (v: number) => number,
 ): SkPathBuilder {
   const path = Skia.PathBuilder.Make();
   points.forEach((point, index) => {
@@ -107,7 +113,7 @@ function buildArea(
   points: Point[],
   x: (sec: number) => number,
   y: (v: number) => number,
-  baselineY: number
+  baselineY: number,
 ): SkPath {
   const path = lineBuilder(points, x, y);
   if (points.length > 0) {
@@ -131,7 +137,12 @@ export function ProfileChart({
   const [view, setView] = useState<TimeWindow>({ from: 0, to: plot.maxSec });
   const [scrubSec, setScrubSec] = useState<number | null>(null);
 
-  const chartWidth = Math.max(0, width - PAD.left - PAD.right);
+  const temperatureLabels = useMemo(() => temperatureAxis(plot, unitSystem), [plot, unitSystem]);
+  const pressureLabels = useMemo(() => pressureAxis(plot, unitSystem), [plot, unitSystem]);
+  const padRight =
+    temperatureLabels.length > 0 || pressureLabels.length > 0 ? PAD_RIGHT_WITH_AXIS : PAD.right;
+
+  const chartWidth = Math.max(0, width - PAD.left - padRight);
   const chartHeight = Math.max(0, height - PAD.top - PAD.bottom);
 
   // The depth axis is rounded out to the next gridline so the deepest point is
@@ -145,11 +156,11 @@ export function ProfileChart({
   const span = Math.max(1, view.to - view.from);
   const x = useCallback(
     (sec: number) => PAD.left + ((sec - view.from) / span) * chartWidth,
-    [chartWidth, span, view.from]
+    [chartWidth, span, view.from],
   );
   const yDepth = useCallback(
     (mm: number) => PAD.top + (mm / depthAxisMax) * chartHeight,
-    [chartHeight, depthAxisMax]
+    [chartHeight, depthAxisMax],
   );
   const bandY = useCallback(
     (value: number, min: number, max: number, band: { top: number; bottom: number }) => {
@@ -159,7 +170,7 @@ export function ProfileChart({
       const bottom = PAD.top + band.bottom * chartHeight;
       return bottom - t * (bottom - top);
     },
-    [chartHeight]
+    [chartHeight],
   );
 
   const paths = useMemo(() => {
@@ -180,7 +191,7 @@ export function ProfileChart({
       const windowed = windowPoints(points, view.from, view.to, MAX_POINTS);
       return windowed.length > 1
         ? buildLine(windowed, x, (percent) =>
-            bandY(percent, plot.gfRange.min, plot.gfRange.max, GF_BAND)
+            bandY(percent, plot.gfRange.min, plot.gfRange.max, GF_BAND),
           )
         : null;
     };
@@ -190,25 +201,21 @@ export function ProfileChart({
       depthLine: buildLine(depthPoints, x, yDepth),
       // The ceiling is drawn as the water column the diver may not ascend into:
       // from the surface down to the ceiling depth.
-      ceilingArea:
-        ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
+      ceilingArea: ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
       ceilingLine: ceilingPoints.length > 1 ? buildLine(ceilingPoints, x, yDepth) : null,
       gfNow: gfLine(plot.gfNow, showGfNow),
       gfSurface: gfLine(plot.gfSurface, showGfSurface),
       temperature:
         temperaturePoints.length > 1
           ? buildLine(temperaturePoints, x, (mkelvin) =>
-              bandY(temperatureValue(mkelvin, unitSystem), tempMin, tempMax, TEMPERATURE_BAND)
+              bandY(temperatureValue(mkelvin, unitSystem), tempMin, tempMax, TEMPERATURE_BAND),
             )
           : null,
       pressures: plot.pressures
         .map((series) => ({
           cylinder: series.cylinder,
-          path: buildLine(
-            windowPoints(series.points, view.from, view.to, MAX_POINTS),
-            x,
-            (mbar) =>
-              bandY(mbar, plot.pressureRange.min, plot.pressureRange.max, PRESSURE_BAND)
+          path: buildLine(windowPoints(series.points, view.from, view.to, MAX_POINTS), x, (mbar) =>
+            bandY(mbar, plot.pressureRange.min, plot.pressureRange.max, PRESSURE_BAND),
           ),
         }))
         .filter((series) => series.path.countPoints() > 1),
@@ -246,26 +253,18 @@ export function ProfileChart({
 
   const visibleEvents = useMemo(
     () => plot.events.filter((event) => event.sec >= view.from && event.sec <= view.to),
-    [plot.events, view.from, view.to]
+    [plot.events, view.from, view.to],
   );
 
   const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, unitSystem);
 
-  // One string per field rather than one joined line: the row wraps, so a dive
+  // One view per field rather than one joined line: the row wraps, so a dive
   // carrying temperature, several cylinders, both gradient factors and a ceiling
-  // reads in full instead of being clipped at the right edge.
-  const readoutFields = readout
-    ? [
-        readout.timeText,
-        readout.depthText,
-        readout.temperatureText,
-        ...readout.pressureTexts,
-        showGfNow && readout.gfNowText ? `GF ${readout.gfNowText}` : null,
-        showGfSurface && readout.gfSurfaceText ? `sGF ${readout.gfSurfaceText}` : null,
-        readout.inDeco && readout.ceilingText ? `ceiling ${readout.ceilingText}` : null,
-        !readout.inDeco && readout.ndlText ? `NDL ${readout.ndlText}` : null,
-      ].filter((field): field is string => Boolean(field))
-    : [];
+  // reads in full instead of being clipped at the right edge. The fields are a
+  // fixed set, each as wide as its longest value in this dive, and are laid
+  // out even before scrubbing starts (invisibly, under the hint) - so neither
+  // the readout nor the chart below it moves while the finger does.
+  const slots = readoutSlots(plot, pi, readout, unitSystem, { showGfNow, showGfSurface });
 
   // --- Gestures ------------------------------------------------------------
 
@@ -280,11 +279,11 @@ export function ProfileChart({
         const nextSpan = currentSpan / factor;
         return clampWindow(
           { from: anchorSec - ratio * nextSpan, to: anchorSec + (1 - ratio) * nextSpan },
-          plot.maxSec
+          plot.maxSec,
         );
       });
     },
-    [chartWidth, plot.maxSec]
+    [chartWidth, plot.maxSec],
   );
 
   const panBy = useCallback(
@@ -294,7 +293,7 @@ export function ProfileChart({
         return clampWindow({ from: current.from - seconds, to: current.to - seconds }, plot.maxSec);
       });
     },
-    [chartWidth, plot.maxSec]
+    [chartWidth, plot.maxSec],
   );
 
   const scrubTo = useCallback(
@@ -303,7 +302,7 @@ export function ProfileChart({
       const sec = view.from + Math.min(Math.max(ratio, 0), 1) * (view.to - view.from);
       setScrubSec(Math.round(sec));
     },
-    [chartWidth, view.from, view.to]
+    [chartWidth, view.from, view.to],
   );
 
   // `onChange` hands over the per-frame delta, so no gesture state is kept
@@ -337,6 +336,12 @@ export function ProfileChart({
 
   // --- Labels --------------------------------------------------------------
 
+  const bandLabelY = (label: BandLabel, band: { top: number; bottom: number }) => {
+    const top = PAD.top + band.top * chartHeight;
+    const bottom = PAD.top + band.bottom * chartHeight;
+    return bottom - label.position * (bottom - top);
+  };
+
   const depthLabel = (mm: number) =>
     unitSystem === 'imperial' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
 
@@ -355,17 +360,27 @@ export function ProfileChart({
   return (
     <View>
       <View style={styles.readoutRow}>
-        {readoutFields.length > 0 ? (
-          readoutFields.map((field, index) => (
-            <Text key={`${index}-${field}`} style={[styles.readout, { color: colors.label }]}>
-              {field}
-            </Text>
-          ))
-        ) : (
-          <Text style={[styles.readout, { color: colors.label }]}>
+        {slots.map((slot) => (
+          <View key={slot.key}>
+            {/* Zero-height copies of the widest values: they size the slot. */}
+            {slot.widest.map((widest, index) => (
+              <Text
+                key={index}
+                style={[styles.readout, styles.readoutSizer]}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                {widest}
+              </Text>
+            ))}
+            <Text style={[styles.readout, { color: colors.label }]}>{slot.text ?? ' '}</Text>
+          </View>
+        ))}
+        {readout === null ? (
+          <Text style={[styles.readout, styles.readoutHint, { color: colors.label }]}>
             Drag to scrub, pinch to zoom, double tap to reset
           </Text>
-        )}
+        ) : null}
       </View>
 
       <GestureDetector gesture={gesture}>
@@ -378,7 +393,8 @@ export function ProfileChart({
           // curve nor the scrubber gesture is reachable without a pointer.
           accessible
           accessibilityRole="image"
-          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}>
+          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}
+        >
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 
@@ -438,11 +454,7 @@ export function ProfileChart({
             ) : null}
             {/* Dashed, so it is told from gf at depth without relying on the tint. */}
             {paths?.gfSurface ? (
-              <Path
-                path={paths.gfSurface}
-                style="stroke"
-                strokeWidth={2}
-                color={colors.gfSurface}>
+              <Path path={paths.gfSurface} style="stroke" strokeWidth={2} color={colors.gfSurface}>
                 <DashPathEffect intervals={[5, 4]} />
               </Path>
             ) : null}
@@ -488,8 +500,45 @@ export function ProfileChart({
               style={[
                 styles.axisLabel,
                 { color: colors.label, top: yDepth(tick.value) - 7, left: 0, width: PAD.left - 4 },
-              ]}>
+              ]}
+            >
               {depthLabel(tick.value)}
+            </Text>
+          ))}
+
+          {pressureLabels.map((label) => (
+            <Text
+              key={`pressure-${label.position}`}
+              style={[
+                styles.axisLabel,
+                styles.rightAxisLabel,
+                {
+                  color: colors.pressure,
+                  top: bandLabelY(label, PRESSURE_BAND) - 7,
+                  left: PAD.left + chartWidth + 4,
+                  width: padRight - 4,
+                },
+              ]}
+            >
+              {label.label}
+            </Text>
+          ))}
+
+          {temperatureLabels.map((label) => (
+            <Text
+              key={`temperature-${label.position}`}
+              style={[
+                styles.axisLabel,
+                styles.rightAxisLabel,
+                {
+                  color: colors.temperature,
+                  top: bandLabelY(label, TEMPERATURE_BAND) - 7,
+                  left: PAD.left + chartWidth + 4,
+                  width: padRight - 4,
+                },
+              ]}
+            >
+              {label.label}
             </Text>
           ))}
 
@@ -502,7 +551,8 @@ export function ProfileChart({
                   styles.axisLabel,
                   styles.timeLabel,
                   { color: colors.label, left: x(tick.value) - 16, top: height - PAD.bottom + 2 },
-                ]}>
+                ]}
+              >
                 {tick.label}
               </Text>
             ))}
@@ -590,11 +640,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontVariant: ['tabular-nums'],
   },
+  readoutSizer: {
+    height: 0,
+    opacity: 0,
+  },
+  readoutHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
   axisLabel: {
     position: 'absolute',
     fontSize: 10,
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
+  },
+  rightAxisLabel: {
+    textAlign: 'left',
   },
   timeLabel: {
     width: 32,

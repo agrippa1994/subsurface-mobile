@@ -14,8 +14,11 @@ import {
   depthTicks,
   EMPTY_PROFILE_PLOT,
   nearestSampleIndex,
+  pressureAxis,
   profileSummary,
   readoutAt,
+  readoutSlots,
+  temperatureAxis,
   temperatureValue,
   timeTicks,
   windowPoints,
@@ -128,7 +131,7 @@ describe('profileSummary', () => {
   it('describes the shape of the dive, not the drawing', () => {
     expect(profileSummary(plot, 'metric')).toBe(
       'Dive profile. maximum depth 20.1 m at 10:00, total time 42:15, ' +
-        'water temperature 10 C to 16 C, no decompression obligation.'
+        'water temperature 10 C to 16 C, no decompression obligation.',
     );
   });
 
@@ -139,12 +142,12 @@ describe('profileSummary', () => {
 
   it('says so rather than describing an empty chart', () => {
     expect(profileSummary(EMPTY_PROFILE_PLOT)).toBe(
-      'Dive profile. This dive has no profile samples.'
+      'Dive profile. This dive has no profile samples.',
     );
     // Even with both curves asked for: there is nothing to speak.
     const gf = { showGfNow: true, showGfSurface: true };
     expect(profileSummary(EMPTY_PROFILE_PLOT, 'metric', gf)).toBe(
-      'Dive profile. This dive has no profile samples.'
+      'Dive profile. This dive has no profile samples.',
     );
   });
 });
@@ -154,6 +157,51 @@ describe('EMPTY_PROFILE_PLOT', () => {
     expect(EMPTY_PROFILE_PLOT.gfNow).toEqual([]);
     expect(EMPTY_PROFILE_PLOT.gfSurface).toEqual([]);
     expect(EMPTY_PROFILE_PLOT.gfRange).toEqual({ min: 0, max: 0 });
+  });
+});
+
+describe('band axes', () => {
+  const plot = {
+    ...EMPTY_PROFILE_PLOT,
+    temperature: [
+      { sec: 0, value: 289150 },
+      { sec: 600, value: 283150 },
+    ],
+    temperatureRange: { min: 283150, max: 289150 },
+    pressures: [
+      {
+        cylinder: 0,
+        points: [
+          { sec: 0, value: 200000 },
+          { sec: 600, value: 60000 },
+        ],
+      },
+    ],
+    pressureRange: { min: 60000, max: 200000 },
+  };
+
+  it('labels the band edges with the series extremes in the displayed unit', () => {
+    expect(temperatureAxis(plot, 'metric')).toEqual([
+      { position: 0, label: '10' },
+      { position: 1, label: '16' },
+    ]);
+    expect(pressureAxis(plot, 'metric')).toEqual([
+      { position: 0, label: '60' },
+      { position: 1, label: '200' },
+    ]);
+    expect(pressureAxis(plot, 'imperial')[1].label).toBe('2901');
+  });
+
+  it('keeps a decimal for a narrow range and labels a flat one once', () => {
+    const narrow = { ...plot, temperatureRange: { min: 283150, max: 284150 } };
+    expect(temperatureAxis(narrow, 'metric').map((l) => l.label)).toEqual(['10.0', '11.0']);
+    const flat = { ...plot, temperatureRange: { min: 283150, max: 283150 } };
+    expect(temperatureAxis(flat, 'metric')).toEqual([{ position: 0, label: '10.0' }]);
+  });
+
+  it('has no labels for a series the dive does not carry', () => {
+    expect(temperatureAxis(EMPTY_PROFILE_PLOT, 'metric')).toEqual([]);
+    expect(pressureAxis(EMPTY_PROFILE_PLOT, 'metric')).toEqual([]);
   });
 });
 
@@ -278,6 +326,32 @@ describe('a logbook with temperature, pressure and deco', () => {
     expect(sawCeiling).toBe(true);
   });
 
+  // The readout must not jump while scrubbing: the same fields at every sample,
+  // and no value longer than the width reserved for it (tabular digits, so
+  // character count is width).
+  it('keeps the scrubber readout fields fixed in number and width', async () => {
+    const options = { showGfNow: true, showGfSurface: true };
+    for (const system of ['metric', 'imperial'] as const) {
+      for (const summary of await host.listDives()) {
+        const profile = await host.getProfile(summary.id);
+        const plot = buildProfilePlot(profile);
+        const idle = readoutSlots(plot, profile, null, system, options);
+        expect(idle.every((slot) => slot.text === null)).toBe(true);
+        const keys = idle.map((slot) => slot.key);
+
+        for (const entry of profile.entry) {
+          const readout = readoutAt(profile, entry.sec, system);
+          const slots = readoutSlots(plot, profile, readout, system, options);
+          expect(slots.map((slot) => slot.key)).toEqual(keys);
+          for (const slot of slots) {
+            const reserved = Math.max(...slot.widest.map((widest) => widest.length));
+            expect(slot.text?.length, `${slot.key} "${slot.text}"`).toBeLessThanOrEqual(reserved);
+          }
+        }
+      }
+    }
+  });
+
   // The two gradient factors reach TS in different units - current_gf is a
   // fraction of the M-value, surface_gf is already percent (profile.cpp:967 vs
   // :973). Getting that wrong is a silent 100x, so it is checked against the raw
@@ -335,7 +409,7 @@ describe('a logbook with temperature, pressure and deco', () => {
       const readout = readoutAt(profile, entry.sec, 'metric');
       expect(readout!.gfSurfaceText).toBe(`${Math.round(entry.surfaceGf)}%`);
       expect(readout!.gfNowText).toBe(
-        entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null
+        entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null,
       );
       return;
     }
@@ -350,10 +424,10 @@ describe('a logbook with temperature, pressure and deco', () => {
 
     expect(profileSummary(plot, 'metric')).not.toMatch(/gradient factor/);
     expect(profileSummary(plot, 'metric', { showGfSurface: true })).toMatch(
-      /highest surface gradient factor \d+ percent/
+      /highest surface gradient factor \d+ percent/,
     );
     expect(profileSummary(plot, 'metric', { showGfNow: true })).toMatch(
-      /highest gradient factor at depth \d+ percent/
+      /highest gradient factor at depth \d+ percent/,
     );
   });
 
