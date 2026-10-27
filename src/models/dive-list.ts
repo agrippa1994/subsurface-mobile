@@ -78,6 +78,8 @@ export type DiveRow = {
   dateText: string;
   /** Local time of the dive, e.g. "09:14". */
   timeText: string;
+  /** The line under the title: date and time, e.g. "12 Mar 2024, 09:14". */
+  subtitle: string;
   /** "#12" or an empty string when the dive is unnumbered. */
   numberText: string;
   /**
@@ -169,6 +171,7 @@ export function toDiveRow(
     title,
     dateText,
     timeText,
+    subtitle: `${dateText}, ${timeText}`,
     numberText: dive.number > 0 ? `#${dive.number}` : '',
     badgeText: dive.number > 0 ? String(dive.number) : '-',
     depthText,
@@ -177,6 +180,19 @@ export function toDiveRow(
     invalid: dive.invalid,
     accessibilityLabel: spoken.join(', '),
   };
+}
+
+/**
+ * A row of a list that is already about one site, where the site name would
+ * repeat on every row: the date leads instead, over the trip it belonged to.
+ */
+export function toSiteDiveRow(
+  dive: DiveSummary,
+  system: UnitSystem = 'metric',
+  locale?: string
+): DiveRow {
+  const row = toDiveRow(dive, system, locale);
+  return { ...row, title: row.subtitle, subtitle: dive.tripLocation.trim() };
 }
 
 /** "42 minutes" rather than "42:15", which VoiceOver reads as a time of day. */
@@ -218,6 +234,7 @@ export function skeletonRows(count = 8): DiveRow[] {
     title: titles[i % titles.length],
     dateText: '12 Mar 2024',
     timeText: '09:14',
+    subtitle: '12 Mar 2024, 09:14',
     numberText: '',
     badgeText: '000',
     depthText: '20.1 m',

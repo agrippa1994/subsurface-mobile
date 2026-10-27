@@ -17,6 +17,7 @@ import {
   sectionSubtitle,
   sortDivesNewestFirst,
   toDiveRow,
+  toSiteDiveRow,
 } from './dive-list';
 import { SsrfHost } from '../../tests/harness/ssrf-host';
 import { REPO_ROOT } from '../../tests/harness/fixtures';
@@ -188,6 +189,17 @@ describe('toDiveRow', () => {
 
   it('still fills the list badge for an unnumbered dive', () => {
     expect(toDiveRow(summary({ id: 1, number: 0 })).badgeText).toBe('-');
+  });
+
+  it('puts date and time under the title', () => {
+    expect(toDiveRow(dive, 'metric', LOCALE).subtitle).toBe('13 Dec 2011, 06:35');
+  });
+
+  it('leads with the date inside a site, where the site name would repeat', () => {
+    const row = toSiteDiveRow(dive, 'metric', LOCALE);
+    expect(row.title).toBe('13 Dec 2011, 06:35');
+    expect(row.subtitle).toBe('Austria');
+    expect(toSiteDiveRow({ ...dive, tripLocation: '' }, 'metric', LOCALE).subtitle).toBe('');
   });
 
   it('spells the row out for VoiceOver instead of leaving it shorthand', () => {

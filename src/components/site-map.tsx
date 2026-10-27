@@ -14,6 +14,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { degreesToUdeg, udegToDegrees } from '@/models';
 import { formatCoordinates, SITE_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
 
+/**
+ * Whether this platform has a map at all. The one place that decides it: every
+ * screen that would show a map asks this rather than checking the platform.
+ */
+export const MAPS_AVAILABLE = Platform.OS === 'ios';
+
 export type SiteMapProps = {
   latUdeg: number | null;
   lonUdeg: number | null;
@@ -38,7 +44,7 @@ export function SiteMap({
     ? { latitude: udegToDegrees(latUdeg), longitude: udegToDegrees(lonUdeg) }
     : { latitude: 0, longitude: 0 };
 
-  if (Platform.OS !== 'ios') {
+  if (!MAPS_AVAILABLE) {
     return (
       <View
         style={[

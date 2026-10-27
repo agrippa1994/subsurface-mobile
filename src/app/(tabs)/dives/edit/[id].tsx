@@ -185,8 +185,9 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
             await deleteDive.mutateAsync(dive.id);
             await flush();
             // Not back(): the screen behind is this dive's detail view, which
-            // would come up as "Dive not found". Pop past it to the list.
-            router.dismissTo('/dives');
+            // would come up as "Dive not found". Pop past it to whatever opened
+            // the dive - the dive list, or the site it was opened from.
+            router.dismiss(2);
           })();
         },
       },

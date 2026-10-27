@@ -2,9 +2,8 @@
 // The overview map of the Sites tab: every site with a position as a pin.
 //
 // Read-only on purpose - the pins cannot be dragged or moved here. Tapping one
-// opens that site, where its position can be changed and explicitly saved.
-// Apple Maps only (expo-maps); Android has no map and never renders this, see
-// the Sites screen.
+// opens that site; its position is changed in the site editor. Apple Maps only
+// (expo-maps): rendered only where MAPS_AVAILABLE (components/site-map.tsx).
 
 import { AppleMaps } from 'expo-maps';
 import { useMemo, useState } from 'react';
@@ -31,7 +30,7 @@ export function SitesMap({
         title: site.name.trim() === '' ? 'Unnamed site' : site.name,
         systemImage: 'mappin',
       })),
-    [sites]
+    [sites],
   );
   // Only the opening position: recomputing it after an edit elsewhere would
   // throw away wherever the user has panned to.
@@ -39,7 +38,7 @@ export function SitesMap({
 
   return (
     <AppleMaps.View
-      style={StyleSheet.absoluteFill}
+      style={styles.map}
       cameraPosition={{
         coordinates: { latitude: camera.latitude, longitude: camera.longitude },
         zoom: camera.zoom,
@@ -55,3 +54,9 @@ export function SitesMap({
     />
   );
 }
+
+const styles = StyleSheet.create({
+  map: {
+    flex: 1,
+  },
+});
