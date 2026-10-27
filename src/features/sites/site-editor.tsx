@@ -15,11 +15,11 @@
 import { useForm } from '@tanstack/react-form';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
 import { fieldError, FormButtonRow, FormField, FormSection } from '@/components/form';
-import { SiteMap } from '@/components/site-map';
+import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { warned } from '@/lib/haptics';
@@ -133,7 +133,8 @@ export function SiteEditor({ uuid }: { uuid: number }) {
           void (async () => {
             await deleteSite.mutateAsync(original.uuid);
             await flush();
-            router.back();
+            // Past the site's own page too: it would only say "not found".
+            router.dismissTo('/sites');
           })();
         },
       },
@@ -224,8 +225,7 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       <FormSection
         title="Position"
         footer={
-          // The map is Apple Maps, so only iOS has one to tap (site-map.tsx).
-          Platform.OS === 'ios'
+          MAPS_AVAILABLE
             ? 'Tap the map to move the marker, or type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
             : 'Type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
         }>

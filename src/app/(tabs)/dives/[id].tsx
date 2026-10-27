@@ -50,7 +50,13 @@ const DIVE_MODE_LABEL: Record<DiveMode, string> = {
 
 type SymbolName = SymbolViewProps['name'];
 
-export default function DiveDetailScreen() {
+/**
+ * The stacks this screen is pushed in. Its own links (Edit, Sync to SSI) stay in
+ * the same stack, so Back from them returns here rather than to another tab.
+ */
+export type DiveStackPath = '/dives' | '/sites/dive';
+
+export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
   const unitSystem = useUnitSystem();
@@ -112,7 +118,7 @@ export default function DiveDetailScreen() {
       <Stack.Screen options={{ title: row.title }} />
       {/* A native bar button item rather than a custom headerRight view, so it
           gets the system Edit look (liquid glass on iOS 26). */}
-      <HeaderAction label="Edit" onPress={() => router.push(`/dives/edit/${dive.id}`)} />
+      <HeaderAction label="Edit" onPress={() => router.push(`${stackPath}/edit/${dive.id}`)} />
 
       <Header
         dive={dive}
@@ -225,7 +231,7 @@ export default function DiveDetailScreen() {
         {ssiAccount.data === null ? (
           <ActionRow symbol="icloud.slash" label="Not signed in" disabled />
         ) : (
-          <Link href={`/dives/ssi/${dive.id}`} asChild>
+          <Link href={`${stackPath}/ssi/${dive.id}`} asChild>
             <ActionRow
               symbol={synced ? 'checkmark.icloud' : 'icloud.and.arrow.up'}
               label={synced ? 'Sync to SSI again' : 'Sync to SSI'}

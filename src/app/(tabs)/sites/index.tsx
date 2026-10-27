@@ -1,109 +1,70 @@
 // AI-generated (Claude)
-// Dive sites: the list, the way into the editor, and the way to a new site.
+// Dive sites: a map or a list of them, the way into one site, and the way to a
+// new site.
 //
-// The rows come from the same module read as the dive list; how one renders is
-// decided in models/site-edit.ts so the vitest suite covers it.
-import { useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+// With a map (iOS, Apple Maps) the tab opens on it and offers the list as a
+// toggle in the navigation bar. Without one (Android) it only ever shows the
+// list. This screen only picks the body and owns the header; the map and the
+// list are their own components.
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 
 import { HeaderAction } from '@/components/header-action';
+import { MAPS_AVAILABLE } from '@/components/site-map';
+import { SitesMap } from '@/components/sites-map';
 import { StatusView } from '@/components/status-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { sortSitesByName, toSiteRow } from '@/models/site-edit';
+import { SitesList } from '@/features/sites/sites-list';
 import { useLogbook, useSites } from '@/queries/logbook';
 
 export default function SitesScreen() {
   const logbook = useLogbook();
   const { data: sites = [] } = useSites();
   const router = useRouter();
-  const theme = useTheme();
+  const [mode, setMode] = useState<'map' | 'list'>(MAPS_AVAILABLE ? 'map' : 'list');
 
-  // A native bar button item, so New gets the system add button (liquid glass
+  const openNew = () => router.push('/sites/new');
+  const openSite = (uuid: number) => router.push(`/sites/${uuid}`);
+
+  // Native bar button items, so New gets the system add button (liquid glass
   // on iOS 26) instead of a custom header view.
-  const header = (
-    <HeaderAction label="New dive site" icon="plus" onPress={() => router.push('/sites/new')} />
+  const header = MAPS_AVAILABLE ? (
+    <>
+      {/* A large title has no scroll view to collapse into over a map. */}
+      <Stack.Screen options={{ headerLargeTitle: mode === 'list' }} />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={mode === 'map' ? 'list.bullet' : 'map'}
+          accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
+          onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
+        />
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New dive site" onPress={openNew} />
+      </Stack.Toolbar>
+    </>
+  ) : (
+    <HeaderAction label="New dive site" icon="plus" onPress={openNew} />
   );
 
-  if (!logbook.isSuccess) {
-    return (
-      <>
-        {header}
-        <StatusView kind="loading" title="Opening logbook" />
-      </>
-    );
-  }
-
-  if (sites.length === 0) {
-    return (
-      <>
-        {header}
-        <StatusView
-          kind="empty"
-          title="No dive sites"
-          description="Sites appear here once a logbook with sites is loaded, or when you add one."
-          systemImage="mappin.slash"
-          actionLabel="New site"
-          onAction={() => router.push('/sites/new')}
-        />
-      </>
-    );
-  }
-
-  const rows = sortSitesByName(sites).map(toSiteRow);
+  const body = !logbook.isSuccess ? (
+    <StatusView kind="loading" title="Opening logbook" />
+  ) : sites.length === 0 ? (
+    <StatusView
+      kind="empty"
+      title="No dive sites"
+      description="Sites appear here once a logbook with sites is loaded, or when you add one."
+      systemImage="mappin.slash"
+      actionLabel="New site"
+      onAction={openNew}
+    />
+  ) : mode === 'map' ? (
+    <SitesMap sites={sites} onSelectSite={openSite} />
+  ) : (
+    <SitesList sites={sites} onSelectSite={openSite} />
+  );
 
   return (
     <>
       {header}
-      <FlatList
-        data={rows}
-        keyExtractor={(row) => String(row.uuid)}
-        style={{ backgroundColor: theme.background }}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.content}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/sites/${item.uuid}`)}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.row,
-              pressed ? { backgroundColor: theme.backgroundSelected } : null,
-            ]}>
-            <View style={styles.main}>
-              <Text style={[styles.title, { color: theme.text }]}>{item.title}</Text>
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
-            </View>
-            <Text style={[styles.count, { color: theme.textSecondary }]}>{item.countText}</Text>
-          </Pressable>
-        )}
-      />
+      {body}
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    paddingVertical: Spacing.two,
-    paddingBottom: Spacing.six,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  main: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  title: {
-    fontSize: 17,
-  },
-  subtitle: {
-    fontSize: 13,
-  },
-  count: {
-    fontSize: 13,
-  },
-});

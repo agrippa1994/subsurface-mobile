@@ -82,7 +82,7 @@ function DiveRowContent({ row }: { row: DiveRow }) {
         </Text>
         <Text
           modifiers={[font({ textStyle: 'subheadline' }), foregroundStyle(SECONDARY), lineLimit(1)]}>
-          {`${row.dateText}, ${row.timeText}`}
+          {row.subtitle}
         </Text>
         {stars > 0 || row.invalid ? (
           <HStack spacing={2}>
