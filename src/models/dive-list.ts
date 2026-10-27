@@ -216,6 +216,65 @@ export function sectionSubtitle(section: DiveTripSection, locale?: string): stri
   return newest === oldest ? `${count} - ${newest}` : `${count} - ${oldest} to ${newest}`;
 }
 
+// --- Search ----------------------------------------------------------------
+
+export type DiveSearchEntry = {
+  dive: DiveSummary;
+  /** Everything the dive can be found by, lowercased, one field per line. */
+  text: string;
+};
+
+/**
+ * Precomputes what each dive can be searched by: site, trip, buddy, dive guide,
+ * the dive number, and its date written several ways ("12 Mar 2024", "March",
+ * "2024-03-12" and the locale's numeric form, e.g. "12/03/2024"). Building
+ * this once per dive list keeps a keystroke from re-formatting every date.
+ */
+export function buildDiveSearchIndex(
+  dives: readonly DiveSummary[],
+  locale?: string
+): DiveSearchEntry[] {
+  return dives.map((dive) => {
+    const date = new Date(dive.when * 1000);
+    const fields = [
+      dive.siteName,
+      dive.tripLocation,
+      dive.buddy,
+      dive.diveguide,
+      dive.number > 0 ? `#${dive.number}` : '',
+      formatDate(dive.when, locale),
+      date.toLocaleDateString(locale, { month: 'long', timeZone: 'UTC' }),
+      date.toISOString().slice(0, 10),
+      date.toLocaleDateString(locale, { timeZone: 'UTC' }),
+    ];
+    return { dive, text: fields.join('\n').toLowerCase() };
+  });
+}
+
+/**
+ * The dives matching a free-text query. Every whitespace-separated word has to
+ * appear somewhere in the dive's searchable fields, so "anna 2024" finds the
+ * dives with Anna in 2024. A blank query matches everything. Input order is
+ * kept.
+ */
+export function searchDives(index: readonly DiveSearchEntry[], query: string): DiveSummary[] {
+  const words = query.toLowerCase().split(/\s+/).filter((word) => word !== '');
+  if (words.length === 0) {
+    return index.map((entry) => entry.dive);
+  }
+  return index
+    .filter((entry) => words.every((word) => entry.text.includes(word)))
+    .map((entry) => entry.dive);
+}
+
+/** "1 dive found", "12 of 340 dives". */
+export function searchResultsText(found: number, total: number): string {
+  if (found === total) {
+    return `${found} ${found === 1 ? 'dive' : 'dives'} found`;
+  }
+  return `${found} of ${total} ${total === 1 ? 'dive' : 'dives'}`;
+}
+
 /** Five slots, filled according to the dive's 0-5 rating. */
 export function ratingStars(rating: number): string {
   const filled = Math.max(0, Math.min(5, Math.round(rating)));

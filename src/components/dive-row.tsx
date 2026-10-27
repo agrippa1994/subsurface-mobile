@@ -42,25 +42,25 @@ export function DiveRowView({
       ]}
     >
       <View style={[diveRowStyles.badge, { backgroundColor: theme.backgroundSelected }]}>
-        <Text style={[styles.badgeText, { color: theme.accent }]}>{row.badgeText}</Text>
+        <Text style={[diveRowTextStyles.badgeText, { color: theme.accent }]}>{row.badgeText}</Text>
       </View>
       <View style={diveRowStyles.main}>
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+        <Text style={[diveRowTextStyles.title, { color: theme.text }]} numberOfLines={1}>
           {row.title}
         </Text>
         {subtitle !== '' ? (
-          <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+          <Text style={[diveRowTextStyles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
             {subtitle}
           </Text>
         ) : null}
-        {row.rating > 0 ? <Text style={styles.stars}>{ratingStars(row.rating)}</Text> : null}
+        {row.rating > 0 ? <Text style={diveRowTextStyles.stars}>{ratingStars(row.rating)}</Text> : null}
       </View>
       <View style={diveRowStyles.trailing}>
         {row.depthText !== '' ? (
-          <Text style={[styles.depth, { color: theme.text }]}>{row.depthText}</Text>
+          <Text style={[diveRowTextStyles.depth, { color: theme.text }]}>{row.depthText}</Text>
         ) : null}
         {row.durationText !== '' ? (
-          <Text style={[styles.duration, { color: theme.textSecondary }]}>{row.durationText}</Text>
+          <Text style={[diveRowTextStyles.duration, { color: theme.textSecondary }]}>{row.durationText}</Text>
         ) : null}
       </View>
     </Pressable>
@@ -94,7 +94,8 @@ export const diveRowStyles = StyleSheet.create({
   },
 });
 
-const styles = StyleSheet.create({
+/** The row's text styles; the skeleton draws its bars with them so they match. */
+export const diveRowTextStyles = StyleSheet.create({
   badgeText: {
     fontSize: 15,
     fontWeight: '600',

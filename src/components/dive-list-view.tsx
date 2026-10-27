@@ -9,9 +9,16 @@
 // The row itself is DiveRowView (dive-row.tsx), which matches the iOS row: the
 // dive number in a fixed-width badge, depth over duration at the end.
 import { useEffect, useState } from 'react';
-import { Animated, SectionList, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+} from 'react-native';
 
-import { DiveRowView, diveRowStyles } from '@/components/dive-row';
+import { DiveRowView, diveRowStyles, diveRowTextStyles } from '@/components/dive-row';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSummary, UnitSystem } from '@/models';
@@ -23,6 +30,8 @@ export type DiveListViewProps = {
   onSelectDive: (id: number) => void;
   /** Asks to delete a dive. The screen confirms; the list only reports the gesture. */
   onDeleteDive: (dive: DiveSummary) => void;
+  /** While searching: how many dives match, shown above the sections. */
+  resultsText?: string;
 };
 
 export function DiveListView({
@@ -30,6 +39,7 @@ export function DiveListView({
   unitSystem,
   onSelectDive,
   onDeleteDive,
+  resultsText,
 }: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
@@ -42,6 +52,15 @@ export function DiveListView({
       keyExtractor={(dive) => String(dive.id)}
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
+      ListHeaderComponent={
+        resultsText ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={[styles.results, { color: theme.textSecondary }]}>
+            {resultsText}
+          </Text>
+        ) : undefined
+      }
       renderSectionHeader={({ section }) => (
         <View style={[styles.sectionHeader, { backgroundColor: theme.backgroundElement }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.title}</Text>
@@ -77,10 +96,17 @@ export function DiveListSkeleton() {
     return () => loop.stop();
   }, [pulse]);
 
-  const bar = (width: number, height: number) => (
-    <View
-      style={{ width, height, borderRadius: 4, backgroundColor: theme.backgroundSelected }}
-    />
+  // Each bar is the real row's text, drawn invisible over a grey fill: it gets
+  // the exact line height of what replaces it, so nothing moves on load.
+  const bar = (style: TextStyle, text: string, align: 'flex-start' | 'flex-end' = 'flex-start') => (
+    <Text
+      style={[
+        style,
+        styles.bar,
+        { alignSelf: align, color: 'transparent', backgroundColor: theme.backgroundSelected },
+      ]}>
+      {text}
+    </Text>
   );
 
   return (
@@ -88,17 +114,20 @@ export function DiveListSkeleton() {
       accessible
       accessibilityLabel="Loading dives"
       style={[styles.skeleton, { backgroundColor: theme.background, opacity: pulse }]}>
-      <View style={styles.sectionHeader}>{bar(140, 17)}</View>
+      <View style={styles.sectionHeader}>
+        {bar(styles.sectionTitle, 'Trip location')}
+        {bar(styles.sectionSubtitle, '8 dives - 12 Mar 2024')}
+      </View>
       {skeletonRows().map((row) => (
         <View key={row.id} style={diveRowStyles.row}>
           <View style={[diveRowStyles.badge, { backgroundColor: theme.backgroundSelected }]} />
           <View style={diveRowStyles.main}>
-            {bar(row.title.length * 8, 15)}
-            {bar(110, 12)}
+            {bar(diveRowTextStyles.title, row.title)}
+            {bar(diveRowTextStyles.subtitle, row.subtitle)}
           </View>
           <View style={diveRowStyles.trailing}>
-            {bar(48, 15)}
-            {bar(36, 12)}
+            {bar(diveRowTextStyles.depth, row.depthText, 'flex-end')}
+            {bar(diveRowTextStyles.duration, row.durationText, 'flex-end')}
           </View>
         </View>
       ))}
@@ -110,8 +139,17 @@ const styles = StyleSheet.create({
   skeleton: {
     flex: 1,
   },
+  bar: {
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
   content: {
     paddingBottom: Spacing.six,
+  },
+  results: {
+    fontSize: 13,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
   },
   sectionHeader: {
     paddingHorizontal: Spacing.three,
