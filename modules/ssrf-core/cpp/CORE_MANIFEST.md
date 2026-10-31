@@ -8,9 +8,9 @@ far the mobile build diverges from upstream.
 
 | Component | Pin |
 | --- | --- |
-| `subsurface/` submodule | `11a4e6306` ("mobile planner: recalculate preview when start time changes") |
-| Core version string | `6.0.5789` (from `subsurface/scripts/get-version.sh`) |
-| `subsurface/libdivecomputer` submodule | `780067110` — 0.10.0-devel-Subsurface-NG |
+| `subsurface/` submodule | `0d61c9135` ("docs: document cloud connection checks and regression tests") |
+| Core version string | `6.0.5798` (from `subsurface/scripts/get-version.sh`) |
+| `subsurface/libdivecomputer` submodule | `617ffd77e` — 0.10.0-devel-Subsurface-NG |
 
 ## How the build is assembled
 
