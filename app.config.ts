@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.2.0',
+  version: '1.2.1',
   // The app declares every orientation so the dive profile can go full screen
   // when the device is turned (src/hooks/use-landscape.ts). Every other screen
   // is held in portrait at runtime by expo-screen-orientation, which needs the
@@ -136,6 +136,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-dev-client',
     'expo-asset',
+    'expo-font',
+    'expo-image',
     'expo-status-bar',
     'expo-sharing',
     // The keychain the SSI credentials and session token are kept in
