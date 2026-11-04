@@ -24,6 +24,7 @@ import { useMemo } from 'react';
 
 import { updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
+import { fetchSsiSiteDetail } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
 import {
   readAccount,
@@ -246,5 +247,15 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
       await client.invalidateQueries({ queryKey: queryKeys.logData() });
     },
     retry: false,
+  });
+}
+
+export function useSsiSiteDetail(id: number) {
+  return useQuery({
+    queryKey: ['ssi', 'site-detail', id],
+    queryFn: ({ signal }) => fetchSsiSiteDetail(id, signal),
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    retry: 1,
   });
 }

@@ -176,3 +176,28 @@ describe('SSI site catalogue', () => {
     expect(files.size).toBe(0);
   });
 });
+
+// Public details must work without an SSI account, and server refusals must
+// remain recoverable errors rather than a successful empty panel.
+describe('SSI site details', () => {
+  it('reads the public site-detail array and forwards cancellation', async () => {
+    const { fetchSsiSiteDetail } = await import('./site-detail');
+    fetchMock.mockResolvedValueOnce(
+      Response.json([{ dive_site_id: 6179, dive_site_name: 'Blue Holes', images: [], descr: [] }]),
+    );
+    const controller = new AbortController();
+    expect((await fetchSsiSiteDetail(6179, controller.signal))?.dive_site_name).toBe('Blue Holes');
+    expect(request(0).url.searchParams.get('what')).toBe('get_divesite_details');
+    expect(request(0).url.searchParams.get('site_id')).toBe('6179');
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+  });
+  it('surfaces deleted/merged sites and permits a subsequent retry', async () => {
+    const { fetchSsiSiteDetail } = await import('./site-detail');
+    fetchMock.mockResolvedValueOnce(Response.json({ error: { error: 'SITE DELETED!' } }));
+    await expect(fetchSsiSiteDetail(1)).rejects.toThrow('SITE DELETED!');
+    fetchMock.mockResolvedValueOnce(
+      Response.json([{ dive_site_id: 1, dive_site_name: 'Restored' }]),
+    );
+    expect((await fetchSsiSiteDetail(1))?.dive_site_name).toBe('Restored');
+  });
+});

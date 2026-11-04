@@ -4,6 +4,8 @@
 // The library handles requests and decoding; the app reduces the logbook to
 // the next dive number and buddy suggestions, and rejects SSI's refusal bodies.
 
+import { recentSsiSiteIds } from '@/models/ssi/site-browse';
+
 import type { DiveLog } from 'divessi-client';
 
 import {
@@ -24,6 +26,7 @@ export type SsiLogbook = {
    * length, and a number already in use would land the dive out of order.
    */
   nextNumber: number;
+  recentSiteIds: number[];
   /**
    * The diver's own buddy list, to pick from when filing a dive, ordered by who
    * they dived with most recently - which only the logged dives know, so it is
@@ -43,6 +46,7 @@ export async function fetchSsiLogbook(signal?: AbortSignal): Promise<SsiLogbook>
 
   return {
     nextNumber: highest + 1,
+    recentSiteIds: recentSsiSiteIds(details),
     buddies: reduceSsiBuddies(
       divelog.logbook_buddies ?? [],
       buddyDiveHistory(details)
