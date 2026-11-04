@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.2.1',
+  version: '1.3.0',
   // The app declares every orientation so the dive profile can go full screen
   // when the device is turned (src/hooks/use-landscape.ts). Every other screen
   // is held in portrait at runtime by expo-screen-orientation, which needs the
@@ -145,9 +145,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-secure-store',
     // Apple Maps on iOS, for picking and showing a dive site's position
     // (task 10). Not used on Android, which would need a Google Maps API key;
-    // the site screens show the coordinates instead. No location permission is requested: the app never needs the
-    // diver's own position, only the site's.
+    // the site screens show the coordinates instead.
     'expo-maps',
+    [
+      'expo-location',
+      { locationWhenInUsePermission: 'Use your location to find nearby SSI dive sites.' },
+    ],
     [
       'expo-splash-screen',
       {

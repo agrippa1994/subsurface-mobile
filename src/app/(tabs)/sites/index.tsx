@@ -8,10 +8,12 @@
 // list are their own components.
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
+import { Alert } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
 import { MAPS_AVAILABLE } from '@/components/site-map';
 import { SitesMap } from '@/components/sites-map';
+import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
 import { StatusView } from '@/components/status-view';
 import { SitesList } from '@/features/sites/sites-list';
 import { useLogbook, useSites } from '@/queries/logbook';
@@ -20,6 +22,7 @@ export default function SitesScreen() {
   const logbook = useLogbook();
   const { data: sites = [] } = useSites();
   const router = useRouter();
+  const [source, setSource] = useState<'logbook' | 'ssi'>('logbook');
   const [mode, setMode] = useState<'map' | 'list'>(MAPS_AVAILABLE ? 'map' : 'list');
 
   const openNew = () => router.push('/sites/new');
@@ -30,8 +33,22 @@ export default function SitesScreen() {
   const header = MAPS_AVAILABLE ? (
     <>
       {/* A large title has no scroll view to collapse into over a map. */}
-      <Stack.Screen options={{ headerLargeTitle: mode === 'list' }} />
+      <Stack.Screen
+        options={{
+          title: 'Sites',
+          headerTransparent: mode === 'map',
+          headerLargeTitle: mode === 'list',
+          headerSearchBarOptions: undefined,
+          unstable_headerLeftItems: undefined,
+        }}
+      />
       <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu icon="line.3.horizontal.decrease" accessibilityLabel="Site options">
+          <Stack.Toolbar.MenuAction isOn>My dive sites</Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction onPress={() => setSource('ssi')}>
+            SSI dive sites
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
         <Stack.Toolbar.Button
           icon={mode === 'map' ? 'list.bullet' : 'map'}
           accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
@@ -41,7 +58,16 @@ export default function SitesScreen() {
       </Stack.Toolbar>
     </>
   ) : (
-    <HeaderAction label="New dive site" icon="plus" onPress={openNew} />
+    <HeaderAction
+      label="Site options"
+      onPress={() =>
+        Alert.alert('Dive sites', undefined, [
+          { text: 'SSI dive sites', onPress: () => setSource('ssi') },
+          { text: 'New dive site', onPress: openNew },
+          { text: 'Cancel', style: 'cancel' },
+        ])
+      }
+    />
   );
 
   const body = !logbook.isSuccess ? (
@@ -61,6 +87,7 @@ export default function SitesScreen() {
     <SitesList sites={sites} onSelectSite={openSite} />
   );
 
+  if (source === 'ssi') return <SsiSiteBrowser onMySites={() => setSource('logbook')} />;
   return (
     <>
       {header}
