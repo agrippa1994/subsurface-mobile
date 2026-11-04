@@ -1,14 +1,15 @@
 // AI-generated (Claude)
-import { useDeferredValue, useMemo, useState } from 'react';
-import { FlatList, Keyboard, Pressable, Text, TextInput, View } from 'react-native';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { Alert, FlatList, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MAPS_AVAILABLE } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { distanceMeters } from '@/models/site-edit';
 import { browseSsiSites, hasSsiPosition, type SitePosition } from '@/models/ssi/site-browse';
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
 import { useSsiAccount, useSsiLogbook, useSsiSiteIndex } from '@/queries/ssi';
-import { SsiSiteTabs } from './ssi-site-tabs';
+import { SsiBrowserHeader, type SsiBrowserView } from './ssi-browser-header';
 import { useSsiSiteLocation } from './use-ssi-site-location';
 import { SsiSiteDetails } from './ssi-site-details';
 import { SsiSitesMap } from './ssi-sites-map';
@@ -17,10 +18,12 @@ export function SsiSiteBrowser({
   position: initialPosition = null,
   onSelect,
   onClose,
+  onMySites,
 }: {
   position?: SitePosition | null;
   onSelect?: (site: SsiSite) => void;
   onClose?: () => void;
+  onMySites?: () => void;
 }) {
   const theme = useTheme();
   const catalogue = useSsiSiteIndex();
@@ -28,7 +31,7 @@ export function SsiSiteBrowser({
   const history = useSsiLogbook(Boolean(account.data));
   const [query, setQuery] = useState('');
   const searchQuery = useDeferredValue(query);
-  const [view, setView] = useState<'nearby' | 'map' | 'list'>(
+  const [view, setView] = useState<SsiBrowserView>(
     onSelect ? 'nearby' : MAPS_AVAILABLE ? 'map' : 'list',
   );
   const [sort, setSort] = useState<'distance' | 'recent'>('distance');
@@ -36,6 +39,9 @@ export function SsiSiteBrowser({
   const [selected, setSelected] = useState<SsiSite | null>(null);
   const [cluster, setCluster] = useState<SsiSite[] | null>(null);
   const [detail, setDetail] = useState<SsiSite | null>(null);
+  useEffect(() => {
+    if (locationError) Alert.alert('Location unavailable', locationError);
+  }, [locationError]);
   const allMatches = useMemo(
     () => browseSsiSites(catalogue.data ?? [], searchQuery, position),
     [catalogue.data, searchQuery, position],
@@ -50,136 +56,55 @@ export function SsiSiteBrowser({
       ),
     [catalogue.data, searchQuery, position, history.data],
   );
-  const rows = view === 'nearby' && sort === 'recent' ? recent : allMatches;
-  const button = (label: string, action: () => void, primary = false) => (
-    <Pressable
-      accessibilityRole="button"
-      onPress={action}
-      style={{
-        padding: 14,
-        borderWidth: 1,
-        borderColor: theme.text,
-        borderRadius: 8,
-        backgroundColor: primary ? theme.text : theme.background,
-      }}
-    >
-      <Text
-        style={{
-          color: primary ? theme.background : theme.text,
-          fontWeight: '600',
-          textAlign: 'center',
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
+  const rows = cluster ?? (view === 'nearby' && sort === 'recent' ? recent : allMatches);
+  const chosen = detail ?? selected;
+  const changeView = (next: SsiBrowserView) => {
+    Keyboard.dismiss();
+    setView(next);
+    setSelected(null);
+    setCluster(null);
+  };
+  const back = detail
+    ? () => setDetail(null)
+    : selected
+      ? () => setSelected(null)
+      : cluster
+        ? () => setCluster(null)
+        : onSelect && view !== 'nearby'
+          ? () => changeView('nearby')
+          : undefined;
   const header = (
-    <View style={{ padding: 16, gap: 14, backgroundColor: theme.background }}>
-      {onClose || detail || (view !== 'nearby' && onSelect) ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}>
-          {detail
-            ? button('Back to sites', () => setDetail(null))
-            : onSelect && view !== 'nearby'
-              ? button('Back', () => {
-                  setView('nearby');
-                  setSelected(null);
-                })
-              : null}
-          {onClose ? button('Cancel', onClose) : null}
-        </View>
-      ) : null}
-      {onClose ? (
-        <Text style={{ color: theme.text, fontSize: 20, fontWeight: '600' }}>
-          {view === 'nearby' ? 'Select dive site' : 'Places'}
-        </Text>
-      ) : null}
-      {!detail ? (
-        <>
-          <TextInput
-            value={query}
-            onChangeText={(text) => {
-              setQuery(text);
-              setSelected(null);
-              setCluster(null);
-            }}
-            accessibilityLabel="Search SSI dive sites"
-            placeholder="Search SSI dive sites"
-            placeholderTextColor={theme.textSecondary}
-            autoCorrect={false}
-            returnKeyType="search"
-            onSubmitEditing={() => Keyboard.dismiss()}
-            style={{
-              padding: 16,
-              fontSize: 17,
-              borderWidth: 1,
-              borderColor: theme.text,
-              borderRadius: 8,
-              color: theme.text,
-              backgroundColor: theme.background,
-            }}
-          />
-          {view === 'nearby' ? (
-            <SsiSiteTabs
-              value={sort}
-              onChange={setSort}
-              options={[
-                { value: 'distance', label: 'By distance' },
-                { value: 'recent', label: 'Recently used' },
-              ]}
-            />
-          ) : MAPS_AVAILABLE ? (
-            <SsiSiteTabs
-              value={view}
-              onChange={(value) => {
-                setView(value);
-                setSelected(null);
-              }}
-              options={[
-                { value: 'map', label: 'Map' },
-                { value: 'list', label: 'List' },
-              ]}
-            />
-          ) : null}
-          {sort === 'distance' || view !== 'nearby' ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void locate()}
-                style={{ paddingVertical: 4 }}
-              >
-                <Text style={{ color: theme.accent, fontWeight: '600' }}>
-                  {locating ? 'Finding location…' : 'Use my location'}
-                </Text>
-              </Pressable>
-              {locationError || view === 'nearby' ? (
-                <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
-                  {locationError ||
-                    (position
-                      ? initialPosition && position === initialPosition
-                        ? 'Distance from this dive’s site'
-                        : 'Distance from your location'
-                      : 'Sorted by name until a location is available.')}
-                </Text>
-              ) : null}
-            </>
-          ) : null}
-        </>
-      ) : null}
-    </View>
+    <SsiBrowserHeader
+      title={
+        (catalogue.data && searchQuery.trim() && allMatches.length === 0
+          ? 'No matching SSI sites'
+          : null) ??
+        detail?.name ??
+        selected?.name ??
+        (cluster ? 'Sites at this location' : onSelect ? 'Select dive site' : 'SSI dive sites')
+      }
+      view={view}
+      sort={sort}
+      onViewChange={changeView}
+      onSortChange={setSort}
+      onSearch={(text) => {
+        setQuery(text);
+        setSelected(null);
+        setCluster(null);
+      }}
+      onLocate={() => void locate()}
+      locating={locating}
+      onBack={back}
+      onClose={onClose}
+      onMySites={onMySites}
+      onDetails={selected && !detail ? () => setDetail(selected) : undefined}
+      onSelect={chosen && onSelect ? () => onSelect(chosen) : undefined}
+      showingDetail={Boolean(detail)}
+      mapsAvailable={MAPS_AVAILABLE}
+    />
   );
   let body;
-  if (detail)
-    body = (
-      <>
-        <SsiSiteDetails key={detail.id} site={detail} />
-        {onSelect ? (
-          <View style={{ padding: 16 }}>
-            {button('Select dive site', () => onSelect(detail), true)}
-          </View>
-        ) : null}
-      </>
-    );
+  if (detail) body = <SsiSiteDetails key={detail.id} site={detail} />;
   else if (!catalogue.data && catalogue.isError)
     body = (
       <StatusView
@@ -202,101 +127,23 @@ export function SsiSiteBrowser({
         description="The catalogue is saved on this device for offline browsing."
       />
     );
-  else if (view === 'map' && allMatches.length === 0)
+  else if (view === 'map' && !cluster)
     body = (
-      <StatusView
-        kind="empty"
-        title="No matching SSI sites"
-        description="Try another name or country. Sites without coordinates are available in the list."
-        actionLabel="Clear search"
-        onAction={() => setQuery('')}
+      <SsiSitesMap
+        key={`${mapKey}:${searchQuery}`}
+        fitToSites={Boolean(searchQuery.trim())}
+        sites={allMatches}
+        position={position}
+        onSelect={(site) => {
+          Keyboard.dismiss();
+          setSelected(site);
+        }}
+        onCluster={(sites) => {
+          Keyboard.dismiss();
+          setCluster(sites);
+          setSelected(null);
+        }}
       />
-    );
-  else if (view === 'map')
-    body = (
-      <View style={{ flex: 1 }}>
-        <SsiSitesMap
-          key={`${mapKey}:${searchQuery}`}
-          fitToSites={Boolean(searchQuery.trim())}
-          sites={allMatches}
-          position={position}
-          onSelect={(site) => {
-            Keyboard.dismiss();
-            setSelected(site);
-            setCluster(null);
-          }}
-          onCluster={(sites) => {
-            Keyboard.dismiss();
-            setCluster(sites);
-            setSelected(null);
-          }}
-        />
-        <Text
-          style={{
-            position: 'absolute',
-            top: 8,
-            alignSelf: 'center',
-            padding: 8,
-            borderRadius: 8,
-            color: theme.text,
-            backgroundColor: theme.background,
-          }}
-        >
-          {allMatches.length.toLocaleString()} sites · zoom to expand clusters
-        </Text>
-        {cluster ? (
-          <View
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              left: 16,
-              right: 16,
-              maxHeight: '50%',
-              borderRadius: 12,
-              padding: 16,
-              backgroundColor: theme.background,
-            }}
-          >
-            {button('Close site list', () => setCluster(null))}
-            <FlatList
-              data={cluster}
-              keyExtractor={(site) => String(site.id)}
-              renderItem={({ item }) => (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setSelected(item);
-                    setCluster(null);
-                  }}
-                  style={{ paddingVertical: 16 }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 17 }}>{item.name}</Text>
-                </Pressable>
-              )}
-            />
-          </View>
-        ) : null}
-        {selected ? (
-          <View
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              left: 16,
-              right: 16,
-              padding: 16,
-              gap: 12,
-              borderRadius: 12,
-              backgroundColor: theme.background,
-            }}
-          >
-            <Text style={{ color: theme.text, fontSize: 20, fontWeight: '600' }}>
-              {selected.name}
-            </Text>
-            {button('SSI site details', () => setDetail(selected))}
-            {onSelect ? button('Select dive site', () => onSelect(selected), true) : null}
-          </View>
-        ) : null}
-      </View>
     );
   else if (view === 'nearby' && sort === 'recent' && !history.data && account.data)
     body = (
@@ -316,6 +163,18 @@ export function SsiSiteBrowser({
         keyExtractor={(item) => String(item.id)}
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          view === 'nearby' && sort === 'distance' ? (
+            <Text style={[styles.hint, { color: theme.textSecondary }]}>
+              {position
+                ? initialPosition && position === initialPosition
+                  ? 'Distance from this dive’s site'
+                  : 'Distance from your location'
+                : 'Sorted by name. Use Site options to find nearby sites.'}
+            </Text>
+          ) : undefined
+        }
         ListEmptyComponent={
           <StatusView
             kind="empty"
@@ -339,31 +198,25 @@ export function SsiSiteBrowser({
           <Pressable
             accessibilityRole="button"
             onPress={() => (onSelect ? onSelect(item) : setDetail(item))}
-            style={{ flexDirection: 'row', padding: 16, gap: 14, alignItems: 'center' }}
+            style={({ pressed }) => [
+              styles.row,
+              pressed && { backgroundColor: theme.backgroundSelected },
+            ]}
           >
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: theme.text,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: theme.background, fontWeight: '700' }}>SSI</Text>
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '600' }}>
-                {item.name}
-              </Text>
-              <Text style={{ color: theme.textSecondary }}>
+            <View style={styles.main}>
+              <Text style={[styles.name, { color: theme.text }]}>{item.name}</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
                 {describeSsiSite(item)}
-                {position && hasSsiPosition(item)
-                  ? ` · ${(distanceMeters(position.lat, position.lon, item.lat, item.lon) / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} km`
-                  : ''}
               </Text>
             </View>
+            {position && hasSsiPosition(item) ? (
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+                {(
+                  distanceMeters(position.lat, position.lon, item.lat, item.lon) / 1000
+                ).toLocaleString(undefined, { maximumFractionDigits: 1 })}{' '}
+                km
+              </Text>
+            ) : null}
           </Pressable>
         )}
       />
@@ -372,18 +225,20 @@ export function SsiSiteBrowser({
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {header}
       {body}
-      {!detail && view === 'nearby' ? (
-        <View style={{ padding: 16 }}>
-          {button(
-            MAPS_AVAILABLE ? 'Map and other dive sites' : 'All dive sites',
-            () => {
-              setView(MAPS_AVAILABLE ? 'map' : 'list');
-              setSort('distance');
-            },
-            true,
-          )}
-        </View>
-      ) : null}
     </View>
   );
 }
+const styles = StyleSheet.create({
+  content: { paddingVertical: Spacing.two, paddingBottom: Spacing.six },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  main: { flex: 1, gap: Spacing.half },
+  name: { fontSize: 17 },
+  subtitle: { fontSize: 13 },
+  hint: { fontSize: 13, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+});

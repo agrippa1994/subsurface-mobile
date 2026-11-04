@@ -7,23 +7,18 @@
 // list. This screen only picks the body and owns the header; the map and the
 // list are their own components.
 import { Stack, useRouter } from 'expo-router';
-import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { Alert } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
 import { MAPS_AVAILABLE } from '@/components/site-map';
 import { SitesMap } from '@/components/sites-map';
 import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
-import { OptionField } from '@/components/form';
-import { View } from 'react-native';
 import { StatusView } from '@/components/status-view';
 import { SitesList } from '@/features/sites/sites-list';
 import { useLogbook, useSites } from '@/queries/logbook';
 
 export default function SitesScreen() {
-  const headerHeight = useHeaderHeight();
-  const insets = useSafeAreaInsets();
   const logbook = useLogbook();
   const { data: sites = [] } = useSites();
   const router = useRouter();
@@ -38,20 +33,41 @@ export default function SitesScreen() {
   const header = MAPS_AVAILABLE ? (
     <>
       {/* A large title has no scroll view to collapse into over a map. */}
-      <Stack.Screen options={{ headerLargeTitle: source === 'logbook' && mode === 'list' }} />
+      <Stack.Screen
+        options={{
+          title: 'Sites',
+          headerTransparent: mode === 'map',
+          headerLargeTitle: mode === 'list',
+          headerSearchBarOptions: undefined,
+          unstable_headerLeftItems: undefined,
+        }}
+      />
       <Stack.Toolbar placement="right">
-        {source === 'logbook' ? (
-          <Stack.Toolbar.Button
-            icon={mode === 'map' ? 'list.bullet' : 'map'}
-            accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
-            onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
-          />
-        ) : null}
+        <Stack.Toolbar.Menu icon="line.3.horizontal.decrease" accessibilityLabel="Site options">
+          <Stack.Toolbar.MenuAction isOn>My dive sites</Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction onPress={() => setSource('ssi')}>
+            SSI dive sites
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+        <Stack.Toolbar.Button
+          icon={mode === 'map' ? 'list.bullet' : 'map'}
+          accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
+          onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
+        />
         <Stack.Toolbar.Button icon="plus" accessibilityLabel="New dive site" onPress={openNew} />
       </Stack.Toolbar>
     </>
   ) : (
-    <HeaderAction label="New dive site" icon="plus" onPress={openNew} />
+    <HeaderAction
+      label="Site options"
+      onPress={() =>
+        Alert.alert('Dive sites', undefined, [
+          { text: 'SSI dive sites', onPress: () => setSource('ssi') },
+          { text: 'New dive site', onPress: openNew },
+          { text: 'Cancel', style: 'cancel' },
+        ])
+      }
+    />
   );
 
   const body = !logbook.isSuccess ? (
@@ -71,22 +87,11 @@ export default function SitesScreen() {
     <SitesList sites={sites} onSelectSite={openSite} />
   );
 
+  if (source === 'ssi') return <SsiSiteBrowser onMySites={() => setSource('logbook')} />;
   return (
     <>
       {header}
-      <View style={{ flex: 1, paddingTop: headerHeight, paddingBottom: insets.bottom }}>
-        <View style={{ padding: 16 }}>
-          <OptionField
-            value={source}
-            onChange={setSource}
-            options={[
-              { value: 'logbook', label: 'My dive sites' },
-              { value: 'ssi', label: 'All SSI sites' },
-            ]}
-          />
-        </View>
-        {source === 'ssi' ? <SsiSiteBrowser /> : body}
-      </View>
+      {body}
     </>
   );
 }

@@ -1,6 +1,7 @@
 // AI-generated (Claude)
 import { AppleMaps } from 'expo-maps';
 import { useMemo, useRef, useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { groupSsiSites, hasSsiPosition, type SitePosition } from '@/models/ssi/site-browse';
 import type { SsiSite } from '@/models/ssi/sites';
 
@@ -17,6 +18,7 @@ export function SsiSitesMap({
   onSelect: (site: SsiSite) => void;
   onCluster: (sites: SsiSite[]) => void;
 }) {
+  const theme = useTheme();
   const map = useRef<AppleMaps.MapView>(null);
   const [initial] = useState(() => {
     const located = fitToSites ? sites.filter(hasSsiPosition) : [];
@@ -50,7 +52,7 @@ export function SsiSitesMap({
       ref={map}
       style={{ flex: 1 }}
       cameraPosition={initial}
-      properties={{ mapType: AppleMaps.MapType.HYBRID }}
+      properties={{ mapType: AppleMaps.MapType.STANDARD }}
       uiSettings={{ myLocationButtonEnabled: false }}
       markers={groups.map((group) => ({
         id: group.id,
@@ -59,8 +61,9 @@ export function SsiSitesMap({
           group.sites.length === 1
             ? group.sites[0].name
             : `${group.sites.length} SSI sites — tap to zoom`,
-        monogram: group.sites.length === 1 ? 'SSI' : String(group.sites.length),
-        tintColor: '#E32929',
+        monogram: group.sites.length > 1 ? String(group.sites.length) : undefined,
+        systemImage: group.sites.length === 1 ? 'mappin' : undefined,
+        tintColor: theme.accent,
       }))}
       onCameraMove={(event) => {
         if (

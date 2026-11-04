@@ -3,6 +3,8 @@ import { Host, Picker } from '@expo/ui';
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, Text, View } from 'react-native';
+import { FormSection } from '@/components/form';
+import { Spacing } from '@/constants/theme';
 import { StatusView } from '@/components/status-view';
 import { useTheme } from '@/hooks/use-theme';
 import { ssiPlainText } from '@/models/ssi/site-browse';
@@ -53,58 +55,63 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 16 }}
+      contentContainerStyle={{
+        padding: Spacing.three,
+        paddingBottom: Spacing.six,
+        gap: Spacing.four,
+      }}
     >
-      <Text selectable style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>
-        {detail?.dive_site_name ?? site.name}
-      </Text>
-      <Text selectable style={{ color: theme.textSecondary }}>
-        {describeSsiSite(site)}
-      </Text>
-      <Text selectable style={{ color: theme.textSecondary }}>
-        {site.lat.toFixed(5)}, {site.lon.toFixed(5)} · SSI #{site.id}
-      </Text>
-      {detail?.breadcrump_string ? (
+      <FormSection title="Location">
         <Text selectable style={{ color: theme.text }}>
-          {ssiPlainText(detail.breadcrump_string)}
+          {describeSsiSite(site)}
         </Text>
-      ) : null}
-      {descriptions.length > 1 ? (
-        <Host matchContents>
-          <Picker selectedValue={description?.descr_iso3 ?? language} onValueChange={setLanguage}>
-            {descriptions
-              .filter((d) => d.descr_iso3)
-              .map((d) => (
-                <Picker.Item
-                  key={d.descr_iso3}
-                  label={`Description language: ${d.descr_iso3}`}
-                  value={d.descr_iso3!}
-                />
-              ))}
-          </Picker>
-        </Host>
-      ) : null}
-      {paragraphs.map((text, index) => (
-        <Text key={index} selectable style={{ color: theme.text, fontSize: 17, lineHeight: 25 }}>
-          {text}
-        </Text>
-      ))}
-      {description?.descr_who ? (
         <Text selectable style={{ color: theme.textSecondary }}>
-          {description.descr_who}
-          {description.descr_added_date ? ` · ${description.descr_added_date}` : ''}
+          {site.lat.toFixed(5)}, {site.lon.toFixed(5)}
         </Text>
-      ) : null}
-      {!paragraphs.length ? (
-        <Text style={{ color: theme.textSecondary }}>
-          SSI has not provided a description for this site.
-        </Text>
-      ) : null}
+        {detail?.breadcrump_string ? (
+          <Text selectable style={{ color: theme.textSecondary }}>
+            {ssiPlainText(detail.breadcrump_string)}
+          </Text>
+        ) : null}
+      </FormSection>
+      <FormSection title="About this site">
+        {descriptions.length > 1 ? (
+          <Host matchContents>
+            <Picker selectedValue={description?.descr_iso3 ?? language} onValueChange={setLanguage}>
+              {descriptions
+                .filter((d) => d.descr_iso3)
+                .map((d) => (
+                  <Picker.Item
+                    key={d.descr_iso3}
+                    label={`Description language: ${d.descr_iso3}`}
+                    value={d.descr_iso3!}
+                  />
+                ))}
+            </Picker>
+          </Host>
+        ) : null}
+        {paragraphs.map((text, index) => (
+          <Text key={index} selectable style={{ color: theme.text, fontSize: 17, lineHeight: 25 }}>
+            {text}
+          </Text>
+        ))}
+        {description?.descr_who ? (
+          <Text selectable style={{ color: theme.textSecondary }}>
+            {description.descr_who}
+            {description.descr_added_date ? ` · ${description.descr_added_date}` : ''}
+          </Text>
+        ) : null}
+        {!paragraphs.length ? (
+          <Text style={{ color: theme.textSecondary }}>
+            SSI has not provided a description for this site.
+          </Text>
+        ) : null}
+      </FormSection>
       {images.map((photo, index) => (
-        <View key={index} style={{ gap: 4 }}>
+        <View key={index} style={{ gap: Spacing.one }}>
           <Image
             source={{ uri: (photo.big ?? photo.thumb)! }}
-            style={{ width: '100%', height: 240, borderRadius: 12 }}
+            style={{ width: '100%', height: 240, borderRadius: Spacing.three }}
             contentFit="contain"
             accessibilityLabel={`SSI photo of ${site.name}`}
           />
@@ -115,19 +122,27 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
           ) : null}
         </View>
       ))}
-      {facts.map(([label, value]) =>
-        typeof value === 'number' && Number.isFinite(value) ? (
-          <View
-            key={label}
-            style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16 }}
-          >
-            <Text style={{ color: theme.text }}>{label}</Text>
-            <Text selectable style={{ color: theme.text }}>
-              {value.toLocaleString()}
-            </Text>
-          </View>
-        ) : null,
-      )}
+      {facts.some(([, value]) => typeof value === 'number' && Number.isFinite(value)) ? (
+        <FormSection title="SSI statistics">
+          {facts.map(([label, value]) =>
+            typeof value === 'number' && Number.isFinite(value) ? (
+              <View
+                key={label}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: Spacing.three,
+                }}
+              >
+                <Text style={{ color: theme.text }}>{label}</Text>
+                <Text selectable style={{ color: theme.text }}>
+                  {value.toLocaleString()}
+                </Text>
+              </View>
+            ) : null,
+          )}
+        </FormSection>
+      ) : null}
       <Text style={{ color: theme.textSecondary }}>
         Site information provided by SSI.{' '}
         {detail === null ? 'No additional details are available.' : ''}

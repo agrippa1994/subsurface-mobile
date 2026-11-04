@@ -1,35 +1,30 @@
 // AI-generated (Claude)
-import { Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks/use-theme';
+import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
 import type { SsiSite } from '@/models/ssi/sites';
 import type { SitePosition } from '@/models/ssi/site-browse';
-import { SsiSiteBrowser } from './ssi-site-browser';
+import { setSsiPickerSession } from './ssi-site-picker-session';
 
-export function SsiSitePicker({
-  visible,
-  position,
-  onSelect,
-  onClose,
-}: {
+export function SsiSitePicker(props: {
   visible: boolean;
   position: SitePosition | null;
   onSelect: (site: SsiSite) => void;
   onClose: () => void;
 }) {
-  const theme = useTheme();
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
-      {visible ? (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-          <SsiSiteBrowser position={position} onSelect={onSelect} onClose={onClose} />
-        </SafeAreaView>
-      ) : null}
-    </Modal>
-  );
+  const router = useRouter();
+  const latest = useRef(props);
+  useLayoutEffect(() => {
+    latest.current = props;
+  });
+  useEffect(() => {
+    if (!props.visible) return;
+    setSsiPickerSession({
+      position: latest.current.position,
+      onSelect: (site) => latest.current.onSelect(site),
+      onClose: () => latest.current.onClose(),
+    });
+    router.push('/ssi-site-picker');
+    return () => setSsiPickerSession(null);
+  }, [props.visible, router]);
+  return null;
 }

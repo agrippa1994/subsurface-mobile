@@ -24,8 +24,8 @@ a fixed commit and consumed read-only. See
 
 ## Requirements
 
-- Xcode + iOS 26 SDK, a physical iOS device (liquid glass and the native C++
-  module do not run in Expo Go or the simulator).
+- Xcode + iOS 26 SDK, with a native development build on an iOS device or
+  simulator. The native C++ module does not run in Expo Go.
 - Node LTS, `git`, CocoaPods.
 - For Android: Android SDK with NDK 27.1.12297006 (the one React Native pins),
   JDK 17, and `ANDROID_HOME` set. Devices and emulators must be 64-bit
@@ -43,6 +43,12 @@ npx expo prebuild
 npx expo run:ios      # onto a physical device
 npx expo run:android  # onto a device or emulator
 ```
+
+Simulator builds must keep code signing enabled. Use Xcode's default ad-hoc
+simulator signing; do not pass `CODE_SIGNING_ALLOWED=NO` to `xcodebuild`.
+Unsigned builds can launch but cannot use Keychain, so SSI sign-in fails with
+“A required entitlement is not present.” For a direct simulator build, use
+`CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-`.
 
 The native libraries the C++ modules link are committed prebuilt, per platform:
 `modules/*/ios/vendor` (xcframeworks) and `modules/*/android/vendor` (static
