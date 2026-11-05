@@ -86,6 +86,7 @@ function AppShell() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="ssi-site-picker" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
     </ThemeProvider>
   );

@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
+  ScrollView,
   Pressable,
   StyleSheet,
   Text,
@@ -41,7 +41,8 @@ import {
   suggestedSsiBuddies,
   type SsiBuddy,
 } from '@/models/ssi/buddies';
-import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
+import { SsiSitePicker } from './ssi-site-picker';
+import { type SsiSite } from '@/models/ssi/sites';
 import { useDive, useProfile, useSites } from '@/queries/logbook';
 import { useSettings } from '@/queries/settings';
 import {
@@ -51,7 +52,6 @@ import {
   useSsiLogbook,
   useSsiNearestSite,
   useSsiSiteIndex,
-  useSsiSiteSearch,
   useSyncDiveToSsi,
 } from '@/queries/ssi';
 
@@ -65,7 +65,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const { data: sites = [] } = useSites();
   const account = useSsiAccount();
   // Gated on the account: without one the screen only points at Settings, and
-  // the catalogue costs a 2.5 MB download the first time it is asked for.
+  // the catalogue costs a sizeable download the first time it is asked for.
   const catalogue = useSsiSiteIndex(Boolean(account.data));
   // The buddy list rides along with the dive number in one `get_divelog`. The
   // screen never waits on it: a dive can go up without buddies, so a slow or
@@ -77,7 +77,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const profile = profileQuery.data;
   const site = useMemo(
     () => (dive ? sites.find((entry) => entry.uuid === dive.siteUuid) : undefined),
-    [dive, sites]
+    [dive, sites],
   );
 
   // The dive's own position, in the degrees the SSI catalogue uses. Null when
@@ -85,15 +85,12 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   // nothing to preselect from and the diver searches.
   const position = useMemo(
     () =>
-      site?.hasGps
-        ? { lat: udegToDegrees(site.latUdeg), lon: udegToDegrees(site.lonUdeg) }
-        : null,
-    [site]
+      site?.hasGps ? { lat: udegToDegrees(site.latUdeg), lon: udegToDegrees(site.lonUdeg) } : null,
+    [site],
   );
   const nearest = useSsiNearestSite(catalogue.data, position?.lat ?? null, position?.lon ?? null);
 
-  const [query, setQuery] = useState('');
-  const results = useSsiSiteSearch(catalogue.data, query);
+  const [sitePickerOpen, setSitePickerOpen] = useState(false);
 
   const [buddyQuery, setBuddyQuery] = useState('');
 
@@ -187,7 +184,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
       <StatusView
         kind="loading"
         title="Downloading SSI dive sites"
-        description="This happens once. The catalogue is about 2.5 MB and is kept on this device afterwards."
+        description="This happens once and takes about a minute. The catalogue is kept on this device afterwards."
       />
     );
   }
@@ -197,129 +194,103 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   return (
     <form.Field name="site">
       {(field) => (
-        <FlatList
+        <ScrollView
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={styles.content}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          data={field.state.value === null && isSearchable(query) ? results : []}
-          keyExtractor={(item) => String(item.id)}
-          ListHeaderComponent={
-            <View style={styles.header}>
-              <FormSection title="Dive">
-                <Row label="Date" value={`${row.dateText} ${row.timeText}`} />
-                <Row label="Max depth" value={formatDepth(dive.maxDepthMm, unitSystem)} />
-                <Row label="Duration" value={formatDuration(dive.durationSec)} />
-                <Row label="Site in this logbook" value={dive.siteName || '-'} />
-              </FormSection>
+        >
+          <View style={styles.header}>
+            <FormSection title="Dive">
+              <Row label="Date" value={`${row.dateText} ${row.timeText}`} />
+              <Row label="Max depth" value={formatDepth(dive.maxDepthMm, unitSystem)} />
+              <Row label="Duration" value={formatDuration(dive.durationSec)} />
+              <Row label="Site in this logbook" value={dive.siteName || '-'} />
+            </FormSection>
 
-              <FormSection
-                title="SSI dive site"
-                footer={
-                  field.state.value !== null && nearest !== null && field.state.value.id === nearest.site.id
-                    ? `Nearest site to this dive's position, ${formatDistance(nearest.distanceMeters)} away.`
-                    : position === null
-                      ? 'This dive has no position, so its SSI site has to be found by name. Give its site coordinates in the Sites tab and the match becomes automatic.'
-                      : "Searched in SSI's own site catalogue, which is separate from this logbook."
-                }>
-                {field.state.value !== null ? (
+            <FormSection
+              title="SSI dive site"
+              footer={
+                field.state.value !== null &&
+                nearest !== null &&
+                field.state.value.id === nearest.site.id
+                  ? `Nearest site to this dive's position, ${formatDistance(nearest.distanceMeters)} away.`
+                  : position === null
+                    ? 'Choose an SSI site by name, nearby location, recently used sites, or on the map.'
+                    : "Searched in SSI's own site catalogue, which is separate from this logbook."
+              }
+            >
+              <FormButtonRow
+                label={field.state.value?.name ?? 'Select SSI dive site'}
+                value={field.state.value ? 'Change' : 'Choose'}
+                onPress={() => setSitePickerOpen(true)}
+              />
+              <SsiSitePicker
+                visible={sitePickerOpen}
+                position={position}
+                onClose={() => setSitePickerOpen(false)}
+                onSelect={(selected) => {
+                  autoFilled.current = true;
+                  field.handleChange(selected);
+                  setSitePickerOpen(false);
+                }}
+              />
+
+              {fieldError(field.state.meta.errors) ? (
+                <Text style={[styles.error, { color: theme.danger }]}>
+                  {fieldError(field.state.meta.errors)}
+                </Text>
+              ) : null}
+            </FormSection>
+
+            <form.Field name="buddies">
+              {(buddyField) => (
+                <BuddySection
+                  buddies={logbook.data?.buddies ?? []}
+                  selected={buddyField.state.value}
+                  onChange={buddyField.handleChange}
+                  query={buddyQuery}
+                  onQueryChange={setBuddyQuery}
+                  isPending={logbook.isPending}
+                  error={logbook.error}
+                  onRetry={() => void logbook.refetch()}
+                />
+              )}
+            </form.Field>
+          </View>
+
+          <View style={styles.footer}>
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(isSubmitting) =>
+                isSubmitting ? (
+                  <View style={styles.pending}>
+                    <ActivityIndicator />
+                    <Text style={{ color: theme.textSecondary }}>Sending to SSI...</Text>
+                  </View>
+                ) : (
                   <FormButtonRow
-                    label={field.state.value.name}
-                    value="Change"
+                    label={isSyncedToSsi(dive) ? 'Sync again' : 'Sync to SSI'}
                     onPress={() => {
-                      field.handleChange(null);
-                      setQuery('');
+                      if (isSyncedToSsi(dive)) {
+                        warned();
+                        Alert.alert(
+                          'Already synced',
+                          'This dive has gone to SSI before. Syncing again adds a second copy to your SSI logbook.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Sync again', onPress: () => void form.handleSubmit() },
+                          ],
+                        );
+                        return;
+                      }
+                      void form.handleSubmit();
                     }}
                   />
-                ) : (
-                  <>
-                    <TextInput
-                      value={query}
-                      onChangeText={setQuery}
-                      placeholder="Search SSI dive sites"
-                      placeholderTextColor={theme.textSecondary}
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      autoFocus={position === null}
-                      style={[
-                        styles.search,
-                        { backgroundColor: theme.background, color: theme.text },
-                      ]}
-                    />
-                    {isSearchable(query) && results.length === 0 ? (
-                      <Text style={{ color: theme.textSecondary }}>
-                        {`No SSI site matches "${query.trim()}".`}
-                      </Text>
-                    ) : null}
-                  </>
-                )}
-
-                {fieldError(field.state.meta.errors) ? (
-                  <Text style={[styles.error, { color: theme.danger }]}>
-                    {fieldError(field.state.meta.errors)}
-                  </Text>
-                ) : null}
-              </FormSection>
-
-              <form.Field name="buddies">
-                {(buddyField) => (
-                  <BuddySection
-                    buddies={logbook.data?.buddies ?? []}
-                    selected={buddyField.state.value}
-                    onChange={buddyField.handleChange}
-                    query={buddyQuery}
-                    onQueryChange={setBuddyQuery}
-                    isPending={logbook.isPending}
-                    error={logbook.error}
-                    onRetry={() => void logbook.refetch()}
-                  />
-                )}
-              </form.Field>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <SiteRow
-              site={item}
-              onPress={() => {
-                field.handleChange(item);
-                setQuery('');
-              }}
-            />
-          )}
-          ListFooterComponent={
-            <View style={styles.footer}>
-              <form.Subscribe selector={(state) => state.isSubmitting}>
-                {(isSubmitting) =>
-                  isSubmitting ? (
-                    <View style={styles.pending}>
-                      <ActivityIndicator />
-                      <Text style={{ color: theme.textSecondary }}>Sending to SSI...</Text>
-                    </View>
-                  ) : (
-                    <FormButtonRow
-                      label={isSyncedToSsi(dive) ? 'Sync again' : 'Sync to SSI'}
-                      onPress={() => {
-                        if (isSyncedToSsi(dive)) {
-                          warned();
-                          Alert.alert(
-                            'Already synced',
-                            'This dive has gone to SSI before. Syncing again adds a second copy to your SSI logbook.',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              { text: 'Sync again', onPress: () => void form.handleSubmit() },
-                            ]
-                          );
-                          return;
-                        }
-                        void form.handleSubmit();
-                      }}
-                    />
-                  )
-                }
-              </form.Subscribe>
-            </View>
-          }
-        />
+                )
+              }
+            </form.Subscribe>
+          </View>
+        </ScrollView>
       )}
     </form.Field>
   );
@@ -540,23 +511,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SiteRow({ site, onPress }: { site: SsiSite; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.siteRow,
-        { borderBottomColor: theme.separator },
-        pressed ? { backgroundColor: theme.backgroundSelected } : null,
-      ]}>
-      <Text style={[styles.siteName, { color: theme.text }]}>{site.name}</Text>
-      <Text style={[styles.siteMeta, { color: theme.textSecondary }]}>{describeSsiSite(site)}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
@@ -590,17 +544,6 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: 15,
-  },
-  siteRow: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: Spacing.half,
-    paddingVertical: Spacing.two,
-  },
-  siteName: {
-    fontSize: 17,
-  },
-  siteMeta: {
-    fontSize: 13,
   },
   pending: {
     flexDirection: 'row',

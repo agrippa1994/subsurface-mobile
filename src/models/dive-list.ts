@@ -111,7 +111,7 @@ export type DiveRow = {
  * it in the phone's zone would shift every dive by the phone's offset, so it is
  * formatted in UTC: a dive at 15:25 in Egypt reads 15:25 wherever the phone is.
  */
-function formatDate(when: number, locale?: string): string {
+export function formatDate(when: number, locale?: string): string {
   return new Date(when * 1000).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',

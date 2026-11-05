@@ -11,6 +11,8 @@
 // account query answers with an email address and a boolean, nothing more.
 
 import { useForm } from '@tanstack/react-form';
+import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -21,6 +23,7 @@ import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { EMPTY_CREDENTIALS, validateCredentials } from '@/models/ssi/credentials';
 import {
+  useDownloadSsiLogbook,
   useRefreshSsiSites,
   useSsiAccount,
   useSsiSignIn,
@@ -37,6 +40,8 @@ export function SsiAccountScreen() {
   const signOut = useSsiSignOut();
   const siteIndex = useSsiSiteIndexInfo();
   const refreshSites = useRefreshSsiSites();
+  const router = useRouter();
+  const downloadLogbook = useDownloadSsiLogbook();
 
   // Sign-in failures are shown in the form rather than in an alert: the user is
   // looking at the two fields that caused it, and the fix is to retype one.
@@ -96,6 +101,27 @@ export function SsiAccountScreen() {
       onError: (caught) => {
         operationFailed();
         Alert.alert('Could not download the dive sites', formatErrorLine(describeError(caught)));
+      },
+    });
+  };
+
+  const saveFile = () => {
+    downloadLogbook.mutate(undefined, {
+      onSuccess: async (uri) => {
+        operationSucceeded();
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert('Saved', uri);
+          return;
+        }
+        await Sharing.shareAsync(uri, {
+          UTI: 'org.subsurface.ssrf',
+          mimeType: 'application/xml',
+          dialogTitle: 'Save SSI logbook',
+        });
+      },
+      onError: (caught) => {
+        operationFailed();
+        Alert.alert('Could not download from SSI', formatErrorLine(describeError(caught)));
       },
     });
   };
@@ -184,9 +210,29 @@ export function SsiAccountScreen() {
         </FormSection>
       )}
 
+      {account.data ? (
+        <>
+          <FormSection
+            title="Logbook"
+            footer="Choose dives to add, or replace this logbook with your SSI logbook. Includes profiles, temperatures, pressures, gradient factor settings, buddies and sites. Nothing changes on SSI.">
+            <FormButtonRow
+              label="Add SSI dives to this logbook"
+              onPress={() => router.push('/settings/ssi-import')}
+            />
+          </FormSection>
+          <FormSection footer="A separate file with your whole SSI logbook, to share or open as a new logbook.">
+            <FormButtonRow
+              label="Save SSI logbook as a file"
+              value={downloadLogbook.isPending ? 'Downloading...' : undefined}
+              onPress={downloadLogbook.isPending ? () => undefined : saveFile}
+            />
+          </FormSection>
+        </>
+      ) : null}
+
       <FormSection
         title="Dive sites"
-        footer="SSI has no site search, so its whole site catalogue is downloaded once (about 2.5 MB) and kept on this device. Site lookup then works without a connection.">
+        footer="SSI has no site search, so its whole site catalogue is downloaded once (about a minute) and kept on this device. Site lookup then works without a connection.">
         <FormButtonRow
           label={info.count === 0 ? 'Download dive sites' : 'Refresh dive sites'}
           value={sitesValue}
