@@ -1,15 +1,48 @@
 // AI-generated (Claude)
 import { Host, Picker } from '@expo/ui';
-import { useState } from 'react';
+import { Stack } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, Text, View } from 'react-native';
 import { FormSection } from '@/components/form';
+import { HeaderAction } from '@/components/header-action';
 import { Spacing } from '@/constants/theme';
 import { StatusView } from '@/components/status-view';
 import { useTheme } from '@/hooks/use-theme';
 import { ssiPlainText } from '@/models/ssi/site-browse';
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
-import { useSsiSiteDetail } from '@/queries/ssi';
+import { useSsiSiteDetail, useSsiSiteIndex } from '@/queries/ssi';
+
+/**
+ * The route's body in both places details open: the Sites tab and the picker
+ * modal. Only the id crosses the route; the site comes from the catalogue.
+ */
+export function SsiSiteDetailScreen({
+  id,
+  onSelect,
+}: {
+  id: number;
+  onSelect?: (site: SsiSite) => void;
+}) {
+  const catalogue = useSsiSiteIndex();
+  const site = useMemo(() => catalogue.data?.find((s) => s.id === id), [catalogue.data, id]);
+  return (
+    <>
+      <Stack.Screen options={{ title: site?.name.trim() ?? 'SSI site', headerLargeTitle: false }} />
+      {site && onSelect ? (
+        <HeaderAction label="Select" done onPress={() => onSelect(site)} />
+      ) : null}
+      {site ? (
+        <SsiSiteDetails site={site} />
+      ) : (
+        <StatusView
+          kind={catalogue.isPending ? 'loading' : 'empty'}
+          title={catalogue.isPending ? 'Loading SSI site' : 'SSI site not found'}
+        />
+      )}
+    </>
+  );
+}
 
 export function SsiSiteDetails({ site }: { site: SsiSite }) {
   const theme = useTheme();
