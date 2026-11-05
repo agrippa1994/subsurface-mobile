@@ -22,7 +22,10 @@ import {
 import { uuid } from 'expo';
 import { useMemo } from 'react';
 
-import { updateDive } from '../../modules/ssrf-core/src';
+import { ensureLogbookLoaded } from '@/queries/logbook';
+import { resetData, useReplaceLogbook } from '@/queries/logbook-mutations';
+
+import { importFile, listDives, listDiveSites, updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { fetchSsiSiteDetail, fetchSsiSiteLookups } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
@@ -34,6 +37,12 @@ import {
 } from '@/lib/ssi/auth';
 import { fetchSsiLogbook, saveSsiDive, type SsiLogbook } from '@/lib/ssi/divelog';
 import {
+  buildSsiSsrf,
+  fetchSsiDownload,
+  writeSsiSsrfFile,
+  type SsiDownload,
+} from '@/lib/ssi/logbook-download';
+import {
   ensureSiteIndex,
   refreshSiteIndex,
   siteIndexInfo,
@@ -41,6 +50,7 @@ import {
 } from '@/lib/ssi/site-cache';
 import type { Dive, DiveSite, PlotInfo } from '@/models';
 import { convertDiveToSsi } from '@/models/ssi/converter';
+import { convertSsiLogbookToSsrf, type SsiToSsrfResult } from '@/models/ssi/ssrf-import';
 import type { SsiCredentials } from '@/models/ssi/credentials';
 import {
   MIN_QUERY_LENGTH,
@@ -85,6 +95,7 @@ export function useSsiSignIn(): UseMutationResult<SsiAccount, Error, SsiCredenti
       client.setQueryData(queryKeys.ssiAccount(), account);
       // The dive number and the buddies came from the previous account's logbook.
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
+      client.removeQueries({ queryKey: queryKeys.ssiDownload() });
     },
   });
 }
@@ -96,6 +107,7 @@ export function useSsiSignOut(): UseMutationResult<void, Error, void> {
     onSuccess: () => {
       client.setQueryData(queryKeys.ssiAccount(), null);
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
+      client.removeQueries({ queryKey: queryKeys.ssiDownload() });
     },
   });
 }
@@ -255,13 +267,130 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
   });
 }
 
+// --- Downloading the logbook ----------------------------------------------
+
+/** The labels are nice to have, so losing them never fails a download. */
+function lookupsFor(client: ReturnType<typeof useQueryClient>) {
+  return client
+    .fetchQuery({
+      queryKey: SITE_LOOKUPS_KEY,
+      queryFn: ({ signal }) => fetchSsiSiteLookups(signal),
+      staleTime: LOOKUPS_STALE_MS,
+    })
+    .catch(() => null);
+}
+
+/**
+ * The SSI logbook, for the import screen to list and convert. Held for minutes: it is
+ * the largest thing the app downloads, and it is about someone else's server.
+ */
+export function useSsiDownload(): UseQueryResult<SsiDownload> {
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: queryKeys.ssiDownload(),
+    queryFn: async () => fetchSsiDownload(await lookupsFor(client)),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnMount: true,
+    retry: 1,
+  });
+}
+
+/**
+ * Adds the chosen dives to the logbook. A chosen dive the logbook already has is left
+ * alone: its original download beats SSI's copy. Saved straight away, as every import is.
+ */
+export function useImportSelectedSsiDives(): UseMutationResult<
+  SsiToSsrfResult,
+  Error,
+  { download: SsiDownload; keys: ReadonlySet<string> }
+> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ download, keys }) => {
+      await ensureLogbookLoaded(client);
+      const result = convertSsiLogbookToSsrf({
+        ...download,
+        only: keys,
+        existingDives: listDives(),
+        existingSites: listDiveSites(),
+      });
+      if (result.dives > 0) {
+        const file = writeSsiSsrfFile(result.xml, 'ssi-import.ssrf');
+        try {
+          importFile(file.nativePath);
+        } finally {
+          file.remove();
+        }
+      }
+      return result;
+    },
+    onSuccess: async (result) => {
+      if (result.dives > 0) {
+        await resetData(client);
+        schedulePersist();
+        await flush();
+      }
+    },
+    retry: false,
+  });
+}
+
+/**
+ * Makes the SSI logbook the working logbook, discarding what was there. Refuses an SSI
+ * response with no dives in it: an empty logbook would load without complaint, and a
+ * glitch on SSI's side must not be able to wipe the diver's log.
+ */
+export function useReplaceWithSsiLogbook(): UseMutationResult<
+  SsiToSsrfResult,
+  Error,
+  SsiDownload
+> {
+  const replace = useReplaceLogbook();
+  return useMutation({
+    mutationFn: async (download) => {
+      const result = convertSsiLogbookToSsrf(download);
+      if (result.dives === 0) {
+        throw new Error('SSI returned no dives, so the logbook was left as it is.');
+      }
+      const file = writeSsiSsrfFile(result.xml, 'ssi-replace.ssrf');
+      try {
+        await replace.mutateAsync(file.nativePath);
+      } finally {
+        file.remove();
+      }
+      return result;
+    },
+    retry: false,
+  });
+}
+
+/**
+ * The whole SSI logbook as a new .ssrf file, ignoring what is in the app. Opening it
+ * through the existing logbook import is how it becomes the working log.
+ */
+export function useDownloadSsiLogbook(): UseMutationResult<string, Error, void> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { xml } = await buildSsiSsrf({ lookups: await lookupsFor(client) });
+      const stamp = new Date().toISOString().slice(0, 10);
+      return writeSsiSsrfFile(xml, `ssi-logbook-${stamp}.ssrf`).uri;
+    },
+    retry: false,
+  });
+}
+
+const SITE_LOOKUPS_KEY = ['ssi', 'site-lookups'];
+const LOOKUPS_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Reference data, so it is kept for a week. Without it the coded rows are left out. */
 export function useSsiSiteLookups() {
   return useQuery({
-    queryKey: ['ssi', 'site-lookups'],
+    queryKey: SITE_LOOKUPS_KEY,
     queryFn: ({ signal }) => fetchSsiSiteLookups(signal),
-    staleTime: 7 * 24 * 60 * 60 * 1000,
-    gcTime: 7 * 24 * 60 * 60 * 1000,
+    staleTime: LOOKUPS_STALE_MS,
+    gcTime: LOOKUPS_STALE_MS,
     retry: 1,
   });
 }

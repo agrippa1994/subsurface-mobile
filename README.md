@@ -59,6 +59,12 @@ On Android the dive-site map is not shown (it is Apple Maps); coordinates are
 typed instead. Everything else - import, profile, statistics, editing, export,
 SSI and git sync - works the same.
 
+## Downloading from SSI
+
+Under Settings, SSI, Logbook, once signed in: choose SSI dives to add, replace the
+logbook with all of them, or save them as a `.ssrf` file to share or open as a new
+logbook. None of these writes to SSI.
+
 ## Production and testing app
 
 iOS ships as two separately installable apps, so a build under test never

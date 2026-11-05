@@ -8,6 +8,7 @@ import { strToU8, zipSync } from 'fflate';
 import { authenticate, readAccount, signIn, signOut } from './auth';
 import { fetchSsiLogbook } from './divelog';
 import { createSsiClient, ssiData } from './api';
+import { buildSsiSsrf, writeSsiSsrfFile } from './logbook-download';
 import { fetchSsiSiteLookups } from './site-detail';
 import { downloadSiteIndex, ensureSiteIndex, refreshSiteIndex, siteIndexInfo } from './site-cache';
 
@@ -24,13 +25,16 @@ vi.mock('expo-secure-store', () => ({
 }));
 
 vi.mock('expo-file-system', () => ({
-  Paths: { document: '/documents' },
+  Paths: { document: '/documents', cache: '/cache' },
   File: class {
     path: string;
     constructor(root: string, name: string) { this.path = `${root}/${name}`; }
     get exists() { return files.has(this.path); }
+    get uri() { return `file://${this.path}`; }
     create() { files.set(this.path, ''); }
-    write(text: string) { files.set(this.path, text); }
+    // Deferred, as in SDK 58: only writeSync has landed when the call returns.
+    write(text: string) { return Promise.resolve().then(() => { files.set(this.path, text); }); }
+    writeSync(text: string) { files.set(this.path, text); }
     textSync() { return files.get(this.path); }
     delete() { files.delete(this.path); }
   },
@@ -356,5 +360,64 @@ describe('SSI site lookups', () => {
   it('fails when every table fails', async () => {
     fetchMock.mockImplementation(async () => new Response('[]', { status: 500 }));
     await expect(fetchSsiSiteLookups()).rejects.toThrow('no lookup tables');
+  });
+});
+
+describe('SSI logbook download', () => {
+  it('reads raw values, names the gear, and writes nothing to SSI', async () => {
+    storedAccount();
+    fetchMock.mockImplementation(async (url) => {
+      const action = new URL(String(url)).searchParams.get('what');
+      return Response.json(
+        action === 'get_gear'
+          ? [{ gear_id: 8, gear_product_name_modell: 'Example Regulator' }]
+          : {
+              logbook_details: [
+                {
+                  // The library's decoder would drop these numeric strings.
+                  odin_user_log_depth_m: '18.5',
+                  odin_user_log_divetime: '40',
+                  odin_user_log_date: '2026-03-08',
+                  odin_user_log_entry_time: '13:31',
+                  odin_user_log_gear: [8],
+                },
+              ],
+            },
+      );
+    });
+
+    const result = await buildSsiSsrf({ lookups: null });
+
+    expect(result.dives).toBe(1);
+    expect(result.xml).toContain("max='18.5 m'");
+    expect(result.xml).toContain('Gear: Example Regulator');
+    const actions = fetchMock.mock.calls.map(
+      ([url]) => new URL(String(url)).searchParams.get('what'),
+    );
+    expect(actions.sort()).toEqual(['get_divelog', 'get_gear']);
+  });
+
+  it('still converts the dives when the gear list fails', async () => {
+    storedAccount();
+    fetchMock.mockImplementation(async (url) =>
+      new URL(String(url)).searchParams.get('what') === 'get_gear'
+        ? new Response('nope', { status: 500 })
+        : Response.json({
+            logbook_details: [
+              { odin_user_log_date: '2026-03-08', odin_user_log_divetime: 40, odin_user_log_depth_m: 10 },
+            ],
+          }),
+    );
+    expect((await buildSsiSsrf({ lookups: null })).dives).toBe(1);
+  });
+
+  it('replaces an earlier file of the same name', () => {
+    writeSsiSsrfFile('old', 'ssi.ssrf');
+    const file = writeSsiSsrfFile('new', 'ssi.ssrf');
+    // Checked before any await: the core reads the file on the very next line.
+    expect([...files.values()]).toContain('new');
+    expect([...files.values()]).not.toContain('old');
+    file.remove();
+    expect(files.size).toBe(0);
   });
 });
