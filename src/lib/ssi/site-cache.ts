@@ -1,25 +1,37 @@
 // AI-generated (Claude)
 // The on-device copy of SSI's dive-site catalogue.
 //
-// SSI has no site-search endpoint. Its app downloads the whole catalogue as a
-// ZIP and searches it locally, so this app does the same - which also means
-// site lookup keeps working on a boat with no signal, once the file is there.
+// SSI has no site-search endpoint. Its app downloads the whole catalogue and
+// searches it locally, so this app does the same - which also means site lookup
+// keeps working on a boat with no signal, once the file is there.
 //
-// The download is 2.5 MB and unzips to roughly 18 MB of JSON describing some
-// 36 000 sites. Parsing that is the one genuinely expensive thing this app
-// does, so it happens exactly once: the result is reduced to the handful of
-// fields the picker needs (src/models/ssi/sites.ts) and only the reduction -
-// about 3 MB - is kept. Every later launch parses the small file instead.
+// The catalogue comes in two parts: a 2.5 MB ZIP with about 24 600 sites, and
+// about 38 pages of `get_divesites_global` for the 12 000 the ZIP leaves out
+// (src/models/ssi/site-catalogue.ts) - a minute or so in all. That is the one
+// genuinely expensive thing this app does, so it happens once: the result is
+// reduced to the handful of fields the picker needs (src/models/ssi/sites.ts)
+// and only the reduction is kept, without sites at placeholder positions. Every
+// later launch parses that file instead.
 //
-// The URL needs no authentication; it is fetched before the user has an account.
+// Neither part needs authentication; they are fetched before the user has an account.
 
-import type { SitesResponse } from 'divessi-client';
+import type { Site, SitesResponse } from 'divessi-client';
 import { File, Paths } from 'expo-file-system';
 import { unzipSync } from 'fflate';
 
+import {
+  changesSinceCreated,
+  fetchAllSsiSites,
+  fetchSsiSiteChanges,
+  isSsiCatalogueShort,
+  mergeSsiSites,
+  removePlaceholderSites,
+  type SiteChanges,
+  type SitesPageFetcher,
+} from '@/models/ssi/site-catalogue';
 import { reduceSsiSites, type SsiSite } from '@/models/ssi/sites';
 
-import { createSsiClient } from './api';
+import { createSsiClient, ssiData } from './api';
 
 /** The reduced catalogue, in app documents so it survives a cache eviction. */
 const INDEX_FILENAME = 'ssi-sites-index.json';
@@ -30,6 +42,12 @@ const INDEX_FILENAME = 'ssi-sites-index.json';
  * few megabytes: parsing that to display a count would stall the screen.
  */
 const INFO_FILENAME = 'ssi-sites-info.json';
+
+/**
+ * Which rules built the stored index. A complete index from older rules counts
+ * as incomplete, so it is rebuilt in the background. 2: placeholders removed.
+ */
+const CATALOGUE_VERSION = 2;
 
 function indexFile(): File {
   return new File(Paths.document, INDEX_FILENAME);
@@ -44,9 +62,14 @@ export type SsiSiteIndexInfo = {
   count: number;
   /** When it was built, milliseconds since epoch. Null when there is none. */
   downloadedAt: number | null;
+  /**
+   * Whether the index is the whole catalogue under the current rules. False when
+   * the last top-up failed, and for an index built by an older version of the app.
+   */
+  complete: boolean;
 };
 
-const NO_INDEX: SsiSiteIndexInfo = { count: 0, downloadedAt: null };
+const NO_INDEX: SsiSiteIndexInfo = { count: 0, downloadedAt: null, complete: false };
 
 /** What Settings shows about the catalogue. Reads the sidecar, not the index. */
 export function siteIndexInfo(): SsiSiteIndexInfo {
@@ -55,10 +78,13 @@ export function siteIndexInfo(): SsiSiteIndexInfo {
     if (!info.exists || !indexFile().exists) {
       return NO_INDEX;
     }
-    const stored = JSON.parse(info.textSync()) as Partial<SsiSiteIndexInfo>;
+    const stored = JSON.parse(info.textSync()) as Partial<SsiSiteIndexInfo> & {
+      version?: unknown;
+    };
     return {
       count: typeof stored.count === 'number' ? stored.count : 0,
       downloadedAt: typeof stored.downloadedAt === 'number' ? stored.downloadedAt : null,
+      complete: stored.complete === true && stored.version === CATALOGUE_VERSION,
     };
   } catch {
     return NO_INDEX;
@@ -87,13 +113,23 @@ function write(file: File, contents: string): void {
   file.write(contents);
 }
 
-/**
- * Downloads, unzips and reduces the catalogue, replacing whatever was stored.
- *
- * The client downloads the ZIP as bytes. Only the reduced catalogue and its
- * metadata are persisted; the archive never needs a temporary file.
- */
-export async function downloadSiteIndex(): Promise<SsiSite[]> {
+function store(sites: readonly SsiSite[], complete: boolean): void {
+  // The index first: the sidecar is what `siteIndexInfo` trusts, so it must
+  // not claim a catalogue that is not fully written yet.
+  write(indexFile(), JSON.stringify(sites));
+  write(
+    infoFile(),
+    JSON.stringify({
+      count: sites.length,
+      downloadedAt: Date.now(),
+      complete,
+      version: CATALOGUE_VERSION,
+    } satisfies SsiSiteIndexInfo & { version: number })
+  );
+}
+
+/** Downloads, unzips and reduces the ZIP. Throws rather than return no sites. */
+async function downloadZip(): Promise<{ sites: SsiSite[]; raw: SitesResponse }> {
   const { data } = await createSsiClient().initialSites();
   const entries = unzipSync(new Uint8Array(data));
   const name = Object.keys(entries).find((entry) => entry.endsWith('.json'));
@@ -106,36 +142,98 @@ export async function downloadSiteIndex(): Promise<SsiSite[]> {
   if (sites.length === 0) {
     throw new Error('The dive site catalogue came back empty.');
   }
+  return { sites, raw };
+}
 
-  // The index first: the sidecar is what `siteIndexInfo` trusts, so it must
-  // not claim a catalogue that is not fully written yet.
-  write(indexFile(), JSON.stringify(sites));
-  write(
-    infoFile(),
-    JSON.stringify({ count: sites.length, downloadedAt: Date.now() } satisfies SsiSiteIndexInfo)
-  );
+/**
+ * A fetcher returning raw rows. The default lenient decode would strip numeric
+ * names and the 0/1 deletion marker, since neither matches the declared types.
+ */
+function sitesPageFetcher(): SitesPageFetcher {
+  const client = createSsiClient();
+  return async (request) => {
+    const body = await ssiData(client.sites(request, { decode: (raw) => raw }));
+    const rows =
+      body !== null && typeof body === 'object' && 'divesites' in body ? body.divesites : null;
+    if (!Array.isArray(rows)) {
+      throw new Error('SSI returned no dive site list.');
+    }
+    return rows as unknown as Site[];
+  };
+}
 
+/** Everything the ZIP lacks, plus whatever was deleted since it was built. */
+async function downloadTopUp(created: unknown): Promise<SiteChanges[]> {
+  const fetchPage = sitesPageFetcher();
+  const reads = [await fetchAllSsiSites(fetchPage)];
+  const since = changesSinceCreated(created);
+  if (since !== null) {
+    reads.push(await fetchSsiSiteChanges(fetchPage, since));
+  }
+  return reads;
+}
+
+async function buildSiteIndex(): Promise<SsiSite[]> {
+  const { sites: zipSites, raw } = await downloadZip();
+  // Header fields of the real ZIP, absent from the declared response model.
+  const header = raw as SitesResponse & { created?: unknown; divesites_total?: unknown };
+
+  let merged: SsiSite[];
+  try {
+    merged = mergeSsiSites(zipSites, await downloadTopUp(header.created));
+    if (isSsiCatalogueShort(merged.length, header.divesites_total)) {
+      throw new Error('The dive site list stopped short of the whole catalogue.');
+    }
+  } catch (error) {
+    // Whatever is stored stays. With nothing stored, the ZIP alone is still most
+    // of the catalogue, and being incomplete it is topped up on a later launch.
+    if (readIndex() !== null) {
+      throw error;
+    }
+    const fallback = removePlaceholderSites(zipSites);
+    store(fallback, false);
+    return fallback;
+  }
+
+  const sites = removePlaceholderSites(merged);
+  store(sites, true);
   return sites;
+}
+
+let inFlight: Promise<SsiSite[]> | null = null;
+
+/**
+ * Downloads the catalogue, replacing what was stored only once it has something
+ * at least as good. Concurrent callers share one download: a background upgrade
+ * and a tap on Refresh must not both walk SSI's listing.
+ */
+export function downloadSiteIndex(): Promise<SsiSite[]> {
+  inFlight ??= buildSiteIndex().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
 }
 
 /**
  * The catalogue, downloading it on first use. Returning the stored index is the
- * fast path; only a missing or unreadable one hits the network.
+ * fast path, also when it is incomplete, so a bad connection never blocks site
+ * lookup: that case is topped up in the background and handed to `onUpgraded`.
+ * A failed upgrade changes nothing and is tried again on the next launch.
  */
-export async function ensureSiteIndex(): Promise<SsiSite[]> {
-  return readIndex() ?? (await downloadSiteIndex());
+export async function ensureSiteIndex(
+  onUpgraded?: (sites: SsiSite[]) => void
+): Promise<SsiSite[]> {
+  const stored = readIndex();
+  if (stored === null) {
+    return downloadSiteIndex();
+  }
+  if (!siteIndexInfo().complete) {
+    void downloadSiteIndex().then(onUpgraded, () => {});
+  }
+  return stored;
 }
 
-/** Throws away the stored index and fetches a fresh catalogue. */
-export async function refreshSiteIndex(): Promise<SsiSite[]> {
-  for (const file of [infoFile(), indexFile()]) {
-    try {
-      if (file.exists) {
-        file.delete();
-      }
-    } catch {
-      // The download overwrites them anyway; failing to delete first is harmless.
-    }
-  }
+/** Fetches a fresh catalogue. The stored one stays in place if that fails. */
+export function refreshSiteIndex(): Promise<SsiSite[]> {
   return downloadSiteIndex();
 }

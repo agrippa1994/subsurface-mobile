@@ -2,10 +2,10 @@
 // SSI's dive-site catalogue, and the two lookups the sync screen does on it.
 //
 // SSI has no site-search endpoint: its app ships the whole catalogue as a ZIP
-// (see src/lib/ssi/site-cache.ts) and searches it locally. That dump is ~36 000
-// sites and 18 MB of JSON with two dozen fields each, most of which we never
-// look at, so it is reduced to `SsiSite` once at download time and only the
-// reduction is kept. Both lookups below are linear scans over that array - at
+// (see src/lib/ssi/site-cache.ts) and searches it locally. With the sites the ZIP
+// leaves out (src/models/ssi/site-catalogue.ts) that is ~36 000 sites with two
+// dozen fields each, most of which we never look at, so it is reduced to
+// `SsiSite` once at download time and only the reduction is kept. Both lookups below are linear scans over that array - at
 // this size that is well under a frame, and an index would have to be rebuilt
 // on every refresh anyway.
 //
@@ -37,10 +37,29 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 /**
- * Reduces the downloaded catalogue. Entries without a usable id or a string
- * name are dropped rather than defaulted: an unnamed site cannot be searched
- * for or shown, and `odin_dive_sites_name` is genuinely not always a string in
- * the real dump. Sites without a position are kept - they are still findable by
+ * Whether SSI marks this row as deleted. The wire sends 0, 1 or an empty string
+ * despite the declared boolean, so this reads the raw value.
+ */
+export function isDeletedSsiSite(entry: Site): boolean {
+  const deleted: unknown = entry.odin_dive_sites_deleted;
+  return deleted === 1 || deleted === true || deleted === '1';
+}
+
+/**
+ * A site's name. `odin_dive_sites_name` is genuinely not always a string in the
+ * real dump: sites really are called 42 or 1980, and JSON keeps those as numbers.
+ */
+function siteName(raw: unknown): string {
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  return isFiniteNumber(raw) ? String(raw) : '';
+}
+
+/**
+ * Reduces the downloaded catalogue. Deleted rows and entries without a usable id
+ * or name are dropped rather than defaulted: an unnamed site cannot be searched
+ * for or shown. Sites without a position are kept - they are still findable by
  * name - with 0/0 standing in, which `nearestSsiSite` skips.
  */
 export function reduceSsiSites(raw: readonly Site[]) {
@@ -50,13 +69,14 @@ export function reduceSsiSites(raw: readonly Site[]) {
     if (!isFiniteNumber(entry.odin_dive_sites_id)) {
       continue;
     }
-    if (typeof entry.odin_dive_sites_name !== 'string' || entry.odin_dive_sites_name === '') {
+    const name = siteName(entry.odin_dive_sites_name);
+    if (name === '' || isDeletedSsiSite(entry)) {
       continue;
     }
 
     sites.push({
       id: entry.odin_dive_sites_id,
-      name: entry.odin_dive_sites_name,
+      name,
       // Decimal degrees; the core's own sites use microdegrees.
       lat: isFiniteNumber(entry.odin_dive_sites_lat) ? entry.odin_dive_sites_lat : 0,
       lon: isFiniteNumber(entry.odin_dive_sites_lon) ? entry.odin_dive_sites_lon : 0,

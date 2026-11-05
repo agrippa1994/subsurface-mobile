@@ -17,12 +17,12 @@ import {
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
 import { useSsiAccount, useSsiLogbook, useSsiSiteIndex } from '@/queries/ssi';
 import { SsiBrowserHeader, type SsiBrowserView, type SsiSiteSort } from './ssi-browser-header';
-import { SsiSiteDetails } from './ssi-site-details';
 import { SsiSitesMap } from './ssi-sites-map';
 
 export function SsiSiteBrowser({
   position: initialPosition = null,
   viewport: sharedViewport,
+  onOpenSite,
   onSelect,
   onClose,
   onMySites,
@@ -30,6 +30,8 @@ export function SsiSiteBrowser({
   position?: SitePosition | null;
   /** Passed in when the viewport should outlive this browser. */
   viewport?: MapViewport;
+  /** Pushes the site's details: a real screen, so the back swipe works. */
+  onOpenSite: (site: SsiSite) => void;
   onSelect?: (site: SsiSite) => void;
   onClose?: () => void;
   onMySites?: () => void;
@@ -44,7 +46,6 @@ export function SsiSiteBrowser({
   const [sort, setSort] = useState<SsiSiteSort>('nearest');
   const { position, locating, locate } = useUserLocation(initialPosition);
   const [cluster, setCluster] = useState<SsiSite[] | null>(null);
-  const [detail, setDetail] = useState<SsiSite | null>(null);
   const [ownViewport] = useState(createMapViewport);
   const viewport = sharedViewport ?? ownViewport;
   const listRef = useRef<FlatList<SsiSite>>(null);
@@ -95,14 +96,17 @@ export function SsiSiteBrowser({
     const here = await locate();
     if (here) viewport.move({ latitude: here.lat, longitude: here.lon, zoom: NEARBY_ZOOM });
   };
-  const back = detail ? () => setDetail(null) : cluster ? () => setCluster(null) : undefined;
+  const openSite = (site: SsiSite) => {
+    Keyboard.dismiss();
+    onOpenSite(site);
+  };
+  const back = cluster ? () => setCluster(null) : undefined;
   const header = (
     <SsiBrowserHeader
       title={
         (catalogue.data && searchQuery.trim() && allMatches.length === 0
           ? 'No matching SSI sites'
           : null) ??
-        detail?.name ??
         (cluster ? 'Sites at this location' : onSelect ? 'Select dive site' : 'SSI dive sites')
       }
       view={view}
@@ -119,8 +123,6 @@ export function SsiSiteBrowser({
       onBack={back}
       onClose={onClose}
       onMySites={onMySites}
-      onSelect={detail && onSelect ? () => onSelect(detail) : undefined}
-      showingDetail={Boolean(detail)}
       mapsAvailable={MAPS_AVAILABLE}
     />
   );
@@ -137,8 +139,7 @@ export function SsiSiteBrowser({
               ? 'Nearest to this dive’s site'
               : 'Nearest to your location';
   let body;
-  if (detail) body = <SsiSiteDetails key={detail.id} site={detail} />;
-  else if (!catalogue.data && catalogue.isError)
+  if (!catalogue.data && catalogue.isError)
     body = (
       <StatusView
         kind="error"
@@ -166,10 +167,7 @@ export function SsiSiteBrowser({
         sites={allMatches}
         position={position}
         viewport={viewport}
-        onSelect={(site) => {
-          Keyboard.dismiss();
-          setDetail(site);
-        }}
+        onSelect={openSite}
         onCluster={(sites) => {
           Keyboard.dismiss();
           setCluster(sites);
@@ -223,7 +221,7 @@ export function SsiSiteBrowser({
         renderItem={({ item }) => (
           <Pressable
             accessibilityRole="button"
-            onPress={() => (onSelect ? onSelect(item) : setDetail(item))}
+            onPress={() => (onSelect ? onSelect(item) : openSite(item))}
             style={({ pressed }) => [
               styles.row,
               pressed && { backgroundColor: theme.backgroundSelected },

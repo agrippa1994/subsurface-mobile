@@ -8,7 +8,8 @@ import { strToU8, zipSync } from 'fflate';
 import { authenticate, readAccount, signIn, signOut } from './auth';
 import { fetchSsiLogbook } from './divelog';
 import { createSsiClient, ssiData } from './api';
-import { downloadSiteIndex, ensureSiteIndex, siteIndexInfo } from './site-cache';
+import { fetchSsiSiteLookups } from './site-detail';
+import { downloadSiteIndex, ensureSiteIndex, refreshSiteIndex, siteIndexInfo } from './site-cache';
 
 const { secrets, files } = vi.hoisted(() => ({
   secrets: new Map<string, string>(),
@@ -151,29 +152,146 @@ describe('SSI client integration', () => {
 });
 
 describe('SSI site catalogue', () => {
-  it('downloads through the library and persists only the reduced catalogue', async () => {
-    const archive = zipSync({ 'sites.json': strToU8(JSON.stringify({ divesites: [{
-      odin_dive_sites_id: 5, odin_dive_sites_name: 'Reef',
-      odin_dive_sites_lat: 12, odin_dive_sites_lon: 34,
-    }, {
-      // Real catalogue archives can contain invalid names despite the wire type.
-      odin_dive_sites_id: 6, odin_dive_sites_name: 12345,
-    }] })) });
-    fetchMock.mockResolvedValueOnce(new Response(archive));
+  const zipRow = { odin_dive_sites_id: 5, odin_dive_sites_name: 'Reef', odin_dive_sites_lat: 12, odin_dive_sites_lon: 34 };
+  const zip = (rows: unknown[] = [zipRow], header: object = { created: '2026-11-05 10:39:59' }) =>
+    new Response(zipSync({ 'sites.json': strToU8(JSON.stringify({ ...header, divesites: rows })) }));
+  const page = (rows: unknown[]) =>
+    new Response(JSON.stringify({ divesites: rows }), { headers: { 'content-type': 'application/json' } });
+  const reef = { id: 5, name: 'Reef', lat: 12, lon: 34, country: '' };
+  const wall = { id: 7, name: 'Wall', lat: 0, lon: 0, country: '' };
+
+  /** The ZIP, then a one-page walk that finds `Wall`, then an empty delta. */
+  function mockFullDownload() {
+    fetchMock
+      .mockResolvedValueOnce(zip())
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 7, odin_dive_sites_name: 'Wall', odin_dive_sites_deleted: 0 }]))
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 3, odin_dive_sites_deleted: 1 }]))
+      .mockResolvedValueOnce(page([]));
+  }
+
+  function storeOldInstall(sites: unknown[]) {
+    files.set('/documents/ssi-sites-index.json', JSON.stringify(sites));
+    files.set('/documents/ssi-sites-info.json', JSON.stringify({ count: sites.length, downloadedAt: 1 }));
+  }
+
+  it('merges the ZIP and the site list, persisting only the reduced catalogue', async () => {
+    mockFullDownload();
     const sites = await downloadSiteIndex();
-    expect(sites).toEqual([{ id: 5, name: 'Reef', lat: 12, lon: 34, country: '' }]);
-    expect(siteIndexInfo().count).toBe(1);
-    expect(await ensureSiteIndex()).toEqual(sites);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sites).toEqual([reef, wall]);
+    expect(siteIndexInfo()).toMatchObject({ count: 2, complete: true });
+    expect(files.size).toBe(2);
+
     expect(request(0).url.pathname).toBe('/app/APP_CACHE_SITES.zip');
     expect(request(0).url.searchParams.has('token')).toBe(false);
-    expect(files.size).toBe(2);
+    expect(request(1).url.searchParams.has('token')).toBe(false);
+
+    expect(await ensureSiteIndex()).toEqual(sites);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('sees numeric names and deletion markers from the site list unfiltered', async () => {
+    fetchMock
+      .mockResolvedValueOnce(zip([zipRow, { odin_dive_sites_id: 6, odin_dive_sites_name: 12345 }], {}))
+      .mockResolvedValueOnce(page([
+        { odin_dive_sites_id: 8, odin_dive_sites_name: 42, odin_dive_sites_deleted: '' },
+        { odin_dive_sites_id: 5, odin_dive_sites_deleted: 1 },
+      ]))
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 9, odin_dive_sites_deleted: 1 }]));
+    expect((await downloadSiteIndex()).map((site) => [site.id, site.name])).toEqual([
+      [6, '12345'],
+      [8, '42'],
+    ]);
   });
 
   it('does not persist a catalogue from an archive without sites', async () => {
-    fetchMock.mockResolvedValueOnce(new Response(zipSync({ 'sites.json': strToU8('{"divesites":[]}') })));
+    fetchMock.mockResolvedValueOnce(zip([]));
     await expect(downloadSiteIndex()).rejects.toThrow('catalogue came back empty');
     expect(files.size).toBe(0);
+  });
+
+  it('keeps the ZIP alone when a first top-up fails, and marks it incomplete', async () => {
+    fetchMock.mockResolvedValueOnce(zip()).mockRejectedValueOnce(new Error('offline'));
+    expect(await downloadSiteIndex()).toEqual([reef]);
+    expect(siteIndexInfo()).toMatchObject({ count: 1, complete: false });
+  });
+
+  it('does not call a walk complete when it falls well short of the announced total', async () => {
+    fetchMock
+      .mockResolvedValueOnce(zip([zipRow], { divesites_total: 1000 }))
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 3, odin_dive_sites_deleted: 1 }]));
+    expect(await downloadSiteIndex()).toEqual([reef]);
+    expect(siteIndexInfo()).toMatchObject({ count: 1, complete: false });
+  });
+
+  it('leaves a stored catalogue alone when a refresh fails', async () => {
+    mockFullDownload();
+    const before = await downloadSiteIndex();
+
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(zip()).mockResolvedValueOnce(new Response('{}', { status: 500 }));
+    await expect(refreshSiteIndex()).rejects.toThrow('HTTP 500');
+    expect(await ensureSiteIndex()).toEqual(before);
+    expect(siteIndexInfo()).toMatchObject({ count: 2, complete: true });
+
+    fetchMock.mockReset();
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    await expect(refreshSiteIndex()).rejects.toThrow('offline');
+    expect(await ensureSiteIndex()).toEqual(before);
+  });
+
+  it('upgrades an existing install in the background, returning the stored sites first', async () => {
+    storeOldInstall([reef]);
+    mockFullDownload();
+    const upgraded = new Promise((resolve) => {
+      void ensureSiteIndex(resolve).then((stored) => expect(stored).toEqual([reef]));
+    });
+    expect(await upgraded).toEqual([reef, wall]);
+    expect(siteIndexInfo()).toMatchObject({ count: 2, complete: true });
+  });
+
+  it('keeps serving an existing install when its upgrade fails, without surfacing the error', async () => {
+    storeOldInstall([reef]);
+    fetchMock.mockRejectedValue(new Error('offline'));
+    const onUpgraded = vi.fn();
+    expect(await ensureSiteIndex(onUpgraded)).toEqual([reef]);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(onUpgraded).not.toHaveBeenCalled();
+    expect(await ensureSiteIndex()).toEqual([reef]);
+    expect(siteIndexInfo()).toMatchObject({ count: 1, complete: false });
+  });
+
+  it('removes placeholder positions after judging completeness against the total', async () => {
+    const stacked = [1, 2, 3, 4, 5].map((id) => ({
+      odin_dive_sites_id: 100 + id, odin_dive_sites_name: `Stacked ${id}`,
+      odin_dive_sites_lat: 51.2025, odin_dive_sites_lon: 10.3822,
+    }));
+    fetchMock
+      .mockResolvedValueOnce(zip([zipRow], { divesites_total: 6 }))
+      .mockResolvedValueOnce(page(stacked))
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 3, odin_dive_sites_deleted: 1 }]));
+    expect(await downloadSiteIndex()).toEqual([reef]);
+    expect(siteIndexInfo()).toMatchObject({ count: 1, complete: true });
+  });
+
+  it('rebuilds a complete index that older rules produced', async () => {
+    storeOldInstall([reef]);
+    files.set('/documents/ssi-sites-info.json', JSON.stringify({ count: 1, downloadedAt: 1, complete: true }));
+    expect(siteIndexInfo().complete).toBe(false);
+    mockFullDownload();
+    const upgraded = new Promise((resolve) => { void ensureSiteIndex(resolve); });
+    expect(await upgraded).toEqual([reef, wall]);
+    expect(siteIndexInfo().complete).toBe(true);
+    fetchMock.mockClear();
+    await ensureSiteIndex();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('shares one download between concurrent callers', async () => {
+    mockFullDownload();
+    const [first, second] = await Promise.all([downloadSiteIndex(), downloadSiteIndex()]);
+    expect(first).toBe(second);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -199,5 +317,44 @@ describe('SSI site details', () => {
       Response.json([{ dive_site_id: 1, dive_site_name: 'Restored' }]),
     );
     expect((await fetchSsiSiteDetail(1))?.dive_site_name).toBe('Restored');
+  });
+});
+
+describe('SSI site lookups', () => {
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+  const answers: Record<string, () => Response> = {
+    get_divelog_vars: () => json({ logbook_vars: { current: { '6': 'no_current' } } }),
+    get_wildlife_vars: () => json({ wildlife: { animal: [{ id: 22, title_key: 'pike' }] } }),
+    get_translations: () => json({ eng: { no_current: 'No Current', pike: 'Pike' } }),
+  };
+  const answer = async (url: unknown) => {
+    const action = new URL(String(url)).searchParams.get('what') ?? '';
+    return answers[action]?.() ?? new Response('[]', { status: 404 });
+  };
+
+  it('asks for each table with the app identity and without a token', async () => {
+    fetchMock.mockImplementation(answer);
+    const lookups = await fetchSsiSiteLookups();
+    expect(lookups.current.get(6)).toBe('No Current');
+    expect(lookups.wildlife.get(22)?.name).toBe('Pike');
+
+    const urls = fetchMock.mock.calls.map(([url]) => new URL(String(url)).searchParams);
+    expect(urls.map((query) => query.get('what')).sort()).toEqual(Object.keys(answers).sort());
+    expect(urls.every((query) => query.get('ssiapp') !== null && !query.has('token'))).toBe(true);
+  });
+
+  it('keeps what it got when one table fails', async () => {
+    fetchMock.mockImplementation(async (url) =>
+      String(url).includes('get_translations') ? new Response('[]', { status: 500 }) : answer(url)
+    );
+    const lookups = await fetchSsiSiteLookups();
+    expect(lookups.current.get(6)).toBe('No current');
+    expect(lookups.wildlife.get(22)?.name).toBe('Pike');
+  });
+
+  it('fails when every table fails', async () => {
+    fetchMock.mockImplementation(async () => new Response('[]', { status: 500 }));
+    await expect(fetchSsiSiteLookups()).rejects.toThrow('no lookup tables');
   });
 });

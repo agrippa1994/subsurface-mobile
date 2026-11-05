@@ -17,6 +17,7 @@ export default function SsiSitePickerScreen() {
       {session ? (
         <SsiSiteBrowser
           position={session.position}
+          onOpenSite={(site) => router.push(`/ssi-site-picker/${site.id}`)}
           onSelect={(site) => {
             router.back();
             session.onSelect(site);

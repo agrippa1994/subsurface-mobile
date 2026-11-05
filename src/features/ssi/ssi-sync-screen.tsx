@@ -65,7 +65,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const { data: sites = [] } = useSites();
   const account = useSsiAccount();
   // Gated on the account: without one the screen only points at Settings, and
-  // the catalogue costs a 2.5 MB download the first time it is asked for.
+  // the catalogue costs a sizeable download the first time it is asked for.
   const catalogue = useSsiSiteIndex(Boolean(account.data));
   // The buddy list rides along with the dive number in one `get_divelog`. The
   // screen never waits on it: a dive can go up without buddies, so a slow or
@@ -184,7 +184,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
       <StatusView
         kind="loading"
         title="Downloading SSI dive sites"
-        description="This happens once. The catalogue is about 2.5 MB and is kept on this device afterwards."
+        description="This happens once and takes about a minute. The catalogue is kept on this device afterwards."
       />
     );
   }

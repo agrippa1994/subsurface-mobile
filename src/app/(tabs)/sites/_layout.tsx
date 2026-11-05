@@ -9,6 +9,7 @@ export default function SitesLayout() {
     <Stack screenOptions={{ headerLargeTitle: true }}>
       <Stack.Screen name="index" options={{ title: 'Sites' }} />
       <Stack.Screen name="[uuid]" options={{ title: 'Site', headerLargeTitle: false }} />
+      <Stack.Screen name="ssi-site/[id]" options={{ title: 'SSI site', headerLargeTitle: false }} />
       <Stack.Screen name="dive/[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
       <Stack.Screen
         name="dive/edit/[id]"

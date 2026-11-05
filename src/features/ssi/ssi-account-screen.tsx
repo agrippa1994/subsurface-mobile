@@ -186,7 +186,7 @@ export function SsiAccountScreen() {
 
       <FormSection
         title="Dive sites"
-        footer="SSI has no site search, so its whole site catalogue is downloaded once (about 2.5 MB) and kept on this device. Site lookup then works without a connection.">
+        footer="SSI has no site search, so its whole site catalogue is downloaded once (about a minute) and kept on this device. Site lookup then works without a connection.">
         <FormButtonRow
           label={info.count === 0 ? 'Download dive sites' : 'Refresh dive sites'}
           value={sitesValue}

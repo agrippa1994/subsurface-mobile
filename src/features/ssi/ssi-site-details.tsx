@@ -1,15 +1,49 @@
 // AI-generated (Claude)
 import { Host, Picker } from '@expo/ui';
-import { useState } from 'react';
+import { Stack } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Image } from 'expo-image';
 import { ScrollView, Text, View } from 'react-native';
 import { FormSection } from '@/components/form';
+import { HeaderAction } from '@/components/header-action';
 import { Spacing } from '@/constants/theme';
 import { StatusView } from '@/components/status-view';
 import { useTheme } from '@/hooks/use-theme';
 import { ssiPlainText } from '@/models/ssi/site-browse';
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
-import { useSsiSiteDetail } from '@/queries/ssi';
+import { useSsiSiteDetail, useSsiSiteIndex } from '@/queries/ssi';
+import { SsiSiteInsights } from './ssi-site-insights';
+
+/**
+ * The route's body in both places details open: the Sites tab and the picker
+ * modal. Only the id crosses the route; the site comes from the catalogue.
+ */
+export function SsiSiteDetailScreen({
+  id,
+  onSelect,
+}: {
+  id: number;
+  onSelect?: (site: SsiSite) => void;
+}) {
+  const catalogue = useSsiSiteIndex();
+  const site = useMemo(() => catalogue.data?.find((s) => s.id === id), [catalogue.data, id]);
+  return (
+    <>
+      <Stack.Screen options={{ title: site?.name.trim() ?? 'SSI site', headerLargeTitle: false }} />
+      {site && onSelect ? (
+        <HeaderAction label="Select" done onPress={() => onSelect(site)} />
+      ) : null}
+      {site ? (
+        <SsiSiteDetails site={site} />
+      ) : (
+        <StatusView
+          kind={catalogue.isPending ? 'loading' : 'empty'}
+          title={catalogue.isPending ? 'Loading SSI site' : 'SSI site not found'}
+        />
+      )}
+    </>
+  );
+}
 
 export function SsiSiteDetails({ site }: { site: SsiSite }) {
   const theme = useTheme();
@@ -47,11 +81,6 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
   const images = (Array.isArray(detail?.images) ? detail.images : []).filter(
     (i) => typeof (i.big ?? i.thumb) === 'string' && /^https?:\/\//.test((i.big ?? i.thumb)!),
   );
-  const facts = [
-    ['Logged dives', detail?.total_logged_dives],
-    ['Divers', detail?.dives_logged_by_divers],
-    ['SSI rating', detail?.avg_log_rating],
-  ] as const;
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -74,6 +103,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
           </Text>
         ) : null}
       </FormSection>
+      {detail ? <SsiSiteInsights detail={detail} /> : null}
       <FormSection title="About this site">
         {descriptions.length > 1 ? (
           <Host matchContents>
@@ -122,27 +152,6 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
           ) : null}
         </View>
       ))}
-      {facts.some(([, value]) => typeof value === 'number' && Number.isFinite(value)) ? (
-        <FormSection title="SSI statistics">
-          {facts.map(([label, value]) =>
-            typeof value === 'number' && Number.isFinite(value) ? (
-              <View
-                key={label}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  gap: Spacing.three,
-                }}
-              >
-                <Text style={{ color: theme.text }}>{label}</Text>
-                <Text selectable style={{ color: theme.text }}>
-                  {value.toLocaleString()}
-                </Text>
-              </View>
-            ) : null,
-          )}
-        </FormSection>
-      ) : null}
       <Text style={{ color: theme.textSecondary }}>
         Site information provided by SSI.{' '}
         {detail === null ? 'No additional details are available.' : ''}

@@ -107,7 +107,13 @@ export default function SitesScreen() {
   );
 
   if (source === 'ssi')
-    return <SsiSiteBrowser viewport={viewport} onMySites={() => setSource('logbook')} />;
+    return (
+      <SsiSiteBrowser
+        viewport={viewport}
+        onOpenSite={(site) => router.push(`/sites/ssi-site/${site.id}`)}
+        onMySites={() => setSource('logbook')}
+      />
+    );
   return (
     <>
       {header}
