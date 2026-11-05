@@ -564,6 +564,83 @@ export function plotPressureAt(pi: PlotInfo, sampleIndex: number, cylinder: numb
   return pi.pressures.sensor[idx] || pi.pressures.interpolated[idx] || 0;
 }
 
+// --- Downloading from a dive computer ---------------------------------------
+
+/** A vendor and the products of it the app can reach (dcListComputers). */
+export type DiveComputerVendor = { vendor: string; products: string[] };
+
+export type DiveComputerIdentity = { vendor: string; product: string };
+
+export type DownloadOptions = DiveComputerIdentity & {
+  /** The BLE address: a CoreBluetooth UUID on iOS, a MAC address on Android. */
+  address: string;
+  /** The advertised name; a few dive computers derive something from it. */
+  btName?: string;
+  /** Downloads every dive instead of stopping at the ones already known. */
+  force?: boolean;
+  /** Sets the dive computer's clock once the download has worked. */
+  syncTime?: boolean;
+};
+
+export type DownloadState = 'idle' | 'running' | 'finished' | 'failed' | 'cancelled';
+
+export type DownloadedDive = {
+  /** What dcDownloadAccept selects by. Stable until the session ends. */
+  index: number;
+  /** Seconds since 1970, in the dive's local time like every core timestamp. */
+  when: number;
+  durationSec: number;
+  maxDepthMm: number;
+};
+
+export type DownloadStatus = {
+  state: DownloadState;
+  /** The latest message from the downloader, in English. */
+  text: string;
+  /** 0 to 1. Stays at 0 for as long as the device does not say how much is coming. */
+  fraction: number;
+  /** Why it failed. Empty unless `state` is 'failed' or 'cancelled'. */
+  error: string;
+  /** The more specific reasons, in the order they happened. */
+  errors: string[];
+  /** Possibly corrected: the device says what it is during the download. */
+  vendor: string;
+  product: string;
+  address: string;
+  serial: number;
+  firmware: number;
+  diveCount: number;
+  /** Empty while running. A failed or cancelled download can still have some. */
+  dives: DownloadedDive[];
+  /** libdivecomputer's log of this download, for a bug report. Empty if not configured. */
+  logPath: string;
+};
+
+export type BleAdapterState = 'unknown' | 'unsupported' | 'unauthorized' | 'off' | 'on';
+
+export type BleDevice = {
+  address: string;
+  /** Empty for a device known from before that has not advertised yet. */
+  name: string;
+  rssi: number;
+  /** Set when the name is a dive computer the app knows. */
+  vendor: string | null;
+  product: string | null;
+};
+
+export type BleScanStatus = {
+  adapter: BleAdapterState;
+  scanning: boolean;
+  /** False where the module has no Bluetooth driver at all. */
+  available: boolean;
+  devices: BleDevice[];
+};
+
+/** What the native module pushes between calls (onCoreEvent). */
+export type CoreEvent =
+  | { type: 'download'; state: DownloadState; text: string; fraction: number }
+  | { type: 'ble'; adapter?: BleAdapterState; device?: BleDevice };
+
 /** Thrown by every wrapper in index.ts when the native call reports failure. */
 export class SsrfCoreError extends Error {
   /** Messages the C++ core routed through report_error during the call. */

@@ -12,7 +12,9 @@ untouched** — we only *consume* its C++ core. iOS ships first; Android is a
 later phase (task 13).
 
 v1 scope:
-- Import dives from **Suunto** (DM/SDE XML). No libdivecomputer download. No BLE.
+- Import dives from **Suunto** (DM/SDE XML).
+- Download dives from a dive computer over **BLE**, through libdivecomputer (task 14).
+  Firmware update and Android USB serial are not in yet.
 - Import/export the Subsurface **SSRF XML** logbook (`.ssrf` / `.xml`).
 - Render the per-dive **profile diagram** and **core statistics**.
 - Manage **buddies** and **dive sites**.

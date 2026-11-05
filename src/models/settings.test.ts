@@ -78,6 +78,8 @@ describe('parseSettings', () => {
       gfHigh: 80,
       showGfNow: false,
       showGfSurface: true,
+      diveComputers: [{ vendor: 'Shearwater', product: 'Perdix', address: 'a', name: 'Perdix 1' }],
+      syncDiveComputerTime: true,
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
   });

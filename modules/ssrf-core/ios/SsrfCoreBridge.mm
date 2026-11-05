@@ -1,10 +1,31 @@
 // AI-generated (Claude)
 #import "SsrfCoreBridge.h"
 
+#import "SsrfGattDriver.h"
+
 #include "bindings/api.h"
+#include "bindings/download.h"
 #include "ssrfcore.h"
 
+// The sink is process-wide; a plain function pointer in C++, a block up here.
+static void (^g_event_sink)(NSString *json);
+
+static void forward_event(const std::string &json)
+{
+  void (^sink)(NSString *) = g_event_sink;
+  if (sink) {
+    sink([NSString stringWithUTF8String:json.c_str()]);
+  }
+}
+
 @implementation SsrfCoreBridge
+
++ (void)setEventSink:(void (^)(NSString *json))sink
+{
+  [SsrfGattDriver install];
+  g_event_sink = [sink copy];
+  ssrf::set_event_sink(forward_event);
+}
 
 // The core loads an XSLT stylesheet by name from a directory when it reads a
 // non-SSRF XML format (Suunto DM4, UDDF, ...); upstream serves them out of Qt

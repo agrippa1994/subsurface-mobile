@@ -10,6 +10,7 @@ export default function DivesLayout() {
       <Stack.Screen name="[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
       <Stack.Screen name="edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
       <Stack.Screen name="ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
+      <Stack.Screen name="download" options={{ title: 'Dive computer', headerLargeTitle: false }} />
     </Stack>
   );
 }

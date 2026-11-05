@@ -7,6 +7,16 @@ public class SsrfCoreModule: Module {
   public func definition() -> ModuleDefinition {
     Name("SsrfCore")
 
+    // Download progress and scan results. The core pushes them from its own
+    // threads; each is one JSON object, parsed in src/index.ts.
+    Events("onCoreEvent")
+
+    OnCreate {
+      SsrfCoreBridge.setEventSink { [weak self] json in
+        self?.sendEvent("onCoreEvent", ["json": json])
+      }
+    }
+
     // The entire core API goes through this one function; adding a method is a
     // C++ and a TypeScript change only, never a native-glue change.
     Function("call") { (method: String, argsJson: String) -> String in

@@ -12,6 +12,7 @@ export default function SettingsLayout() {
         options={{ title: 'Add SSI dives', headerLargeTitle: false }}
       />
       <Stack.Screen name="git" options={{ title: 'Git sync', headerLargeTitle: false }} />
+      <Stack.Screen name="download" options={{ title: 'Dive computer', headerLargeTitle: false }} />
     </Stack>
   );
 }

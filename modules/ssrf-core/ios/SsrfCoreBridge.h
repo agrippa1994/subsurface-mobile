@@ -14,6 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Deliberately one entry point - see cpp/API.md.
 + (NSString *)call:(NSString *)method argsJson:(NSString *)argsJson;
 
+// Sets where the core's pushed events (download progress, scan results) go.
+// `sink` is called from background threads, with one JSON object each time.
++ (void)setEventSink:(void (^)(NSString *json))sink;
+
 // Calls ssrf::add in native C++.
 + (NSInteger)add:(NSInteger)a b:(NSInteger)b;
 

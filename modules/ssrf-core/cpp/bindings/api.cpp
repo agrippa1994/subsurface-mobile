@@ -1,7 +1,9 @@
 // AI-generated (Claude)
 #include "api.h"
 
+#include "api-errors.h"
 #include "base64.h"
+#include "download.h"
 #include "marshal.h"
 #include "suunto-xml.h"
 #include "zip-reader.h"
@@ -28,6 +30,8 @@
 #include "core/units.h"
 #include "core/xmlparams.h"
 
+#include "ssrf-core-lock.h"
+
 #include <sqlite3.h>
 
 #include <algorithm>
@@ -44,6 +48,13 @@
 // nevertheless compiled here (see core-subset.mjs), so its prototype is
 // repeated rather than the guard weakened.
 extern int suunto_json_import(const std::string &buffer, const std::string &fit_buffer, struct divelog *log);
+extern void set_data_directory(const std::string &path);
+
+std::recursive_mutex &ssrf_core_mutex()
+{
+	static std::recursive_mutex mutex;
+	return mutex;
+}
 
 namespace ssrf {
 
@@ -60,6 +71,10 @@ std::vector<std::string> g_errors;
 
 void collect_error(std::string s)
 {
+	// A download thread collects its own: this buffer belongs to the JS thread's
+	// current call, and a dive failing to parse has nothing to do with that.
+	if (collect_thread_error(s))
+		return;
 	g_errors.push_back(std::move(s));
 }
 
@@ -90,10 +105,6 @@ std::string joined_errors()
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
-
-struct api_error : public std::runtime_error {
-	using std::runtime_error::runtime_error;
-};
 
 [[noreturn]] void fail(const std::string &msg)
 {
@@ -1049,7 +1060,7 @@ void parse_suunto_db_into(const std::string &path, const std::string &contents,
 // same counts the UI shows. `imported` is what the parser produced; a dive the
 // core recognized as one it already has is merged in place, so it does not move
 // the total - which is what makes "import the same file twice" a no-op.
-json merge_import_log(struct divelog &log, int imported, int failed)
+json merge_import_log(struct divelog &log, int imported, int failed, int flags = import_flags::merge_all_trips)
 {
 	// SAC, OTU and CNS are computed, not parsed: a logbook file carries them
 	// because whoever wrote it had computed them, but a freshly imported dive
@@ -1064,8 +1075,9 @@ json merge_import_log(struct divelog &log, int imported, int failed)
 	// process_loaded_dives below autogroups the merged one.
 	log.autogroup = false;
 	disable_autogroup();
-	// Consumes `log`. merge_all_trips matches the mobile app's import path.
-	divelog.add_imported_dives(log, import_flags::merge_all_trips);
+	// Consumes `log`. The default, merge_all_trips, matches the mobile app's
+	// import path.
+	divelog.add_imported_dives(log, flags);
 	int added = static_cast<int>(divelog.dives.size() - before);
 
 	// The core autogroups the *imported* dives among themselves, so an import
@@ -1223,10 +1235,17 @@ json import_file(const json &args)
 json configure(const json &args)
 {
 	std::string xslt = get_string(args, "xsltDir");
-	if (xslt.empty())
-		fail("missing required argument 'xsltDir'");
-	set_xslt_directory(xslt);
-	return json{ { "xsltDir", xslt } };
+	std::string data = get_string(args, "dataDir");
+	if (xslt.empty() && data.empty())
+		fail("missing required argument 'xsltDir' or 'dataDir'");
+	if (!xslt.empty())
+		set_xslt_directory(xslt);
+	if (!data.empty()) {
+		// Where upstream's downloader keeps fingerprints, and ours its log.
+		set_data_directory(data);
+		set_download_directory(data);
+	}
+	return json{ { "xsltDir", xslt }, { "dataDir", data } };
 }
 
 json dispatch(const std::string &method, const json &args)
@@ -1253,6 +1272,32 @@ json dispatch(const std::string &method, const json &args)
 		return import_file(args);
 	if (method == "configure")
 		return configure(args);
+	if (method == "dcListComputers")
+		return dc_list_computers();
+	if (method == "dcDetect")
+		return dc_detect(args);
+	if (method == "dcDownloadStart")
+		return dc_download_start(args);
+	if (method == "dcDownloadStatus")
+		return dc_download_status();
+	if (method == "dcDownloadCancel")
+		return dc_download_cancel();
+	if (method == "dcDownloadAccept") {
+		return dc_download_accept(args, [](struct divelog &log, int imported) {
+			// What the legacy app passes (DiveImportedModel::recordDives): the dive
+			// computer knows better than the log, and a dive that overlaps an
+			// existing one is the same dive.
+			return merge_import_log(log, imported, 0, import_flags::prefer_imported | import_flags::is_downloaded);
+		});
+	}
+	if (method == "dcDownloadDiscard")
+		return dc_download_discard();
+	if (method == "bleScanStart")
+		return ble_scan_start(args);
+	if (method == "bleScanStop")
+		return ble_scan_stop();
+	if (method == "bleScanStatus")
+		return ble_scan_status();
 	if (method == "listDiveSites")
 		return list_dive_sites();
 	if (method == "upsertDiveSite")
@@ -1281,6 +1326,7 @@ json dispatch(const std::string &method, const json &args)
 
 std::string call(const std::string &method, const std::string &args_json)
 {
+	const std::lock_guard<std::recursive_mutex> core_lock(ssrf_core_mutex());
 	ensure_init();
 	// getLastError reports what the *previous* call recorded, so it must not
 	// wipe the buffer it is about to read.

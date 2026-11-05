@@ -67,12 +67,16 @@ Pod::Spec.new do |s|
     # SUBSURFACE_MOBILE keeps the desktop-only code paths out of the core.
     # ssrf-stdlib-compat.h supplies includes upstream gets through Qt.
     'OTHER_CPLUSPLUSFLAGS' => '-DSUBSURFACE_MOBILE -include "$(PODS_TARGET_SRCROOT)/cpp/shim/include/ssrf-stdlib-compat.h"',
+    # libdivecomputer's sources pick up the config.h vendor-core.mjs writes.
+    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) HAVE_CONFIG_H=1',
   }.merge(xslt_ldflags.call('$(PODS_TARGET_SRCROOT)'))
 
   # libxml2, sqlite3 and zlib come from the iOS SDK. libxslt is vendored: the
   # SDK's libxslt.tbd has no headers to go with it, and building it ourselves
   # pins the version (1.1.43) instead of inheriting Apple's.
   s.libraries = 'xml2', 'sqlite3', 'z'
+  # The BLE transport of the dive computer download (ios/SsrfGattDriver.mm).
+  s.frameworks = 'CoreBluetooth'
 
   # Objective-C/Swift glue lives in ios/, portable C++ in cpp/. The podspec sits
   # at the module root so CocoaPods can reach both (file patterns must not
@@ -88,6 +92,10 @@ Pod::Spec.new do |s|
   # reached through HEADER_SEARCH_PATHS. Listing them would make them public
   # headers of the pod, flattening <libexslt/...> includes and dragging exslt.h
   # into the module umbrella.
+  # libdivecomputer's private headers are found next to its sources. As headers
+  # of the pod they would enter its flat header map, and timer.h, array.h and
+  # platform.h are not names to have lying around in there.
+  s.exclude_files = 'cpp/generated/libdivecomputer/src/*.h'
   s.public_header_files = 'ios/*.h'
   s.private_header_files = 'cpp/**/*.h'
 

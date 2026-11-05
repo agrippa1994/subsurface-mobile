@@ -4,6 +4,7 @@
 // Kept apart from the query in src/queries/settings.ts so it stays free of
 // expo-file-system and can be tested in Node.
 
+import { parseRememberedComputers, type RememberedComputer } from './dive-computer';
 import type { UnitSystem } from './units';
 
 export type Settings = {
@@ -16,6 +17,10 @@ export type Settings = {
   showGfNow: boolean;
   /** Draw the gradient factor the diver would surface with on the profile. */
   showGfSurface: boolean;
+  /** The dive computers downloaded from lately, latest first. */
+  diveComputers: RememberedComputer[];
+  /** Set the dive computer's clock after a download. */
+  syncDiveComputerTime: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +32,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // for them. Neither costs a recomputation, only a curve.
   showGfNow: false,
   showGfSurface: false,
+  diveComputers: [],
+  // Off, as in the legacy app: this changes something on the dive computer.
+  syncDiveComputerTime: false,
 };
 
 /**
@@ -81,6 +89,8 @@ export function parseSettings(json: string): Settings {
       ),
       showGfNow: flag(raw?.showGfNow, DEFAULT_SETTINGS.showGfNow),
       showGfSurface: flag(raw?.showGfSurface, DEFAULT_SETTINGS.showGfSurface),
+      diveComputers: parseRememberedComputers(raw?.diveComputers),
+      syncDiveComputerTime: flag(raw?.syncDiveComputerTime, DEFAULT_SETTINGS.syncDiveComputerTime),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -94,5 +104,7 @@ export function serializeSettings(settings: Settings): string {
     gfHigh: settings.gfHigh,
     showGfNow: settings.showGfNow,
     showGfSurface: settings.showGfSurface,
+    diveComputers: settings.diveComputers,
+    syncDiveComputerTime: settings.syncDiveComputerTime,
   });
 }

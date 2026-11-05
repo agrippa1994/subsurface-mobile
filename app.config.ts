@@ -92,6 +92,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // app merges it into its own logbook and deletes the copy.
       // File sharing is on so the logbook is reachable from the Files app.
       UIFileSharingEnabled: true,
+      // Downloading dives from a dive computer (src/features/dive-computer). The
+      // prompt comes with the first scan, not at launch.
+      NSBluetoothAlwaysUsageDescription:
+        'Subsurface connects to your dive computer over Bluetooth to download your dives.',
       // The MCP server in Settings (src/lib/mcp/server.ts) listens on the
       // local network; iOS may ask before it lets clients there reach it.
       NSLocalNetworkUsageDescription:
@@ -183,6 +187,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // (expo-module.config.json); this plugin only vendors the Subsurface core
     // subset into the module before pod install (task 03).
     './modules/ssrf-core/plugin/withSsrfCore',
+    // Android's Bluetooth permissions for downloading from a dive computer.
+    './modules/ssrf-core/plugin/withBluetoothPermissions',
     // Debug builds install as a separate testing app next to the production
     // one, with its own identity, amber icon and sandbox (own logbook).
     [

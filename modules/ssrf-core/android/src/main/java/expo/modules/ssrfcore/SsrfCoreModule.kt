@@ -17,6 +17,20 @@ class SsrfCoreModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("SsrfCore")
 
+    // Download progress and scan results. The core pushes them from its own
+    // threads; each is one JSON object, parsed in src/index.ts.
+    Events("onCoreEvent")
+
+    OnCreate {
+      val context = appContext.reactContext ?: return@OnCreate
+      val module = this@SsrfCoreModule
+      eventSink = { json -> module.sendEvent("onCoreEvent", mapOf("json" to json)) }
+      if (driver == null) {
+        driver = SsrfGattDriver(context.applicationContext)
+        nativeInstallGattDriver(driver!!)
+      }
+    }
+
     // The entire core API goes through this one function; adding a method is a
     // C++ and a TypeScript change only, never a native-glue change.
     Function("call") { method: String, argsJson: String ->
@@ -101,6 +115,17 @@ class SsrfCoreModule : Module() {
     @Volatile
     private var configured = false
 
+    @Volatile
+    private var eventSink: ((String) -> Unit)? = null
+
+    private var driver: SsrfGattDriver? = null
+
+    // Called from C++, on whatever thread the core pushes an event from.
+    @JvmStatic
+    fun onCoreEvent(json: String) {
+      eventSink?.invoke(json)
+    }
+
     init {
       System.loadLibrary("ssrfcore")
     }
@@ -109,5 +134,16 @@ class SsrfCoreModule : Module() {
     @JvmStatic external fun nativeAdd(a: Int, b: Int): Int
     @JvmStatic external fun nativeSmokeSerializeMinimalLog(): String?
     @JvmStatic external fun nativeSmokeCountDivesInFile(path: String): Int
+
+    @JvmStatic external fun nativeInstallGattDriver(driver: SsrfGattDriver)
+    @JvmStatic external fun nativeBleAdapterState(state: Int)
+    @JvmStatic external fun nativeBleDeviceFound(address: String, name: String, rssi: Int)
+    @JvmStatic external fun nativeBleConnected(error: String)
+    @JvmStatic external fun nativeBleServices(lines: String, error: String)
+    @JvmStatic external fun nativeBleNotifyEnabled(characteristic: String, error: String)
+    @JvmStatic external fun nativeBleWriteComplete(characteristic: String, error: String)
+    @JvmStatic external fun nativeBleReadComplete(characteristic: String, value: ByteArray, error: String)
+    @JvmStatic external fun nativeBleValueChanged(characteristic: String, value: ByteArray)
+    @JvmStatic external fun nativeBleDisconnected(error: String)
   }
 }

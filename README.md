@@ -5,9 +5,10 @@ built with Expo + @expo/ui, consuming the upstream Subsurface C++ core read-only
 
 Runs on iOS (liquid glass, iOS 26) and Android (Material, API 24+, 64-bit).
 
-## Scope (v1)
+## Scope
 
-- Import dives from Suunto (DM/SDE XML) — no libdivecomputer download, no BLE.
+- Import dives from Suunto (DM/SDE XML).
+- Download dives from a dive computer over Bluetooth LE, through libdivecomputer.
 - Import/export the Subsurface SSRF XML logbook (`.ssrf` / `.xml`).
 - Render the per-dive profile diagram and core statistics.
 - Manage buddies and dive sites.

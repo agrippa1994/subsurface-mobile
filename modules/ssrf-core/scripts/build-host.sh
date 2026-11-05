@@ -12,6 +12,10 @@
 #   ./scripts/build-host.sh --asan   build only, with AddressSanitizer, into
 #                                    build/asan (the vitest suite uses
 #                                    build/host, so the two never collide)
+#   ./scripts/build-host.sh --tsan   build only, with ThreadSanitizer, into
+#                                    build/tsan. The dive computer download is
+#                                    the only multi-threaded code in the module;
+#                                    SSRF_HOST_BINARY runs its tests against this.
 #
 # The sanitizer build is worth running against the whole fixture corpus after
 # any change to the shim or the bindings: it is how the dangling `current_dive`
@@ -37,6 +41,13 @@ if [[ "${1:-}" == "--asan" ]]; then
 	set -- --build "$@"
 fi
 
+if [[ "${1:-}" == "--tsan" ]]; then
+	ASAN=(-fsanitize=thread -O1)
+	BUILD="$MODULE_ROOT/build/tsan"
+	shift
+	set -- --build "$@"
+fi
+
 node "$MODULE_ROOT/scripts/vendor-core.mjs"
 
 mkdir -p "$BUILD"
@@ -55,7 +66,8 @@ CXXFLAGS=(
 	# Last, so the sanitizer build's -O1 overrides the -O0 above.
 	${ASAN[@]+"${ASAN[@]}"}
 )
-CFLAGS=(-std=c11 -g -O0 -isysroot "$SDK" -I"$GEN" -I"$GEN/core" ${ASAN[@]+"${ASAN[@]}"})
+# gnu11, not c11: libdivecomputer uses POSIX and BSD calls that strict C hides.
+CFLAGS=(-std=gnu11 -g -O0 -isysroot "$SDK" -I"$GEN" -DHAVE_CONFIG_H -Wno-everything ${ASAN[@]+"${ASAN[@]}"})
 LDFLAGS=(-isysroot "$SDK" -lxml2 -lxslt -lz -lsqlite3 ${ASAN[@]+"${ASAN[@]}"})
 
 # vendor-core re-copies the whole subset whenever an input changes, which makes

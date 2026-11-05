@@ -15,6 +15,7 @@ import { File, Paths } from 'expo-file-system';
 import { useCallback, useMemo } from 'react';
 
 import type { GradientFactors, UnitSystem } from '@/models';
+import { rememberComputer, type RememberedComputer } from '@/models/dive-computer';
 import {
   clampGradientFactors,
   DEFAULT_SETTINGS,
@@ -111,6 +112,31 @@ export function useUpdateSettings() {
     },
     onSuccess: (settings) => client.setQueryData(queryKeys.settings(), settings),
   });
+}
+
+/** The dive computers offered for a quick download. */
+export function useRememberedComputers(): RememberedComputer[] {
+  return useSettings().diveComputers;
+}
+
+export function useRememberComputer(): (computer: RememberedComputer) => void {
+  const client = useQueryClient();
+  // `mutate` is stable where the mutation object is not; the download screen's
+  // subscription to the module depends on this callback.
+  const { mutate } = useUpdateSettings();
+  return useCallback(
+    (computer: RememberedComputer) => {
+      // Off the cache, not a closure: a download outlasts many renders.
+      const current = client.getQueryData<Settings>(queryKeys.settings()) ?? readSettings();
+      mutate({ diveComputers: rememberComputer(current.diveComputers, computer) });
+    },
+    [client, mutate],
+  );
+}
+
+export function useForgetComputers(): () => void {
+  const { mutate } = useUpdateSettings();
+  return useCallback(() => mutate({ diveComputers: [] }), [mutate]);
 }
 
 export function useSetUnitSystem(): (unitSystem: UnitSystem) => void {

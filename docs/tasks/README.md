@@ -23,6 +23,7 @@ with **Acceptance criteria** that must pass before moving on.
 | 11 | [suunto-and-ssrf-io](11-suunto-and-ssrf-io.md) | Import/export |
 | 12 | [polish-and-testflight](12-polish-and-testflight.md) | iOS beta |
 | 13 | [android-parity](13-android-parity.md) | Android (later) |
+| 14 | [dive-computer-download](14-dive-computer-download.md) | libdivecomputer + BLE |
 
 Track status in [PROGRESS.md](PROGRESS.md).
 

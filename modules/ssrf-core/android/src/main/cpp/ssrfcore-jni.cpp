@@ -6,9 +6,13 @@
 
 #include <android/log.h>
 
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "bindings/api.h"
+#include "bindings/download.h"
+#include "bindings/gatt-driver.h"
 #include "ssrfcore.h"
 
 namespace {
@@ -95,7 +99,231 @@ jstring from_utf8(JNIEnv *env, const std::string &value)
 	return env->NewString(reinterpret_cast<const jchar *>(out.data()), static_cast<jsize>(out.size()));
 }
 
+// --- Threads the core started -----------------------------------------------
+//
+// The download thread and the driver's callbacks both come through here. A thread
+// the JVM does not know is attached on its first call, and detached when it ends.
+
+JavaVM *g_vm = nullptr;
+jclass g_module_class = nullptr;
+jmethodID g_on_core_event = nullptr;
+
+struct AttachedThread {
+	JNIEnv *env = nullptr;
+	bool attached_here = false;
+
+	~AttachedThread()
+	{
+		if (attached_here)
+			g_vm->DetachCurrentThread();
+	}
+};
+
+JNIEnv *current_env()
+{
+	thread_local AttachedThread thread;
+	if (!thread.env) {
+		if (g_vm->GetEnv(reinterpret_cast<void **>(&thread.env), JNI_VERSION_1_6) != JNI_OK) {
+			g_vm->AttachCurrentThread(&thread.env, nullptr);
+			thread.attached_here = true;
+		}
+	}
+	return thread.env;
+}
+
+void forward_event(const std::string &json)
+{
+	JNIEnv *env = current_env();
+	jstring text = from_utf8(env, json);
+	env->CallStaticVoidMethod(g_module_class, g_on_core_event, text);
+	env->DeleteLocalRef(text);
+}
+
+std::vector<uint8_t> to_bytes(JNIEnv *env, jbyteArray array)
+{
+	const jsize length = env->GetArrayLength(array);
+	std::vector<uint8_t> out(length);
+	if (length)
+		env->GetByteArrayRegion(array, 0, length, reinterpret_cast<jbyte *>(out.data()));
+	return out;
+}
+
+// The ssrf::ble::GattDriver contract over SsrfGattDriver.kt.
+class AndroidGattDriver : public ssrf::ble::GattDriver {
+public:
+	AndroidGattDriver(JNIEnv *env, jobject driver) : object(env->NewGlobalRef(driver))
+	{
+		jclass cls = env->GetObjectClass(driver);
+		m_start_scan = env->GetMethodID(cls, "startScan", "([Ljava/lang/String;)V");
+		m_stop_scan = env->GetMethodID(cls, "stopScan", "()V");
+		m_connect = env->GetMethodID(cls, "connect", "(Ljava/lang/String;)V");
+		m_discover = env->GetMethodID(cls, "discover", "()V");
+		m_enable_notify = env->GetMethodID(cls, "enableNotify", "(Ljava/lang/String;Ljava/lang/String;)V");
+		m_write = env->GetMethodID(cls, "write", "(Ljava/lang/String;Ljava/lang/String;[BZ)V");
+		m_read = env->GetMethodID(cls, "read", "(Ljava/lang/String;Ljava/lang/String;)V");
+		m_disconnect = env->GetMethodID(cls, "disconnect", "()V");
+		string_class = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/lang/String")));
+	}
+
+	void start_scan(const std::vector<std::string> &known_ids, const std::vector<std::string> &) override
+	{
+		JNIEnv *env = current_env();
+		jobjectArray known = env->NewObjectArray(static_cast<jsize>(known_ids.size()), string_class, nullptr);
+		for (size_t i = 0; i < known_ids.size(); i++) {
+			jstring id = from_utf8(env, known_ids[i]);
+			env->SetObjectArrayElement(known, static_cast<jsize>(i), id);
+			env->DeleteLocalRef(id);
+		}
+		env->CallVoidMethod(object, m_start_scan, known);
+		env->DeleteLocalRef(known);
+	}
+
+	void stop_scan() override { current_env()->CallVoidMethod(object, m_stop_scan); }
+
+	void connect(const std::string &address) override
+	{
+		JNIEnv *env = current_env();
+		jstring a = from_utf8(env, address);
+		env->CallVoidMethod(object, m_connect, a);
+		env->DeleteLocalRef(a);
+	}
+
+	void discover() override { current_env()->CallVoidMethod(object, m_discover); }
+
+	void enable_notify(const std::string &service, const std::string &characteristic) override
+	{
+		call_two(m_enable_notify, service, characteristic);
+	}
+
+	void write(const std::string &service, const std::string &characteristic, const std::vector<uint8_t> &data, bool with_response) override
+	{
+		JNIEnv *env = current_env();
+		jstring s = from_utf8(env, service);
+		jstring c = from_utf8(env, characteristic);
+		jbyteArray bytes = env->NewByteArray(static_cast<jsize>(data.size()));
+		if (!data.empty())
+			env->SetByteArrayRegion(bytes, 0, static_cast<jsize>(data.size()), reinterpret_cast<const jbyte *>(data.data()));
+		env->CallVoidMethod(object, m_write, s, c, bytes, static_cast<jboolean>(with_response));
+		env->DeleteLocalRef(s);
+		env->DeleteLocalRef(c);
+		env->DeleteLocalRef(bytes);
+	}
+
+	void read(const std::string &service, const std::string &characteristic) override
+	{
+		call_two(m_read, service, characteristic);
+	}
+
+	void disconnect() override { current_env()->CallVoidMethod(object, m_disconnect); }
+
+private:
+	void call_two(jmethodID method, const std::string &first, const std::string &second)
+	{
+		JNIEnv *env = current_env();
+		jstring a = from_utf8(env, first);
+		jstring b = from_utf8(env, second);
+		env->CallVoidMethod(object, method, a, b);
+		env->DeleteLocalRef(a);
+		env->DeleteLocalRef(b);
+	}
+
+	jobject object;
+	jclass string_class;
+	jmethodID m_start_scan, m_stop_scan, m_connect, m_discover, m_enable_notify, m_write, m_read, m_disconnect;
+};
+
 } // namespace
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *)
+{
+	g_vm = vm;
+	JNIEnv *env = nullptr;
+	if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK)
+		return JNI_ERR;
+	// Here, because FindClass from a thread the core started finds nothing of the app.
+	jclass module = env->FindClass("expo/modules/ssrfcore/SsrfCoreModule");
+	g_module_class = static_cast<jclass>(env->NewGlobalRef(module));
+	g_on_core_event = env->GetStaticMethodID(g_module_class, "onCoreEvent", "(Ljava/lang/String;)V");
+	ssrf::set_event_sink(forward_event);
+	return JNI_VERSION_1_6;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeInstallGattDriver(JNIEnv *env, jclass, jobject driver)
+{
+	// Never destroyed, as the contract in gatt-driver.h asks.
+	ssrf::ble::set_gatt_driver(new AndroidGattDriver(env, driver));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleAdapterState(JNIEnv *, jclass, jint state)
+{
+	ssrf::ble::gatt_event_adapter_state(static_cast<ssrf::ble::AdapterState>(state));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleDeviceFound(JNIEnv *env, jclass, jstring address, jstring name, jint rssi)
+{
+	ssrf::ble::gatt_event_device_found(to_utf8(env, address), to_utf8(env, name), rssi);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleConnected(JNIEnv *env, jclass, jstring error)
+{
+	ssrf::ble::gatt_event_connected(to_utf8(env, error));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleServices(JNIEnv *env, jclass, jstring lines, jstring error)
+{
+	// One service per line: its uuid, then "characteristic:props" per characteristic.
+	std::vector<ssrf::ble::Service> services;
+	std::istringstream text(to_utf8(env, lines));
+	std::string line;
+	while (std::getline(text, line)) {
+		std::istringstream fields(line);
+		std::string field;
+		ssrf::ble::Service service;
+		fields >> service.uuid;
+		while (fields >> field) {
+			const size_t colon = field.find(':');
+			if (colon != std::string::npos)
+				service.characteristics.push_back({ field.substr(0, colon), static_cast<unsigned>(std::stoul(field.substr(colon + 1))) });
+		}
+		services.push_back(std::move(service));
+	}
+	ssrf::ble::gatt_event_services(services, to_utf8(env, error));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleNotifyEnabled(JNIEnv *env, jclass, jstring characteristic, jstring error)
+{
+	ssrf::ble::gatt_event_notify_enabled(to_utf8(env, characteristic), to_utf8(env, error));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleWriteComplete(JNIEnv *env, jclass, jstring characteristic, jstring error)
+{
+	ssrf::ble::gatt_event_write_complete(to_utf8(env, characteristic), to_utf8(env, error));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleReadComplete(JNIEnv *env, jclass, jstring characteristic, jbyteArray value, jstring error)
+{
+	ssrf::ble::gatt_event_read_complete(to_utf8(env, characteristic), to_bytes(env, value), to_utf8(env, error));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleValueChanged(JNIEnv *env, jclass, jstring characteristic, jbyteArray value)
+{
+	ssrf::ble::gatt_event_value_changed(to_utf8(env, characteristic), to_bytes(env, value));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_expo_modules_ssrfcore_SsrfCoreModule_nativeBleDisconnected(JNIEnv *env, jclass, jstring error)
+{
+	ssrf::ble::gatt_event_disconnected(to_utf8(env, error));
+}
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_expo_modules_ssrfcore_SsrfCoreModule_nativeCall(JNIEnv *env, jclass, jstring method, jstring argsJson)

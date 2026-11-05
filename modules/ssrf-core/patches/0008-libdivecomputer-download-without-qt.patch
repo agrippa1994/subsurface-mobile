@@ -1,0 +1,106 @@
+Compile upstream's downloader (core/libdivecomputer.cpp) without Qt, for threads.
+It stays the code that parses dives and handles fingerprints. What changes:
+- BLE_SUPPORT is on, and ble_packet_open comes from cpp/bindings/ble-stream.cpp.
+- The QString address sniffing in get_supported_transports goes: BLE is the one
+  wireless transport this build has.
+- dive_cb, the fingerprint lookup and the fingerprint store take the core lock:
+  they share divelog and fingerprints with ssrf::call() on the JS thread. See
+  cpp/shim/include/ssrf-core-lock.h.
+- import_thread_cancelled is atomic: another thread sets it.
+- DC_EVENT_PROGRESS calls progress_callback, so the fraction reaches the UI
+  rather than waiting for the next 10 kB message.
+
+--- a/core/libdivecomputer.cpp	2026-11-05 11:54:16
++++ b/core/libdivecomputer.cpp	2026-11-05 11:54:16
+@@ -45,11 +45,12 @@
+ 
+ #include "libdivecomputer.h"
+ #include "core/version.h"
++#define BLE_SUPPORT
+ #include "core/string-format.h"
+ #include "core/qthelper.h"
+ #include "core/pref.h"
+ #include "core/file.h"
+-#include "core/bluetoothaddress.h"
++#include "ssrf-core-lock.h"
+ #include <algorithm>
+ #include <array>
+ #include <charconv>
+@@ -904,6 +905,7 @@
+ 	dc_status_t rc;
+ 	dc_parser_t *parser = NULL;
+ 	device_data_t *devdata = (device_data_t *)userdata;
++	const std::lock_guard<std::recursive_mutex> core_lock(ssrf_core_mutex());
+ 
+ 	/* reset static data, that is only valid per dive */
+ 	stoptime = stopdepth = po2 = cns = heartbeat = 0;
+@@ -1257,6 +1259,8 @@
+ 		}
+ 		if (progress->maximum)
+ 			progress_bar_fraction = (double)progress->current / (double)progress->maximum;
++		if (progress_callback)
++			(*progress_callback)(progress_bar_text);
+ 		break;
+ 	case DC_EVENT_DEVINFO:
+ 		if (dc_descriptor_get_model(devdata->descriptor) != devinfo->model) {
+@@ -1338,7 +1342,10 @@
+ 		}
+ 
+ 		devdata->devinfo = *devinfo;
+-		lookup_fingerprint(device, devdata);
++		{
++			const std::lock_guard<std::recursive_mutex> core_lock(ssrf_core_mutex());
++			lookup_fingerprint(device, devdata);
++		}
+ 
+ 		break;
+ 	case DC_EVENT_CLOCK:
+@@ -1362,7 +1369,7 @@
+ 	}
+ }
+ 
+-int import_thread_cancelled;
++std::atomic<int> import_thread_cancelled;
+ 
+ static int cancel_cb(void *)
+ {
+@@ -1488,11 +1495,7 @@
+ 		 */
+ 		if (data->bluetooth_mode) {
+ 			supported &= (DC_TRANSPORT_BLUETOOTH | DC_TRANSPORT_BLE);
+-			QString devname = QString::fromStdString(data->devname);
+-			if (isBluetoothLowEnergyAddress(devname))
+-				supported &= DC_TRANSPORT_BLE;
+-			else if (isBluetoothClassicAddress(devname))
+-				supported &= DC_TRANSPORT_BLUETOOTH;
++			supported &= DC_TRANSPORT_BLE;
+ 		} else {
+ 			supported &= ~(DC_TRANSPORT_BLUETOOTH | DC_TRANSPORT_BLE);
+ 		}
+@@ -1814,6 +1817,7 @@
+ 	 * the dive log data).
+ 	 */
+ 	save_fingerprint(data);
++	const std::lock_guard<std::recursive_mutex> core_lock(ssrf_core_mutex());
+ 	if (data->fingerprint && data->fdiveid)
+ 		create_fingerprint_node(fingerprints, calculate_string_hash(data->model.c_str()), data->devinfo.serial,
+ 					data->fingerprint, data->fsize, data->fdeviceid, data->fdiveid);
+--- a/core/libdivecomputer.h	2026-11-05 11:54:16
++++ b/core/libdivecomputer.h	2026-11-05 11:54:16
+@@ -4,6 +4,7 @@
+ 
+ #include <stdint.h>
+ #include <stdio.h>
++#include <atomic>
+ #include <string>
+ 
+ #include "equipment.h"
+@@ -64,7 +65,7 @@
+ void logfunc(dc_context_t *context, dc_loglevel_t loglevel, const char *file, unsigned int line, const char *function, const char *msg, void *userdata);
+ dc_descriptor_t *get_descriptor(dc_family_t type, unsigned int model);
+ 
+-extern int import_thread_cancelled;
++extern std::atomic<int> import_thread_cancelled;
+ extern std::string progress_bar_text;
+ extern void (*progress_callback)(const std::string &text);
+ extern double progress_bar_fraction;

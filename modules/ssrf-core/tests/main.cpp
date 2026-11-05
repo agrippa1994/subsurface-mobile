@@ -11,6 +11,7 @@
 
 #include "../cpp/bindings/api.h"
 #include "../cpp/ssrfcore.h"
+#include "fake-dive-computer.h"
 
 #include <nlohmann/json.hpp>
 
@@ -172,7 +173,8 @@ int run_repl()
 		size_t tab = line.find('\t');
 		std::string method = line.substr(0, tab);
 		std::string args = tab == std::string::npos ? "{}" : line.substr(tab + 1);
-		std::string reply = ssrf::call(method.c_str(), args);
+		// sim.* drives the simulated dive computer; everything else is the API.
+		std::string reply = method.rfind("sim.", 0) == 0 ? fake_dive_computer_call(method, args) : ssrf::call(method.c_str(), args);
 		// A reply must stay one line; the envelope is compact JSON already,
 		// but a core error string could in principle carry a raw newline.
 		for (char &c : reply) {
@@ -203,8 +205,10 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	if (!strcmp(argv[1], "repl"))
+	if (!strcmp(argv[1], "repl")) {
+		install_fake_dive_computer();
 		return run_repl();
+	}
 
 	if (!strcmp(argv[1], "api")) {
 		if (argc < 3) {

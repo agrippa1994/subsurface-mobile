@@ -75,7 +75,7 @@ rendered metric or imperial.
 | `clear` | `{}` | `{}` |
 | `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
 | `importFile` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
-| `configure` | `{ xsltDir }` | `{ xsltDir }` |
+| `configure` | `{ xsltDir?, dataDir? }` | `{ xsltDir, dataDir }` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
@@ -243,6 +243,35 @@ directly and avoids the copy.
   be told from one the user made. The caller is expected to confirm first; the
   app does, in Settings. `notrip` is left unset, since nothing regroups dives
   once autogrouping is off.
+
+### Downloading from a dive computer
+
+Runs on a thread of its own, into a log of its own. Nothing reaches the module's divelog
+until `dcDownloadAccept`, and then it still has to be saved.
+
+| Method | Args | Result |
+| --- | --- | --- |
+| `dcListComputers` | | `[{ vendor, products: [string] }]`: what has BLE, sorted |
+| `dcDetect` | `{ name }` | `{ vendor, product }` or `null`, from a Bluetooth name |
+| `dcDownloadStart` | `{ vendor, product, address, btName?, force?, syncTime? }` | `{}`. Fails if one is running, or the product has no BLE |
+| `dcDownloadStatus` | | `DownloadStatus`, see `src/SsrfCore.types.ts` |
+| `dcDownloadCancel` | | `{}`. Takes effect within 50 ms of the stream's next wait |
+| `dcDownloadAccept` | `{ indices: [int] }` | as `importFile`: merges those, drops the others, ends the session |
+| `dcDownloadDiscard` | | `{}` |
+| `bleScanStart` | `{ knownAddresses? }` | `{}` |
+| `bleScanStop` | | `{}` |
+| `bleScanStatus` | | `{ adapter, scanning, available, devices }` |
+| `configure` | `{ dataDir }` | Where the fingerprint cache and `libdivecomputer.log` go; without it, neither is written |
+
+Between calls the module pushes `onCoreEvent` with `{ json }`, parsed by
+`addCoreEventListener`: `{ type: 'download', state, text, fraction }`, and
+`{ type: 'ble', adapter? , device? }`. An event is a hint to re-read the status, which is
+what the screen does once a download has ended.
+
+A download that failed or was cancelled can still hold the dives that came through.
+
+The host's `repl` also takes `sim.configure`, `sim.status` and `sim.selectService`, for the
+simulated dive computer in `tests/fake-dive-computer.cpp`.
 
 ## JSON key mapping
 

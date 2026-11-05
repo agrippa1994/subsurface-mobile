@@ -10,6 +10,8 @@
 #include "subsurface-string.h"
 #include "units.h"
 
+#include <sys/stat.h>
+
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -260,4 +262,12 @@ std::string local_file_path(const struct picture &)
 
 void emit_reset_signal()
 {
+}
+
+// Upstream goes through QDir::mkpath. The one caller makes a single level, inside
+// a directory that exists; an existing directory is fine and any other failure
+// surfaces when the file in it cannot be written.
+void subsurface_mkdir(const char *dir)
+{
+	mkdir(dir, 0755);
 }

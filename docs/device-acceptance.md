@@ -220,3 +220,9 @@ Then restore the sample logbook.
 
 Record the outcome in `tasks/PROGRESS.md` with the numbers actually seen, not a
 bare "passed".
+
+## Dive computer download
+
+Needs a dive computer and a physical device: there is no Bluetooth in the iOS simulator.
+The steps and the things to compare are in `tasks/14-dive-computer-download.md`, "Not
+verified, and how to". No run has been recorded yet.
