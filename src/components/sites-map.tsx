@@ -10,14 +10,18 @@ import { useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { udegToDegrees, type DiveSite } from '@/models';
-import { fitSitesCamera, mappableSites } from '@/models/site-edit';
+import type { MapViewport } from '@/models/map-viewport';
+import { fitSitesCamera, mapCameraFromMove, mappableSites } from '@/models/site-edit';
 
 export function SitesMap({
   sites,
   onSelectSite,
+  viewport,
 }: {
   sites: readonly DiveSite[];
   onSelectSite: (uuid: number) => void;
+  /** Kept by the owner so it outlives this map. */
+  viewport: MapViewport;
 }) {
   const markers = useMemo(
     () =>
@@ -34,17 +38,20 @@ export function SitesMap({
   );
   // Only the opening position: recomputing it after an edit elsewhere would
   // throw away wherever the user has panned to.
-  const [camera] = useState(() => fitSitesCamera(sites));
+  const [opening] = useState(() => viewport.camera() ?? fitSitesCamera(sites));
 
   return (
     <AppleMaps.View
+      ref={(map) => viewport.attach(map)}
       style={styles.map}
       cameraPosition={{
-        coordinates: { latitude: camera.latitude, longitude: camera.longitude },
-        zoom: camera.zoom,
+        coordinates: { latitude: opening.latitude, longitude: opening.longitude },
+        zoom: opening.zoom,
       }}
       markers={markers}
+      properties={{ isMyLocationEnabled: true }}
       uiSettings={{ myLocationButtonEnabled: false }}
+      onCameraMove={(move) => viewport.remember(mapCameraFromMove(move))}
       onMarkerClick={(marker) => {
         const uuid = Number(marker.id);
         if (Number.isFinite(uuid)) {
