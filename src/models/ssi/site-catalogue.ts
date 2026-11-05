@@ -44,6 +44,14 @@ const CREATED_MARGIN_SECONDS = 24 * 60 * 60;
  */
 const MIN_TOTAL_RATIO = 0.95;
 
+/**
+ * How many sites must share identical coordinates for that position to count as
+ * a placeholder. SSI's list has country and region centre points holding up to
+ * 220 unrelated sites each - Chichi Bay in the middle of Germany. Sites this
+ * crowded look like one wrong marker on the map and a wrong nearest-site guess.
+ */
+export const PLACEHOLDER_MIN_SITES = 5;
+
 export type SitesPageRequest = { last_sync: number; offset: number; limit: number };
 
 /** One page of raw rows: unvalidated, because the wire disagrees with the types. */
@@ -137,7 +145,26 @@ export function mergeSsiSites(
   return [...merged.values()];
 }
 
-/** Whether a merged catalogue falls well short of the total the ZIP announced. */
+/**
+ * Removes sites at placeholder positions. Sites without a position (0/0) stay:
+ * nothing shows them as being anywhere, and they remain findable by name.
+ */
+export function removePlaceholderSites(sites: readonly SsiSite[]): SsiSite[] {
+  const key = (site: SsiSite) => `${site.lat},${site.lon}`;
+  const counts = new Map<string, number>();
+  for (const site of sites) {
+    counts.set(key(site), (counts.get(key(site)) ?? 0) + 1);
+  }
+  return sites.filter(
+    (site) =>
+      (site.lat === 0 && site.lon === 0) || (counts.get(key(site)) ?? 0) < PLACEHOLDER_MIN_SITES
+  );
+}
+
+/**
+ * Whether a merged catalogue falls well short of the total the ZIP announced.
+ * Judge it before removing placeholders, which that total still counts.
+ */
 export function isSsiCatalogueShort(count: number, announcedTotal: unknown): boolean {
   return typeof announcedTotal === 'number' && count < announcedTotal * MIN_TOTAL_RATIO;
 }

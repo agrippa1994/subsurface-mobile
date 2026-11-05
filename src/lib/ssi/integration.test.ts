@@ -260,6 +260,32 @@ describe('SSI site catalogue', () => {
     expect(siteIndexInfo()).toMatchObject({ count: 1, complete: false });
   });
 
+  it('removes placeholder positions after judging completeness against the total', async () => {
+    const stacked = [1, 2, 3, 4, 5].map((id) => ({
+      odin_dive_sites_id: 100 + id, odin_dive_sites_name: `Stacked ${id}`,
+      odin_dive_sites_lat: 51.2025, odin_dive_sites_lon: 10.3822,
+    }));
+    fetchMock
+      .mockResolvedValueOnce(zip([zipRow], { divesites_total: 6 }))
+      .mockResolvedValueOnce(page(stacked))
+      .mockResolvedValueOnce(page([{ odin_dive_sites_id: 3, odin_dive_sites_deleted: 1 }]));
+    expect(await downloadSiteIndex()).toEqual([reef]);
+    expect(siteIndexInfo()).toMatchObject({ count: 1, complete: true });
+  });
+
+  it('rebuilds a complete index that older rules produced', async () => {
+    storeOldInstall([reef]);
+    files.set('/documents/ssi-sites-info.json', JSON.stringify({ count: 1, downloadedAt: 1, complete: true }));
+    expect(siteIndexInfo().complete).toBe(false);
+    mockFullDownload();
+    const upgraded = new Promise((resolve) => { void ensureSiteIndex(resolve); });
+    expect(await upgraded).toEqual([reef, wall]);
+    expect(siteIndexInfo().complete).toBe(true);
+    fetchMock.mockClear();
+    await ensureSiteIndex();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('shares one download between concurrent callers', async () => {
     mockFullDownload();
     const [first, second] = await Promise.all([downloadSiteIndex(), downloadSiteIndex()]);

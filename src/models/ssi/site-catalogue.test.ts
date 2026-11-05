@@ -11,6 +11,8 @@ import {
   isSsiCatalogueShort,
   MAX_SITES_PAGES,
   mergeSsiSites,
+  PLACEHOLDER_MIN_SITES,
+  removePlaceholderSites,
   SITES_PAGE_SIZE,
   type SitesPageRequest,
 } from './site-catalogue';
@@ -185,6 +187,36 @@ describe('mergeSsiSites', () => {
   it('keeps ZIP sites the list does not mention, such as private ones', () => {
     const merged = mergeSsiSites([ssiSite(1)], [{ sites: [ssiSite(2)], deletedIds: [] }]);
     expect(merged.map((site) => site.id)).toEqual([1, 2]);
+  });
+});
+
+describe('removePlaceholderSites', () => {
+  const at = (id: number, lat: number, lon: number): SsiSite => ({ ...ssiSite(id), lat, lon });
+  const stack = (count: number, lat: number, lon: number, from = 1) =>
+    ids(count, from).map((id) => at(id, lat, lon));
+
+  it('removes every site at a position shared by the threshold or more', () => {
+    const lone = at(100, 47.6391, 13.8959);
+    expect(removePlaceholderSites([...stack(PLACEHOLDER_MIN_SITES, 51.2025, 10.3822), lone])).toEqual([
+      lone,
+    ]);
+  });
+
+  it('keeps sites sharing a position below the threshold, in order', () => {
+    const sites = stack(PLACEHOLDER_MIN_SITES - 1, 51.2025, 10.3822);
+    expect(removePlaceholderSites(sites)).toEqual(sites);
+  });
+
+  it('compares both coordinates exactly', () => {
+    const sameLat = ids(PLACEHOLDER_MIN_SITES).map((id) => at(id, 51.2, 10 + id / 10));
+    const nearby = ids(PLACEHOLDER_MIN_SITES).map((id) => at(id, 51.2 + id / 10000, 10));
+    expect(removePlaceholderSites(sameLat)).toEqual(sameLat);
+    expect(removePlaceholderSites(nearby)).toEqual(nearby);
+  });
+
+  it('keeps sites with no position, however many there are', () => {
+    const sites = stack(PLACEHOLDER_MIN_SITES * 2, 0, 0);
+    expect(removePlaceholderSites(sites)).toEqual(sites);
   });
 });
 

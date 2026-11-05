@@ -10,7 +10,8 @@
 // (src/models/ssi/site-catalogue.ts) - a minute or so in all. That is the one
 // genuinely expensive thing this app does, so it happens once: the result is
 // reduced to the handful of fields the picker needs (src/models/ssi/sites.ts)
-// and only the reduction is kept. Every later launch parses that file instead.
+// and only the reduction is kept, without sites at placeholder positions. Every
+// later launch parses that file instead.
 //
 // Neither part needs authentication; they are fetched before the user has an account.
 
@@ -24,6 +25,7 @@ import {
   fetchSsiSiteChanges,
   isSsiCatalogueShort,
   mergeSsiSites,
+  removePlaceholderSites,
   type SiteChanges,
   type SitesPageFetcher,
 } from '@/models/ssi/site-catalogue';
@@ -41,6 +43,12 @@ const INDEX_FILENAME = 'ssi-sites-index.json';
  */
 const INFO_FILENAME = 'ssi-sites-info.json';
 
+/**
+ * Which rules built the stored index. A complete index from older rules counts
+ * as incomplete, so it is rebuilt in the background. 2: placeholders removed.
+ */
+const CATALOGUE_VERSION = 2;
+
 function indexFile(): File {
   return new File(Paths.document, INDEX_FILENAME);
 }
@@ -55,8 +63,8 @@ export type SsiSiteIndexInfo = {
   /** When it was built, milliseconds since epoch. Null when there is none. */
   downloadedAt: number | null;
   /**
-   * Whether the index holds more than the ZIP. False when the last top-up failed,
-   * and on installs from before the top-up existed, whose sidecars lack the field.
+   * Whether the index is the whole catalogue under the current rules. False when
+   * the last top-up failed, and for an index built by an older version of the app.
    */
   complete: boolean;
 };
@@ -70,11 +78,13 @@ export function siteIndexInfo(): SsiSiteIndexInfo {
     if (!info.exists || !indexFile().exists) {
       return NO_INDEX;
     }
-    const stored = JSON.parse(info.textSync()) as Partial<SsiSiteIndexInfo>;
+    const stored = JSON.parse(info.textSync()) as Partial<SsiSiteIndexInfo> & {
+      version?: unknown;
+    };
     return {
       count: typeof stored.count === 'number' ? stored.count : 0,
       downloadedAt: typeof stored.downloadedAt === 'number' ? stored.downloadedAt : null,
-      complete: stored.complete === true,
+      complete: stored.complete === true && stored.version === CATALOGUE_VERSION,
     };
   } catch {
     return NO_INDEX;
@@ -113,7 +123,8 @@ function store(sites: readonly SsiSite[], complete: boolean): void {
       count: sites.length,
       downloadedAt: Date.now(),
       complete,
-    } satisfies SsiSiteIndexInfo)
+      version: CATALOGUE_VERSION,
+    } satisfies SsiSiteIndexInfo & { version: number })
   );
 }
 
@@ -179,12 +190,14 @@ async function buildSiteIndex(): Promise<SsiSite[]> {
     if (readIndex() !== null) {
       throw error;
     }
-    store(zipSites, false);
-    return zipSites;
+    const fallback = removePlaceholderSites(zipSites);
+    store(fallback, false);
+    return fallback;
   }
 
-  store(merged, true);
-  return merged;
+  const sites = removePlaceholderSites(merged);
+  store(sites, true);
+  return sites;
 }
 
 let inFlight: Promise<SsiSite[]> | null = null;
