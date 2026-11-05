@@ -104,6 +104,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'codes.mani.subsurfacereact',
+    versionCode: 2,
     adaptiveIcon: {
       backgroundColor: '#062C53',
       foregroundImage: './assets/images/android-icon-foreground.png',
