@@ -44,7 +44,7 @@ export function SsiSiteBrowser({
   const searchQuery = useDeferredValue(query);
   const [view, setView] = useState<SsiBrowserView>(onSelect || !MAPS_AVAILABLE ? 'list' : 'map');
   const [sort, setSort] = useState<SsiSiteSort>('nearest');
-  const { position, locating, locate } = useUserLocation(initialPosition);
+  const { position, locating, locate, locationGranted } = useUserLocation(initialPosition);
   const [cluster, setCluster] = useState<SsiSite[] | null>(null);
   const [ownViewport] = useState(createMapViewport);
   const viewport = sharedViewport ?? ownViewport;
@@ -167,6 +167,7 @@ export function SsiSiteBrowser({
         sites={allMatches}
         position={position}
         viewport={viewport}
+        showsUserLocation={locationGranted}
         onSelect={openSite}
         onCluster={(sites) => {
           Keyboard.dismiss();

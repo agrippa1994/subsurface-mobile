@@ -927,3 +927,9 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   ones, or replaces the log with all of them after a confirmation that counts the dives
   not on SSI. A replace refuses a response with no dives, because an empty logbook
   loads without error and would wipe the log.
+
+- **Android maps**: `src/components/platform-map.tsx` draws MapLibre with OpenFreeMap
+  tiles (no key, no account); `platform-map.ios.tsx` keeps Apple Maps. MapLibre is left
+  out of the iOS build (`react-native.config.js`) and `expo-maps` out of the Android one
+  (`expo.autolinking` in `package.json`). Zoom levels stay in the app's 256 px units and
+  are converted in the component. OpenFreeMap has no SLA.

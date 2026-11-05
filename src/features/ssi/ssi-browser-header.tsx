@@ -7,6 +7,7 @@ import type {
   NativeStackNavigationOptions,
 } from 'expo-router/native-stack';
 import { Alert, Platform, Pressable, Text, View } from 'react-native';
+import { HeaderIconButton } from '@/components/header-icon-button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -121,7 +122,8 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
   const options: NativeStackNavigationOptions = {
     title: props.title,
     headerLargeTitle: false,
-    headerTransparent: props.view === 'map',
+    // Bar items float over the map on iOS 26; Android's header is opaque.
+    headerTransparent: Platform.OS === 'ios' && props.view === 'map',
     headerSearchBarOptions: {
       placeholder: 'Search SSI dive sites',
       hideWhenScrolling: false,
@@ -143,7 +145,21 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
             </View>
           ),
           headerRight: () => (
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {props.mapsAvailable && props.view === 'map' ? (
+                <HeaderIconButton
+                  label="Go to my location"
+                  icon={props.locating ? 'location.fill' : 'location'}
+                  onPress={props.onLocate}
+                />
+              ) : null}
+              {props.mapsAvailable ? (
+                <HeaderIconButton
+                  label={props.view === 'map' ? 'Show as list' : 'Show on map'}
+                  icon={props.view === 'map' ? 'list.bullet' : 'map'}
+                  onPress={() => props.onViewChange(props.view === 'map' ? 'list' : 'map')}
+                />
+              ) : null}
               {fallbackButton('Options', () =>
                 Alert.alert('Site options', undefined, [
                   {

@@ -1,6 +1,6 @@
 // AI-generated (Claude)
-import { AppleMaps } from 'expo-maps';
 import { useMemo, useState } from 'react';
+import { PlatformMap } from '@/components/platform-map';
 import { useTheme } from '@/hooks/use-theme';
 import type { MapViewport } from '@/models/map-viewport';
 import { mapCameraFromMove, NEARBY_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
@@ -11,6 +11,7 @@ export function SsiSitesMap({
   sites,
   position,
   viewport,
+  showsUserLocation,
   onSelect,
   onCluster,
 }: {
@@ -18,6 +19,7 @@ export function SsiSitesMap({
   position: SitePosition | null;
   /** Kept by the owner so it outlives this map. */
   viewport: MapViewport;
+  showsUserLocation: boolean;
   onSelect: (site: SsiSite) => void;
   onCluster: (sites: SsiSite[]) => void;
 }) {
@@ -41,12 +43,11 @@ export function SsiSitesMap({
   });
   const groups = useMemo(() => groupSsiSites(sites, region), [sites, region]);
   return (
-    <AppleMaps.View
+    <PlatformMap
       ref={(map) => viewport.attach(map)}
       style={{ flex: 1 }}
       cameraPosition={initial}
-      properties={{ mapType: AppleMaps.MapType.STANDARD, isMyLocationEnabled: true }}
-      uiSettings={{ myLocationButtonEnabled: false }}
+      showsUserLocation={showsUserLocation}
       markers={groups.map((group) => ({
         id: group.id,
         coordinates: { latitude: group.lat, longitude: group.lon },
