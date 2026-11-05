@@ -880,9 +880,11 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Verified: vitest against a simulated Deep Six Excursion behind the driver seam, speaking
   the real protocol, so libdivecomputer's own device and parser backends run (37 tests);
-  the same under ThreadSanitizer; the iOS app building for simulator and device; the Android
-  app building; the screen driven against the simulation on a throwaway iOS simulator, which
-  found a re-subscribe on every render that the host tests could not.
+  the same under ThreadSanitizer and AddressSanitizer; the iOS app building for simulator and
+  device; the screen driven against the simulation on a throwaway iOS simulator, which found a
+  re-subscribe on every render that the host tests could not. On Android the app builds, and on
+  a Pixel 9 Pro emulator it loads, opens the screen, asks for the permission and starts a scan
+  without a crash; no download ran there.
 
   **Not verified: anything on a real dive computer.** The iOS and Android drivers have never
   talked to a radio, and the Heinrichs Weikamp credit protocol has never run. The task file

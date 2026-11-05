@@ -47,15 +47,18 @@ See `modules/ssrf-core/cpp/CORE_MANIFEST.md`, "The download path", for the piece
       `SSRF_HOST_BINARY=.../build/tsan/ssrf-smoke vitest run tests/dive-computer-download.test.ts`.
 - [x] The screen against the same simulation, on an iOS simulator: detection, download,
       progress, review, deselect, accept, written to disk.
+- [x] Android: the app builds, loads its native library, opens the screen, asks for the
+      Bluetooth permission and starts a scan on an emulator. No download ran there.
 - [ ] **A real dive computer on a real iPhone.**
 - [ ] **A real dive computer on a real Android phone.**
 
 ## Not verified, and how to
 
 No dive computer has been connected yet, and BLE does not exist in the iOS simulator. So
-neither platform driver has ever run: not `ios/SsrfGattDriver.mm`, not
-`SsrfGattDriver.kt`, and not the JNI path under it. The Heinrichs Weikamp credit
-protocol has not run against anything either, the simulation is a Deep Six.
+`ios/SsrfGattDriver.mm` has never run at all: the simulator test swapped in the fake driver.
+`SsrfGattDriver.kt` has only started a scan on an emulator, and never connected. The
+Heinrichs Weikamp credit protocol has not run against anything either: the simulation is a
+Deep Six.
 
 On a physical device, with a dive computer in transfer mode:
 

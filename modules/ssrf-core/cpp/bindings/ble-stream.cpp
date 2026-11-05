@@ -836,3 +836,13 @@ dc_status_t ble_packet_open(dc_iostream_t **iostream, dc_context_t *context, con
 		cb_close(holder);
 	return rc;
 }
+
+#ifdef __ANDROID__
+// core/libdivecomputer.cpp refers to this on Android, for a USB serial device. No
+// download here asks for one: dc_download_start only takes BLE. The place to start
+// when Android USB serial is added, as a custom iostream like the stream above.
+dc_status_t serial_usb_android_open(dc_iostream_t **, dc_context_t *, void *)
+{
+	return DC_STATUS_UNSUPPORTED;
+}
+#endif

@@ -93,6 +93,9 @@ descriptor. Like upstream, `DC_IOCTL_BLE_GET_PINCODE` and the access code are an
 "unsupported", which leaves the Pelagic i330R and DSX as far as the legacy app gets with
 them. `DC_IOCTL_BLE_CHARACTERISTIC_WRITE` is implemented, which upstream's is not.
 
+`serial_usb_android_open`, which upstream's `divecomputer_device_open` refers to on Android,
+is a stub returning `DC_STATUS_UNSUPPORTED` in `ble-stream.cpp`: no download asks for it.
+
 ## Patches (build-time, `patches/`)
 
 | Patch | Files | What and why |
