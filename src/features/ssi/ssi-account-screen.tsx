@@ -11,6 +11,7 @@
 // account query answers with an email address and a boolean, nothing more.
 
 import { useForm } from '@tanstack/react-form';
+import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -21,10 +22,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { EMPTY_CREDENTIALS, validateCredentials } from '@/models/ssi/credentials';
-import { describeSsiImport } from '@/models/ssi/ssrf-import';
 import {
   useDownloadSsiLogbook,
-  useImportSsiLogbook,
   useRefreshSsiSites,
   useSsiAccount,
   useSsiSignIn,
@@ -41,7 +40,7 @@ export function SsiAccountScreen() {
   const signOut = useSsiSignOut();
   const siteIndex = useSsiSiteIndexInfo();
   const refreshSites = useRefreshSsiSites();
-  const importLogbook = useImportSsiLogbook();
+  const router = useRouter();
   const downloadLogbook = useDownloadSsiLogbook();
 
   // Sign-in failures are shown in the form rather than in an alert: the user is
@@ -106,19 +105,6 @@ export function SsiAccountScreen() {
     });
   };
 
-  const addDives = () => {
-    importLogbook.mutate(undefined, {
-      onSuccess: (result) => {
-        operationSucceeded();
-        Alert.alert('SSI logbook', describeSsiImport(result));
-      },
-      onError: (caught) => {
-        operationFailed();
-        Alert.alert('Could not import from SSI', formatErrorLine(describeError(caught)));
-      },
-    });
-  };
-
   const saveFile = () => {
     downloadLogbook.mutate(undefined, {
       onSuccess: async (uri) => {
@@ -139,8 +125,6 @@ export function SsiAccountScreen() {
       },
     });
   };
-
-  const logbookBusy = importLogbook.isPending || downloadLogbook.isPending;
 
   const info = siteIndex.data ?? { count: 0, downloadedAt: null };
   const sitesValue = refreshSites.isPending
@@ -227,20 +211,23 @@ export function SsiAccountScreen() {
       )}
 
       {account.data ? (
-        <FormSection
-          title="Logbook"
-          footer="Reads your SSI logbook into Subsurface format: profiles, temperatures, pressures, gradient factor settings, buddies and sites. Adding keeps every dive you already have and never changes anything on SSI. The file holds your whole SSI logbook and can be opened as a new logbook.">
-          <FormButtonRow
-            label="Add SSI dives to this logbook"
-            value={importLogbook.isPending ? 'Downloading...' : undefined}
-            onPress={logbookBusy ? () => undefined : addDives}
-          />
-          <FormButtonRow
-            label="Save SSI logbook as a file"
-            value={downloadLogbook.isPending ? 'Downloading...' : undefined}
-            onPress={logbookBusy ? () => undefined : saveFile}
-          />
-        </FormSection>
+        <>
+          <FormSection
+            title="Logbook"
+            footer="Choose dives to add, or replace this logbook with your SSI logbook. Includes profiles, temperatures, pressures, gradient factor settings, buddies and sites. Nothing changes on SSI.">
+            <FormButtonRow
+              label="Add SSI dives to this logbook"
+              onPress={() => router.push('/settings/ssi-import')}
+            />
+          </FormSection>
+          <FormSection footer="A separate file with your whole SSI logbook, to share or open as a new logbook.">
+            <FormButtonRow
+              label="Save SSI logbook as a file"
+              value={downloadLogbook.isPending ? 'Downloading...' : undefined}
+              onPress={downloadLogbook.isPending ? () => undefined : saveFile}
+            />
+          </FormSection>
+        </>
       ) : null}
 
       <FormSection

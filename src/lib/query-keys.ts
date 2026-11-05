@@ -56,6 +56,8 @@ export const queryKeys = {
    * diver's buddy list. One key because it is one `get_divelog` call.
    */
   ssiLogbook: () => ['ssi', 'logbook'] as const,
+  /** The full SSI logbook, for the import screen. Large, so held only briefly. */
+  ssiDownload: () => ['ssi', 'download'] as const,
 
   /**
    * The git sync: its settings file, the key in the keychain (as a summary -

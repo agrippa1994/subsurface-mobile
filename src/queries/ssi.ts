@@ -23,7 +23,7 @@ import { uuid } from 'expo';
 import { useMemo } from 'react';
 
 import { ensureLogbookLoaded } from '@/queries/logbook';
-import { resetData } from '@/queries/logbook-mutations';
+import { resetData, useReplaceLogbook } from '@/queries/logbook-mutations';
 
 import { importFile, listDives, listDiveSites, updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
@@ -36,7 +36,12 @@ import {
   type SsiAccount,
 } from '@/lib/ssi/auth';
 import { fetchSsiLogbook, saveSsiDive, type SsiLogbook } from '@/lib/ssi/divelog';
-import { buildSsiSsrf, writeSsiSsrfFile } from '@/lib/ssi/logbook-download';
+import {
+  buildSsiSsrf,
+  fetchSsiDownload,
+  writeSsiSsrfFile,
+  type SsiDownload,
+} from '@/lib/ssi/logbook-download';
 import {
   ensureSiteIndex,
   refreshSiteIndex,
@@ -45,7 +50,7 @@ import {
 } from '@/lib/ssi/site-cache';
 import type { Dive, DiveSite, PlotInfo } from '@/models';
 import { convertDiveToSsi } from '@/models/ssi/converter';
-import type { SsiToSsrfResult } from '@/models/ssi/ssrf-import';
+import { convertSsiLogbookToSsrf, type SsiToSsrfResult } from '@/models/ssi/ssrf-import';
 import type { SsiCredentials } from '@/models/ssi/credentials';
 import {
   MIN_QUERY_LENGTH,
@@ -90,6 +95,7 @@ export function useSsiSignIn(): UseMutationResult<SsiAccount, Error, SsiCredenti
       client.setQueryData(queryKeys.ssiAccount(), account);
       // The dive number and the buddies came from the previous account's logbook.
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
+      client.removeQueries({ queryKey: queryKeys.ssiDownload() });
     },
   });
 }
@@ -101,6 +107,7 @@ export function useSsiSignOut(): UseMutationResult<void, Error, void> {
     onSuccess: () => {
       client.setQueryData(queryKeys.ssiAccount(), null);
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
+      client.removeQueries({ queryKey: queryKeys.ssiDownload() });
     },
   });
 }
@@ -274,17 +281,37 @@ function lookupsFor(client: ReturnType<typeof useQueryClient>) {
 }
 
 /**
- * Adds the dives from SSI that this logbook does not have. A dive it already has is
- * left alone: its original download beats SSI's copy, and running this twice adds
- * nothing. Saved straight away, as every import is.
+ * The SSI logbook, for the import screen to list and convert. Held for minutes: it is
+ * the largest thing the app downloads, and it is about someone else's server.
  */
-export function useImportSsiLogbook(): UseMutationResult<SsiToSsrfResult, Error, void> {
+export function useSsiDownload(): UseQueryResult<SsiDownload> {
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: queryKeys.ssiDownload(),
+    queryFn: async () => fetchSsiDownload(await lookupsFor(client)),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnMount: true,
+    retry: 1,
+  });
+}
+
+/**
+ * Adds the chosen dives to the logbook. A chosen dive the logbook already has is left
+ * alone: its original download beats SSI's copy. Saved straight away, as every import is.
+ */
+export function useImportSelectedSsiDives(): UseMutationResult<
+  SsiToSsrfResult,
+  Error,
+  { download: SsiDownload; keys: ReadonlySet<string> }
+> {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ download, keys }) => {
       await ensureLogbookLoaded(client);
-      const result = await buildSsiSsrf({
-        lookups: await lookupsFor(client),
+      const result = convertSsiLogbookToSsrf({
+        ...download,
+        only: keys,
         existingDives: listDives(),
         existingSites: listDiveSites(),
       });
@@ -304,6 +331,35 @@ export function useImportSsiLogbook(): UseMutationResult<SsiToSsrfResult, Error,
         schedulePersist();
         await flush();
       }
+    },
+    retry: false,
+  });
+}
+
+/**
+ * Makes the SSI logbook the working logbook, discarding what was there. Refuses an SSI
+ * response with no dives in it: an empty logbook would load without complaint, and a
+ * glitch on SSI's side must not be able to wipe the diver's log.
+ */
+export function useReplaceWithSsiLogbook(): UseMutationResult<
+  SsiToSsrfResult,
+  Error,
+  SsiDownload
+> {
+  const replace = useReplaceLogbook();
+  return useMutation({
+    mutationFn: async (download) => {
+      const result = convertSsiLogbookToSsrf(download);
+      if (result.dives === 0) {
+        throw new Error('SSI returned no dives, so the logbook was left as it is.');
+      }
+      const file = writeSsiSsrfFile(result.xml, 'ssi-replace.ssrf');
+      try {
+        await replace.mutateAsync(file.nativePath);
+      } finally {
+        file.remove();
+      }
+      return result;
     },
     retry: false,
   });

@@ -88,6 +88,18 @@ export type SsiToSsrfInput = {
   existingDives?: readonly ExistingDive[];
   existingSites?: readonly ExistingSite[];
   catalogue?: readonly CatalogueSite[];
+  /** Keys from `previewSsiLogbook`. Leave out to convert every dive. */
+  only?: ReadonlySet<string>;
+};
+
+/** One SSI dive, for a screen to offer. `when` is in the core's convention. */
+export type SsiDivePreview = ExistingDive & {
+  key: string;
+  number: number | null;
+  siteName: string;
+  buddy: string;
+  /** A dive in `existingDives` matches this one, so importing it would add nothing. */
+  inLog: boolean;
 };
 
 export type SsiToSsrfResult = {
@@ -961,6 +973,9 @@ function readDiveMode(raw: Json): string {
 }
 
 type Converted = {
+  key: string;
+  number: number | null;
+  buddy: string;
   identity: ExistingDive;
   xml: string;
   site: SiteDraft | null;
@@ -1106,6 +1121,9 @@ function convertDive(
   dive += '  </divecomputer>\n</dive>\n';
 
   return {
+    key: identity,
+    number,
+    buddy: readBuddies(raw, context.buddies),
     identity: {
       when: when.when,
       durationSec,
@@ -1129,18 +1147,14 @@ function byId(raw: readonly Json[], key: string): Map<number, Json> {
   return map;
 }
 
-/**
- * The SSRF document for an SSI logbook. Deleted dives are left out, and so is any
- * dive that matches one in `existingDives`, which is what makes a second import of
- * the same logbook add nothing.
- */
-export function convertSsiLogbookToSsrf({
+/** Every readable SSI dive, sorted out into the new and the already present. */
+function collectDives({
   divelog,
   labels = NO_SSI_LABELS,
   existingDives = [],
   existingSites = [],
   catalogue = [],
-}: SsiToSsrfInput): SsiToSsrfResult {
+}: SsiToSsrfInput) {
   const body = asObject(divelog);
   const records = list(body.logbook_details).map(asObject);
   const context = {
@@ -1152,7 +1166,7 @@ export function convertSsiLogbookToSsrf({
   };
 
   const kept: Converted[] = [];
-  let alreadyPresent = 0;
+  const present: Converted[] = [];
   let duplicates = 0;
   let unreadable = 0;
 
@@ -1166,7 +1180,12 @@ export function convertSsiLogbookToSsrf({
       continue;
     }
     if (existingDives.some((dive) => isSameDive(dive, converted.identity))) {
-      alreadyPresent++;
+      // SSI's own duplicates count once here too, so a list of these adds up.
+      if (present.some((other) => isSameDive(other.identity, converted.identity))) {
+        duplicates++;
+      } else {
+        present.push(converted);
+      }
       continue;
     }
 
@@ -1182,7 +1201,20 @@ export function convertSsiLogbookToSsrf({
     kept.push(converted);
   }
 
-  kept.sort((a, b) => a.identity.when - b.identity.when);
+  return { kept, present, duplicates, unreadable };
+}
+
+/**
+ * The SSRF document for an SSI logbook. Deleted dives are left out, and so is any
+ * dive that matches one in `existingDives`, which is what makes a second import of
+ * the same logbook add nothing. With `only`, the counts describe the chosen dives.
+ */
+export function convertSsiLogbookToSsrf(input: SsiToSsrfInput): SsiToSsrfResult {
+  const { only } = input;
+  const collected = collectDives(input);
+  const chosen = (dive: Converted) => only === undefined || only.has(dive.key);
+
+  const kept = collected.kept.filter(chosen).sort((a, b) => a.identity.when - b.identity.when);
 
   const sites = new Map<number, SiteDraft>();
   for (const { site } of kept) {
@@ -1201,7 +1233,37 @@ export function convertSsiLogbookToSsrf({
     '</dives>\n' +
     '</divelog>\n';
 
-  return { xml, dives: kept.length, alreadyPresent, duplicates, unreadable, sites: sites.size };
+  return {
+    xml,
+    dives: kept.length,
+    alreadyPresent: collected.present.filter(chosen).length,
+    duplicates: only === undefined ? collected.duplicates : 0,
+    unreadable: only === undefined ? collected.unreadable : 0,
+    sites: sites.size,
+  };
+}
+
+/** The SSI dives as a list to choose from, newest first. */
+export function previewSsiLogbook(input: SsiToSsrfInput): SsiDivePreview[] {
+  const { kept, present } = collectDives(input);
+  const preview = (dive: Converted, inLog: boolean): SsiDivePreview => ({
+    ...dive.identity,
+    key: dive.key,
+    number: dive.number,
+    siteName: dive.site?.name ?? '',
+    buddy: dive.buddy,
+    inLog,
+  });
+  return [...kept.map((dive) => preview(dive, false)), ...present.map((dive) => preview(dive, true))]
+    .sort((a, b) => b.when - a.when);
+}
+
+/** Dives that exist in the log and not in SSI: what replacing the log would lose. */
+export function countDivesOnlyInLog(
+  existing: readonly ExistingDive[],
+  ssi: readonly ExistingDive[],
+): number {
+  return existing.filter((dive) => !ssi.some((other) => isSameDive(dive, other))).length;
 }
 
 /** The result in a sentence, for the screen that ran the import. */

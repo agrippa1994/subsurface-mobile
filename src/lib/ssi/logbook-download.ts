@@ -10,8 +10,7 @@ import { toNativePath } from '@/lib/logbook-file';
 import type { SsiSiteLookups } from '@/models/ssi/site-lookups';
 import {
   convertSsiLogbookToSsrf,
-  type ExistingDive,
-  type ExistingSite,
+  type SsiToSsrfInput,
   type SsiToSsrfResult,
 } from '@/models/ssi/ssrf-import';
 
@@ -65,15 +64,10 @@ function sitesMissingFrom(divelog: Json): boolean {
   });
 }
 
-export async function buildSsiSsrf({
-  lookups,
-  existingDives,
-  existingSites,
-}: {
-  lookups: SsiSiteLookups | null;
-  existingDives?: readonly ExistingDive[];
-  existingSites?: readonly ExistingSite[];
-}): Promise<SsiToSsrfResult> {
+/** What the conversion needs, fetched once so a screen can convert it repeatedly. */
+export type SsiDownload = Pick<SsiToSsrfInput, 'divelog' | 'labels' | 'catalogue'>;
+
+export async function fetchSsiDownload(lookups: SsiSiteLookups | null): Promise<SsiDownload> {
   const [divelog, gear] = await Promise.all([fetchRawDivelog(), fetchGearNames()]);
 
   // `logbook_sites` normally covers the log, and the catalogue is a sizeable first
@@ -85,13 +79,20 @@ export async function buildSsiSsrf({
     wildlife.set(id, animal.name);
   }
 
-  return convertSsiLogbookToSsrf({
+  return {
     divelog,
     labels: { tables: lookups?.logbook ?? new Map(), wildlife, gear },
-    existingDives,
-    existingSites,
     catalogue,
-  });
+  };
+}
+
+/** The whole SSI logbook as one standalone document. */
+export async function buildSsiSsrf({
+  lookups,
+}: {
+  lookups: SsiSiteLookups | null;
+}): Promise<SsiToSsrfResult> {
+  return convertSsiLogbookToSsrf(await fetchSsiDownload(lookups));
 }
 
 /** Writes the document to the cache, replacing any earlier copy of the same name. */
@@ -104,7 +105,9 @@ export function writeSsiSsrfFile(
     file.delete();
   }
   file.create();
-  file.write(xml);
+  // Sync: the caller hands this path straight to the core, and `write` in SDK 58 is
+  // async, so the core would read the still-empty file `create` left behind.
+  file.writeSync(xml);
   return {
     uri: file.uri,
     nativePath: toNativePath(file.uri),

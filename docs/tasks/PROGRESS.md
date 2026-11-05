@@ -895,3 +895,9 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   or the screen on a device. Free-dive and rebreather mappings have no real record
   behind them.
 
+  Follow-up: "Add SSI dives" opens its own page (`src/features/ssi/ssi-import-screen.tsx`).
+  It lists the SSI dives with the ones already in the log marked, imports the ticked
+  ones, or replaces the log with all of them after a confirmation that counts the dives
+  not on SSI. A replace refuses a response with no dives, because an empty logbook
+  loads without error and would wipe the log.
+

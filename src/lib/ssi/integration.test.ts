@@ -32,7 +32,9 @@ vi.mock('expo-file-system', () => ({
     get exists() { return files.has(this.path); }
     get uri() { return `file://${this.path}`; }
     create() { files.set(this.path, ''); }
-    write(text: string) { files.set(this.path, text); }
+    // Deferred, as in SDK 58: only writeSync has landed when the call returns.
+    write(text: string) { return Promise.resolve().then(() => { files.set(this.path, text); }); }
+    writeSync(text: string) { files.set(this.path, text); }
     textSync() { return files.get(this.path); }
     delete() { files.delete(this.path); }
   },
@@ -412,6 +414,7 @@ describe('SSI logbook download', () => {
   it('replaces an earlier file of the same name', () => {
     writeSsiSsrfFile('old', 'ssi.ssrf');
     const file = writeSsiSsrfFile('new', 'ssi.ssrf');
+    // Checked before any await: the core reads the file on the very next line.
     expect([...files.values()]).toContain('new');
     expect([...files.values()]).not.toContain('old');
     file.remove();

@@ -10,8 +10,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { plotPressureAt } from '../src/models';
 import {
   convertSsiLogbookToSsrf,
+  countDivesOnlyInLog,
   describeSsiImport,
   isSameDive,
+  previewSsiLogbook,
 } from '../src/models/ssi/ssrf-import';
 import { tempDir } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
@@ -298,6 +300,61 @@ describe('SSI logbook to SSRF', () => {
       divelog: { logbook_details: [DIVE, { ...DIVE, odin_user_log_id: 777 }, noDate] },
     });
     expect(result).toMatchObject({ dives: 1, duplicates: 1, unreadable: 1 });
+  });
+
+  it('offers new and present dives, and imports only the chosen ones', async () => {
+    const later = (id: number, date: string) => ({
+      ...DIVE,
+      odin_user_log_id: id,
+      odin_user_log_date: date,
+      odin_user_log_datetime: `${date} 09:00`,
+    });
+    const divelog = {
+      ...LOGBOOK,
+      logbook_details: [DIVE, later(601, '2026-04-01'), later(602, '2026-04-02')],
+    };
+
+    const host = await newHost();
+    await importXml(
+      host,
+      convertSsiLogbookToSsrf({ divelog: { ...LOGBOOK, logbook_details: [DIVE] } }).xml,
+    );
+    const existingDives = await host.listDives();
+    const existingSites = await host.listDiveSites();
+
+    const preview = previewSsiLogbook({ divelog, existingDives, existingSites });
+    expect(preview.map(({ key, inLog }) => [key, inLog])).toEqual([
+      ['602', false],
+      ['601', false],
+      ['501', true],
+    ]);
+    expect(preview[0]).toMatchObject({ siteName: 'Example Lake', buddy: 'Alex Sample, Robin' });
+
+    const result = convertSsiLogbookToSsrf({
+      divelog,
+      existingDives,
+      existingSites,
+      only: new Set(['601', '501']),
+    });
+    // 501 was chosen too, but the logbook has it. 602 was not chosen.
+    expect(result).toMatchObject({ dives: 1, alreadyPresent: 1 });
+    expect(await importXml(host, result.xml)).toMatchObject({ added: 1, dives: 2, sites: 1 });
+  });
+
+  it('counts what a replace would lose, and replaces with every SSI dive', async () => {
+    const host = await newHost();
+    const other = { ...DIVE, odin_user_log_id: 700, odin_user_log_date: '2019-05-05', odin_user_log_datetime: '2019-05-05 08:00' };
+    await importXml(
+      host,
+      convertSsiLogbookToSsrf({ divelog: { logbook_details: [DIVE, other] } }).xml,
+    );
+    const preview = previewSsiLogbook({ divelog: LOGBOOK });
+    expect(countDivesOnlyInLog(await host.listDives(), preview)).toBe(1);
+
+    const xml = join(tempDir(), 'replace.ssrf');
+    writeFileSync(xml, convertSsiLogbookToSsrf({ divelog: LOGBOOK }).xml);
+    expect(await host.loadFromXML(xml)).toMatchObject({ dives: 1 });
+    expect((await host.listDives()).map((dive) => dive.number)).toEqual([7]);
   });
 
   it('matches dives the way the core does', () => {

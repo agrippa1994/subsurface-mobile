@@ -61,9 +61,9 @@ SSI and git sync - works the same.
 
 ## Downloading from SSI
 
-Under Settings, SSI, Logbook, once signed in: add the SSI dives to the logbook, or
-save the whole SSI logbook as a `.ssrf` file to share or open as a new logbook.
-Neither writes to SSI.
+Under Settings, SSI, Logbook, once signed in: choose SSI dives to add, replace the
+logbook with all of them, or save them as a `.ssrf` file to share or open as a new
+logbook. None of these writes to SSI.
 
 ## Production and testing app
 
