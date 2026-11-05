@@ -52,6 +52,33 @@ describe('reduceSsiSites', () => {
   });
 });
 
+describe('reduceSsiSites wire quirks', () => {
+  // The wire sends these despite the declared types, so the fixtures cast.
+  const wire = (rows: unknown[]) => rows as Site[];
+
+  it('keeps a site whose name is a number, as a string', () => {
+    const reduced = reduceSsiSites(wire([{ odin_dive_sites_id: 129088, odin_dive_sites_name: 42 }]));
+    expect(reduced.map((site) => site.name)).toEqual(['42']);
+  });
+
+  it('still drops a name that is neither a string nor a finite number', () => {
+    const raw = wire([
+      { odin_dive_sites_id: 1, odin_dive_sites_name: { nested: true } },
+      { odin_dive_sites_id: 2, odin_dive_sites_name: Number.NaN },
+    ]);
+    expect(reduceSsiSites(raw)).toEqual([]);
+  });
+
+  it('drops deleted rows and keeps the other two wire forms of the marker', () => {
+    const raw = wire([
+      { odin_dive_sites_id: 1, odin_dive_sites_name: 'Gone', odin_dive_sites_deleted: 1 },
+      { odin_dive_sites_id: 2, odin_dive_sites_name: 'Live', odin_dive_sites_deleted: 0 },
+      { odin_dive_sites_id: 3, odin_dive_sites_name: 'Also live', odin_dive_sites_deleted: '' },
+    ]);
+    expect(reduceSsiSites(raw).map((site) => site.id)).toEqual([2, 3]);
+  });
+});
+
 describe('searchSsiSites', () => {
   const sites = [
     ssiSite({ id: 1, name: 'The Great Blue Wall' }),

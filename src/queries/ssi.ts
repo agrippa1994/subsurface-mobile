@@ -111,9 +111,14 @@ export function useSsiSignOut(): UseMutationResult<void, Error, void> {
  * wants to know whether it is there, which is what `useSsiSiteIndexInfo` is for.
  */
 export function useSsiSiteIndex(enabled = true): UseQueryResult<SsiSite[]> {
+  const client = useQueryClient();
   return useQuery({
     queryKey: queryKeys.ssiSiteIndex(),
-    queryFn: () => ensureSiteIndex(),
+    queryFn: () =>
+      ensureSiteIndex((sites) => {
+        client.setQueryData(queryKeys.ssiSiteIndex(), sites);
+        client.invalidateQueries({ queryKey: queryKeys.ssiSiteIndexInfo() });
+      }),
     enabled,
     staleTime: Infinity,
     gcTime: Infinity,
