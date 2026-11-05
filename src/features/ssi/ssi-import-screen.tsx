@@ -7,10 +7,20 @@
 
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { FormButtonRow, FormSection } from '@/components/form';
 import { HeaderAction } from '@/components/header-action';
+import { SkeletonGroup, SkeletonText } from '@/components/skeleton';
 import { StatusView } from '@/components/status-view';
 import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
@@ -69,7 +79,13 @@ export function SsiImportScreen() {
   const chosen = newKeys.filter((key) => selected.has(key));
 
   if (download.isPending || logDives.isPending) {
-    return <StatusView kind="loading" title="Reading your SSI logbook" />;
+    // The download's paused state means no network: a skeleton would promise a list
+    // that is not coming until the connection returns.
+    return download.fetchStatus === 'paused' ? (
+      <StatusView kind="empty" title="Connect to read your SSI logbook" />
+    ) : (
+      <SsiImportSkeleton />
+    );
   }
   if (download.isError || !download.data) {
     return (
@@ -213,6 +229,53 @@ export function SsiImportScreen() {
   );
 }
 
+/** Stand-ins of varying length, so the skeleton reads as a list and not a pattern. */
+const SKELETON_ROWS = [
+  ['#128 Hans Schmidt', '12 Mar 2026 - 18.4 m - 42:10'],
+  ['#127 Example Reef', '11 Mar 2026 - 9.2 m - 51:30'],
+  ['#126 Lake Site North', '11 Mar 2026 - 24.1 m - 38:45'],
+  ['#125 Old Harbour', '2 Feb 2026 - 12.0 m - 47:05'],
+  ['#124 Wreck of the Example', '1 Feb 2026 - 31.6 m - 29:50'],
+  ['#123 Blue Bay', '1 Feb 2026 - 15.3 m - 44:20'],
+  ['#122 Quarry East', '14 Jan 2026 - 21.8 m - 36:15'],
+  ['#121 Shore Entry', '13 Jan 2026 - 7.5 m - 58:00'],
+  ['#120 The Long Wall', '13 Jan 2026 - 28.9 m - 33:40'],
+  ['#119 Tower', '20 Dec 2025 - 10.1 m - 41:25'],
+] as const;
+
+/** The page as it will look, down to the card and the rows, so nothing moves on load. */
+function SsiImportSkeleton() {
+  const theme = useTheme();
+  return (
+    <>
+      <HeaderAction label="Import" disabled onPress={() => undefined} />
+      <ScrollView
+        scrollEnabled={false}
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic">
+        <SkeletonGroup label="Reading your SSI logbook">
+          <View style={styles.header}>
+            <FormSection footer="Removes every dive in this logbook and puts all your SSI dives in its place.">
+              <SkeletonText text="Replace logbook with all SSI dives" style={styles.skeletonButton} />
+            </FormSection>
+            <SkeletonText text="128 new dives, 0 selected" style={styles.listTitleText} />
+          </View>
+          {SKELETON_ROWS.map(([title, detail]) => (
+            <View key={title} style={styles.row}>
+              <View style={[styles.skeletonCheck, { backgroundColor: theme.backgroundSelected }]} />
+              <View style={styles.rowBody}>
+                <SkeletonText text={title} style={styles.rowTitle} />
+                <SkeletonText text={detail} style={styles.rowDetail} />
+              </View>
+            </View>
+          ))}
+        </SkeletonGroup>
+      </ScrollView>
+    </>
+  );
+}
+
 function DiveRow({
   dive,
   system,
@@ -304,6 +367,14 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  skeletonButton: {
+    fontSize: 17,
+  },
+  skeletonCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   rowBody: {
     flex: 1,
