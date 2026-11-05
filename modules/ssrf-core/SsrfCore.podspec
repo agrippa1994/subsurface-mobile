@@ -69,7 +69,6 @@ Pod::Spec.new do |s|
     'OTHER_CPLUSPLUSFLAGS' => '-DSUBSURFACE_MOBILE -include "$(PODS_TARGET_SRCROOT)/cpp/shim/include/ssrf-stdlib-compat.h"',
     # libdivecomputer's sources pick up the config.h vendor-core.mjs writes.
     'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) HAVE_CONFIG_H=1',
-    'GCC_WARN_INHIBIT_ALL_WARNINGS' => 'YES',
   }.merge(xslt_ldflags.call('$(PODS_TARGET_SRCROOT)'))
 
   # libxml2, sqlite3 and zlib come from the iOS SDK. libxslt is vendored: the

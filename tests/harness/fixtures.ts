@@ -13,7 +13,8 @@ import type { Dive, DiveSite, DiveSummary } from '../../src/models';
 
 export const REPO_ROOT = resolve(__dirname, '../..');
 export const MODULE_ROOT = join(REPO_ROOT, 'modules/ssrf-core');
-export const HOST_BINARY = join(MODULE_ROOT, 'build/host/ssrf-smoke');
+// SSRF_HOST_BINARY points a run at a sanitizer build (build-host.sh --tsan, --asan).
+export const HOST_BINARY = process.env.SSRF_HOST_BINARY ?? join(MODULE_ROOT, 'build/host/ssrf-smoke');
 export const DIVES_DIR = join(REPO_ROOT, 'subsurface/dives');
 /** The stylesheets, taken from the submodule rather than from the vendored copy. */
 export const XSLT_DIR = join(REPO_ROOT, 'subsurface/xslt');

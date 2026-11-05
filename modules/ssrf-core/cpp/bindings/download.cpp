@@ -88,10 +88,11 @@ struct Session {
 };
 
 // Replaced, not reset: a worker that is still on its way out keeps its own.
-std::shared_ptr<Session> g_session = std::make_shared<Session>();
+// Neither is ever destroyed, so process exit cannot pull them from under a thread.
+std::shared_ptr<Session> &g_session = *new std::shared_ptr<Session>(std::make_shared<Session>());
 // The worker reaches its session through this, from the plain function pointer
 // that is upstream's progress_callback.
-std::shared_ptr<Session> g_running;
+std::shared_ptr<Session> &g_running = *new std::shared_ptr<Session>();
 std::mutex g_running_mutex;
 
 json progress_event(Session &session)
@@ -151,6 +152,14 @@ void run_download(const std::shared_ptr<Session> &session, bool sync_time, const
 		error = format_string_std(error.c_str(), data.vendor.c_str(), data.product.c_str(), data.devname.c_str());
 	t_error_sink = nullptr;
 
+	// Before the state below says this thread is done: from then on the JS thread
+	// may start the next download, which sets both of these for itself.
+	progress_callback = nullptr;
+	{
+		std::lock_guard<std::mutex> lock(g_running_mutex);
+		g_running.reset();
+	}
+
 	json event;
 	{
 		std::lock_guard<std::mutex> lock(session->mutex);
@@ -171,11 +180,6 @@ void run_download(const std::shared_ptr<Session> &session, bool sync_time, const
 		event = progress_event(*session);
 	}
 	data.descriptor = nullptr; // Owned by libdivecomputer's static table.
-	{
-		std::lock_guard<std::mutex> lock(g_running_mutex);
-		g_running.reset();
-	}
-	progress_callback = nullptr;
 	emit(event);
 }
 

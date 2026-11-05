@@ -9,6 +9,8 @@
 import SsrfCoreModule from './SsrfCoreModule';
 import {
   SsrfCoreError,
+  type BleScanStatus,
+  type CoreEvent,
   type CsvExportOptions,
   type CsvExportResult,
   type DeleteDiveResult,
@@ -17,6 +19,10 @@ import {
   type DiveSite,
   type DiveSiteInput,
   type DiveSummary,
+  type DiveComputerIdentity,
+  type DiveComputerVendor,
+  type DownloadOptions,
+  type DownloadStatus,
   type GradientFactors,
   type ImportResult,
   type LoadResult,
@@ -239,6 +245,71 @@ export function previewDive(id: number, patch: DivePatch): Dive {
  */
 export function ungroupDives(): UngroupResult {
   return call<UngroupResult>('ungroupDives');
+}
+
+// --- Downloading from a dive computer ---------------------------------------
+//
+// The download runs on a native thread into a log of its own. Nothing touches
+// the logbook until dcDownloadAccept merges the selected dives.
+
+/** Every dive computer the app can reach, by vendor. */
+export function dcListComputers(): DiveComputerVendor[] {
+  return call<DiveComputerVendor[]>('dcListComputers');
+}
+
+/** Which dive computer a Bluetooth name belongs to, or null. */
+export function dcDetect(name: string): DiveComputerIdentity | null {
+  return call<DiveComputerIdentity | null>('dcDetect', { name });
+}
+
+/** Where the downloader keeps its fingerprint cache and its log. */
+export function configureDownloads(dataDir: string): void {
+  call('configure', { dataDir });
+}
+
+export function dcDownloadStart(options: DownloadOptions): void {
+  call('dcDownloadStart', options);
+}
+
+/** The whole state of the session; onCoreEvent says when it is worth asking. */
+export function dcDownloadStatus(): DownloadStatus {
+  return call<DownloadStatus>('dcDownloadStatus');
+}
+
+export function dcDownloadCancel(): void {
+  call('dcDownloadCancel');
+}
+
+/**
+ * Merges the selected dives into the logbook and ends the session. As an import,
+ * this is not on disk until the caller persists it.
+ */
+export function dcDownloadAccept(indices: number[]): ImportResult {
+  return call<ImportResult>('dcDownloadAccept', { indices });
+}
+
+export function dcDownloadDiscard(): void {
+  call('dcDownloadDiscard');
+}
+
+/** `knownAddresses`: dive computers that may have stopped advertising once bonded. */
+export function bleScanStart(knownAddresses: string[] = []): void {
+  call('bleScanStart', { knownAddresses });
+}
+
+export function bleScanStop(): void {
+  call('bleScanStop');
+}
+
+export function bleScanStatus(): BleScanStatus {
+  return call<BleScanStatus>('bleScanStatus');
+}
+
+/** Native pushes: download progress, scan results, the state of the adapter. */
+export function addCoreEventListener(listener: (event: CoreEvent) => void): { remove(): void } {
+  return SsrfCoreModule.addListener('onCoreEvent', ({ json }: { json: string }) => {
+    listener(JSON.parse(json) as CoreEvent);
+  });
 }
 
 // `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:
