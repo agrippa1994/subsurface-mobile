@@ -604,7 +604,7 @@ void Stream::on_write_complete(const std::string &, const std::string &error)
 void Stream::on_read_complete(const std::string &characteristic, const std::vector<uint8_t> &value, const std::string &error)
 {
 	std::lock_guard<std::mutex> lock(mutex);
-	if (normalize_uuid(characteristic) == direct_read_uuid) {
+	if (normalize_uuid(characteristic) == direct_read_uuid && op.pending) {
 		direct_read_value = value;
 		op.error = error;
 		op.pending = false;
@@ -621,6 +621,12 @@ void Stream::on_value(const std::string &characteristic, const std::vector<uint8
 {
 	const std::string uuid = normalize_uuid(characteristic);
 	std::lock_guard<std::mutex> lock(mutex);
+	if (uuid == direct_read_uuid && op.pending) {
+		direct_read_value = value;
+		op.pending = false;
+		changed.notify_all();
+		return;
+	}
 	if (is_hw) {
 		// The credit characteristic also notifies, and is not data.
 		if (uuid != TELIT_DATA_TX && uuid != UBLOX_DATA)

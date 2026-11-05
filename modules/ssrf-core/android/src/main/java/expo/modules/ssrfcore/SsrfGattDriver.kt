@@ -109,6 +109,7 @@ class SsrfGattDriver(private val context: Context) {
       if (newState == BluetoothProfile.STATE_CONNECTED) {
         // Dive computers send big packets. Qt's Android backend asks for this too.
         if (!gatt.requestMtu(MAX_MTU)) {
+          reported = true
           SsrfCoreModule.nativeBleConnected("")
         }
       } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {

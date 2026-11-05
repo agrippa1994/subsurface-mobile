@@ -58,6 +58,8 @@ static CBUUID *cb_uuid(const std::string &uuid)
   CBPeripheral *_peripheral;
   // Waiting for the adapter to be ready, because the manager was only just made.
   dispatch_block_t _whenPoweredOn;
+  // What to tell a connect that was waiting, if the adapter turns out not to be.
+  dispatch_block_t _whenUnavailable;
   // Service discovery comes back per service.
   NSUInteger _servicesPending;
   // A write without response whose answer waits for room in the send queue.
@@ -82,13 +84,23 @@ static CBUUID *cb_uuid(const std::string &uuid)
   }
 }
 
-- (void)whenPoweredOn:(dispatch_block_t)block
+- (void)whenPoweredOn:(dispatch_block_t)block otherwise:(nullable dispatch_block_t)otherwise
 {
   [self ensureManager];
-  if (_manager.state == CBManagerStatePoweredOn) {
-    block();
-  } else {
-    _whenPoweredOn = block;
+  switch (_manager.state) {
+    case CBManagerStatePoweredOn:
+      block();
+      break;
+    case CBManagerStateUnknown:
+    case CBManagerStateResetting:
+      _whenPoweredOn = block;
+      _whenUnavailable = otherwise;
+      break;
+    default:
+      if (otherwise) {
+        otherwise();
+      }
+      break;
   }
 }
 
@@ -100,6 +112,7 @@ static CBUUID *cb_uuid(const std::string &uuid)
       if (_whenPoweredOn) {
         dispatch_block_t block = _whenPoweredOn;
         _whenPoweredOn = nil;
+        _whenUnavailable = nil;
         block();
       }
       return;
@@ -117,6 +130,11 @@ static CBUUID *cb_uuid(const std::string &uuid)
   }
   // Whatever was waiting for the adapter will not get it now.
   _whenPoweredOn = nil;
+  if (_whenUnavailable) {
+    dispatch_block_t block = _whenUnavailable;
+    _whenUnavailable = nil;
+    block();
+  }
 }
 
 - (void)reportPeripheral:(CBPeripheral *)peripheral name:(NSString *)name rssi:(int)rssi
@@ -149,7 +167,7 @@ static CBUUID *cb_uuid(const std::string &uuid)
     }
     // No service filter: several dive computers do not advertise their service.
     [self->_manager scanForPeripheralsWithServices:nil options:nil];
-  }];
+  } otherwise:nil];
 }
 
 - (void)centralManager:(CBCentralManager *)central
@@ -166,6 +184,7 @@ static CBUUID *cb_uuid(const std::string &uuid)
 - (void)stopScan
 {
   _whenPoweredOn = nil;
+  _whenUnavailable = nil;
   [_manager stopScan];
 }
 
@@ -185,6 +204,8 @@ static CBUUID *cb_uuid(const std::string &uuid)
     self->_peripheral = peripheral;
     peripheral.delegate = self;
     [self->_manager connectPeripheral:peripheral options:nil];
+  } otherwise:^{
+    gatt_event_connected("Bluetooth is off or not allowed for this app");
   }];
 }
 
@@ -216,6 +237,8 @@ static CBUUID *cb_uuid(const std::string &uuid)
 {
   CBPeripheral *peripheral = _peripheral;
   _peripheral = nil;
+  _whenPoweredOn = nil;
+  _whenUnavailable = nil;
   _waitingToSend.clear();
   if (peripheral) {
     [_manager cancelPeripheralConnection:peripheral];
@@ -287,8 +310,8 @@ static CBUUID *cb_uuid(const std::string &uuid)
 
 - (CBCharacteristic *)find:(const std::string &)service characteristic:(const std::string &)characteristic
 {
-  const CBUUID *serviceUuid = cb_uuid(service);
-  const CBUUID *characteristicUuid = cb_uuid(characteristic);
+  CBUUID *serviceUuid = cb_uuid(service);
+  CBUUID *characteristicUuid = cb_uuid(characteristic);
   for (CBService *s in _peripheral.services) {
     if (![s.UUID isEqual:serviceUuid]) {
       continue;
@@ -373,8 +396,9 @@ static CBUUID *cb_uuid(const std::string &uuid)
     return;
   }
   const std::string uuid = normalize_uuid(std_string(characteristic.UUID.UUIDString));
-  // CoreBluetooth has one callback for a notification and for a read. Telling them
-  // apart matters only while the stream waits for a read: isNotifying says which.
+  // CoreBluetooth has one callback for a notification and for a read. isNotifying
+  // tells them apart well enough: the stream turns a value it was reading for back
+  // into the read, whichever way it comes.
   if (characteristic.isNotifying && !error) {
     gatt_event_value_changed(uuid, bytes_of(characteristic.value));
   } else {

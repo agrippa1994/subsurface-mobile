@@ -17,11 +17,14 @@ type AndroidSymbol = NonNullable<Extract<SymbolName, object>['android']>;
 
 /** SF Symbol -> Material Symbol, for every symbol the app draws. */
 export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
+  'arrow.down.circle': 'download',
   'arrow.down.to.line': 'vertical_align_bottom',
+  checkmark: 'check',
   'chart.bar': 'bar_chart',
   'checkmark.circle.fill': 'check_circle',
   'checkmark.icloud': 'cloud_done',
   'chevron.right': 'chevron_right',
+  circle: 'radio_button_unchecked',
   clock: 'schedule',
   'clock.arrow.circlepath': 'history',
   'cylinder.fill': 'propane_tank',

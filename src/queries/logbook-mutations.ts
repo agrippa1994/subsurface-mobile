@@ -25,6 +25,7 @@ import {
 } from '@tanstack/react-query';
 
 import {
+  dcDownloadAccept,
   deleteDive,
   deleteDiveSite,
   exportDiveCSV,
@@ -167,6 +168,26 @@ export function useImportFile(): UseMutationResult<ImportResult, Error, string> 
       // asked for a save.
       await ensureLogbookLoaded(client);
       return importFile(path);
+    },
+    onSuccess: async () => {
+      await resetData(client);
+      schedulePersist();
+      await flush();
+    },
+  });
+}
+
+/**
+ * Merges the dives picked from a download into the loaded log, and writes it, for
+ * the same reasons as an import above.
+ */
+export function useAcceptDownload(): UseMutationResult<ImportResult, Error, number[]> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (indices: number[]) => {
+      // As an import: the merge must not land in a logbook still being loaded.
+      await ensureLogbookLoaded(client);
+      return dcDownloadAccept(indices);
     },
     onSuccess: async () => {
       await resetData(client);

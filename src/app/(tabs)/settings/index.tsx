@@ -57,9 +57,15 @@ export default function SettingsScreen() {
       <FormSection
         title="Transfer"
         footer="Import adds the dives in a Subsurface logbook or a Suunto export to this one. Open replaces it.">
+        <ActionRow label="Download from dive computer" onPress={screen.diveComputers.open} />
         <ActionRow label="Import dives" onPress={screen.transfer.importFile} />
         <ActionRow label="Export and share" onPress={screen.transfer.shareLogbook} />
         <ActionRow label="Open a logbook" onPress={screen.transfer.openLogbook} />
+        <ActionRow
+          label="Forget remembered dive computers"
+          onPress={screen.diveComputers.forget}
+          disabled={screen.diveComputers.remembered === 0}
+        />
       </FormSection>
 
       <FormSection

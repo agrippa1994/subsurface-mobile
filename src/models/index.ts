@@ -14,6 +14,16 @@
 // or imperial.
 
 export type {
+  BleAdapterState,
+  BleDevice,
+  BleScanStatus,
+  CoreEvent,
+  DiveComputerIdentity,
+  DiveComputerVendor,
+  DownloadedDive,
+  DownloadOptions,
+  DownloadState,
+  DownloadStatus,
   CsvExportOptions,
   CsvExportResult,
   CsvFormat,

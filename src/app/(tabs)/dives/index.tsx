@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
+import { HeaderAction } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
@@ -37,6 +38,8 @@ export default function DivesScreen() {
   const dives = useMemo(() => divesQuery.data ?? [], [divesQuery.data]);
   const unitSystem = useUnitSystem();
   const deleteDive = useDeleteDive();
+
+  const openDownload = useCallback(() => router.push('/dives/download'), [router]);
 
   const [query, setQuery] = useState('');
   const searchIndex = useMemo(() => buildDiveSearchIndex(dives), [dives]);
@@ -117,8 +120,10 @@ export default function DivesScreen() {
       <StatusView
         kind="empty"
         title="No dives yet"
-        description="Import a Suunto database or a Subsurface logbook to get started."
+        description="Download them from your dive computer, or import a Suunto database or a Subsurface logbook."
         systemImage="water.waves"
+        actionLabel="Download from dive computer"
+        onAction={openDownload}
       />
     );
   }
@@ -141,6 +146,7 @@ export default function DivesScreen() {
   return (
     <>
       {searchBar}
+      <HeaderAction label="Download" icon="arrow.down.circle" onPress={openDownload} />
       <DiveListView
         sections={sections}
         unitSystem={unitSystem}

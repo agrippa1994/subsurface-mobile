@@ -96,6 +96,7 @@ export default function SettingsScreen() {
               files alike. Open replaces it.
             </Text>
           }>
+          <Button label="Download from dive computer" onPress={screen.diveComputers.open} />
           <Button
             label="Import dives"
             modifiers={[disabled(screen.transfer.busy)]}
@@ -111,6 +112,12 @@ export default function SettingsScreen() {
             role="destructive"
             modifiers={[disabled(screen.transfer.busy)]}
             onPress={screen.transfer.openLogbook}
+          />
+          <Button
+            label="Forget remembered dive computers"
+            role="destructive"
+            modifiers={[disabled(screen.diveComputers.remembered === 0)]}
+            onPress={screen.diveComputers.forget}
           />
         </Section>
 

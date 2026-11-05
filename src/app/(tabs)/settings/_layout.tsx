@@ -8,6 +8,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="index" options={{ title: 'Settings' }} />
       <Stack.Screen name="ssi" options={{ title: 'SSI', headerLargeTitle: false }} />
       <Stack.Screen name="git" options={{ title: 'Git sync', headerLargeTitle: false }} />
+      <Stack.Screen name="download" options={{ title: 'Dive computer', headerLargeTitle: false }} />
     </Stack>
   );
 }

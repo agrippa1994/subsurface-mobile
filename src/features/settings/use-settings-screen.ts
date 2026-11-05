@@ -25,7 +25,9 @@ import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
   useGfSeries,
+  useForgetComputers,
   useGradientFactors,
+  useRememberedComputers,
   useSetGfSeries,
   useSetGradientFactors,
   useSetUnitSystem,
@@ -35,6 +37,8 @@ import {
 export type SettingsScreen = {
   /** Import and export (task 11), so the screen has one object to render from. */
   transfer: Transfer;
+  /** The download screen, and the dive computers it remembers. */
+  diveComputers: { remembered: number; open: () => void; forget: () => void };
   unitSystem: UnitSystem;
   setUnitSystem: (system: UnitSystem) => void;
   /** Buehlmann gradient factors, in percent, the profile ceiling is computed with. */
@@ -235,6 +239,29 @@ export function useSettingsScreen(): SettingsScreen {
 
   const mcp = useMcpSection();
 
+  // Fingerprints stay: they are in the logbook, and they belong to the dives.
+  const rememberedComputers = useRememberedComputers();
+  const forgetComputers = useForgetComputers();
+  const openDownload = useCallback(() => router.push('/settings/download'), [router]);
+  const diveComputers = useMemo(
+    () => ({
+      remembered: rememberedComputers.length,
+      open: openDownload,
+      forget: () => {
+        warned();
+        Alert.alert(
+          'Forget remembered dive computers?',
+          'They are no longer offered for a quick download. The dives you downloaded stay, and so does which of them are new.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Forget', style: 'destructive', onPress: forgetComputers },
+          ],
+        );
+      },
+    }),
+    [rememberedComputers.length, openDownload, forgetComputers],
+  );
+
   const about = aboutInfo();
   const [diagnostics, setDiagnostics] = useState(() => diagnosticsSummary(readDiagnostics()));
 
@@ -278,6 +305,7 @@ export function useSettingsScreen(): SettingsScreen {
 
   return {
     transfer,
+    diveComputers,
     unitSystem,
     setUnitSystem,
     gfLow,
