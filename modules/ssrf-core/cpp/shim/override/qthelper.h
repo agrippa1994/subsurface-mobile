@@ -54,4 +54,6 @@ std::string local_file_path(const struct picture &picture);
 // re-reads state explicitly after every mutation, so this is a no-op.
 void emit_reset_signal();
 
+void subsurface_mkdir(const char *dir);
+
 #endif // QTHELPER_H

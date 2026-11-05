@@ -47,6 +47,8 @@ target_include_directories(ssrfcore PRIVATE
 target_compile_definitions(ssrfcore PRIVATE SUBSURFACE_MOBILE)
 target_compile_options(ssrfcore PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-include ${CPP}/shim/include/ssrf-stdlib-compat.h>
+  # libdivecomputer's sources pick up the config.h vendor-core.mjs writes.
+  $<$<COMPILE_LANGUAGE:C>:-DHAVE_CONFIG_H=1>
   -Wno-unused-parameter -Wno-unused-variable
 )
 

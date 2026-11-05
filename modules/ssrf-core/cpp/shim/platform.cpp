@@ -38,6 +38,23 @@ std::string system_default_filename()
 	return data_directory + "/subsurface.xml";
 }
 
+// upstream's core/file.cpp is not compiled (see CORE_MANIFEST.md); the downloader
+// reads its fingerprint cache with this.
+std::pair<std::string, int> readfile(const char *filename)
+{
+	std::string res;
+	FILE *fp = subsurface_fopen(filename, "rb");
+	if (!fp)
+		return { res, -1 };
+	char chunk[4096];
+	size_t n;
+	while ((n = fread(chunk, 1, sizeof(chunk), fp)) > 0)
+		res.append(chunk, n);
+	const bool failed = ferror(fp);
+	fclose(fp);
+	return { res, failed ? -1 : static_cast<int>(res.size()) };
+}
+
 std::string system_divelist_default_font = "Arial";
 double system_divelist_default_font_size = -1.0;
 

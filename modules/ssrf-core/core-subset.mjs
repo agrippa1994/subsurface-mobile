@@ -50,6 +50,11 @@ export const CORE_SOURCES = [
 	'core/import-suunto.cpp',
 	'core/import-suunto-json.cpp',
 
+	// Downloading from a dive computer (see patches/0008). The dive parsing, the
+	// fingerprint logic and the incremental stop are upstream's; only the
+	// transport under it is new (cpp/bindings/ble-stream.cpp).
+	'core/libdivecomputer.cpp',
+
 	// Math
 	'core/deco.cpp',
 	'core/planner.cpp',
@@ -64,10 +69,14 @@ export const CORE_SOURCES = [
 // cherry-picking them would only produce noisy churn. Copying is cheap.
 export const CORE_HEADER_GLOBS = ['core/*.h'];
 
-// libdivecomputer is used by the subset for its enums only (event types,
-// sample types, water types) - no dc_* function is ever called, so the headers
-// suffice and the C library is not built. See CORE_MANIFEST.md.
+// libdivecomputer is built from source as part of the module: the public
+// headers land in cpp/generated/libdivecomputer/, the C sources in its src/.
+// Which sources is read out of upstream's own Makefile.am (see vendor-core.mjs),
+// so a submodule bump picks up a new backend without touching this file.
 export const LIBDC_HEADER_DIR = 'libdivecomputer/include/libdivecomputer';
+export const LIBDC_SOURCE_DIR = 'libdivecomputer/src';
+// Listed in Makefile.am but not for these platforms.
+export const LIBDC_SOURCE_EXCLUDES = ['serial_win32.c', 'libdivecomputer.rc'];
 
 // XSLT stylesheets. parse-xml.cpp transforms every non-SSRF XML format through
 // one of these (Suunto DM4/SDM, UDDF, MacDive, ...), loading it by name from a
@@ -87,4 +96,5 @@ export const PATCHES = [
 	'0004-device-decode-fingerprint-without-qt.patch',
 	'0006-xslt-match-namespace-declaration.patch',
 	'0007-suunto-json-without-fit.patch',
+	'0008-libdivecomputer-download-without-qt.patch',
 ];
