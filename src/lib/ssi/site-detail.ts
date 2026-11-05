@@ -1,6 +1,7 @@
 // AI-generated (Claude)
 import { parseSsiSiteDetail } from '@/models/ssi/site-browse';
-import { parseSsiEnvironmentNames } from '@/models/ssi/site-insights';
+import { parseSsiSiteLookups, type SsiSiteLookups } from '@/models/ssi/site-lookups';
+import { createClient } from 'divessi-client';
 import { createSsiClient, ssiData } from './api';
 
 export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
@@ -16,7 +17,33 @@ export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
   return parseSsiSiteDetail(response, id);
 }
 
-/** SSI's names for site environment ids. The `countries` call is `get_vars`. */
-export async function fetchSsiEnvironmentNames(signal?: AbortSignal) {
-  return parseSsiEnvironmentNames(await ssiData(createSsiClient().countries(undefined, { signal })));
+/**
+ * A read-only action divessi-client does not wrap. Reuses its `get_vars` call and
+ * rewrites the action, so the app identity SSI requires stays the library's job.
+ */
+function readSsiAction(action: string, signal?: AbortSignal): Promise<unknown> {
+  const client = createClient({
+    metadata: { lang: 'eng' },
+    fetch: (url, init) => fetch(String(url).replace('what=get_vars', `what=${action}`), init),
+  });
+  return ssiData(client.countries(undefined, { signal, decode: (raw: unknown) => raw }));
+}
+
+/**
+ * The labels for a site's codes. One failed table only costs its own labels; with
+ * all three gone there is nothing to keep, so that fails and is tried again later.
+ */
+export async function fetchSsiSiteLookups(signal?: AbortSignal): Promise<SsiSiteLookups> {
+  const results = await Promise.allSettled(
+    ['get_divelog_vars', 'get_wildlife_vars', 'get_translations'].map((action) =>
+      readSsiAction(action, signal),
+    ),
+  );
+  if (results.every((result) => result.status === 'rejected')) {
+    throw new Error('SSI provided no lookup tables.');
+  }
+  const [vars, wildlife, translations] = results.map((result) =>
+    result.status === 'fulfilled' ? result.value : null,
+  );
+  return parseSsiSiteLookups(vars, wildlife, translations);
 }

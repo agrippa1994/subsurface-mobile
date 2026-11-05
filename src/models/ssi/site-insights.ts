@@ -40,6 +40,15 @@ export type SsiSiteMonth = {
   visibilityM: number | null;
 };
 
+/** How many dives reported a lookup code. */
+export type SsiCodeCount = { id: number; count: number };
+
+export type SsiSiteWildlife = {
+  id: number;
+  /** 1 to 12. Empty when SSI lists the animal without saying when. */
+  months: number[];
+};
+
 export type SsiSiteInsights = {
   avgDepthM: number | null;
   avgMinutes: number | null;
@@ -54,8 +63,13 @@ export type SsiSiteInsights = {
   ratingCounts: number[];
   /** Named kinds of diving with at least one dive, most dived first. */
   diveTypes: { label: string; dives: number }[];
-  /** `get_vars` ids describing the site's environment. */
+  /** Lookup ids describing the site's environment. */
   environmentIds: number[];
+  /** Lookup ids of the experience levels the site suits. */
+  levelIds: number[];
+  current: SsiCodeCount[];
+  entry: SsiCodeCount[];
+  wildlife: SsiSiteWildlife[];
 };
 
 function toNumber(value: unknown): number | null {
@@ -87,6 +101,48 @@ function toObject(value: unknown): Record<string, unknown> {
   return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
     ? (parsed as Record<string, unknown>)
     : {};
+}
+
+function toCodeCounts(value: unknown): SsiCodeCount[] {
+  return Object.entries(toObject(value)).flatMap(([id, raw]) => {
+    const count = toNumber(raw);
+    return count !== null && count > 0 && Number.isFinite(Number(id))
+      ? [{ id: Number(id), count }]
+      : [];
+  });
+}
+
+function toIds(value: unknown): number[] {
+  return Array.isArray(value) ? value.flatMap((id) => toNumber(id) ?? []) : [];
+}
+
+/** `{ "22": { "month_5": 1 } }`, or just the ids when the months are missing. */
+function toWildlife(selected: unknown, sightings: unknown): SsiSiteWildlife[] {
+  const entries = Object.entries(toObject(selected));
+  if (entries.length === 0) {
+    let ids: unknown = sightings;
+    if (typeof sightings === 'string') {
+      try {
+        ids = JSON.parse(sightings);
+      } catch {
+        return [];
+      }
+    }
+    return toIds(ids).map((id) => ({ id, months: [] }));
+  }
+  return entries.flatMap(([id, months]) => {
+    const parsed = Number(id);
+    if (!Number.isFinite(parsed)) return [];
+    return [
+      {
+        id: parsed,
+        months: Object.keys(toObject(months)).flatMap((key) => {
+          const match = /^month_(\d+)$/.exec(key);
+          return match ? [Number(match[1])] : [];
+        }),
+      },
+    ];
+  });
 }
 
 const DIVE_TYPES: Record<string, string> = {
@@ -122,7 +178,8 @@ export function parseSsiSiteInsights(detail: SiteDetail): SsiSiteInsights {
 
   const stars = toObject(detail.avg_log_rating_details);
   const types = toObject(detail.diveType);
-  const environment: unknown = (detail as { environment?: unknown }).environment;
+  // Sent by the server but absent from the declared model.
+  const extra = detail as { environment?: unknown; wildlife_selected?: unknown };
 
   return {
     avgDepthM: toAverage(detail.avg_max_depth_logged),
@@ -138,43 +195,53 @@ export function parseSsiSiteInsights(detail: SiteDetail): SsiSiteInsights {
       .map(([key, label]) => ({ label, dives: toNumber(types[key]) ?? 0 }))
       .filter((type) => type.dives > 0)
       .sort((a, b) => b.dives - a.dives),
-    environmentIds: Array.isArray(environment)
-      ? environment.flatMap((id) => toNumber(id) ?? [])
-      : [],
+    environmentIds: toIds(extra.environment),
+    levelIds: toIds(toObject(detail.odin_dive_sites_content).level),
+    current: toCodeCounts(detail.current),
+    entry: toCodeCounts(detail.entryTypes),
+    wildlife: toWildlife(extra.wildlife_selected, detail.sightings),
   };
 }
 
-const ENVIRONMENT_LABELS: Record<string, string> = {
-  wall_drop_off: 'Wall or drop-off',
-  cavern_cave: 'Cavern or cave',
-};
-
-function environmentLabel(option: string): string {
-  const words = option.replace(/_/g, ' ');
-  return ENVIRONMENT_LABELS[option] ?? words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** Environment names by id, from the `bow_env` table in `get_vars`. */
-export function parseSsiEnvironmentNames(vars: unknown): Map<number, string> {
-  const names = new Map<number, string>();
-  for (const options of Object.values(toObject(toObject(vars).bow_env))) {
-    for (const option of Array.isArray(options) ? options : []) {
-      const row = toObject(option);
-      const id = toNumber(row.odin_dive_sites_vars_id);
-      if (id !== null && typeof row.odin_dive_sites_vars_option === 'string') {
-        names.set(id, environmentLabel(row.odin_dive_sites_vars_option));
-      }
-    }
-  }
-  return names;
-}
-
-/** The ids SSI has a name for, de-duplicated by name, in the site's order. */
-export function ssiEnvironmentLabels(
-  ids: readonly number[],
-  names: ReadonlyMap<number, string>
-): string[] {
+/** The ids a table has a name for, de-duplicated by name, in the site's order. */
+export function ssiLabels(ids: readonly number[], names: ReadonlyMap<number, string>): string[] {
   return [...new Set(ids.flatMap((id) => names.get(id) ?? []))];
+}
+
+export type SsiShareRow = { label: string; count: number; percent: number };
+
+/**
+ * Named categories with their share of all reports, largest first. The share is
+ * of everything reported, so a code without a name does not inflate the others.
+ */
+export function ssiShareRows(
+  counts: readonly SsiCodeCount[],
+  names: ReadonlyMap<number, string>
+): SsiShareRow[] {
+  const total = counts.reduce((sum, { count }) => sum + count, 0);
+  return counts
+    .flatMap(({ id, count }) => {
+      const label = names.get(id);
+      return label ? [{ label, count, percent: Math.round((count / total) * 100) }] : [];
+    })
+    .sort((a, b) => b.count - a.count);
+}
+
+/**
+ * When an animal is seen: "All year", "May to September", or a list when the
+ * months are not one run. The run may cross the new year.
+ */
+export function ssiMonthRange(months: readonly number[]): string {
+  const seen = [...new Set(months)].filter((m) => m >= 1 && m <= 12).sort((a, b) => a - b);
+  if (seen.length === 0) return '';
+  if (seen.length === 12) return 'All year';
+  const has = (month: number) => seen.includes(month);
+  const starts = seen.filter((month) => !has(month === 1 ? 12 : month - 1));
+  const name = (month: number) => MONTHS[month - 1];
+  if (starts.length !== 1) return seen.map((month) => name(month).slice(0, 3)).join(', ');
+  if (seen.length === 1) return name(seen[0]);
+  const last = seen.filter((month) => !has(month === 12 ? 1 : month + 1))[0];
+  return `${name(starts[0])} to ${name(last)}`;
 }
 
 export function formatSsiDepth(meters: number, system: UnitSystem): string {

@@ -6,12 +6,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatSsiDepth,
-  parseSsiEnvironmentNames,
   parseSsiSiteInsights,
   ssiAirTemperatureBars,
-  ssiEnvironmentLabels,
+  ssiLabels,
+  ssiMonthRange,
   ssiMonthlyDiveBars,
   ssiRatingBars,
+  ssiShareRows,
   ssiVisibilityBars,
   ssiWaterTemperatureBars,
 } from './site-insights';
@@ -32,6 +33,11 @@ const gosslerBucht = {
     '{"7": {"dives": "3", "avgVis": "6", "avgAirTemp": "16", "avgWaterTemp": "12"},' +
     ' "8": {"dives": "7", "avgVis": "10", "avgAirTemp": "15", "avgWaterTemp": "13.5"}}',
   environment: [185],
+  current: '{"6": "6", "7": "1"}',
+  entryTypes: '{"21": "5", "22": "2"}',
+  odin_dive_sites_content: '{"bow": ["18"], "level": ["1", "2"]}',
+  sightings: '["22", "24"]',
+  wildlife_selected: { '22': { month_5: 1, month_6: 1 }, '24': { month_1: 1 } },
 } as unknown as SiteDetail;
 
 describe('parseSsiSiteInsights', () => {
@@ -127,27 +133,74 @@ describe('monthly bars', () => {
   });
 });
 
-describe('environment names', () => {
-  const names = parseSsiEnvironmentNames({
-    bow_env: {
-      fresh: [
-        { odin_dive_sites_vars_id: '185', odin_dive_sites_vars_option: 'lake' },
-        { odin_dive_sites_vars_id: '174', odin_dive_sites_vars_option: 'wall_drop_off' },
+describe('lookup codes', () => {
+  const insights = parseSsiSiteInsights(gosslerBucht);
+
+  it('reads the codes from JSON text', () => {
+    expect(insights.current).toEqual([
+      { id: 6, count: 6 },
+      { id: 7, count: 1 },
+    ]);
+    expect(insights.entry).toEqual([
+      { id: 21, count: 5 },
+      { id: 22, count: 2 },
+    ]);
+    expect(insights.levelIds).toEqual([1, 2]);
+    expect(insights.wildlife).toEqual([
+      { id: 22, months: [5, 6] },
+      { id: 24, months: [1] },
+    ]);
+  });
+
+  it('falls back to bare wildlife ids when the months are missing', () => {
+    const bare = parseSsiSiteInsights({ sightings: '["22", "x", "24"]' } as unknown as SiteDetail);
+    expect(bare.wildlife).toEqual([
+      { id: 22, months: [] },
+      { id: 24, months: [] },
+    ]);
+  });
+
+  it('labels what it can, dropping repeats and unknown codes', () => {
+    const names = new Map([
+      [1, 'Lake'],
+      [2, 'Lake'],
+      [3, 'Wreck'],
+    ]);
+    expect(ssiLabels([1, 2, 99, 3], names)).toEqual(['Lake', 'Wreck']);
+  });
+
+  it('gives shares of all reports, largest first, without inflating them', () => {
+    const rows = ssiShareRows(
+      [
+        { id: 7, count: 1 },
+        { id: 6, count: 2 },
+        { id: 99, count: 1 },
       ],
-      salt: [{ odin_dive_sites_vars_id: '164', odin_dive_sites_vars_option: 'wall_drop_off' }],
-    },
+      new Map([
+        [6, 'None'],
+        [7, 'Light'],
+      ])
+    );
+    expect(rows).toEqual([
+      { label: 'None', count: 2, percent: 50 },
+      { label: 'Light', count: 1, percent: 25 },
+    ]);
+  });
+});
+
+describe('ssiMonthRange', () => {
+  it('names the whole year, one month, and a run', () => {
+    expect(ssiMonthRange([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toBe('All year');
+    expect(ssiMonthRange([6])).toBe('June');
+    expect(ssiMonthRange([5, 6, 7, 8, 9])).toBe('May to September');
   });
 
-  it('reads the table and writes the names out', () => {
-    expect(names.get(185)).toBe('Lake');
-    expect(names.get(174)).toBe('Wall or drop-off');
+  it('follows a run across the new year', () => {
+    expect(ssiMonthRange([1, 12])).toBe('December to January');
   });
 
-  it('drops unknown ids and repeats of a name', () => {
-    expect(ssiEnvironmentLabels([174, 164, 999, 185], names)).toEqual(['Wall or drop-off', 'Lake']);
-  });
-
-  it('accepts a response with no table', () => {
-    expect(parseSsiEnvironmentNames(null).size).toBe(0);
+  it('lists months that are not one run, and accepts none', () => {
+    expect(ssiMonthRange([1, 3, 7])).toBe('Jan, Mar, Jul');
+    expect(ssiMonthRange([])).toBe('');
   });
 });

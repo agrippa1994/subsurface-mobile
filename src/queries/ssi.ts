@@ -24,7 +24,7 @@ import { useMemo } from 'react';
 
 import { updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
-import { fetchSsiEnvironmentNames, fetchSsiSiteDetail } from '@/lib/ssi/site-detail';
+import { fetchSsiSiteDetail, fetchSsiSiteLookups } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
 import {
   readAccount,
@@ -255,11 +255,11 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
   });
 }
 
-/** Reference data, so it is kept for a week. Without it the names are simply left out. */
-export function useSsiEnvironmentNames() {
+/** Reference data, so it is kept for a week. Without it the coded rows are left out. */
+export function useSsiSiteLookups() {
   return useQuery({
-    queryKey: ['ssi', 'environment-names'],
-    queryFn: ({ signal }) => fetchSsiEnvironmentNames(signal),
+    queryKey: ['ssi', 'site-lookups'],
+    queryFn: ({ signal }) => fetchSsiSiteLookups(signal),
     staleTime: 7 * 24 * 60 * 60 * 1000,
     gcTime: 7 * 24 * 60 * 60 * 1000,
     retry: 1,

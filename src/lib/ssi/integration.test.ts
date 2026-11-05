@@ -8,6 +8,7 @@ import { strToU8, zipSync } from 'fflate';
 import { authenticate, readAccount, signIn, signOut } from './auth';
 import { fetchSsiLogbook } from './divelog';
 import { createSsiClient, ssiData } from './api';
+import { fetchSsiSiteLookups } from './site-detail';
 import { downloadSiteIndex, ensureSiteIndex, refreshSiteIndex, siteIndexInfo } from './site-cache';
 
 const { secrets, files } = vi.hoisted(() => ({
@@ -316,5 +317,44 @@ describe('SSI site details', () => {
       Response.json([{ dive_site_id: 1, dive_site_name: 'Restored' }]),
     );
     expect((await fetchSsiSiteDetail(1))?.dive_site_name).toBe('Restored');
+  });
+});
+
+describe('SSI site lookups', () => {
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+  const answers: Record<string, () => Response> = {
+    get_divelog_vars: () => json({ logbook_vars: { current: { '6': 'no_current' } } }),
+    get_wildlife_vars: () => json({ wildlife: { animal: [{ id: 22, title_key: 'pike' }] } }),
+    get_translations: () => json({ eng: { no_current: 'No Current', pike: 'Pike' } }),
+  };
+  const answer = async (url: unknown) => {
+    const action = new URL(String(url)).searchParams.get('what') ?? '';
+    return answers[action]?.() ?? new Response('[]', { status: 404 });
+  };
+
+  it('asks for each table with the app identity and without a token', async () => {
+    fetchMock.mockImplementation(answer);
+    const lookups = await fetchSsiSiteLookups();
+    expect(lookups.current.get(6)).toBe('No Current');
+    expect(lookups.wildlife.get(22)?.name).toBe('Pike');
+
+    const urls = fetchMock.mock.calls.map(([url]) => new URL(String(url)).searchParams);
+    expect(urls.map((query) => query.get('what')).sort()).toEqual(Object.keys(answers).sort());
+    expect(urls.every((query) => query.get('ssiapp') !== null && !query.has('token'))).toBe(true);
+  });
+
+  it('keeps what it got when one table fails', async () => {
+    fetchMock.mockImplementation(async (url) =>
+      String(url).includes('get_translations') ? new Response('[]', { status: 500 }) : answer(url)
+    );
+    const lookups = await fetchSsiSiteLookups();
+    expect(lookups.current.get(6)).toBe('No current');
+    expect(lookups.wildlife.get(22)?.name).toBe('Pike');
+  });
+
+  it('fails when every table fails', async () => {
+    fetchMock.mockImplementation(async () => new Response('[]', { status: 500 }));
+    await expect(fetchSsiSiteLookups()).rejects.toThrow('no lookup tables');
   });
 });
