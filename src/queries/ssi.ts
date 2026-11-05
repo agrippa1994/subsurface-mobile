@@ -24,7 +24,7 @@ import { useMemo } from 'react';
 
 import { updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
-import { fetchSsiSiteDetail } from '@/lib/ssi/site-detail';
+import { fetchSsiEnvironmentNames, fetchSsiSiteDetail } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
 import {
   readAccount,
@@ -252,6 +252,17 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
       await client.invalidateQueries({ queryKey: queryKeys.logData() });
     },
     retry: false,
+  });
+}
+
+/** Reference data, so it is kept for a week. Without it the names are simply left out. */
+export function useSsiEnvironmentNames() {
+  return useQuery({
+    queryKey: ['ssi', 'environment-names'],
+    queryFn: ({ signal }) => fetchSsiEnvironmentNames(signal),
+    staleTime: 7 * 24 * 60 * 60 * 1000,
+    gcTime: 7 * 24 * 60 * 60 * 1000,
+    retry: 1,
   });
 }
 

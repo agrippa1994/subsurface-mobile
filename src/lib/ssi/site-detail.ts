@@ -1,5 +1,6 @@
 // AI-generated (Claude)
 import { parseSsiSiteDetail } from '@/models/ssi/site-browse';
+import { parseSsiEnvironmentNames } from '@/models/ssi/site-insights';
 import { createSsiClient, ssiData } from './api';
 
 export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
@@ -13,4 +14,9 @@ export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
     );
   }
   return parseSsiSiteDetail(response, id);
+}
+
+/** SSI's names for site environment ids. The `countries` call is `get_vars`. */
+export async function fetchSsiEnvironmentNames(signal?: AbortSignal) {
+  return parseSsiEnvironmentNames(await ssiData(createSsiClient().countries(undefined, { signal })));
 }
