@@ -1,24 +1,19 @@
 // AI-generated (Claude)
 // The dive-site map: shows a site's position and, when editable, picks one.
 //
-// iOS gets Apple Maps through expo-maps; Android needs a Google Maps API key
-// and arrives with task 13, so there it degrades to the coordinate readout
-// rather than an empty grey box. Coordinates cross the module boundary as
-// microdegrees and are converted here (see models/site-edit.ts).
+// Where there is no map (see components/platform-map.tsx) it degrades to the
+// coordinate readout rather than an empty grey box. Coordinates cross the module boundary as microdegrees and
+// are converted here (see models/site-edit.ts).
 
-import { AppleMaps } from 'expo-maps';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { MAPS_AVAILABLE, PlatformMap } from '@/components/platform-map';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { degreesToUdeg, udegToDegrees } from '@/models';
 import { formatCoordinates, SITE_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
 
-/**
- * Whether this platform has a map at all. The one place that decides it: every
- * screen that would show a map asks this rather than checking the platform.
- */
-export const MAPS_AVAILABLE = Platform.OS === 'ios';
+export { MAPS_AVAILABLE };
 
 export type SiteMapProps = {
   latUdeg: number | null;
@@ -55,7 +50,7 @@ export function SiteMap({
           {hasPosition ? formatCoordinates(latUdeg, lonUdeg) : 'No position'}
         </Text>
         <Text style={[styles.fallbackHint, { color: theme.textSecondary }]}>
-          The map is iOS-only for now.
+          The map is not available here.
         </Text>
       </View>
     );
@@ -63,15 +58,16 @@ export function SiteMap({
 
   return (
     <View style={[styles.mapFrame, { height, borderColor: theme.separator }]}>
-      <AppleMaps.View
+      <PlatformMap
         style={StyleSheet.absoluteFill}
         // The camera is only the *initial* position, so it must not be rebuilt
         // on every marker move - otherwise the map jumps back while panning.
         cameraPosition={{ coordinates, zoom: hasPosition ? SITE_ZOOM : WORLD_ZOOM }}
         markers={
-          hasPosition ? [{ coordinates, title: title ?? 'Dive site', systemImage: 'mappin' }] : []
+          hasPosition
+            ? [{ id: 'site', coordinates, title: title ?? 'Dive site', systemImage: 'mappin' }]
+            : []
         }
-        uiSettings={{ myLocationButtonEnabled: false }}
         onMapClick={
           editable && onPick
             ? (event) => {

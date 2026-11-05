@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.4.0',
+  version: '1.5.0',
   // The app declares every orientation so the dive profile can go full screen
   // when the device is turned (src/hooks/use-landscape.ts). Every other screen
   // is held in portrait at runtime by expo-screen-orientation, which needs the
@@ -104,7 +104,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'codes.mani.subsurfacereact',
-    versionCode: 2,
+    versionCode: 3,
     adaptiveIcon: {
       backgroundColor: '#062C53',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -148,9 +148,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // The keychain the SSI credentials and session token are kept in
     // (src/lib/ssi/auth.ts). Nothing else in the app stores a secret.
     'expo-secure-store',
-    // Apple Maps on iOS, for picking and showing a dive site's position
-    // (task 10). Not used on Android, which would need a Google Maps API key;
-    // the site screens show the coordinates instead.
+    // Apple Maps on iOS, for picking and showing a dive site's position (task
+    // 10). Android uses MapLibre with OpenFreeMap (src/components/platform-map.tsx)
+    // and leaves expo-maps out of its build (expo.autolinking in package.json).
     'expo-maps',
     [
       'expo-location',

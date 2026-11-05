@@ -10,14 +10,18 @@ export function useUserLocation(initialPosition: SitePosition | null = null) {
   const [position, setPosition] = useState(initialPosition);
   const [locating, setLocating] = useState(false);
   const inFlight = useRef(false);
+  // Read on mount and again after locate() asks, so a map can draw the user's
+  // position as soon as it may.
+  const [permission, , refreshPermission] = Location.useForegroundPermissions();
 
   const locate = async (): Promise<SitePosition | null> => {
     if (inFlight.current) return null;
     inFlight.current = true;
     setLocating(true);
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
+      const requested = await Location.requestForegroundPermissionsAsync();
+      void refreshPermission();
+      if (!requested.granted) {
         Alert.alert(
           'Location access is off',
           'Allow location access in Settings to find dive sites near you.',
@@ -59,5 +63,5 @@ export function useUserLocation(initialPosition: SitePosition | null = null) {
     };
   }, [initialPosition]);
 
-  return { position, locating, locate };
+  return { position, locating, locate, locationGranted: permission?.granted === true };
 }

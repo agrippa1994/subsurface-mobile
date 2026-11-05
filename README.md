@@ -56,8 +56,8 @@ The native libraries the C++ modules link are committed prebuilt, per platform:
 archives per ABI). Rebuild them only when bumping a version, with the
 `build-*.sh` script next to each.
 
-On Android the dive-site map is not shown (it is Apple Maps); coordinates are
-typed instead. Everything else - import, profile, statistics, editing, export,
+The dive-site map is Apple Maps on iOS and, on Android, MapLibre with
+[OpenFreeMap](https://openfreemap.org/) tiles, which need no API key. Everything else - import, profile, statistics, editing, export,
 SSI and git sync - works the same.
 
 ## Downloading from SSI
