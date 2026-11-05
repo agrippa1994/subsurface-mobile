@@ -20,6 +20,8 @@ export type SsiSiteLookups = {
   level: ReadonlyMap<number, string>;
   environment: ReadonlyMap<number, string>;
   wildlife: ReadonlyMap<number, SsiWildlifeInfo>;
+  /** Every `logbook_vars` table by name (weather, surface, tanktype, ...). */
+  logbook: ReadonlyMap<string, ReadonlyMap<number, string>>;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -88,7 +90,13 @@ export function parseSsiSiteLookups(
     });
   }
 
+  const tables = new Map<string, ReadonlyMap<number, string>>();
+  for (const [name, table] of Object.entries(logbook)) {
+    tables.set(name, labelTable(table, text, name === 'entry' ? 'entry_' : ''));
+  }
+
   return {
+    logbook: tables,
     current: labelTable(logbook.current, text),
     // "Boat Dive" would read oddly under the heading Entry; SSI has a short form.
     entry: labelTable(logbook.entry, text, 'entry_'),

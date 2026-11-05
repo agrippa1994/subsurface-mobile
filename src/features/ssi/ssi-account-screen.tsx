@@ -11,6 +11,7 @@
 // account query answers with an email address and a boolean, nothing more.
 
 import { useForm } from '@tanstack/react-form';
+import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -20,7 +21,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { EMPTY_CREDENTIALS, validateCredentials } from '@/models/ssi/credentials';
+import { describeSsiImport } from '@/models/ssi/ssrf-import';
 import {
+  useDownloadSsiLogbook,
+  useImportSsiLogbook,
   useRefreshSsiSites,
   useSsiAccount,
   useSsiSignIn,
@@ -37,6 +41,8 @@ export function SsiAccountScreen() {
   const signOut = useSsiSignOut();
   const siteIndex = useSsiSiteIndexInfo();
   const refreshSites = useRefreshSsiSites();
+  const importLogbook = useImportSsiLogbook();
+  const downloadLogbook = useDownloadSsiLogbook();
 
   // Sign-in failures are shown in the form rather than in an alert: the user is
   // looking at the two fields that caused it, and the fix is to retype one.
@@ -99,6 +105,42 @@ export function SsiAccountScreen() {
       },
     });
   };
+
+  const addDives = () => {
+    importLogbook.mutate(undefined, {
+      onSuccess: (result) => {
+        operationSucceeded();
+        Alert.alert('SSI logbook', describeSsiImport(result));
+      },
+      onError: (caught) => {
+        operationFailed();
+        Alert.alert('Could not import from SSI', formatErrorLine(describeError(caught)));
+      },
+    });
+  };
+
+  const saveFile = () => {
+    downloadLogbook.mutate(undefined, {
+      onSuccess: async (uri) => {
+        operationSucceeded();
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert('Saved', uri);
+          return;
+        }
+        await Sharing.shareAsync(uri, {
+          UTI: 'org.subsurface.ssrf',
+          mimeType: 'application/xml',
+          dialogTitle: 'Save SSI logbook',
+        });
+      },
+      onError: (caught) => {
+        operationFailed();
+        Alert.alert('Could not download from SSI', formatErrorLine(describeError(caught)));
+      },
+    });
+  };
+
+  const logbookBusy = importLogbook.isPending || downloadLogbook.isPending;
 
   const info = siteIndex.data ?? { count: 0, downloadedAt: null };
   const sitesValue = refreshSites.isPending
@@ -183,6 +225,23 @@ export function SsiAccountScreen() {
           </form.Subscribe>
         </FormSection>
       )}
+
+      {account.data ? (
+        <FormSection
+          title="Logbook"
+          footer="Reads your SSI logbook into Subsurface format: profiles, temperatures, pressures, gradient factor settings, buddies and sites. Adding keeps every dive you already have and never changes anything on SSI. The file holds your whole SSI logbook and can be opened as a new logbook.">
+          <FormButtonRow
+            label="Add SSI dives to this logbook"
+            value={importLogbook.isPending ? 'Downloading...' : undefined}
+            onPress={logbookBusy ? () => undefined : addDives}
+          />
+          <FormButtonRow
+            label="Save SSI logbook as a file"
+            value={downloadLogbook.isPending ? 'Downloading...' : undefined}
+            onPress={logbookBusy ? () => undefined : saveFile}
+          />
+        </FormSection>
+      ) : null}
 
       <FormSection
         title="Dive sites"

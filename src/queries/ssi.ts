@@ -22,7 +22,10 @@ import {
 import { uuid } from 'expo';
 import { useMemo } from 'react';
 
-import { updateDive } from '../../modules/ssrf-core/src';
+import { ensureLogbookLoaded } from '@/queries/logbook';
+import { resetData } from '@/queries/logbook-mutations';
+
+import { importFile, listDives, listDiveSites, updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { fetchSsiSiteDetail, fetchSsiSiteLookups } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
@@ -33,6 +36,7 @@ import {
   type SsiAccount,
 } from '@/lib/ssi/auth';
 import { fetchSsiLogbook, saveSsiDive, type SsiLogbook } from '@/lib/ssi/divelog';
+import { buildSsiSsrf, writeSsiSsrfFile } from '@/lib/ssi/logbook-download';
 import {
   ensureSiteIndex,
   refreshSiteIndex,
@@ -41,6 +45,7 @@ import {
 } from '@/lib/ssi/site-cache';
 import type { Dive, DiveSite, PlotInfo } from '@/models';
 import { convertDiveToSsi } from '@/models/ssi/converter';
+import type { SsiToSsrfResult } from '@/models/ssi/ssrf-import';
 import type { SsiCredentials } from '@/models/ssi/credentials';
 import {
   MIN_QUERY_LENGTH,
@@ -255,13 +260,81 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
   });
 }
 
+// --- Downloading the logbook ----------------------------------------------
+
+/** The labels are nice to have, so losing them never fails a download. */
+function lookupsFor(client: ReturnType<typeof useQueryClient>) {
+  return client
+    .fetchQuery({
+      queryKey: SITE_LOOKUPS_KEY,
+      queryFn: ({ signal }) => fetchSsiSiteLookups(signal),
+      staleTime: LOOKUPS_STALE_MS,
+    })
+    .catch(() => null);
+}
+
+/**
+ * Adds the dives from SSI that this logbook does not have. A dive it already has is
+ * left alone: its original download beats SSI's copy, and running this twice adds
+ * nothing. Saved straight away, as every import is.
+ */
+export function useImportSsiLogbook(): UseMutationResult<SsiToSsrfResult, Error, void> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await ensureLogbookLoaded(client);
+      const result = await buildSsiSsrf({
+        lookups: await lookupsFor(client),
+        existingDives: listDives(),
+        existingSites: listDiveSites(),
+      });
+      if (result.dives > 0) {
+        const file = writeSsiSsrfFile(result.xml, 'ssi-import.ssrf');
+        try {
+          importFile(file.nativePath);
+        } finally {
+          file.remove();
+        }
+      }
+      return result;
+    },
+    onSuccess: async (result) => {
+      if (result.dives > 0) {
+        await resetData(client);
+        schedulePersist();
+        await flush();
+      }
+    },
+    retry: false,
+  });
+}
+
+/**
+ * The whole SSI logbook as a new .ssrf file, ignoring what is in the app. Opening it
+ * through the existing logbook import is how it becomes the working log.
+ */
+export function useDownloadSsiLogbook(): UseMutationResult<string, Error, void> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { xml } = await buildSsiSsrf({ lookups: await lookupsFor(client) });
+      const stamp = new Date().toISOString().slice(0, 10);
+      return writeSsiSsrfFile(xml, `ssi-logbook-${stamp}.ssrf`).uri;
+    },
+    retry: false,
+  });
+}
+
+const SITE_LOOKUPS_KEY = ['ssi', 'site-lookups'];
+const LOOKUPS_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Reference data, so it is kept for a week. Without it the coded rows are left out. */
 export function useSsiSiteLookups() {
   return useQuery({
-    queryKey: ['ssi', 'site-lookups'],
+    queryKey: SITE_LOOKUPS_KEY,
     queryFn: ({ signal }) => fetchSsiSiteLookups(signal),
-    staleTime: 7 * 24 * 60 * 60 * 1000,
-    gcTime: 7 * 24 * 60 * 60 * 1000,
+    staleTime: LOOKUPS_STALE_MS,
+    gcTime: LOOKUPS_STALE_MS,
     retry: 1,
   });
 }

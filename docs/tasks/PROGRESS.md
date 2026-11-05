@@ -866,3 +866,32 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Verified: vitest - the protocol against a stub, the tools through the host
   binary against `abitofeverything.ssrf` (counts, filters, paging, unit
   conversion and the profile CSV checked against what the core returns).
+
+- 2026-11-05 - SSI logbook download: Settings, SSI, Logbook can add the SSI dives
+  to the working logbook or save the whole SSI logbook as a `.ssrf` file.
+  `src/models/ssi/ssrf-import.ts` turns a raw `get_divelog` body into SSRF XML that
+  goes through the core's own `importFile`, so nothing under `subsurface/` changed.
+
+  Mapped: samples (depth, temperature, tank pressure, NDL, deco state and stop, TTS,
+  CNS, heart rate, bearing, setpoint), alarms as events, cylinders including the
+  tech and rebreather families, max and mean depth, duration, water and air
+  temperature, salinity, weight, rating, surface interval, buddies, dive guide,
+  site with position and country, dive computer with serial and firmware. Set GF,
+  end GF and SSI's CNS and OTU are extra data ("GF Low" and "GF High" are the keys
+  the core's own importers use). Labels, wildlife, gear, visibility and dive center
+  go in the notes, because SSRF has no field for them.
+
+  Not representable: SSI's per-sample GF curves (`gn`, `gs`), which the core derives
+  from the tissue model, using the app's GF setting rather than the dive's. Battery,
+  speed and sample location have no SSRF slot and are dropped.
+
+  A dive the log already has is skipped, by the same test as the core's
+  `dive::likely_same`. A core merge would file SSI's 5-second copy as a second dive
+  computer on a dive that already has the original download.
+
+  Verified: vitest through the host binary (`tests/ssi-ssrf.test.ts`), and locally
+  with two real SSI records against the desktop download of the same dives: same
+  max depth, mean depth, duration, and alarm times. Not verified: a live SSI account,
+  or the screen on a device. Free-dive and rebreather mappings have no real record
+  behind them.
+
