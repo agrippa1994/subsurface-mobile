@@ -1,43 +1,36 @@
 // AI-generated (Claude)
 import { AppleMaps } from 'expo-maps';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { groupSsiSites, hasSsiPosition, type SitePosition } from '@/models/ssi/site-browse';
+import type { MapViewport } from '@/models/map-viewport';
+import { mapCameraFromMove, NEARBY_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
+import { groupSsiSites, type SitePosition } from '@/models/ssi/site-browse';
 import type { SsiSite } from '@/models/ssi/sites';
 
 export function SsiSitesMap({
   sites,
   position,
+  viewport,
   onSelect,
   onCluster,
-  fitToSites = false,
 }: {
   sites: readonly SsiSite[];
   position: SitePosition | null;
-  fitToSites?: boolean;
+  /** Kept by the owner so it outlives this map. */
+  viewport: MapViewport;
   onSelect: (site: SsiSite) => void;
   onCluster: (sites: SsiSite[]) => void;
 }) {
   const theme = useTheme();
-  const map = useRef<AppleMaps.MapView>(null);
   const [initial] = useState(() => {
-    const located = fitToSites ? sites.filter(hasSsiPosition) : [];
-    if (located.length) {
-      const latitudes = located.map((s) => s.lat);
-      const longitudes = located.map((s) => s.lon);
-      const minLat = Math.min(...latitudes),
-        maxLat = Math.max(...latitudes);
-      const minLon = Math.min(...longitudes),
-        maxLon = Math.max(...longitudes);
-      const span = Math.max(maxLat - minLat, maxLon - minLon, 0.02);
-      return {
-        coordinates: { latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2 },
-        zoom: Math.max(2, Math.min(14, Math.log2(360 / span) - 1)),
-      };
-    }
+    const opening = viewport.camera() ?? {
+      latitude: position?.lat ?? 20,
+      longitude: position?.lon ?? 0,
+      zoom: position ? NEARBY_ZOOM : WORLD_ZOOM + 1,
+    };
     return {
-      coordinates: { latitude: position?.lat ?? 20, longitude: position?.lon ?? 0 },
-      zoom: position ? 9 : 2,
+      coordinates: { latitude: opening.latitude, longitude: opening.longitude },
+      zoom: opening.zoom,
     };
   });
   const [region, setRegion] = useState({
@@ -49,10 +42,10 @@ export function SsiSitesMap({
   const groups = useMemo(() => groupSsiSites(sites, region), [sites, region]);
   return (
     <AppleMaps.View
-      ref={map}
+      ref={(map) => viewport.attach(map)}
       style={{ flex: 1 }}
       cameraPosition={initial}
-      properties={{ mapType: AppleMaps.MapType.STANDARD }}
+      properties={{ mapType: AppleMaps.MapType.STANDARD, isMyLocationEnabled: true }}
       uiSettings={{ myLocationButtonEnabled: false }}
       markers={groups.map((group) => ({
         id: group.id,
@@ -73,6 +66,7 @@ export function SsiSitesMap({
           event.longitudeDelta <= 0
         )
           return;
+        viewport.remember(mapCameraFromMove(event));
         setRegion({
           lat: event.coordinates.latitude,
           lon: event.coordinates.longitude,
@@ -96,8 +90,9 @@ export function SsiSitesMap({
         ) {
           onCluster(group.sites);
         } else
-          void map.current?.setCameraPosition({
-            coordinates: { latitude: group.lat, longitude: group.lon },
+          viewport.move({
+            latitude: group.lat,
+            longitude: group.lon,
             zoom: Math.min(21, Math.log2(360 / Math.max(region.longitudeDelta, 0.00001)) + 3),
           });
       }}

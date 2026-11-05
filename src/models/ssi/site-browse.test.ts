@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   browseSsiSites,
+  fitSsiSitesCamera,
   groupSsiSites,
   hasSsiPosition,
   parseSsiSiteDetail,
@@ -64,5 +65,26 @@ describe('SSI site browsing', () => {
     expect(ssiPlainText('<p>Rock &amp; reef</p>Entry<br/>Shore')).toBe(
       'Rock & reef\n\nEntry\nShore',
     );
+  });
+});
+
+describe('fitSsiSitesCamera', () => {
+  const located = (lat: number, lon: number): SsiSite => ({ ...sites[0], lat, lon });
+
+  it('centres on the located sites and ignores unknown positions', () => {
+    const camera = fitSsiSitesCamera([located(10, 20), located(20, 40), located(0, 0)]);
+    expect(camera).toMatchObject({ latitude: 15, longitude: 30 });
+  });
+
+  it('has no camera when no site is located', () => {
+    expect(fitSsiSitesCamera([located(0, 0)])).toBeNull();
+  });
+});
+
+describe('browseSsiSites by name', () => {
+  it('ignores the whitespace around catalogue names', () => {
+    const named = (name: string): SsiSite => ({ ...sites[0], name });
+    const sorted = browseSsiSites([named('Beta'), named('  Gamma'), named('\tAlpha')], '', null);
+    expect(sorted.map((s) => s.name.trim())).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
 });

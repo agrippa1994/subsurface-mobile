@@ -16,6 +16,9 @@ import { SitesMap } from '@/components/sites-map';
 import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
 import { StatusView } from '@/components/status-view';
 import { SitesList } from '@/features/sites/sites-list';
+import { useUserLocation } from '@/hooks/use-user-location';
+import { createMapViewport } from '@/models/map-viewport';
+import { NEARBY_ZOOM } from '@/models/site-edit';
 import { useLogbook, useSites } from '@/queries/logbook';
 
 export default function SitesScreen() {
@@ -24,6 +27,16 @@ export default function SitesScreen() {
   const router = useRouter();
   const [source, setSource] = useState<'logbook' | 'ssi'>('logbook');
   const [mode, setMode] = useState<'map' | 'list'>(MAPS_AVAILABLE ? 'map' : 'list');
+  // Owned here so the viewport survives switching between both kinds of site
+  // and between the map and the list.
+  const [viewport] = useState(createMapViewport);
+  const { locate, locating } = useUserLocation();
+
+  const goToMyLocation = async () => {
+    const here = await locate();
+    if (!here) return;
+    viewport.move({ latitude: here.lat, longitude: here.lon, zoom: NEARBY_ZOOM });
+  };
 
   const openNew = () => router.push('/sites/new');
   const openSite = (uuid: number) => router.push(`/sites/${uuid}`);
@@ -49,6 +62,12 @@ export default function SitesScreen() {
             SSI dive sites
           </Stack.Toolbar.MenuAction>
         </Stack.Toolbar.Menu>
+        <Stack.Toolbar.Button
+          hidden={mode !== 'map' || sites.length === 0}
+          icon={locating ? 'location.fill' : 'location'}
+          accessibilityLabel="Go to my location"
+          onPress={() => void goToMyLocation()}
+        />
         <Stack.Toolbar.Button
           icon={mode === 'map' ? 'list.bullet' : 'map'}
           accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
@@ -82,12 +101,13 @@ export default function SitesScreen() {
       onAction={openNew}
     />
   ) : mode === 'map' ? (
-    <SitesMap sites={sites} onSelectSite={openSite} />
+    <SitesMap sites={sites} onSelectSite={openSite} viewport={viewport} />
   ) : (
     <SitesList sites={sites} onSelectSite={openSite} />
   );
 
-  if (source === 'ssi') return <SsiSiteBrowser onMySites={() => setSource('logbook')} />;
+  if (source === 'ssi')
+    return <SsiSiteBrowser viewport={viewport} onMySites={() => setSource('logbook')} />;
   return (
     <>
       {header}

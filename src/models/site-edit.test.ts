@@ -9,6 +9,7 @@ import {
   findDuplicateSites,
   findNearbySites,
   fitSitesCamera,
+  mapCameraFromMove,
   formatCoordinateInput,
   formatCoordinates,
   isEmptySiteInput,
@@ -258,5 +259,23 @@ describe('map camera', () => {
     const camera = fitSitesCamera([at(1, -17, 178), at(2, -17, -178)]);
     expect(Math.abs(camera.longitude)).toBeCloseTo(180);
     expect(camera.zoom).toBeGreaterThan(5);
+  });
+});
+
+describe('mapCameraFromMove', () => {
+  it('keeps the reported viewport', () => {
+    expect(
+      mapCameraFromMove({ coordinates: { latitude: 47, longitude: 13 }, zoom: 7.5 }),
+    ).toEqual({ latitude: 47, longitude: 13, zoom: 7.5 });
+  });
+
+  it('never restores a zoom wider than the world view', () => {
+    expect(mapCameraFromMove({ coordinates: { latitude: 0, longitude: 0 }, zoom: 0 })?.zoom).toBe(
+      1,
+    );
+  });
+
+  it('rejects a report without a position', () => {
+    expect(mapCameraFromMove({ coordinates: {}, zoom: 3 })).toBeNull();
   });
 });

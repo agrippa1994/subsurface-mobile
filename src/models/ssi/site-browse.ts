@@ -1,6 +1,6 @@
 // AI-generated (Claude)
 import type { DiveLog, SiteDetail } from 'divessi-client';
-import { distanceMeters } from '../site-edit';
+import { distanceMeters, type MapCamera } from '../site-edit';
 import type { SsiSite } from './sites';
 
 export type SitePosition = { lat: number; lon: number };
@@ -48,7 +48,7 @@ export function browseSsiSites(
       return site ? [site] : [];
     });
   }
-  if (!position) return matches.sort((a, b) => a.name.localeCompare(b.name));
+  if (!position) return matches.sort((a, b) => a.name.trim().localeCompare(b.name.trim()));
   return matches
     .map((site) => ({
       site,
@@ -58,6 +58,24 @@ export function browseSsiSites(
     }))
     .sort((a, b) => a.distance - b.distance)
     .map((s) => s.site);
+}
+
+// The camera showing every located site, or null when none has a position.
+export function fitSsiSitesCamera(sites: readonly SsiSite[]): MapCamera | null {
+  const located = sites.filter(hasSsiPosition);
+  if (located.length === 0) return null;
+  const latitudes = located.map((s) => s.lat);
+  const longitudes = located.map((s) => s.lon);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const span = Math.max(maxLat - minLat, maxLon - minLon, 0.02);
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    zoom: Math.max(2, Math.min(14, Math.log2(360 / span) - 1)),
+  };
 }
 
 // SSI returns a one-element array, or an empty array for an unknown site.

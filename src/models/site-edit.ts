@@ -346,6 +346,23 @@ export function mappableSites(sites: readonly DiveSite[]): DiveSite[] {
   return sites.filter((site) => site.hasGps);
 }
 
+/** How close "go to my location" zooms: about 50 km across, enough to see nearby sites. */
+export const NEARBY_ZOOM = 9;
+
+/**
+ * The camera to restore a map to from what the map last reported. Null for a
+ * report without a usable position. The zoom floor keeps the region the map
+ * rebuilds from it valid: at zoom 0 its 360 degree span is not a real latitude.
+ */
+export function mapCameraFromMove(move: {
+  coordinates: { latitude?: number; longitude?: number };
+  zoom: number;
+}): MapCamera | null {
+  const { latitude, longitude } = move.coordinates;
+  if (latitude === undefined || longitude === undefined || !Number.isFinite(move.zoom)) return null;
+  return { latitude, longitude, zoom: Math.max(WORLD_ZOOM, move.zoom) };
+}
+
 /**
  * The camera that frames every site with a position. Longitudes are framed
  * across the antimeridian when that is the shorter way round, so a trip to

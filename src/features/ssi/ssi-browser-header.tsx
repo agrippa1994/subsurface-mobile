@@ -3,26 +3,30 @@ import { Stack } from 'expo-router';
 import type {
   NativeStackHeaderItem,
   NativeStackHeaderItemMenuAction,
+  NativeStackHeaderItemMenuSubmenu,
   NativeStackNavigationOptions,
 } from 'expo-router/native-stack';
+import { useEffect, useRef } from 'react';
 import { Alert, Platform, Pressable, Text, View } from 'react-native';
+import type { SearchBarCommands } from 'react-native-screens';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export type SsiBrowserView = 'nearby' | 'map' | 'list';
+export type SsiBrowserView = 'map' | 'list';
+export type SsiSiteSort = 'name' | 'nearest' | 'recent';
 export type SsiBrowserHeaderProps = {
   title: string;
   view: SsiBrowserView;
-  sort: 'distance' | 'recent';
+  sort: SsiSiteSort;
   onViewChange: (view: SsiBrowserView) => void;
-  onSortChange: (sort: 'distance' | 'recent') => void;
+  onSortChange: (sort: SsiSiteSort) => void;
+  query: string;
   onSearch: (text: string) => void;
   onLocate: () => void;
   locating: boolean;
   onBack?: () => void;
   onClose?: () => void;
   onMySites?: () => void;
-  onDetails?: () => void;
   onSelect?: () => void;
   showingDetail: boolean;
   mapsAvailable: boolean;
@@ -32,6 +36,16 @@ export type SsiBrowserHeaderProps = {
 // Both the Sites tab and the modal picker use this shared header configuration.
 export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
   const theme = useTheme();
+  // The details screen has no search bar; the one that comes back starts empty
+  // while its query still filters the sites.
+  const searchBar = useRef<SearchBarCommands>(null);
+  const { query, showingDetail } = props;
+  useEffect(() => {
+    if (showingDetail || !query) return;
+    const frame = requestAnimationFrame(() => searchBar.current?.setText(query));
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the bar returns
+  }, [showingDetail]);
   const action = (
     label: string,
     onPress: () => void,
@@ -40,40 +54,41 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
     type: 'action',
     label,
     onPress,
-    state: selected ? 'on' : 'off',
+    // UIKit drops the checkmark state when a tap replaces the open menu, so the
+    // selection is drawn as the item's icon.
+    icon: selected ? { type: 'sfSymbol', name: 'checkmark' } : undefined,
   });
-  const items: NativeStackHeaderItemMenuAction[] = [
+  // One question per section: which sites, and in what order. Order only means
+  // something for a list, so the map does not offer it. Finding the user is the
+  // location button's job rather than a menu entry.
+  const section = (
+    label: string,
+    items: NativeStackHeaderItemMenuAction[],
+  ): NativeStackHeaderItemMenuSubmenu => ({
+    type: 'submenu',
+    label,
+    inline: true,
+    multiselectable: true,
+    items,
+  });
+  const items: NativeStackHeaderItemMenuSubmenu[] = [
     ...(props.onMySites
       ? [
-          action('My dive sites', () => props.onMySites?.()),
-          action(
-            'SSI dive sites',
-            () => props.onViewChange(props.mapsAvailable ? 'map' : 'list'),
-            true,
-          ),
+          section('Show', [
+            action('My dive sites', () => props.onMySites?.()),
+            action('SSI dive sites', () => {}, true),
+          ]),
         ]
       : []),
-    ...(props.mapsAvailable
-      ? [action('Map', () => props.onViewChange('map'), props.view === 'map')]
+    ...(props.view === 'list'
+      ? [
+          section('Sort by', [
+            action('Name', () => props.onSortChange('name'), props.sort === 'name'),
+            action('Nearest', () => props.onSortChange('nearest'), props.sort === 'nearest'),
+            action('Recently used', () => props.onSortChange('recent'), props.sort === 'recent'),
+          ]),
+        ]
       : []),
-    action('List', () => props.onViewChange('list'), props.view === 'list'),
-    action(
-      'By distance',
-      () => {
-        props.onSortChange('distance');
-        props.onViewChange('nearby');
-      },
-      props.view === 'nearby' && props.sort === 'distance',
-    ),
-    action(
-      'Recently used',
-      () => {
-        props.onSortChange('recent');
-        props.onViewChange('nearby');
-      },
-      props.view === 'nearby' && props.sort === 'recent',
-    ),
-    action(props.locating ? 'Finding location…' : 'Use my location', props.onLocate),
   ];
   const right: NativeStackHeaderItem[] = [];
   if (props.onSelect)
@@ -84,20 +99,28 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
       variant: 'done',
       onPress: () => props.onSelect?.(),
     });
-  if (props.onDetails)
+  if (!props.showingDetail) {
+    if (props.mapsAvailable)
+      right.push({
+        type: 'button',
+        label: props.view === 'map' ? 'Show as list' : 'Show on map',
+        icon: { type: 'sfSymbol', name: props.view === 'map' ? 'list.bullet' : 'map' },
+        onPress: () => props.onViewChange(props.view === 'map' ? 'list' : 'map'),
+      });
     right.push({
       type: 'button',
-      label: 'SSI site details',
-      icon: { type: 'sfSymbol', name: 'info.circle' },
-      onPress: () => props.onDetails?.(),
+      label: props.view === 'map' ? 'Go to my location' : 'Sort by nearest to me',
+      icon: { type: 'sfSymbol', name: props.locating ? 'location.fill' : 'location' },
+      onPress: props.onLocate,
     });
-  if (!props.showingDetail)
-    right.push({
-      type: 'menu',
-      label: 'Site options',
-      icon: { type: 'sfSymbol', name: 'line.3.horizontal.decrease' },
-      menu: { items },
-    });
+    if (items.length)
+      right.push({
+        type: 'menu',
+        label: 'Site options',
+        icon: { type: 'sfSymbol', name: 'line.3.horizontal.decrease' },
+        menu: { items },
+      });
+  }
   const left: NativeStackHeaderItem[] = [];
   if (props.onBack)
     left.push({
@@ -126,6 +149,7 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
     headerSearchBarOptions: props.showingDetail
       ? undefined
       : {
+          ref: searchBar,
           placeholder: 'Search SSI dive sites',
           hideWhenScrolling: false,
           hideNavigationBar: false,
@@ -148,35 +172,22 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
           headerRight: () => (
             <View style={{ flexDirection: 'row' }}>
               {props.onSelect ? fallbackButton('Select', props.onSelect) : null}
-              {props.onDetails ? fallbackButton('Details', props.onDetails) : null}
               {!props.showingDetail
                 ? fallbackButton('Options', () =>
                     Alert.alert('Site options', undefined, [
                       {
-                        text: 'Browse sites',
+                        text: 'Sort by',
                         onPress: () =>
-                          Alert.alert('Browse sites', undefined, [
-                            { text: 'All sites', onPress: () => props.onViewChange('list') },
-                            {
-                              text: 'By distance',
-                              onPress: () => {
-                                props.onSortChange('distance');
-                                props.onViewChange('nearby');
-                              },
-                            },
-                            {
-                              text: 'Recently used',
-                              onPress: () => {
-                                props.onSortChange('recent');
-                                props.onViewChange('nearby');
-                              },
-                            },
+                          Alert.alert('Sort by', undefined, [
+                            { text: 'Name', onPress: () => props.onSortChange('name') },
+                            { text: 'Nearest', onPress: () => props.onSortChange('nearest') },
+                            { text: 'Recently used', onPress: () => props.onSortChange('recent') },
                           ]),
                       },
                       ...(props.onMySites
                         ? [{ text: 'My dive sites', onPress: props.onMySites }]
-                        : [{ text: 'Cancel', style: 'cancel' as const }]),
-                      { text: 'Use my location', onPress: props.onLocate },
+                        : []),
+                      { text: 'Cancel', style: 'cancel' as const },
                     ]),
                   )
                 : null}
