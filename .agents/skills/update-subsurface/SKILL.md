@@ -38,7 +38,7 @@ git -C subsurface diff --stat $OLD $NEW -- core libdivecomputer xslt
 ```
 
 Only files listed in `core-subset.mjs` (`CORE_SOURCES`, all `core/*.h`,
-`xslt/`) plus the libdivecomputer headers reach the build. For each of those
+`xslt/`) plus libdivecomputer's headers and the sources in its Makefile.am reach the build. For each of those
 that changed, `git -C subsurface log --format='%h %s' $OLD..$NEW -- <file>`
 gives the commits to report. Also check whether any changed header is one the
 shim replaces (`cpp/shim/override/`): upstream signature changes there must be

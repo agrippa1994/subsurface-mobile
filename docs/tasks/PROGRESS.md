@@ -18,6 +18,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [~] 12 — Polish + TestFlight beta (polish, robustness, release config done;
       TestFlight upload blocked on an Apple Developer account)
 - [~] 13 — Android parity (app builds and runs on Android; physical-device pass pending)
+- [~] 14 — Dive computer download (done up to a real dive computer, which nobody has tried yet)
 
 ## Notes / blockers
 
@@ -866,3 +867,27 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Verified: vitest - the protocol against a stub, the tools through the host
   binary against `abitofeverything.ssrf` (counts, filters, paging, unit
   conversion and the profile CSV checked against what the core returns).
+
+- 2026-11-05 — Task 14: downloading from a dive computer over BLE, lifting the "no
+  libdivecomputer, no BLE" exclusion. See `14-dive-computer-download.md`.
+
+  libdivecomputer is built from source now, from its Makefile.am list, and
+  `core/libdivecomputer.cpp` goes in behind patch 0008. `ble-stream.cpp` replaces the Qt
+  transport and is shared; `GattDriver` is the seam, implemented on CoreBluetooth and on
+  BluetoothGatt, so Android came along (no USB serial). The screen follows the legacy one:
+  pickers, detection, previously used computers, progress, cancel, retry, force, sync time,
+  review, accept.
+
+  Verified: vitest against a simulated Deep Six Excursion behind the driver seam, speaking
+  the real protocol, so libdivecomputer's own device and parser backends run (37 tests);
+  the same under ThreadSanitizer; the iOS app building for simulator and device; the Android
+  app building; the screen driven against the simulation on a throwaway iOS simulator, which
+  found a re-subscribe on every render that the host tests could not.
+
+  **Not verified: anything on a real dive computer.** The iOS and Android drivers have never
+  talked to a radio, and the Heinrichs Weikamp credit protocol has never run. The task file
+  says how to check.
+
+  Follow-ups: firmware update; Android USB serial and Bluetooth classic (a custom iostream
+  each, and a transport argument); background downloads on iOS (`bluetooth-central`); the
+  Pelagic i330R and DSX access code, which the legacy app does not do either.

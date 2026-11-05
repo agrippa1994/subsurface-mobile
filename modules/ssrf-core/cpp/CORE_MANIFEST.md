@@ -22,7 +22,7 @@ before `pod install`; `scripts/build-host.sh` runs it for the host build.
 Include order matters: the core includes its headers by bare name, so an
 overridden header wins by replacing the copy in `cpp/generated/core/`.
 
-## Compiled core sources (40)
+## Compiled core sources (41)
 
 **Model** — `dive.cpp`, `divecomputer.cpp`, `divelist.cpp`, `divelog.cpp`,
 `divesite.cpp`, `device.cpp`, `equipment.cpp`, `event.cpp`, `eventtype.cpp`,
@@ -36,14 +36,17 @@ overridden header wins by replacing the copy in `cpp/generated/core/`.
 
 **Importers** — `import-suunto.cpp`, `import-suunto-json.cpp`
 
+**Download** — `libdivecomputer.cpp`
+
 **Math** — `deco.cpp`, `planner.cpp`, `plannernotes.cpp`, `profile.cpp`,
 `gaspressures.cpp`, `po2.cpp`, `statistics.cpp`
 
 All headers in `subsurface/core/*.h` are copied (they include each other by
 bare name; cherry-picking them would only add churn).
 
-Deliberately excluded: `cloudstorage`, `git-access`, `libdivecomputer.cpp` (the
-downloader), `configuredivecomputer*`, `qt-ble`, `btdiscovery`, `file.cpp`
+Deliberately excluded: `cloudstorage`, `git-access`, `configuredivecomputer*` and
+`ostc*` (dive computer settings and firmware), `downloadfromdcthread`, `qt-ble`,
+`qtserialbluetooth` and `btdiscovery` (Qt; replaced, see below), `file.cpp`
 (multi-format/zip dispatch: the module dispatches on file *contents* in
 `cpp/bindings/api.cpp` instead, and it needs neither libzip nor the desktop's
 CSV/binary importers), image/video, and everything under
@@ -51,14 +54,44 @@ CSV/binary importers), image/video, and everything under
 
 ## libdivecomputer
 
-Headers only. The subset uses libdivecomputer solely for its enums
-(`SAMPLE_EVENT_*`, `DC_*` water types, parser field ids) — no `dc_*` function is
-called anywhere in it, verified by grep over the compiled sources. The C library
-is therefore not built. `version.h` is generated from `version.h.in` with the
-three numbers read out of `libdivecomputer/configure.ac`.
+Built from source as part of the module, on every platform. `scripts/vendor-core.mjs`
+reads the source list out of upstream's `libdivecomputer/src/Makefile.am`, so a backend
+added by a submodule bump comes along, and copies it to `cpp/generated/libdivecomputer/src/`
+(189 files; only `serial_win32.c` and the `.rc` file are left out). `version.h` is
+generated from `version.h.in` with the three numbers read out of `configure.ac`, and
+`config.h` is written by the same script instead of running configure, so everything
+optional stays off: no libusb, libmtp, hidapi, BlueZ or IrDA. All three builds compile it
+with `-DHAVE_CONFIG_H`. Its private headers are excluded from the pod (`exclude_files`):
+they are found next to the sources, and `timer.h` or `platform.h` have no business in the
+pod's flat header map.
 
-If a future task adds the download path, this becomes "build libdivecomputer as
-a static C lib" — the enums would then already match by construction.
+The transports it reaches are the custom streams. Today that is BLE.
+
+## The download path
+
+| Piece | Origin | Role |
+| --- | --- | --- |
+| `core/libdivecomputer.cpp` | upstream, patch 0008 | Dive parsing, fingerprints, stopping at the first known dive. |
+| `bindings/ble-stream.cpp` | new, a port of `core/qt-ble.cpp` | The libdivecomputer iostream: service selection, Heinrichs Weikamp credits, the packet queue, timeouts, cancel. Defines `ble_packet_open`. |
+| `bindings/gatt-driver.h` | new | The seam a platform implements: connect, discover, subscribe, write, read. |
+| `ios/SsrfGattDriver.mm` | new | CoreBluetooth. |
+| `android/.../SsrfGattDriver.kt` | new | BluetoothGatt, through `ssrfcore-jni.cpp`. |
+| `tests/fake-dive-computer.cpp` | new, host only | A simulated Deep Six Excursion on the real protocol. |
+| `bindings/dc-detect.cpp` | new; tables from `core/btdiscovery.cpp` | Vendor and product from a Bluetooth name. Falls back on libdivecomputer's own filters, which upstream does not. |
+| `bindings/download.cpp` | new | The session behind the `dc*` and `ble*` methods, replacing `DownloadThread` and `DiveImportedModel`. |
+
+The download runs on its own thread, and shares `divelog` and `fingerprints` with
+`ssrf::call()` on the JS thread. `ssrf-core-lock.h` is the lock: `call()` holds it
+throughout, patch 0008 takes it around `dive_cb` and the fingerprint lookup and store, and
+it is never held across device I/O. `build-host.sh --tsan` checks this; see
+`tests/dive-computer-download.test.ts`.
+
+Divergences from `qt-ble.cpp`: characteristics are matched by UUID, not by index, for the
+Heinrichs Weikamp computers; credits are topped up from the download thread, since a
+driver callback must not block; a notify characteristic needs no separately discovered
+descriptor. Like upstream, `DC_IOCTL_BLE_GET_PINCODE` and the access code are answered with
+"unsupported", which leaves the Pelagic i330R and DSX as far as the legacy app gets with
+them. `DC_IOCTL_BLE_CHARACTERISTIC_WRITE` is implemented, which upstream's is not.
 
 ## Patches (build-time, `patches/`)
 
@@ -71,6 +104,8 @@ a static C lib" — the enums would then already match by construction.
 | `0006-xslt-match-namespace-declaration` | `parse-xml.cpp` | Also not a Qt patch. `test_xslt_transforms()` selects the Suunto DM4 stylesheet on root `<Dive>` *plus an "xmlns" attribute*, tested with `xmlGetProp()`. libxml2 keeps namespace declarations in `nsDef`, not in the property list, so that test never fires and a Suunto DM4 XML export parses to zero dives. Looks at `nsDef` instead. Report upstream. |
 | `0007-suunto-json-without-fit` | `import-suunto-json.cpp` | Guts `patch_from_fit()` (parses the paired `.fit` through `libdc_buffer_parser()`, i.e. the libdivecomputer download path this build does not compile) and drops `suunto_json_fit_pair_import()` (desktop multi-file selection; needs QFile/QFileInfo and `file.cpp`'s `readfile()`). The JSON-to-dive mapping itself is compiled unchanged. Cost: a dive whose gas mix lives only in the FIT file imports as air. |
 
+| `0008-libdivecomputer-download-without-qt` | `libdivecomputer.{h,cpp}` | Compiles the downloader without Qt and for threads: BLE on, no QString address sniffing, the core lock around what touches shared state, an atomic cancel flag, and the progress callback called on every `DC_EVENT_PROGRESS`. The parsing and fingerprint logic are unchanged. |
+
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
 
@@ -82,13 +117,13 @@ that the submodule pin moved under a hand-written assumption.
 | `gettextfromc.h` | Upstream is a `Q_DECLARE_TR_FUNCTIONS` class returning `QString`. | `gettextFromC::tr()` returning `translated_string` (a `std::string` that also answers `toStdString()`) |
 | `format.h` | Declares QString formatters alongside the std ones. | `format_string_std`, `vformat_string_std`, `casprintf_loc` |
 | `string-format.h` | ~70 QString/QStringList formatters for the desktop UI. | `printGPSCoordsC`, `get_dive_date_c_string` |
-| `qthelper.h` | The desktop grab bag: QLocale formatting, Qt resources, proxies, cloud reachability, thumbnails. | `string_to_{weight,depth,pressure,volume,fraction}`, `get_dive_datetime_from_isostring`, `get_current_date`, `get_stylesheet`, `set_xslt_directory`, `subsurface_user_agent`, `get_file_name`, `local_file_path`, `emit_reset_signal` |
+| `qthelper.h` | The desktop grab bag: QLocale formatting, Qt resources, proxies, cloud reachability, thumbnails. | `string_to_{weight,depth,pressure,volume,fraction}`, `get_dive_datetime_from_isostring`, `get_current_date`, `get_stylesheet`, `set_xslt_directory`, `subsurface_user_agent`, `get_file_name`, `local_file_path`, `emit_reset_signal`, `subsurface_mkdir` |
 | `fulltext.h` | QString word cache for the desktop dive list. | `full_text_cache`, `FullTextQuery`, `StringFilterMode`, the register/unregister entry points |
 | `divefilter.h` | Declares the `DiveFilter` singleton driving the desktop list. | `FilterData` (the payload of a filter preset, which is part of the file format) |
 | `filterconstraint.h` | `QStringList *` inside the constraint union plus a large translated-label API. | Enums, `filter_constraint` with `std::vector<std::string> *`, token conversions, `filter_constraint_data_to_string` |
 | `selection.h` | `QVector` selection API and Qt signalling. | `current_dive`, `amount_selected`, `select_single_dive`, `select_newest_visible_dive`, `clear_selection`, `getDiveSelection` |
 | `git-access.h` | Includes `git2.h`; cloud/git logbooks are out of scope. | Cloud host macros, `git_info`, `is_git_repository` (always false), `git_save_dives` (upstream's three-argument signature), `clear_git_id`, `set_git_id` |
-| `settings/qPrefDiveComputer.h` | QSettings-backed preference object. | `device()` — empty, there is no download flow |
+| `settings/qPrefDiveComputer.h` | QSettings-backed preference object. | `device()` — empty: the remembered dive computers live in `settings.json` (`src/models/settings.ts`) |
 
 `cpp/shim/include/QJsonDocument`, `QJsonObject`, `QJsonArray` and `QJsonValue`
 are stand-ins over `nlohmann::json` (`ssrf-qjson.h`), plus the `QString` and
@@ -114,14 +149,13 @@ arriving transitively through a Qt header.
 | `gettext.cpp` | `trGettext` | Identity. Localization is deferred to the TypeScript layer. |
 | `format.cpp` | the `std::string` formatters | Formats in the **C locale**. Upstream routes through `QString::arg()` and formats per `QLocale`. Every consumer in the subset writes XML or a log line, where a localized decimal separator would be a bug. |
 | `string-format.cpp` | `printGPSCoordsC`, `get_dive_date_c_string` | `get_dive_date_c_string` renders fixed `YYYY-MM-DD HH:MM` in UTC instead of `prefs.date_format_short` via QLocale. |
-| `qthelper.cpp` | the qthelper corner above | `string_to_*` match upstream except that the **localized** unit suffixes ("kg"/"lbs"/"m"/"ft"/…) are only recognized in English. `get_current_date` maps the common `prefs.date_format_short` patterns onto `strftime`. `get_stylesheet` reads from the directory set by `set_xslt_directory()` instead of Qt resources. |
+| `qthelper.cpp` | the qthelper corner above, and `subsurface_mkdir` | `string_to_*` match upstream except that the **localized** unit suffixes ("kg"/"lbs"/"m"/"ft"/…) are only recognized in English. `get_current_date` maps the common `prefs.date_format_short` patterns onto `strftime`. `get_stylesheet` reads from the directory set by `set_xslt_directory()` instead of Qt resources. |
 | `fulltext.cpp` | no-op index, `FullTextQuery` | Indexing is a no-op; the query keeps its text so presets round-trip. Tokenizer splits on whitespace rather than Qt's Unicode-aware folding. |
 | `filterconstraint.cpp` | the tokens, ctors and `data_to_string` | Port of ~200 of upstream's 1112 lines. The token tables are byte-identical (they land in the file). Numerical defaults for a *newly created* constraint are a neutral 0..0 instead of upstream's per-unit ranges — nothing in the mobile build creates constraints. |
 | `filterpreset.cpp` | `filter_preset` methods | Straight port; only the QString round trip disappears. |
 | `selection.cpp` | current-dive tracking | Single-dive selection only, no signals. |
 | `git-access.cpp` | git storage stubs | `is_git_repository()` always false, so save-xml always takes the plain XML path. |
-| `platform.cpp` | POSIX wrappers from `core/ios.cpp` | Wrappers are verbatim. The data directory comes from `set_data_directory()` (the app passes its container path) instead of `QStandardPaths`. The libzip wrappers (`subsurface_zip_open_readonly`, `subsurface_zip_close`) are not defined: nothing in the subset calls them, because `core/file.cpp` is not compiled and the zipped formats are read by `cpp/bindings/zip-reader.cpp` instead. |
-| `divecomputer-hash.cpp` | `calculate_string_hash` | Upstream defines it in `libdivecomputer.cpp` (the downloader, out of scope). Same SHA1-based body, so dive ids match. |
+| `platform.cpp` | POSIX wrappers from `core/ios.cpp`, and `readfile` from `core/file.cpp` | Wrappers are verbatim. The data directory comes from `set_data_directory()` (the app passes its container path) instead of `QStandardPaths`. The libzip wrappers (`subsurface_zip_open_readonly`, `subsurface_zip_close`) are not defined: nothing in the subset calls them, because `core/file.cpp` is not compiled and the zipped formats are read by `cpp/bindings/zip-reader.cpp` instead. |
 | `qPrefDiveComputer.cpp` | `qPrefDiveComputer::device()` | Always empty. |
 
 ## Native dependencies
@@ -132,6 +166,8 @@ arriving transitively through a Qt header.
 | sqlite3 | SDK (`libsqlite3.tbd`) — needed by `import-suunto.cpp` | **vendored** 3.54.0 (amalgamation) | SDK |
 | zlib | SDK | NDK (`libz`) | SDK |
 | libxslt | **vendored**: `ios/vendor/libxslt.xcframework` + `ios/vendor/include`, built from source 1.1.43 by `ios/vendor/build/build-libxslt.sh` | **vendored** 1.1.43 | SDK (headers and library) |
+| libdivecomputer | compiled in | compiled in | compiled in |
+| Bluetooth | CoreBluetooth | `android.bluetooth`, API 18+ (permissions per version: `plugin/withBluetoothPermissions.js`) | simulated |
 | libzip | not used — see `cpp/bindings/zip-reader.cpp`; neither SDK ships it, and the archive formats only need the container decoded | not used | not used |
 
 On Android the NDK ships none of libxml2, libxslt or SQLite. All three are
@@ -179,10 +215,12 @@ The module API, all new code — no upstream file is involved.
 | `marshal.h` / `marshal.cpp` | Core structs → JSON, in raw core units |
 | `base64.h` / `base64.cpp` | Base64 decoding: the JSI boundary passes buffers this way, and so does a Suunto DM4 XML export |
 | `zip-reader.h` / `zip-reader.cpp` | Read-only ZIP decoding (stored + deflate, over zlib) for `.sde`/`.dld`. Upstream uses libzip in `core/file.cpp`, which ships with neither SDK; the container is all that is needed, and the dive data still goes through the core's parser |
+| `download.h`, `ble-stream.h`, `gatt-driver.h`, `dc-detect.h`, and their `.cpp` | See "The download path" above |
 | `suunto-xml.h` / `suunto-xml.cpp` | Decodes the `ProfileBlob` / `TemperatureBlob` / `PressureBlob` of a Suunto DM4 XML export into samples. `xslt/SuuntoDM4.xslt` emits those blobs and no core parser reads them - upstream only unpacks them from the *sqlite* DM4 database |
 
 Documented in `cpp/API.md`. Adding a method touches `api.cpp` and
-`src/index.ts` only; the Objective-C++/Swift glue is method-agnostic.
+`src/index.ts` only; the Objective-C++/Swift glue is method-agnostic. The same goes for
+events, through the one `onCoreEvent` channel.
 
 ## Runtime resources
 

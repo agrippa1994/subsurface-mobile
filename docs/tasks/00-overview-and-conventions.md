@@ -9,7 +9,8 @@ A brand-new **Subsurface mobile app** using **Expo + @expo/ui**, following OS co
 *consume* its C++ core. iOS ships first; Android is a later phase (task 13).
 
 v1 scope:
-- Import dives from **Suunto** (DM/SDE XML). **No libdivecomputer download. No BLE.**
+- Import dives from **Suunto** (DM/SDE XML).
+- Download dives from a dive computer over **BLE**, through libdivecomputer (task 14).
 - **Import/export** the Subsurface **SSRF XML** logbook (`.ssrf` / `.xml`).
 - Render the per-dive **profile diagram** and **core statistics**.
 - Manage **buddies** and **dive sites**.
@@ -25,7 +26,7 @@ TS / React Native  (Expo Router, @expo/ui, react-native-skia)
    import-suunto  +  profile / deco / statistics
         │ links
         ▼
- libxml2 (iOS SDK), libxslt, libzip, libdivecomputer (static C, no BLE)
+ libxml2 (iOS SDK), libxslt, libdivecomputer (compiled in), a GATT driver per platform
 ```
 
 - **The native module owns the state.** It holds the parsed in-memory `divelog` (exactly
@@ -41,8 +42,9 @@ The core is modern C++ already migrated off Qt (`std::string`/`std::vector`/`std
 The hardest-to-replace files are Qt-free:
 `core/dive.cpp`, `divelog.cpp`, `divelist.cpp`, `divesite.cpp`, `parse-xml.cpp` (51K),
 `save-xml.cpp`, `parse.cpp`, `import-suunto.cpp`, `profile.cpp` (57K), `deco.cpp`,
-`statistics.cpp`. Qt coupling (≈69/195 core files) sits in BLE/serial, device download,
-cloud/git, image/video, and a few helpers — all shimmed out or excluded.
+`statistics.cpp`. Qt coupling (≈69/195 core files) sits in BLE/serial, cloud/git,
+image/video, and a few helpers — all shimmed out or excluded. `libdivecomputer.cpp`, the
+device download, compiles behind one small patch; its Qt BLE transport is replaced.
 
 Two known Qt leaks the shim must handle (task 03):
 - Some otherwise-Qt-free **headers tail-include Qt**, e.g. `core/divesite.h:37-39`
