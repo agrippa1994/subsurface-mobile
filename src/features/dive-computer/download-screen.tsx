@@ -264,6 +264,7 @@ function Review({ screen }: { screen: DiveComputerScreen }) {
               key={row.index}
               accessibilityRole="checkbox"
               accessibilityState={{ checked }}
+              accessibilityLabel={`${row.dateText}, ${row.detailText}`}
               onPress={() => {
                 selectionChanged();
                 screen.toggle(row.index);
@@ -383,8 +384,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
     gap: Spacing.two,
   },
   optionLabel: { flex: 1, fontSize: 17 },
@@ -392,8 +391,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
   },
   diveText: { flex: 1, gap: 2 },
   button: {

@@ -121,20 +121,22 @@ export function useRememberedComputers(): RememberedComputer[] {
 
 export function useRememberComputer(): (computer: RememberedComputer) => void {
   const client = useQueryClient();
-  const update = useUpdateSettings();
+  // `mutate` is stable where the mutation object is not; the download screen's
+  // subscription to the module depends on this callback.
+  const { mutate } = useUpdateSettings();
   return useCallback(
     (computer: RememberedComputer) => {
       // Off the cache, not a closure: a download outlasts many renders.
       const current = client.getQueryData<Settings>(queryKeys.settings()) ?? readSettings();
-      update.mutate({ diveComputers: rememberComputer(current.diveComputers, computer) });
+      mutate({ diveComputers: rememberComputer(current.diveComputers, computer) });
     },
-    [client, update],
+    [client, mutate],
   );
 }
 
 export function useForgetComputers(): () => void {
-  const update = useUpdateSettings();
-  return useCallback(() => update.mutate({ diveComputers: [] }), [update]);
+  const { mutate } = useUpdateSettings();
+  return useCallback(() => mutate({ diveComputers: [] }), [mutate]);
 }
 
 export function useSetUnitSystem(): (unitSystem: UnitSystem) => void {
