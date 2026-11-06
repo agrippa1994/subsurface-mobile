@@ -28,6 +28,10 @@ gas consumption: every figure is the core's.
   as the nitrox tool. On the `-O0` host binary a default plan answers in 30 ms and a
   100 m, 60 min VPM-B trimix plan in 200 ms, with the screen's limits of 150 m and 240
   min per level keeping the rest out of reach by stepper.
+- **The result is pinned, at a fixed height.** Warnings first in the form would move the
+  steppers under the thumb the moment one appeared, and the next tap would land on
+  something else. That happened on the first simulator run. The bar holds the runtime,
+  the stops, the tightest cylinder and the first warning; the full list is in the form.
 - **Save plans again.** `savePlan` takes the same arguments as `planDive` and runs
   `plan()` afresh with the disclaimer in the notes. It refuses anything but `ok`.
 - **A plan with no ascent shows no figures.** On `timeout`, `inappropriateGas` and
@@ -35,6 +39,9 @@ gas consumption: every figure is the core's.
 - **Warnings beyond the notes.** Three facts the core reports other than with
   `Warning:` are raised as warnings too: a waypoint above the ceiling, a cylinder below
   minimum gas, and an overlap with a dive in the log.
+- **A log overlap is checked here as well as in the core.** `init_decompression()` only
+  looks at dives strictly before the plan, so a dive at the very same time, such as a plan
+  just saved and left on screen, or one starting during the plan, goes unnoticed.
 - **`prefs` is restored after every call.** `plan()` reads nearly everything from
   `prefs`, and this build leaves those at zero for the rest of the module.
 - **Patch 0010.** `wait_until()` limited a stop on the dive's clock, which recursed
@@ -44,7 +51,7 @@ gas consumption: every figure is the core's.
 
 | What | Legacy | Here | Why |
 | --- | --- | --- | --- |
-| Result | A button-free preview under the inputs | Warnings, runtime and gas first | What the diver needs first |
+| Result | A preview under the inputs | Pinned above them: runtime, stops, gas, first warning | What the diver needs, always in sight |
 | Calculate | Button in the gas calculator | Live | Nothing can be left out of date |
 | Drop to first depth | Follows the core's default, off | On by default | Off, a one-level plan descends for its whole time |
 | Isobaric counterdiffusion check | Off, no switch on the page | On, with a switch | Its warning is behind it |
