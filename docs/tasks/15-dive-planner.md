@@ -11,7 +11,7 @@ gas consumption: every figure is the core's.
 
 | Piece | Role |
 | --- | --- |
-| `core/planner.cpp`, `plannernotes.cpp`, `deco.cpp` | `plan()` and its notes. Untouched apart from patch 0009. |
+| `core/planner.cpp`, `plannernotes.cpp`, `deco.cpp` | `plan()` and its notes. Untouched apart from patch 0010. |
 | `cpp/bindings/planner.cpp` | `planDive`, `savePlan`, `gasInfo`, `plannerOptions`, `plannerSurface`: what `qt-models/diveplannermodel.cpp` does around the core, which is Qt and cannot be vendored. |
 | `src/models/planner.ts` | The plan being edited, and what a screen leads with: stops read off the waypoints, gas rows, warnings. |
 | `src/models/plan-notes.ts` | The core's HTML notes as native blocks, and the warnings out of them. |
@@ -37,7 +37,7 @@ gas consumption: every figure is the core's.
   minimum gas, and an overlap with a dive in the log.
 - **`prefs` is restored after every call.** `plan()` reads nearly everything from
   `prefs`, and this build leaves those at zero for the rest of the module.
-- **Patch 0009.** `wait_until()` limited a stop on the dive's clock, which recursed
+- **Patch 0010.** `wait_until()` limited a stop on the dive's clock, which recursed
   without end once a plan ran past 48 hours: a real stack overflow on a 300 m plan.
 
 ## Different from the legacy app, on purpose

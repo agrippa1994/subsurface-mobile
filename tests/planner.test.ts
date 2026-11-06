@@ -445,7 +445,7 @@ describe('planDive around the core', () => {
     expect(high.notes).toContain('ATM pressure');
   });
 
-  // Patch 0009: the core's stop limit was on the dive's clock, and a dive running past
+  // Patch 0010: the core's stop limit was on the dive's clock, and a dive running past
   // two days sent wait_until() into a recursion that ended in a stack overflow.
   it('survives a plan whose runtime passes two days', async () => {
     const result = await host.planDive({
