@@ -973,6 +973,53 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Follow-ups: merging two trips, and adding dives from the trip screen.
 
+- 2026-11-06 - **Several dive computers per dive**: the dive detail screen can switch
+  between a dive's computers, which closes the prev.DC and next DC gap with
+  `subsurface/mobile-widgets/qml/DiveDetailsView.qml`. A dive with one computer shows no
+  new control and no new row. `src/models/dive-computers.ts` holds the presentation logic,
+  `src/features/dives/computer-picker.ios.tsx` a SwiftUI menu, and
+  `src/features/dives/computer-picker.tsx` the portable row. No native code or core file
+  changed, so `CORE_MANIFEST.md` stays as it was.
+
+  A menu rather than a segmented control, because names run past 25 characters and a dive
+  can have any number of computers. The picker sits in the Profile card and beside the
+  title of the landscape profile.
+
+  Per computer, following the selection: profile, events, the chart's maximum depth and
+  total time, and the Dive computer section (model, serial, firmware, samples, mode, max
+  and average depth, duration, water and air temperature). `PlotInfo.maxDepthMm` and
+  `maxtimeSec` are not per computer in the core, so `plotForComputer` replaces them. Mode
+  leaves Details on these dives, because the summary's mode is only the first computer's.
+
+  Per dive, unchanged: the header figures and Details, which a footer says cover the whole
+  dive, plus cylinders and weights. Two features still read the first computer only: CSV
+  export and the SSI upload. Both sections say so on these dives.
+
+  The profile is fetched before the selection moves, because the query is keyed on the
+  computer: otherwise the screen drops to its loading state and the landscape modal closes.
+  The selection is tied to the dive id and falls back to the first computer when out of
+  range, since `getProfile` rejects an index past the end.
+
+  Verified: vitest, including `tests/multi-computer.test.ts` through the host binary on
+  dive 224 of `abitofeverything.ssrf`; lint and typecheck. On a throwaway iOS 27 simulator
+  with that fixture as its logbook, on dive 333: switching in portrait and in landscape,
+  light and dark, the selection returning to the first computer on reopening, the footers,
+  and dive 334 (one computer) with no picker and Mode still under Details.
+
+  Not verified: the Android picker has only been typechecked and linted, never run. The
+  accessibility label and value were read from the accessibility tree, not heard with
+  VoiceOver. No fixture name is long enough to show truncation on screen. The fallback when
+  a dive loses its selected computer is covered by a unit test only, because nothing in the
+  app can remove a computer yet. A dive with several computers of the same model was not
+  seen on screen; its labels are unit tested.
+
+  Follow-ups, left out because legacy mobile does not have them and each rewrites the log
+  with no undo in the app: make a computer the first (`clone_make_first_dc`), delete one
+  (`dive_table::clone_delete_divecomputer`), split one off into its own dive
+  (`dive_table::split_divecomputer`). Making one the first is the cheapest and the most
+  useful, since it decides what CSV export and SSI upload read. Also: let CSV export and SSI
+  upload follow the selected computer.
+
 - **Merging dives**: a long press on a dive row offers "Merge with Next Dive" or "Merge
   with Previous Dive", and dive detail has a Merge section, both only for a pair the core
   would merge. A confirmation names both dives and says what happens to the site, the trip
@@ -1010,4 +1057,3 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Not done: merging from selection mode or from a trip's dive list. The binding takes more
   than two dives, and the UI offers two.
-

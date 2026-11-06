@@ -19,9 +19,11 @@
 import {
   queryOptions,
   useQuery,
+  useQueryClient,
   type QueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import {
   getDive,
@@ -172,6 +174,23 @@ export function useTripStatistics(tripId: number): UseQueryResult<StatsSummary> 
     queryFn: () => getStatistics(filter),
     enabled: useLogLoaded() && Number.isFinite(tripId),
   });
+}
+
+/**
+ * Fills the cache for another computer's profile, so that useProfile has it the
+ * moment the screen asks. Returns the fetch to wait on.
+ */
+export function usePrepareProfile(id: number): (dcIndex: number) => Promise<PlotInfo> {
+  const gf = useGradientFactors();
+  const client = useQueryClient();
+  return useCallback(
+    (dcIndex: number) =>
+      client.fetchQuery({
+        queryKey: queryKeys.profile(id, dcIndex, gf),
+        queryFn: () => getProfile(id, dcIndex, gf),
+      }),
+    [client, gf, id],
+  );
 }
 
 /**
