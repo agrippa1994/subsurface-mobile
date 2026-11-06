@@ -11,6 +11,7 @@ import { HeaderAction } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { TripDetailView } from '@/components/trip-detail-view';
 import { useTripActions } from '@/features/dives/use-trip-actions';
+import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
 import type { DiveStackPath } from '@/app/(tabs)/dives/[id]';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { sortDivesNewestFirst } from '@/models/dive-list';
@@ -33,6 +34,8 @@ export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?:
     () => sortDivesNewestFirst((divesQuery.data ?? []).filter((dive) => dive.tripId === tripId)),
     [divesQuery.data, tripId],
   );
+
+  useLeaveWhenGone(tripsQuery.isSuccess && !trip);
 
   const failure = tripsQuery.error ?? divesQuery.error;
   if (failure) {
@@ -68,7 +71,7 @@ export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?:
   return (
     <>
       <Stack.Screen options={{ title: tripTitle(trip.location) }} />
-      <HeaderAction label="Edit" onPress={openEditor} />
+      <HeaderAction history label="Edit" onPress={openEditor} />
       <TripDetailView
         summary={tripSummaryRows(trip, statsQuery.data, unitSystem)}
         summaryFooter={tripSummaryFooter(trip, statsQuery.data)}

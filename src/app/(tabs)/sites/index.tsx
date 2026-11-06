@@ -12,6 +12,7 @@ import { Alert, Platform, View } from 'react-native';
 import { HeaderIconButton } from '@/components/header-icon-button';
 import { MAPS_AVAILABLE } from '@/components/site-map';
 import { SitesMap } from '@/components/sites-map';
+import { useHistoryMenu } from '@/features/history/use-history-actions';
 import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
 import { StatusView } from '@/components/status-view';
 import { SitesList } from '@/features/sites/sites-list';
@@ -24,6 +25,7 @@ export default function SitesScreen() {
   const logbook = useLogbook();
   const { data: sites = [] } = useSites();
   const router = useRouter();
+  const historyMenu = useHistoryMenu();
   const [source, setSource] = useState<'logbook' | 'ssi'>('logbook');
   const [mode, setMode] = useState<'map' | 'list'>(MAPS_AVAILABLE ? 'map' : 'list');
   // Owned here so the viewport survives switching between both kinds of site
@@ -60,6 +62,22 @@ export default function SitesScreen() {
           <Stack.Toolbar.MenuAction onPress={() => setSource('ssi')}>
             SSI dive sites
           </Stack.Toolbar.MenuAction>
+          {historyMenu ? (
+            <Stack.Toolbar.Menu inline>
+              <Stack.Toolbar.MenuAction
+                icon="arrow.uturn.backward"
+                disabled={!historyMenu.canUndo}
+                onPress={historyMenu.undo}>
+                {historyMenu.undoTitle}
+              </Stack.Toolbar.MenuAction>
+              <Stack.Toolbar.MenuAction
+                icon="arrow.uturn.forward"
+                disabled={!historyMenu.canRedo}
+                onPress={historyMenu.redo}>
+                {historyMenu.redoTitle}
+              </Stack.Toolbar.MenuAction>
+            </Stack.Toolbar.Menu>
+          ) : null}
         </Stack.Toolbar.Menu>
         <Stack.Toolbar.Button
           hidden={mode !== 'map' || sites.length === 0}
@@ -94,6 +112,23 @@ export default function SitesScreen() {
                 label={mode === 'map' ? 'Show as list' : 'Show on map'}
                 icon={mode === 'map' ? 'list.bullet' : 'map'}
                 onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
+              />
+            ) : null}
+            {historyMenu ? (
+              <HeaderIconButton
+                label="Undo and redo"
+                icon="arrow.uturn.backward"
+                onPress={() =>
+                  Alert.alert('Undo and redo', undefined, [
+                    { text: 'Cancel', style: 'cancel' },
+                    ...(historyMenu.canRedo
+                      ? [{ text: historyMenu.redoTitle, onPress: historyMenu.redo }]
+                      : []),
+                    ...(historyMenu.canUndo
+                      ? [{ text: historyMenu.undoTitle, onPress: historyMenu.undo }]
+                      : []),
+                  ])
+                }
               />
             ) : null}
             <HeaderIconButton

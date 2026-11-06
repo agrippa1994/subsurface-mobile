@@ -26,6 +26,7 @@ import { useComputerSelection } from '@/features/dives/use-computer-selection';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
+import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
 import { useTheme } from '@/hooks/use-theme';
 import { useCurrentDiveId } from '@/lib/merged-dives';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
@@ -101,13 +102,17 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
     [computer.index, dive, profile],
   );
 
+  const failure = diveQuery.error ?? profileQuery.error;
+  // Undone or redone away: the dive may be back as soon as the undo is undone, but
+  // the screen has nothing to show until then.
+  useLeaveWhenGone(failure !== null && currentId === diveId);
+
   // Merged since this screen opened, from here or from anywhere else: the dive
   // goes on under a new id, and only then would the lookup below fail.
   if (currentId !== diveId) {
     return <Redirect href={`${stackPath}/${currentId}`} />;
   }
 
-  const failure = diveQuery.error ?? profileQuery.error;
   if (failure) {
     return (
       <StatusView
@@ -144,7 +149,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       <Stack.Screen options={{ title: row.title }} />
       {/* A native bar button item rather than a custom headerRight view, so it
           gets the system Edit look (liquid glass on iOS 26). */}
-      <HeaderAction label="Edit" onPress={() => router.push(`${stackPath}/edit/${dive.id}`)} />
+      <HeaderAction history label="Edit" onPress={() => router.push(`${stackPath}/edit/${dive.id}`)} />
 
       <Header
         dive={dive}

@@ -4,16 +4,44 @@
 // variant is header-action.tsx.
 import { Stack } from 'expo-router';
 
+import { useHistoryMenu } from '@/features/history/use-history-actions';
+
 import type { HeaderActionProps } from './header-action';
 
-export function HeaderAction(props: HeaderActionProps) {
-  return <HeaderActions actions={[props]} />;
+export function HeaderAction({ history, ...props }: HeaderActionProps & { history?: boolean }) {
+  return <HeaderActions actions={[props]} history={history} />;
 }
 
-/** Several actions in one toolbar: a second Stack.Toolbar would replace the first. */
-export function HeaderActions({ actions }: { actions: HeaderActionProps[] }) {
+/**
+ * Several actions in one toolbar: a second Stack.Toolbar would replace the first.
+ * `history` adds the undo and redo menu, while there is anything to undo or redo.
+ */
+export function HeaderActions({
+  actions,
+  history = false,
+}: {
+  actions: HeaderActionProps[];
+  history?: boolean;
+}) {
+  const menu = useHistoryMenu();
   return (
     <Stack.Toolbar placement="right">
+      {history && menu ? (
+        <Stack.Toolbar.Menu icon="arrow.uturn.backward" accessibilityLabel="Undo and redo">
+          <Stack.Toolbar.MenuAction
+            icon="arrow.uturn.backward"
+            disabled={!menu.canUndo}
+            onPress={menu.undo}>
+            {menu.undoTitle}
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction
+            icon="arrow.uturn.forward"
+            disabled={!menu.canRedo}
+            onPress={menu.redo}>
+            {menu.redoTitle}
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      ) : null}
       {actions.map(({ label, icon, done, disabled, onPress }) =>
         icon ? (
           <Stack.Toolbar.Button

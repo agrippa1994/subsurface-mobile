@@ -16,6 +16,7 @@ import { HeaderAction } from '@/components/header-action';
 import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
+import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
 import { useTheme } from '@/hooks/use-theme';
 import { sortDivesNewestFirst, toSiteDiveRow } from '@/models/dive-list';
 import { toSiteRow } from '@/models/site-edit';
@@ -26,7 +27,8 @@ export function SiteDetail({ uuid }: { uuid: number }) {
   const router = useRouter();
   const theme = useTheme();
   const unitSystem = useUnitSystem();
-  const { data: sites = [] } = useSites();
+  const sitesQuery = useSites();
+  const sites = useMemo(() => sitesQuery.data ?? [], [sitesQuery.data]);
   const { data: allDives = [] } = useDives();
 
   const site = sites.find((candidate) => candidate.uuid === uuid);
@@ -34,6 +36,8 @@ export function SiteDetail({ uuid }: { uuid: number }) {
     () => sortDivesNewestFirst(allDives.filter((dive) => dive.siteUuid === uuid)),
     [allDives, uuid],
   );
+
+  useLeaveWhenGone(sitesQuery.isSuccess && !site);
 
   if (!site) {
     return (
@@ -55,7 +59,7 @@ export function SiteDetail({ uuid }: { uuid: number }) {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Stack.Screen options={{ title: row.title }} />
-      <HeaderAction label="Edit" onPress={() => router.push(`/sites/edit/${uuid}`)} />
+      <HeaderAction history label="Edit" onPress={() => router.push(`/sites/edit/${uuid}`)} />
 
       <FormSection title="Position">
         {MAPS_AVAILABLE ? (

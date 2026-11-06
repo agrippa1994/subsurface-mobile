@@ -22,6 +22,8 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'arrow.down.to.line': 'vertical_align_bottom',
   'arrow.triangle.merge': 'merge',
   'arrow.up': 'arrow_upward',
+  'arrow.uturn.backward': 'undo',
+  'arrow.uturn.forward': 'redo',
   checkmark: 'check',
   'chart.bar': 'bar_chart',
   'checkmark.circle.fill': 'check_circle',
