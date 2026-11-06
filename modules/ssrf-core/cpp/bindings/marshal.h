@@ -11,6 +11,7 @@
 
 struct dive;
 struct dive_site;
+struct dive_trip;
 struct plot_info;
 struct stats_t;
 struct stats_summary;
@@ -29,6 +30,9 @@ json dive_to_json(const struct dive &d);
 json plot_info_to_json(const struct plot_info &pi);
 
 json dive_site_to_json(const struct dive_site &ds);
+
+// A trip's own fields and the span of its dives; its dives carry `tripId`.
+json trip_to_json(const struct dive_trip &trip);
 
 json stats_to_json(const struct stats_t &s);
 json stats_summary_to_json(const struct stats_summary &s);

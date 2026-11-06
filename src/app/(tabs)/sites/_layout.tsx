@@ -1,6 +1,6 @@
 // AI-generated (Claude)
 // Stack of the Sites tab: the list (or map), one site with its dives, a dive
-// opened from there with its editor and SSI sync, the site editor, and the
+// opened from there with its editor, SSI sync and trip, the site editor, and the
 // "new site" form.
 import { Stack } from 'expo-router';
 
@@ -23,6 +23,24 @@ export default function SitesLayout() {
       <Stack.Screen
         name="new"
         options={{ title: 'New site', headerLargeTitle: false, presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="dive/trip/[id]"
+        options={{ title: 'Trip', headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}
+      />
+      <Stack.Screen
+        name="dive/trip/edit/[id]"
+        options={{ title: 'Edit trip', headerLargeTitle: false }}
+      />
+      <Stack.Screen
+        name="dive/trip/pick"
+        options={{
+          title: 'Add to Trip',
+          headerLargeTitle: false,
+          presentation: 'formSheet',
+          sheetGrabberVisible: true,
+          sheetAllowedDetents: [0.6, 1],
+        }}
       />
     </Stack>
   );

@@ -89,6 +89,11 @@ rendered metric or imperial.
 | `deleteDive` | `{ id }` | `{ dives, trips }` |
 | `previewDive` | `{ id, patch }` | `Dive` |
 | `ungroupDives` | `{}` | `{ dives, trips }` |
+| `listTrips` | `{}` | `Trip[]` |
+| `createTrip` | `{ diveIds, location? }` | `Trip` |
+| `addDivesToTrip` | `{ diveIds, tripId }` | `Trip` |
+| `removeDivesFromTrip` | `{ diveIds }` | `{ trips }` |
+| `updateTrip` | `{ id, location?, notes? }` | `Trip` |
 | `getLastError` | `{}` | `string` |
 
 `ArrayBuffer` arguments cross as base64 (`base64` key); a `path` is used
@@ -243,6 +248,19 @@ directly and avoids the copy.
   be told from one the user made. The caller is expected to confirm first; the
   app does, in Settings. `notrip` is left unset, since nothing regroups dives
   once autogrouping is off.
+- **Trip methods** do to the core what the Qt undo commands do
+  (`commands/command_divelist.cpp`, `command_edit_trip.cpp`), through the same
+  core functions. A trip goes away with its last dive, location and notes
+  included. `diveIds` is resolved before anything changes, so a stale id fails
+  the whole call. `createTrip` names the trip after the site of the oldest dive
+  (`create_trip_from_dive`) unless `location` is given. `addDivesToTrip` moves a
+  dive that is in another trip. `removeDivesFromTrip` sets `notrip`, as the
+  command does: desktop Subsurface will not autogroup that dive again.
+  `listTrips` leaves out a trip with no dives, which only a file with an empty
+  `<trip>` can produce and which saving drops. Trip ids are process-local, like
+  dive ids. Dives carry `tripId` (0 for no trip).
+- **`getStatistics`** takes `tripId` in its filter, which is how a trip gets its
+  totals from `statistics.cpp`.
 
 ### Downloading from a dive computer
 

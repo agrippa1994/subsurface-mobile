@@ -32,6 +32,9 @@ import type {
   SaveResult,
   StatsFilter,
   StatsSummary,
+  RemoveFromTripResult,
+  Trip,
+  TripPatch,
   UngroupResult,
 } from '../../src/models';
 import { SsrfCoreError } from '../../src/models';
@@ -156,6 +159,26 @@ export class SsrfHost {
 
   ungroupDives(): Promise<UngroupResult> {
     return this.call<UngroupResult>('ungroupDives');
+  }
+
+  listTrips(): Promise<Trip[]> {
+    return this.call<Trip[]>('listTrips');
+  }
+
+  createTrip(diveIds: number[], location?: string): Promise<Trip> {
+    return this.call<Trip>('createTrip', location === undefined ? { diveIds } : { diveIds, location });
+  }
+
+  addDivesToTrip(diveIds: number[], tripId: number): Promise<Trip> {
+    return this.call<Trip>('addDivesToTrip', { diveIds, tripId });
+  }
+
+  removeDivesFromTrip(diveIds: number[]): Promise<RemoveFromTripResult> {
+    return this.call<RemoveFromTripResult>('removeDivesFromTrip', { diveIds });
+  }
+
+  updateTrip(id: number, patch: TripPatch): Promise<Trip> {
+    return this.call<Trip>('updateTrip', { id, ...patch });
   }
 
   getDive(id: number): Promise<Dive> {

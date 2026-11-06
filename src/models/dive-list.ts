@@ -12,9 +12,20 @@ import { formatDepth, formatDuration, type UnitSystem } from './units';
 /** Section label used for dives that belong to no trip. */
 export const NO_TRIP_LABEL = 'Not in a trip';
 
+/** Title of a trip nobody has named: a dive without a site starts one. */
+export const UNTITLED_TRIP_LABEL = 'Untitled trip';
+
+/** A trip's location as a title. */
+export function tripTitle(location: string): string {
+  const trimmed = location.trim();
+  return trimmed === '' ? UNTITLED_TRIP_LABEL : trimmed;
+}
+
 export type DiveTripSection = {
-  /** Stable within one loaded log: the id of the section's first dive. */
+  /** Stable within one loaded log. */
   key: string;
+  /** The trip this section shows, 0 for a run of dives outside any trip. */
+  tripId: number;
   title: string;
   /** Unix seconds of the newest and oldest dive in the section. */
   newestWhen: number;
@@ -30,13 +41,14 @@ export function sortDivesNewestFirst(dives: readonly DiveSummary[]): DiveSummary
 /**
  * Groups dives into trip sections.
  *
- * `listDives()` exposes a trip only through its location string, so trips are
- * reconstructed from *runs* of time-adjacent dives that share one location
- * rather than by bucketing on the string. A trip is contiguous in time by
- * construction in the core, so two separate visits to the same place stay two
- * sections instead of collapsing into one. Dives with no trip fall into runs of
- * their own, which is also why consecutive trip-less dives end up in a single
- * section.
+ * A trip gets one section however its dives fall in time: its place is that of
+ * its newest dive, and every dive of the trip is in it - the same tree desktop
+ * Subsurface shows. Two trips with one location stay two sections, and a trip
+ * with no location is still a trip. A dive added from the trip picker can lie
+ * outside the trip's former date range, so a trip need not be contiguous.
+ *
+ * Dives without a trip fall into runs of their own, ended by the next trip that
+ * starts; a dive of a trip already listed does not end a run.
  *
  * Input order does not matter; the result is newest-first, and so is every
  * section.
@@ -44,25 +56,32 @@ export function sortDivesNewestFirst(dives: readonly DiveSummary[]): DiveSummary
 export function groupDivesByTrip(dives: readonly DiveSummary[]): DiveTripSection[] {
   const sorted = sortDivesNewestFirst(dives);
   const sections: DiveTripSection[] = [];
+  const trips = new Map<number, DiveTripSection>();
+  let run: DiveTripSection | null = null;
 
   for (const dive of sorted) {
-    const location = dive.tripLocation.trim();
-    const title = location === '' ? NO_TRIP_LABEL : location;
-    const previous = sections[sections.length - 1];
-
-    if (previous && previous.title === title) {
-      previous.dives.push(dive);
-      previous.oldestWhen = dive.when;
+    const existing = dive.tripId !== 0 ? trips.get(dive.tripId) : run;
+    if (existing) {
+      existing.dives.push(dive);
+      existing.oldestWhen = dive.when;
       continue;
     }
 
-    sections.push({
-      key: String(dive.id),
-      title,
+    const section: DiveTripSection = {
+      key: dive.tripId !== 0 ? `trip-${dive.tripId}` : `dive-${dive.id}`,
+      tripId: dive.tripId,
+      title: dive.tripId !== 0 ? tripTitle(dive.tripLocation) : NO_TRIP_LABEL,
       newestWhen: dive.when,
       oldestWhen: dive.when,
       dives: [dive],
-    });
+    };
+    sections.push(section);
+    if (dive.tripId !== 0) {
+      trips.set(dive.tripId, section);
+      run = null;
+    } else {
+      run = section;
+    }
   }
 
   return sections;

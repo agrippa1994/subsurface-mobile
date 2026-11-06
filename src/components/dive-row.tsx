@@ -9,6 +9,7 @@
 // model (models/dive-list.ts), never here.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ratingStars, type DiveRow } from '@/models/dive-list';
@@ -22,10 +23,13 @@ export function DiveRowView({
   row,
   onPress,
   onLongPress,
+  selected,
 }: {
   row: DiveRow;
   onPress: () => void;
   onLongPress?: () => void;
+  /** Whether the list's selection holds this row; absent outside selection mode. */
+  selected?: boolean;
 }) {
   const theme = useTheme();
   const subtitle = [row.subtitle, row.invalid ? 'invalid' : ''].filter(Boolean).join('  ');
@@ -34,6 +38,7 @@ export function DiveRowView({
       accessible
       accessibilityRole="button"
       accessibilityLabel={row.accessibilityLabel}
+      accessibilityState={selected !== undefined ? { selected } : undefined}
       onPress={onPress}
       onLongPress={onLongPress}
       style={({ pressed }) => [
@@ -41,6 +46,13 @@ export function DiveRowView({
         pressed ? { backgroundColor: theme.backgroundSelected } : null,
       ]}
     >
+      {selected !== undefined ? (
+        <SymbolView
+          name={selected ? 'checkmark.circle.fill' : 'circle'}
+          size={22}
+          tintColor={selected ? theme.accent : theme.textSecondary}
+        />
+      ) : null}
       <View style={[diveRowStyles.badge, { backgroundColor: theme.backgroundSelected }]}>
         <Text style={[diveRowTextStyles.badgeText, { color: theme.accent }]}>{row.badgeText}</Text>
       </View>

@@ -29,19 +29,19 @@ export function tempDir(prefix = 'ssrf-test-'): string {
 
 /**
  * Everything about a loaded logbook that a round trip must preserve, with the
- * process-local dive ids removed.
+ * process-local dive and trip ids removed.
  *
  * `dive::id` is a runtime counter that is not persisted (see cpp/API.md), so it
  * differs after every load and would make any save/load comparison fail for the
  * wrong reason. Dive site uuids *are* persisted and stay in the snapshot.
  */
 export type LogSnapshot = {
-  dives: Omit<Dive, 'id'>[];
+  dives: Omit<Dive, 'id' | 'tripId'>[];
   sites: DiveSite[];
 };
 
-function stripId(dive: Dive): Omit<Dive, 'id'> {
-  const { id: _id, ...rest } = dive;
+function stripId(dive: Dive): Omit<Dive, 'id' | 'tripId'> {
+  const { id: _id, tripId: _tripId, ...rest } = dive;
   return rest;
 }
 
@@ -51,7 +51,7 @@ export async function snapshotLog(host: {
   listDiveSites(): Promise<DiveSite[]>;
 }): Promise<LogSnapshot> {
   const summaries = await host.listDives();
-  const dives: Omit<Dive, 'id'>[] = [];
+  const dives: Omit<Dive, 'id' | 'tripId'>[] = [];
   for (const summary of summaries) {
     dives.push(stripId(await host.getDive(summary.id)));
   }

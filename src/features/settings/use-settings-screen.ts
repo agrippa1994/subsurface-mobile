@@ -14,12 +14,11 @@ import { useMcpSection, type McpSection } from '@/features/mcp/use-mcp-section';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
-import { groupDivesByTrip, NO_TRIP_LABEL } from '@/models/dive-list';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
 import type { UnitSystem } from '@/models';
-import { useDives, useSites } from '@/queries/logbook';
+import { useDives, useSites, useTrips } from '@/queries/logbook';
 import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
@@ -155,12 +154,8 @@ export function useSettingsScreen(): SettingsScreen {
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
   const ungroupInLog = useUngroupDives();
-  // A trip reaches the app only as its location string, so the count is taken
-  // off the same sections the dive list shows rather than from the module.
-  const tripCount = useMemo(
-    () => groupDivesByTrip(dives).filter((section) => section.title !== NO_TRIP_LABEL).length,
-    [dives],
-  );
+  const { data: trips = [] } = useTrips();
+  const tripCount = trips.length;
 
   const ungroupDives = useCallback(() => {
     if (tripCount === 0) {

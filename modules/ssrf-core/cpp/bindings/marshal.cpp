@@ -187,6 +187,7 @@ json dive_summary_to_json(const struct dive &d)
 		{ "visibility", d.visibility },
 		{ "siteUuid", d.dive_site ? d.dive_site->uuid : 0u },
 		{ "siteName", d.dive_site ? d.dive_site->name : std::string() },
+		{ "tripId", d.divetrip ? d.divetrip->id : 0 },
 		{ "tripLocation", d.divetrip ? d.divetrip->location : std::string() },
 		{ "buddy", d.buddy },
 		{ "diveguide", d.diveguide },
@@ -194,6 +195,19 @@ json dive_summary_to_json(const struct dive &d)
 		{ "divemode", dc ? static_cast<int>(dc->divemode) : static_cast<int>(OC) },
 		{ "dcModel", dc ? dc->model : std::string() },
 		{ "invalid", d.invalid },
+	};
+}
+
+json trip_to_json(const struct dive_trip &trip)
+{
+	// The trip's dives are kept in date order by dive_trip::add_dive().
+	return json{
+		{ "id", trip.id },
+		{ "location", trip.location },
+		{ "notes", trip.notes },
+		{ "diveCount", static_cast<int>(trip.dives.size()) },
+		{ "when", static_cast<int64_t>(trip.date()) },
+		{ "lastDiveWhen", trip.dives.empty() ? int64_t{ 0 } : static_cast<int64_t>(trip.dives.back()->when) },
 	};
 }
 

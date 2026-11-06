@@ -14,6 +14,7 @@ import {
   buildDiveSearchIndex,
   groupDivesByTrip,
   NO_TRIP_LABEL,
+  UNTITLED_TRIP_LABEL,
   ratingStars,
   searchDives,
   searchResultsText,
@@ -39,6 +40,7 @@ function summary(overrides: Partial<DiveSummary> & { id: number }): DiveSummary 
     visibility: 0,
     siteUuid: 0,
     siteName: '',
+    tripId: 0,
     tripLocation: '',
     buddy: '',
     diveguide: '',
@@ -81,14 +83,15 @@ describe('sortDivesNewestFirst', () => {
 });
 
 describe('groupDivesByTrip', () => {
-  it('groups a run of dives sharing a trip location', () => {
+  it('groups the dives of a trip', () => {
     const sections = groupDivesByTrip([
-      summary({ id: 1, when: 1 * DAY, tripLocation: 'Red Sea' }),
-      summary({ id: 2, when: 2 * DAY, tripLocation: 'Red Sea' }),
-      summary({ id: 3, when: 3 * DAY, tripLocation: 'Red Sea' }),
+      summary({ id: 1, when: 1 * DAY, tripId: 7, tripLocation: 'Red Sea' }),
+      summary({ id: 2, when: 2 * DAY, tripId: 7, tripLocation: 'Red Sea' }),
+      summary({ id: 3, when: 3 * DAY, tripId: 7, tripLocation: 'Red Sea' }),
     ]);
     expect(sections).toHaveLength(1);
     expect(sections[0].title).toBe('Red Sea');
+    expect(sections[0].tripId).toBe(7);
     expect(sections[0].dives.map((d) => d.id)).toEqual([3, 2, 1]);
     expect(sections[0].newestWhen).toBe(3 * DAY);
     expect(sections[0].oldestWhen).toBe(1 * DAY);
@@ -96,27 +99,48 @@ describe('groupDivesByTrip', () => {
 
   it('keeps two visits to the same place apart', () => {
     const sections = groupDivesByTrip([
-      summary({ id: 1, when: 1 * DAY, tripLocation: 'Elba' }),
-      summary({ id: 2, when: 50 * DAY, tripLocation: 'Bonaire' }),
-      summary({ id: 3, when: 100 * DAY, tripLocation: 'Elba' }),
+      summary({ id: 1, when: 1 * DAY, tripId: 7, tripLocation: 'Elba' }),
+      summary({ id: 2, when: 50 * DAY, tripId: 8, tripLocation: 'Bonaire' }),
+      summary({ id: 3, when: 100 * DAY, tripId: 9, tripLocation: 'Elba' }),
     ]);
     expect(sections.map((s) => s.title)).toEqual(['Elba', 'Bonaire', 'Elba']);
     expect(sections.map((s) => s.dives.length)).toEqual([1, 1, 1]);
+  });
+
+  it('keeps two neighbouring trips with one location apart', () => {
+    const sections = groupDivesByTrip([
+      summary({ id: 1, when: 1 * DAY, tripId: 7, tripLocation: 'Elba' }),
+      summary({ id: 2, when: 2 * DAY, tripId: 8, tripLocation: 'Elba' }),
+    ]);
+    expect(sections.map((s) => s.tripId)).toEqual([8, 7]);
   });
 
   it('collects trip-less dives under one label and merges adjacent ones', () => {
     const sections = groupDivesByTrip([
       summary({ id: 1, when: 1 * DAY }),
       summary({ id: 2, when: 2 * DAY }),
-      summary({ id: 3, when: 3 * DAY, tripLocation: 'Elba' }),
+      summary({ id: 3, when: 3 * DAY, tripId: 7, tripLocation: 'Elba' }),
     ]);
     expect(sections.map((s) => s.title)).toEqual(['Elba', NO_TRIP_LABEL]);
     expect(sections[1].dives.map((d) => d.id)).toEqual([2, 1]);
   });
 
-  it('treats a whitespace-only trip location as no trip', () => {
-    const sections = groupDivesByTrip([summary({ id: 1, tripLocation: '   ' })]);
-    expect(sections[0].title).toBe(NO_TRIP_LABEL);
+  it('shows a trip without a location as a trip, not as no trip', () => {
+    const sections = groupDivesByTrip([summary({ id: 1, tripId: 7, tripLocation: '   ' })]);
+    expect(sections[0].title).toBe(UNTITLED_TRIP_LABEL);
+    expect(sections[0].tripId).toBe(7);
+  });
+
+  it('keeps every dive of a trip in its one section when dives lie between them', () => {
+    const sections = groupDivesByTrip([
+      summary({ id: 1, when: 1 * DAY, tripId: 7, tripLocation: 'Elba' }),
+      summary({ id: 2, when: 2 * DAY }),
+      summary({ id: 3, when: 3 * DAY, tripId: 8, tripLocation: 'Bonaire' }),
+      summary({ id: 4, when: 4 * DAY, tripId: 7, tripLocation: 'Elba' }),
+    ]);
+    expect(sections.map((s) => s.title)).toEqual(['Elba', 'Bonaire', NO_TRIP_LABEL]);
+    expect(sections[0].dives.map((d) => d.id)).toEqual([4, 1]);
+    expect(sections[0].oldestWhen).toBe(1 * DAY);
   });
 
   it('returns nothing for an empty log', () => {

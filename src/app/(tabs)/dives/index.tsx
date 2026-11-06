@@ -6,6 +6,11 @@
 // error placeholders around it. Deleting from the list (a swipe on iOS) asks
 // first, the same way the dive editor does - a deleted dive is gone for good.
 //
+// Trips are reached from here too: a section header opens its trip, a row's swipe
+// or long press offers the trip actions, and "Select" marks several dives to
+// group or move at once. A selection lasts until the log changes - which is what
+// finishing one of those actions does, wherever it was finished.
+//
 // The header search bar narrows the list by site, trip, buddy, dive guide,
 // dive number or date (see searchDives); while a query is typed, the list says
 // how many dives it kept.
@@ -14,9 +19,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
-import { HeaderAction } from '@/components/header-action';
+import { DiveSelectionBar } from '@/components/dive-selection-bar';
+import { HeaderActions } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
-import { warned } from '@/lib/haptics';
+import { useTripActions } from '@/features/dives/use-trip-actions';
+import { selectionChanged, warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
 import type { DiveSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -27,9 +34,19 @@ import {
   searchDives,
   searchResultsText,
 } from '@/models/dive-list';
-import { useDives, useLogbook } from '@/queries/logbook';
+import {
+  adjacentTripsByDive,
+  formatDiveIds,
+  tripActionsFor,
+  type TripAction,
+} from '@/models/trips';
+import { useDives, useLogbook, useTrips } from '@/queries/logbook';
 import { useDeleteDive } from '@/queries/logbook-mutations';
 import { useUnitSystem } from '@/queries/settings';
+
+function selectedTitle(count: number): string {
+  return count === 0 ? 'Select Dives' : `${count} Selected`;
+}
 
 export default function DivesScreen() {
   const router = useRouter();
@@ -38,6 +55,66 @@ export default function DivesScreen() {
   const dives = useMemo(() => divesQuery.data ?? [], [divesQuery.data]);
   const unitSystem = useUnitSystem();
   const deleteDive = useDeleteDive();
+  const tripsQuery = useTrips();
+  const trips = useMemo(() => tripsQuery.data ?? [], [tripsQuery.data]);
+  const tripActions = useTripActions();
+
+  const adjacent = useMemo(() => adjacentTripsByDive(dives, trips), [dives, trips]);
+
+  // Kept with the dive list it was made on: a selection over a list that has
+  // since changed would act on dives the user no longer sees marked. That also
+  // ends selection mode once the picker has moved the dives.
+  const [selection, setSelection] = useState<{
+    ids: ReadonlySet<number>;
+    of: readonly DiveSummary[];
+  } | null>(null);
+  const selectedIds = selection?.of === dives ? selection.ids : null;
+  const selectedDives = useMemo(
+    () => (selectedIds ? dives.filter((dive) => selectedIds.has(dive.id)) : []),
+    [dives, selectedIds],
+  );
+
+  const toggleDive = useCallback(
+    (id: number) => {
+      const ids = new Set(selectedIds);
+      if (!ids.delete(id)) {
+        ids.add(id);
+      }
+      selectionChanged();
+      setSelection({ ids, of: dives });
+    },
+    [dives, selectedIds],
+  );
+
+  const openPicker = useCallback(
+    (ids: readonly number[]) => {
+      router.push(`/dives/trip/pick?diveIds=${formatDiveIds(ids)}`);
+    },
+    [router],
+  );
+
+  const onTripAction = useCallback(
+    (dive: DiveSummary, action: TripAction) => {
+      switch (action.kind) {
+        case 'open':
+          router.push(`/dives/trip/${action.tripId}`);
+          break;
+        case 'pick':
+          openPicker([dive.id]);
+          break;
+        case 'add':
+          tripActions.addToTrip([dive], action.tripId);
+          break;
+        case 'new':
+          tripActions.createTrip([dive], (trip) => router.push(`/dives/trip/${trip.id}`));
+          break;
+        case 'remove':
+          tripActions.removeFromTrip([dive]);
+          break;
+      }
+    },
+    [openPicker, router, tripActions],
+  );
 
   const openDownload = useCallback(() => router.push('/dives/download'), [router]);
 
@@ -146,14 +223,44 @@ export default function DivesScreen() {
   return (
     <>
       {searchBar}
-      <HeaderAction label="Download" icon="arrow.down.circle" onPress={openDownload} />
+      <Stack.Screen
+        options={{
+          title: selectedIds ? selectedTitle(selectedIds.size) : 'Dives',
+        }}
+      />
+      <HeaderActions
+        actions={
+          selectedIds
+            ? [{ label: 'Done', done: true, onPress: () => setSelection(null) }]
+            : [
+                { label: 'Download', icon: 'arrow.down.circle', onPress: openDownload },
+                { label: 'Select', onPress: () => setSelection({ ids: new Set(), of: dives }) },
+              ]
+        }
+      />
       <DiveListView
         sections={sections}
         unitSystem={unitSystem}
         onSelectDive={(id) => router.push(`/dives/${id}`)}
         onDeleteDive={onDeleteDive}
         resultsText={searching ? searchResultsText(matches.length, dives.length) : undefined}
+        onOpenTrip={(tripId) => router.push(`/dives/trip/${tripId}`)}
+        tripActions={(dive) => tripActionsFor(dive, adjacent.get(dive.id))}
+        onTripAction={onTripAction}
+        selectedIds={selectedIds}
+        onToggleDive={toggleDive}
+        onStartSelecting={(id) => setSelection({ ids: new Set([id]), of: dives })}
       />
+      {selectedIds ? (
+        <DiveSelectionBar
+          dives={selectedDives}
+          onNewTrip={() =>
+            tripActions.createTrip(selectedDives, (trip) => router.push(`/dives/trip/${trip.id}`))
+          }
+          onAddToTrip={() => openPicker(selectedDives.map((dive) => dive.id))}
+          onRemoveFromTrip={() => tripActions.removeFromTrip(selectedDives)}
+        />
+      ) : null}
     </>
   );
 }

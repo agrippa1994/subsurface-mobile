@@ -4,13 +4,16 @@
 // iOS renders a real SwiftUI List instead - see dive-list-view.ios.tsx. Both
 // variants take the same props and read the same presentation model, so the
 // grouping and the formatting cannot diverge between platforms. There is no
-// swipe here; a long press offers the same delete as the iOS swipe action.
+// swipe here; a long press offers what the iOS swipe actions and context menu
+// do, and a trip's section header leads to the trip.
 //
 // The row itself is DiveRowView (dive-row.tsx), which matches the iOS row: the
 // dive number in a fixed-width badge, depth over duration at the end.
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Animated,
+  Pressable,
   SectionList,
   StyleSheet,
   Text,
@@ -19,10 +22,12 @@ import {
 } from 'react-native';
 
 import { DiveRowView, diveRowStyles, diveRowTextStyles } from '@/components/dive-row';
+import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSummary, UnitSystem } from '@/models';
-import { sectionSubtitle, skeletonRows, toDiveRow, type DiveTripSection } from '@/models/dive-list';
+import { diveRowTitle, sectionSubtitle, skeletonRows, toDiveRow, type DiveTripSection } from '@/models/dive-list';
+import type { TripAction } from '@/models/trips';
 
 export type DiveListViewProps = {
   sections: DiveTripSection[];
@@ -32,6 +37,14 @@ export type DiveListViewProps = {
   onDeleteDive: (dive: DiveSummary) => void;
   /** While searching: how many dives match, shown above the sections. */
   resultsText?: string;
+  onOpenTrip: (tripId: number) => void;
+  /** The trip actions a dive offers (models/trips.ts). */
+  tripActions: (dive: DiveSummary) => TripAction[];
+  onTripAction: (dive: DiveSummary, action: TripAction) => void;
+  /** Null outside selection mode. While selecting, a tap marks a dive. */
+  selectedIds: ReadonlySet<number> | null;
+  onToggleDive: (id: number) => void;
+  onStartSelecting: (id: number) => void;
 };
 
 export function DiveListView({
@@ -40,6 +53,12 @@ export function DiveListView({
   onSelectDive,
   onDeleteDive,
   resultsText,
+  onOpenTrip,
+  tripActions,
+  onTripAction,
+  selectedIds,
+  onToggleDive,
+  onStartSelecting,
 }: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
@@ -61,19 +80,50 @@ export function DiveListView({
           </Text>
         ) : undefined
       }
-      renderSectionHeader={({ section }) => (
-        <View style={[styles.sectionHeader, { backgroundColor: theme.backgroundElement }]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.title}</Text>
-          <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
-            {sectionSubtitle(section)}
-          </Text>
-        </View>
-      )}
+      renderSectionHeader={({ section }) => {
+        const opensTrip = section.tripId !== 0 && !selectedIds;
+        return (
+          <Pressable
+            disabled={!opensTrip}
+            accessibilityRole={opensTrip ? 'button' : 'header'}
+            accessibilityHint={opensTrip ? 'Opens the trip' : undefined}
+            onPress={() => onOpenTrip(section.tripId)}
+            style={[styles.sectionHeader, { backgroundColor: theme.backgroundElement }]}>
+            <View style={styles.sectionTitleRow}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{section.title}</Text>
+              {opensTrip ? (
+                <SymbolView name="chevron.right" size={13} tintColor={theme.textSecondary} />
+              ) : null}
+            </View>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              {sectionSubtitle(section)}
+            </Text>
+          </Pressable>
+        );
+      }}
       renderItem={({ item }) => (
         <DiveRowView
           row={toDiveRow(item, unitSystem)}
-          onPress={() => onSelectDive(item.id)}
-          onLongPress={() => onDeleteDive(item)}
+          selected={selectedIds ? selectedIds.has(item.id) : undefined}
+          onPress={() => (selectedIds ? onToggleDive(item.id) : onSelectDive(item.id))}
+          onLongPress={
+            selectedIds
+              ? undefined
+              : () => {
+                  // Android shows three buttons at most, so the trip actions go
+                  // through the picker, which offers them all.
+                  const pick =
+                    tripActions(item).find((action) => action.kind === 'pick') ?? null;
+                  Alert.alert(diveRowTitle(item), undefined, [
+                    {
+                      text: 'Trip',
+                      onPress: () => (pick ? onTripAction(item, pick) : undefined),
+                    },
+                    { text: 'Select', onPress: () => onStartSelecting(item.id) },
+                    { text: 'Delete', style: 'destructive', onPress: () => onDeleteDive(item) },
+                  ]);
+                }
+          }
         />
       )}
     />
@@ -154,6 +204,11 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
+  },
+  sectionTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.one,
   },
   sectionTitle: {
     fontSize: 17,
