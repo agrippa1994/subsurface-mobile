@@ -52,6 +52,7 @@ function dive(cylinders: Cylinder[]): Dive {
     visibility: 0,
     siteUuid: 0,
     siteName: '',
+    tripId: 0,
     tripLocation: '',
     buddy: '',
     diveguide: '',

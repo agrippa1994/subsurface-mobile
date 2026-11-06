@@ -32,6 +32,7 @@ function summary(overrides: Partial<DiveSummary> = {}): DiveSummary {
     visibility: 4,
     siteUuid: 10,
     siteName: 'Blue Hole',
+    tripId: 0,
     tripLocation: '',
     buddy: '',
     diveguide: '',

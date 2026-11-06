@@ -71,6 +71,14 @@ export function searchTrips(trips: readonly Trip[], query: string, locale?: stri
   });
 }
 
+/** What the picker says when it has no trip to list. */
+export function emptyPickerText(hasCandidates: boolean, searching: boolean): string {
+  if (searching && hasCandidates) {
+    return 'No trip matches.';
+  }
+  return 'No other trips yet. A new trip starts with these dives.';
+}
+
 // --- Trips above and below -------------------------------------------------
 
 export type AdjacentTrips = {

@@ -99,6 +99,7 @@ function dive(overrides: Partial<Dive> = {}): Dive {
     visibility: 0,
     siteUuid: 3,
     siteName: 'Blue Hole',
+    tripId: 0,
     tripLocation: '',
     buddy: '',
     diveguide: '',

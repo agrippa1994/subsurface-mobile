@@ -27,6 +27,7 @@ function summary(overrides: Partial<DiveSummary> = {}): DiveSummary {
     visibility: 0,
     siteUuid: 0,
     siteName: '',
+    tripId: 0,
     tripLocation: '',
     buddy: '',
     diveguide: '',

@@ -6,6 +6,7 @@ import { DiveMode } from './index';
 import {
   adjacentTripsByDive,
   buildTripPatch,
+  emptyPickerText,
   formatDiveIds,
   nearestTrips,
   parseDiveIds,
@@ -135,6 +136,14 @@ describe('searchTrips', () => {
 
   it('keeps everything for a blank query', () => {
     expect(searchTrips(trips, '  ', LOCALE)).toHaveLength(2);
+  });
+});
+
+describe('emptyPickerText', () => {
+  it('tells a search that found nothing from a log without trips', () => {
+    expect(emptyPickerText(true, true)).toBe('No trip matches.');
+    expect(emptyPickerText(false, false)).toContain('No other trips');
+    expect(emptyPickerText(false, true)).toContain('No other trips');
   });
 });
 
