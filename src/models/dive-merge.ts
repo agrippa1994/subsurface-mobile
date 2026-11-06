@@ -107,19 +107,19 @@ export function mergeConfirmation(
   const ordered = [...dives].sort((a, b) => a.when - b.when || a.id - b.id);
   const lines = [ordered.map((dive) => nameDive(dive, system, locale)).join('\n')];
 
-  const figures = [formatDepth(merged.maxDepthMm, system), formatDuration(merged.durationSec)];
+  const figures = `${formatDepth(merged.maxDepthMm, system)} deep, ${formatDuration(merged.durationSec)} long`;
   if (merged.dcs.length > 1) {
     lines.push(
-      `They become one dive, ${figures.join(', ')}, keeping the recordings of ` +
+      `They become one dive, ${figures}, keeping the recordings of ` +
         `${merged.dcs.length} dive computers.`,
     );
   } else if (preview.surfaceIntervalSec > 0) {
     lines.push(
-      `They become one dive, ${figures.join(', ')}. The ` +
-        `${gapText(preview.surfaceIntervalSec)} on the surface stay in its profile.`,
+      `They become one dive, ${figures}. Its profile keeps the ` +
+        `${gapText(preview.surfaceIntervalSec)} on the surface between them.`,
     );
   } else {
-    lines.push(`They become one dive, ${figures.join(', ')}.`);
+    lines.push(`They become one dive, ${figures}.`);
   }
   lines.push('Notes, buddies, tags and cylinders are combined.');
 

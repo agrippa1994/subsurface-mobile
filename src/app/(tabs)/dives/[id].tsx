@@ -24,7 +24,7 @@ import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
-import { currentDiveId } from '@/lib/merged-dives';
+import { useCurrentDiveId } from '@/lib/merged-dives';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
   DiveMode,
@@ -69,6 +69,7 @@ export type DiveStackPath = '/dives' | '/sites/dive';
 export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
+  const currentId = useCurrentDiveId(diveId);
   const unitSystem = useUnitSystem();
   // Which gradient factor curves the profile draws. A display preference only -
   // both series are in every plot_info, so toggling one costs no recomputation.
@@ -93,7 +94,6 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
   // Merged since this screen opened, from here or from anywhere else: the dive
   // goes on under a new id, and only then would the lookup below fail.
-  const currentId = currentDiveId(diveId);
   if (currentId !== diveId) {
     return <Redirect href={`${stackPath}/${currentId}`} />;
   }

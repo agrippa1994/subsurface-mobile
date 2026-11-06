@@ -101,7 +101,7 @@ describe('mergeConfirmation', () => {
     const lines = message.split('\n');
     expect(lines[0]).toBe('Dive 12: Shark Reef, 12 Mar 2024, 21:14');
     expect(lines[1]).toBe('Dive 13: Shark Reef, 12 Mar 2024, 22:14');
-    expect(message).toContain('They become one dive, 30 m, 1:05:00.');
+    expect(message).toContain('They become one dive, 30 m deep, 1:05:00 long.');
     expect(message.endsWith('This cannot be undone.')).toBe(true);
   });
 
@@ -120,7 +120,7 @@ describe('mergeConfirmation', () => {
     const dives = [summary(1), summary(2)];
     expect(
       mergeConfirmation(dives, preview({}, { surfaceIntervalSec: 280 }), []).message,
-    ).toContain('The 5 min on the surface stay in its profile.');
+    ).toContain('Its profile keeps the 5 min on the surface between them.');
     const two = mergeConfirmation(
       dives,
       preview({ dcs: [{}, {}] } as Partial<Dive>, { surfaceIntervalSec: 280 }),

@@ -166,7 +166,7 @@ export function DiveListView({
                       {merges.map((action) => (
                         <Button
                           key={action.kind}
-                          label={`${action.label}...`}
+                          label={action.label}
                           systemImage={action.symbol}
                           onPress={() => onMergeAction(dive, action)}
                         />
