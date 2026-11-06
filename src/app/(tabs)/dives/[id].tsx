@@ -21,6 +21,7 @@ import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
+import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
@@ -37,7 +38,14 @@ import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { CSV_FORMATS } from '@/models/transfer';
-import { useDive, useProfile } from '@/queries/logbook';
+import {
+  adjacentTripsByDive,
+  tripActionsFor,
+  tripSubtitle,
+  tripTitle,
+  type TripAction,
+} from '@/models/trips';
+import { useDive, useDives, useProfile, useTrips } from '@/queries/logbook';
 import { useGfSeries, useUnitSystem } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
@@ -103,7 +111,6 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const notes = dive.notes.trim();
   const hasPeopleOrPlace =
     dive.siteName !== '' ||
-    dive.tripLocation !== '' ||
     dive.buddy !== '' ||
     dive.diveguide !== '' ||
     dive.suit !== '' ||
@@ -175,13 +182,14 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {hasPeopleOrPlace ? (
         <Section title="People and place">
           {dive.siteName ? <Row label="Dive site" value={dive.siteName} /> : null}
-          {dive.tripLocation ? <Row label="Trip" value={dive.tripLocation} /> : null}
           {dive.buddy ? <Row label="Buddy" value={dive.buddy} /> : null}
           {dive.diveguide ? <Row label="Divemaster" value={dive.diveguide} /> : null}
           {dive.suit ? <Row label="Suit" value={dive.suit} /> : null}
           {dive.tags.length > 0 ? <TagsRow tags={dive.tags} /> : null}
         </Section>
       ) : null}
+
+      <TripSection dive={dive} stackPath={stackPath} />
 
       {notes !== '' ? (
         <Section title="Notes">
@@ -244,6 +252,66 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       <CsvExportSection dive={dive} />
     </ScrollView>
+  );
+}
+
+/**
+ * The dive's trip, or what it can do without one. Its own component for the same
+ * reason as the export below: the screen's early returns come before these
+ * queries could be called.
+ */
+function TripSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath }) {
+  const router = useRouter();
+  const { data: dives = [] } = useDives();
+  const { data: trips = [] } = useTrips();
+  const tripActions = useTripActions();
+  const trip = trips.find((candidate) => candidate.id === dive.tripId);
+  const adjacent = adjacentTripsByDive(dives, trips).get(dive.id);
+  const actions = tripActionsFor(dive, adjacent);
+
+  const run = (action: TripAction) => {
+    switch (action.kind) {
+      case 'open':
+        router.push(`${stackPath}/trip/${action.tripId}`);
+        break;
+      case 'pick':
+        router.push(`${stackPath}/trip/pick?diveIds=${dive.id}`);
+        break;
+      case 'add':
+        tripActions.addToTrip([dive], action.tripId);
+        break;
+      case 'new':
+        tripActions.createTrip([dive], (created) => router.push(`${stackPath}/trip/${created.id}`));
+        break;
+      case 'remove':
+        tripActions.removeFromTrip([dive]);
+        break;
+    }
+  };
+
+  return (
+    <Section title="Trip">
+      {actions.map((action) =>
+        action.kind === 'open' ? (
+          <ActionRow
+            key={action.kind}
+            symbol={action.symbol}
+            label={trip ? tripTitle(trip.location) : action.label}
+            detail={trip ? tripSubtitle(trip) : undefined}
+            chevron
+            onPress={() => run(action)}
+          />
+        ) : (
+          <ActionRow
+            key={`${action.kind}-${action.label}`}
+            symbol={action.symbol}
+            label={action.label}
+            chevron={action.kind === 'pick'}
+            onPress={() => run(action)}
+          />
+        ),
+      )}
+    </Section>
   );
 }
 
