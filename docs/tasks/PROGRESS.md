@@ -1003,7 +1003,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Not verified: opening a merged file in desktop Subsurface (only this build's own copy of
   its parser read it back); the Android long-press menu and the merge on Android, which
-  compile but were not run; a real logbook. On the simulator, the trip lines of the question
+  were typechecked but neither built nor run; a real logbook. On the simulator, the trip lines of the question
   were not seen, and neither was a merge of dives from two dive computers: both are covered
   by tests only. The patched core was built for the iOS simulator and the host, not for an
   iOS device or Android.

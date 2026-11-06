@@ -255,6 +255,39 @@ describe('merging overlapping dives', () => {
   });
 });
 
+describe('merging the same dive from two dive computers', () => {
+  const recording = (model: string, time: string, depth: string) => `
+<dive date='2024-03-12' time='${time}' duration='30:00 min'>
+  <divecomputer model='${model}'>
+  <depth max='${depth} m' />
+  <sample time='0:00 min' depth='0.0 m' />
+  <sample time='15:00 min' depth='${depth} m' />
+  <sample time='30:00 min' depth='0.0 m' />
+  </divecomputer>
+</dive>`;
+
+  it('keeps both, as two computers on one dive, across the file', async () => {
+    const source = join(workDir, 'two-computers-source.ssrf');
+    writeFileSync(
+      source,
+      `<divelog program='subsurface' version='3'>\n<dives>${recording('Alpha', '09:00:00', '20.0')}${recording('Beta', '09:02:00', '20.5')}\n</dives>\n</divelog>\n`,
+    );
+    const { host, path } = await freshLogbook('two-computers.ssrf', source);
+    const [first, second] = await divesOldestFirst(host);
+
+    const preview = await host.previewMerge([first.id, second.id]);
+    expect(preview.dive.dcs.map((dc) => dc.model)).toEqual(['Alpha', 'Beta']);
+
+    const merged = await host.getDive((await host.mergeDives([first.id, second.id])).id);
+    expect(merged.dcs.map((dc) => dc.model)).toEqual(['Alpha', 'Beta']);
+
+    const reloaded = await saveAndReload(host, path);
+    const [only, ...rest] = await reloaded.listDives();
+    expect(rest).toEqual([]);
+    expect((await reloaded.getDive(only.id)).dcs.map((dc) => dc.model)).toEqual(['Alpha', 'Beta']);
+  });
+});
+
 describe('trips', () => {
   it('stays in the trip both dives were in', async () => {
     const { host, path } = await freshLogbook('trip-same.ssrf', INTERVALS);
