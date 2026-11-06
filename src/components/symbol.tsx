@@ -17,8 +17,10 @@ type AndroidSymbol = NonNullable<Extract<SymbolName, object>['android']>;
 
 /** SF Symbol -> Material Symbol, for every symbol the app draws. */
 export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
+  'arrow.down': 'arrow_downward',
   'arrow.down.circle': 'download',
   'arrow.down.to.line': 'vertical_align_bottom',
+  'arrow.up': 'arrow_upward',
   checkmark: 'check',
   'chart.bar': 'bar_chart',
   'checkmark.circle.fill': 'check_circle',
@@ -40,6 +42,7 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   mappin: 'location_on',
   'mappin.and.ellipse': 'location_on',
   'mappin.slash': 'location_off',
+  'minus.circle': 'remove_circle_outline',
   'person.2.fill': 'group',
   'person.crop.circle.badge.questionmark': 'person_search',
   'person.fill.checkmark': 'how_to_reg',
@@ -47,12 +50,15 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'questionmark.circle': 'help',
   'scalemass.fill': 'fitness_center',
   'square.and.arrow.up': 'share',
+  suitcase: 'luggage',
+  'text.badge.plus': 'playlist_add',
   star: 'star_outline',
   'star.fill': 'star',
   'thermometer.medium': 'thermostat',
   'tshirt.fill': 'checkroom',
   'water.waves': 'waves',
   'wrench.and.screwdriver': 'build',
+  xmark: 'close',
 };
 
 /** The Material Symbol drawn for an SF Symbol on Android, if there is one. */

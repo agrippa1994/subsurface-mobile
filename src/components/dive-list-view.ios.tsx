@@ -11,120 +11,68 @@
 // accent colour, so the row content sets the system label colour. Swiping a
 // row from the trailing edge offers Delete; the screen confirms before anything
 // is removed, so the button has no destructive role - that role makes SwiftUI
-// animate the row away before the user has answered. Everything shown
-// comes from the presentation model in src/models/dive-list.ts - no formatting
+// animate the row away before the user has answered. Swiping from the leading
+// edge, or a long press, offers the trip actions, and a trip's section header
+// leads to the trip. Everything shown comes from the presentation model in src/models/dive-list.ts - no formatting
 // decisions are made here.
 //
 // The loading skeleton is the same List drawn over stand-in rows with SwiftUI's
 // placeholder redaction, so it has the exact shape of the list it stands for.
 import {
   Button,
-  HStack,
+  ContextMenu,
+  Divider,
   Host,
+  HStack,
   Image,
   List,
   Section,
-  Spacer,
   SwipeActions,
   Text,
   VStack,
 } from '@expo/ui/swift-ui';
 import {
+  accessibilityAddTraits,
   accessibilityHidden,
+  accessibilityHint,
   accessibilityLabel,
-  background,
+  buttonStyle,
   disabled,
   font,
   foregroundStyle,
-  frame,
-  lineLimit,
   listStyle,
-  monospacedDigit,
   redacted,
-  shapes,
   tint,
 } from '@expo/ui/swift-ui/modifiers';
 import { PlatformColor } from 'react-native';
 
 import type { DiveListViewProps } from './dive-list-view';
-import { ratingStars, sectionSubtitle, skeletonRows, toDiveRow, type DiveRow } from '@/models/dive-list';
+import { DiveRowContent } from '@/components/dive-row-swift';
+import { sectionSubtitle, skeletonRows, toDiveRow } from '@/models/dive-list';
 
 export type { DiveListViewProps };
 
 const ACCENT = '#007AFF';
-const ACCENT_FILL = '#007AFF1F';
 const DESTRUCTIVE = '#FF3B30';
-const STAR = '#FFB300';
-// The system label colour, not the hierarchical 'primary' style: that one
-// resolves against the button's accent tint and would leave the row blue.
 const LABEL = PlatformColor('label');
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
-const TERTIARY = { type: 'hierarchical', style: 'tertiary' } as const;
 
-function DiveRowContent({ row }: { row: DiveRow }) {
-  const stars = ratingStars(row.rating).length;
-  return (
-    <HStack spacing={12} alignment="center" modifiers={[foregroundStyle(LABEL)]}>
-      <Text
-        modifiers={[
-          font({ textStyle: 'subheadline', weight: 'semibold', design: 'rounded' }),
-          monospacedDigit(),
-          lineLimit(1),
-          foregroundStyle(ACCENT),
-          frame({ minWidth: 44, minHeight: 32 }),
-          background(ACCENT_FILL, shapes.roundedRectangle({ cornerRadius: 8 })),
-        ]}>
-        {row.badgeText}
-      </Text>
-      <VStack spacing={3} alignment="leading">
-        <Text modifiers={[font({ textStyle: 'body', weight: 'semibold' }), lineLimit(1)]}>
-          {row.title}
-        </Text>
-        <Text
-          modifiers={[font({ textStyle: 'subheadline' }), foregroundStyle(SECONDARY), lineLimit(1)]}>
-          {row.subtitle}
-        </Text>
-        {stars > 0 || row.invalid ? (
-          <HStack spacing={2}>
-            {Array.from({ length: stars }, (_, i) => (
-              <Image key={i} systemName="star.fill" size={10} color={STAR} />
-            ))}
-            {row.invalid ? (
-              <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>
-                {stars > 0 ? '  invalid' : 'invalid'}
-              </Text>
-            ) : null}
-          </HStack>
-        ) : null}
-      </VStack>
-      <Spacer />
-      <VStack spacing={3} alignment="trailing">
-        {row.depthText !== '' ? (
-          <Text modifiers={[font({ textStyle: 'body', weight: 'medium' }), monospacedDigit()]}>
-            {row.depthText}
-          </Text>
-        ) : null}
-        {row.durationText !== '' ? (
-          <Text
-            modifiers={[
-              font({ textStyle: 'subheadline' }),
-              monospacedDigit(),
-              foregroundStyle(SECONDARY),
-            ]}>
-            {row.durationText}
-          </Text>
-        ) : null}
-      </VStack>
-      <Image systemName="chevron.right" size={12} color="#C4C4C7" />
-    </HStack>
-  );
-}
-
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionHeader({
+  title,
+  subtitle,
+  chevron = false,
+}: {
+  title: string;
+  subtitle: string;
+  chevron?: boolean;
+}) {
   return (
     <VStack spacing={2} alignment="leading">
-      <Text modifiers={[font({ textStyle: 'headline' })]}>{title}</Text>
-      <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(TERTIARY)]}>{subtitle}</Text>
+      <HStack spacing={4} modifiers={[foregroundStyle(LABEL)]}>
+        <Text modifiers={[font({ textStyle: 'headline' })]}>{title}</Text>
+        {chevron ? <Image systemName="chevron.right" size={12} color="#8E8E93" /> : null}
+      </HStack>
+      <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>{subtitle}</Text>
     </VStack>
   );
 }
@@ -135,6 +83,12 @@ export function DiveListView({
   onSelectDive,
   onDeleteDive,
   resultsText,
+  onOpenTrip,
+  tripActions,
+  onTripAction,
+  selectedIds,
+  onToggleDive,
+  onStartSelecting,
 }: DiveListViewProps) {
   return (
     <Host style={{ flex: 1 }}>
@@ -152,21 +106,94 @@ export function DiveListView({
         {sections.map((section) => (
           <Section
             key={section.key}
-            header={<SectionHeader title={section.title} subtitle={sectionSubtitle(section)} />}>
+            header={
+              // While selecting, the list is about marking dives: a header that
+              // navigated away would drop the selection.
+              section.tripId !== 0 && !selectedIds ? (
+                <Button
+                  onPress={() => onOpenTrip(section.tripId)}
+                  modifiers={[
+                    buttonStyle('plain'),
+                    accessibilityLabel(`${section.title}, ${sectionSubtitle(section)}`),
+                    accessibilityHint('Opens the trip'),
+                  ]}>
+                  <SectionHeader
+                    title={section.title}
+                    subtitle={sectionSubtitle(section)}
+                    chevron
+                  />
+                </Button>
+              ) : (
+                <SectionHeader title={section.title} subtitle={sectionSubtitle(section)} />
+              )
+            }>
             {section.dives.map((dive) => {
               const row = toDiveRow(dive, unitSystem);
+              if (selectedIds) {
+                const selected = selectedIds.has(dive.id);
+                return (
+                  <Button
+                    key={row.id}
+                    onPress={() => onToggleDive(dive.id)}
+                    modifiers={[
+                      accessibilityLabel(row.accessibilityLabel),
+                      ...(selected ? [accessibilityAddTraits(['isSelected'])] : []),
+                    ]}>
+                    <DiveRowContent row={row} selected={selected} />
+                  </Button>
+                );
+              }
+              const actions = tripActions(dive);
+              const swipe = actions.find((action) => action.kind === 'remove') ??
+                actions.find((action) => action.kind === 'pick');
               return (
                 <SwipeActions key={row.id}>
-                  <Button
-                    onPress={() => onSelectDive(row.id)}
-                    modifiers={[
-                      // The row's own texts are shorthand (a bare "12", a run of
-                      // star images, "20.1 m" over "42:15"); VoiceOver reads the
-                      // sentence from the presentation model instead.
-                      accessibilityLabel(row.accessibilityLabel),
-                    ]}>
-                    <DiveRowContent row={row} />
-                  </Button>
+                  <ContextMenu>
+                    <ContextMenu.Items>
+                      {actions.map((action) => (
+                        <Button
+                          key={`${action.kind}-${action.label}`}
+                          label={`${action.label}${action.kind === 'pick' ? '...' : ''}`}
+                          systemImage={action.symbol}
+                          onPress={() => onTripAction(dive, action)}
+                        />
+                      ))}
+                      <Divider />
+                      <Button
+                        label="Select"
+                        systemImage="checkmark.circle"
+                        onPress={() => onStartSelecting(dive.id)}
+                      />
+                      <Button
+                        label="Delete"
+                        systemImage="trash"
+                        role="destructive"
+                        onPress={() => onDeleteDive(dive)}
+                      />
+                    </ContextMenu.Items>
+                    <ContextMenu.Trigger>
+                      <Button
+                        onPress={() => onSelectDive(row.id)}
+                        modifiers={[
+                          // The row's own texts are shorthand (a bare "12", a run of
+                          // star images, "20.1 m" over "42:15"); VoiceOver reads the
+                          // sentence from the presentation model instead.
+                          accessibilityLabel(row.accessibilityLabel),
+                        ]}>
+                        <DiveRowContent row={row} />
+                      </Button>
+                    </ContextMenu.Trigger>
+                  </ContextMenu>
+                  {swipe ? (
+                    <SwipeActions.Actions edge="leading" allowsFullSwipe={false}>
+                      <Button
+                        label={swipe.kind === 'remove' ? 'Remove' : 'Add to Trip'}
+                        systemImage={swipe.symbol}
+                        onPress={() => onTripAction(dive, swipe)}
+                        modifiers={[tint(ACCENT)]}
+                      />
+                    </SwipeActions.Actions>
+                  ) : null}
                   <SwipeActions.Actions edge="trailing">
                     <Button
                       label="Delete"
