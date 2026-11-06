@@ -296,6 +296,13 @@ describe('toDiveRow', () => {
     expect(label).toContain('marked invalid');
   });
 
+  it('marks a planned dive, and says so', () => {
+    const row = toDiveRow(summary({ id: 1, planned: true }), 'metric', LOCALE);
+    expect(row.planned).toBe(true);
+    expect(row.accessibilityLabel).toContain('planned, not logged');
+    expect(toDiveRow(summary({ id: 1 }), 'metric', LOCALE).planned).toBe(false);
+  });
+
   it('leaves out what the dive does not have', () => {
     const label = toDiveRow(summary({ id: 1, when: 1323758100 }), 'metric', LOCALE)
       .accessibilityLabel;
