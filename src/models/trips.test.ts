@@ -47,6 +47,7 @@ function dive(overrides: Partial<DiveSummary> & { id: number }): DiveSummary {
     weightDescriptions: [],
     divemode: DiveMode.OC,
     dcModel: '',
+    planned: false,
     invalid: false,
     ...overrides,
   };

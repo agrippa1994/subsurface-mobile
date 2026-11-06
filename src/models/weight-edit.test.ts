@@ -46,6 +46,7 @@ function dive(weightsystems: WeightSystem[]): Dive {
     tags: [],
     divemode: DiveMode.OC,
     dcModel: 'Suunto D5',
+    planned: false,
     invalid: false,
     cylinderDescriptions: [],
     weightDescriptions: weightsystems.map((w) => w.description).filter((d) => d !== ''),

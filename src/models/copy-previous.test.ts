@@ -37,6 +37,7 @@ function summary(overrides: Partial<DiveSummary> = {}): DiveSummary {
     weightDescriptions: [],
     divemode: DiveMode.OC,
     dcModel: '',
+    planned: false,
     invalid: false,
     ...overrides,
   };

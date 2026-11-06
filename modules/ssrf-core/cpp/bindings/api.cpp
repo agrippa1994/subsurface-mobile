@@ -5,6 +5,7 @@
 #include "base64.h"
 #include "download.h"
 #include "marshal.h"
+#include "planner.h"
 #include "suunto-xml.h"
 #include "zip-reader.h"
 
@@ -1582,6 +1583,16 @@ json dispatch(const std::string &method, const json &args)
 		return get_statistics(args);
 	if (method == "nitroxPlan")
 		return nitrox_plan(args);
+	if (method == "planDive")
+		return plan_dive(args);
+	if (method == "savePlan")
+		return save_plan(args);
+	if (method == "gasInfo")
+		return gas_info(args);
+	if (method == "plannerOptions")
+		return planner_options();
+	if (method == "plannerSurface")
+		return planner_surface(args);
 	if (method == "exportDiveCSV")
 		return export_dive_csv(args);
 	if (method == "importSuunto")

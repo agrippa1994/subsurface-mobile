@@ -118,6 +118,8 @@ export type DiveSummary = {
   tags: string[];
   divemode: DiveMode;
   dcModel: string;
+  /** Has a dive computer the planner made: it was planned, not dived. */
+  planned: boolean;
   invalid: boolean;
   /**
    * The descriptions of the dive's cylinders, in order, with the unnamed ones
@@ -474,6 +476,176 @@ export type StatsFilter = {
   /** Dives flagged invalid are excluded unless this is set. */
   includeInvalid?: boolean;
 };
+
+// --- Dive planner -------------------------------------------------------------
+
+/** `enum deco_mode` in core/pref.h. */
+export const PlanDecoMode = { Buehlmann: 0, Recreational: 1, VpmB: 2 } as const;
+export type PlanDecoMode = (typeof PlanDecoMode)[keyof typeof PlanDecoMode];
+
+/** `enum divemode_t` in core/divemode.h, the three a plan can be in. */
+export const PlanDiveMode = { OpenCircuit: 0, Ccr: 1, Pscr: 2 } as const;
+export type PlanDiveMode = (typeof PlanDiveMode)[keyof typeof PlanDiveMode];
+
+export type PlanCylinderInput = {
+  description?: string;
+  sizeMl: number;
+  /** What the cylinder is filled to; the plan starts from it. */
+  pressureMbar: number;
+  o2Permille: number;
+  hePermille?: number;
+  use?: CylinderUse;
+};
+
+export type PlanSegmentInput = {
+  /** The depth at the end of the segment. */
+  depthMm: number;
+  durationSec: number;
+  /** Index into `cylinders`. */
+  cylinder: number;
+  /** Closed loop only. */
+  setpointMbar?: number;
+  /** Which mode this segment is in on a pSCR dive. */
+  diveMode?: PlanDiveMode;
+};
+
+/** The core's planner preferences. Anything left out is the core's default. See cpp/API.md. */
+export type PlanSettingsInput = {
+  imperial?: boolean;
+  decoMode?: PlanDecoMode;
+  gfLow?: number;
+  gfHigh?: number;
+  vpmbConservatism?: number;
+  /** mm/s, like everything the core calls a rate. */
+  ascrate75?: number;
+  ascrate50?: number;
+  ascratestops?: number;
+  ascratelast6m?: number;
+  descrate?: number;
+  dropStone?: boolean;
+  lastStop6m?: boolean;
+  o2Breaks?: boolean;
+  switchAtRequiredStop?: boolean;
+  minSwitchSec?: number;
+  surfaceSegmentSec?: number;
+  reserveGasMbar?: number;
+  safetyStop?: boolean;
+  bottomSacMl?: number;
+  decoSacMl?: number;
+  /** In percent: 400 is a factor of 4.0. */
+  sacFactor?: number;
+  problemSolvingMin?: number;
+  bottomPo2Mbar?: number;
+  decoPo2Mbar?: number;
+  defaultSetpointMbar?: number;
+  bestMixEndMm?: number;
+  o2Narcotic?: boolean;
+  doBailout?: boolean;
+  displayRuntime?: boolean;
+  displayDuration?: boolean;
+  displayTransitions?: boolean;
+  verbatim?: boolean;
+  displayVariations?: boolean;
+  showIcd?: boolean;
+};
+
+export type PlanInput = PlanSettingsInput & {
+  /** Seconds, local wall clock as if UTC, like every `when` in the core. */
+  when?: number;
+  diveMode?: PlanDiveMode;
+  /** g/10l: 10300 sea, 10200 EN13319, 10000 fresh. */
+  salinity?: number;
+  surfacePressureMbar?: number;
+  cylinders: PlanCylinderInput[];
+  segments: PlanSegmentInput[];
+};
+
+export type PlanError =
+  | 'ok'
+  | 'timeout'
+  | 'inappropriateGas'
+  | 'noSuitableBailoutGas'
+  | 'recreationalExceedsNdl';
+
+export type PlannedCylinder = {
+  /** Its index in the input: a first segment's cylinder is moved to the front. */
+  inputIndex: number;
+  description: string;
+  o2Permille: number;
+  hePermille: number;
+  name: string;
+  use: CylinderUse;
+  sizeMl: number;
+  switchDepthMm: number;
+  startMbar: number;
+  endMbar: number;
+  gasUsedMl: number;
+  decoGasUsedMl: number;
+  gasCarriedMl: number;
+  /** 0 unless this is the last bottom gas of an open circuit deco plan. */
+  minimumGasMbar: number;
+};
+
+/** One point of the finished plan: entered by the diver, or added by the core. */
+export type PlanWaypoint = {
+  timeSec: number;
+  depthMm: number;
+  /** One past the cylinders is the core's "breathing air at the surface". */
+  cylinder: number;
+  setpointMbar: number;
+  entered: boolean;
+  diveMode: number;
+};
+
+export type PlanResult = {
+  error: PlanError;
+  /** The core's notes, in HTML. Always there; all there is on a failed plan. */
+  notes: string;
+  runtimeSec: number;
+  maxDepthMm: number;
+  bottomTimeSec: number;
+  cns: number;
+  otu: number;
+  /** Since the last dive before this one; negative when they overlap. */
+  surfaceIntervalSec: number;
+  effectiveGfLow: number;
+  effectiveGfHigh: number;
+  disclaimer: string;
+  waypoints: PlanWaypoint[];
+  cylinders: PlannedCylinder[];
+  waypointAboveCeiling: boolean;
+  /** Null when `error` means there is no ascent to show. */
+  profile: PlotInfo | null;
+  dive: Dive | null;
+};
+
+export type SavePlanResult = { id: number; dives: number };
+
+export type GasInfoInput = {
+  o2Permille: number;
+  hePermille?: number;
+  o2Narcotic?: boolean;
+  salinity?: number;
+  surfacePressureMbar?: number;
+  bestMix?: { depthMm: number; bottomPo2Mbar?: number; bestMixEndMm?: number };
+};
+
+export type GasInfoRow = { po2Mbar: number; modMm: number; narcoticDepthMm: number };
+
+export type GasInfo = {
+  name: string;
+  /** Whether `narcoticDepthMm` is an END (true) or an EAD. */
+  o2Narcotic: boolean;
+  rows: GasInfoRow[];
+  minDepthMm: number;
+  best?: { o2Permille: number; hePermille: number };
+};
+
+export type PlanTank = { name: string; sizeMl: number; workingPressureMbar: number };
+
+export type PlannerOptions = { tanks: PlanTank[] };
+
+export type PlannerSurface = { surfacePressureMbar: number; altitudeMm: number };
 
 /** Arguments of `nitroxPlan`. Gradient factors default to the core's 30/75. */
 export type NitroxPlanInput = {

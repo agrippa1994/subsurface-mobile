@@ -60,6 +60,7 @@ function dive(cylinders: Cylinder[]): Dive {
     tags: [],
     divemode: DiveMode.OC,
     dcModel: 'Suunto D5',
+    planned: false,
     invalid: false,
     cylinderDescriptions: cylinders.map((c) => c.description).filter((d) => d !== ''),
     weightDescriptions: [],

@@ -194,6 +194,7 @@ json dive_summary_to_json(const struct dive &d)
 		{ "tags", tags_to_json(d.tags) },
 		{ "divemode", dc ? static_cast<int>(dc->divemode) : static_cast<int>(OC) },
 		{ "dcModel", dc ? dc->model : std::string() },
+		{ "planned", d.is_planned() },
 		{ "invalid", d.invalid },
 	};
 }
