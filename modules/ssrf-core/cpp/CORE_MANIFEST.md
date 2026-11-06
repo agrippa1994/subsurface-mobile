@@ -108,6 +108,7 @@ is a stub returning `DC_STATUS_UNSUPPORTED` in `ble-stream.cpp`: no download ask
 | `0007-suunto-json-without-fit` | `import-suunto-json.cpp` | Guts `patch_from_fit()` (parses the paired `.fit` through `libdc_buffer_parser()`, i.e. the libdivecomputer download path this build does not compile) and drops `suunto_json_fit_pair_import()` (desktop multi-file selection; needs QFile/QFileInfo and `file.cpp`'s `readfile()`). The JSON-to-dive mapping itself is compiled unchanged. Cost: a dive whose gas mix lives only in the FIT file imports as air. |
 
 | `0008-libdivecomputer-download-without-qt` | `libdivecomputer.{h,cpp}` | Compiles the downloader without Qt and for threads: BLE on, no QString address sniffing, the core lock around what touches shared state, an atomic cancel flag, and the progress callback called on every `DC_EVENT_PROGRESS`. The parsing and fingerprint logic are unchanged. |
+| `0009-merge-samples-absent-sensor` | `core/dive.cpp` | `merge_samples()` read before the start of the cylinder map for a slot holding `NO_SENSOR`, and could write the value read into the sample. Skips those slots, as `sensors_renumber()` does. A bug fix worth sending upstream. |
 
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.

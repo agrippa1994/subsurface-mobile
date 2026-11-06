@@ -25,6 +25,7 @@
 #include "core/save-profiledata.h"
 #include "core/statistics.h"
 #include "core/subsurface-time.h"
+#include "core/tanksensormapping.h"
 #include "core/tag.h"
 #include "core/trip.h"
 #include "core/units.h"
@@ -38,8 +39,11 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 // core/file.h declares the format importers inside `#if !defined
@@ -452,6 +456,193 @@ json update_trip(const json &args)
 	if (args.contains("notes"))
 		trip.notes = get_string(args, "notes");
 	return trip_to_json(trip);
+}
+
+// --- Merging ---------------------------------------------------------------
+//
+// dive_table::merge_dives() only builds the merged dive. What goes around it is
+// the MergeDives command of commands/command_divelist.cpp, which is Qt and not
+// part of this build: it is repeated here with the undo bookkeeping and the
+// signals left out, in the same order. The rule of what may be merged is that of
+// QMLManager::canMerge() in the legacy mobile app.
+
+// "Don't merge dives if there's more than half an hour between them."
+constexpr int MERGE_MAX_GAP_SECONDS = 30 * 60;
+
+bool may_merge(const struct dive &earlier, const struct dive &later)
+{
+	return earlier.endtime() + MERGE_MAX_GAP_SECONDS >= later.when;
+}
+
+// Seconds on the surface between two dives of the table; 0 when they overlap.
+int surface_gap(const struct dive &earlier, const struct dive &later)
+{
+	return std::max(0, static_cast<int>(later.when - earlier.endtime()));
+}
+
+// Merging renumbers the cylinders through a table the size of the dive's cylinder
+// list, without checking (event_renumber() and dc_tank_sensor_mappings_renumber()
+// in core/dive.cpp). A gas change or a sensor mapping naming a cylinder the dive
+// does not have reads past that table, and the dive then points at an arbitrary
+// cylinder. The parser lets such a file through, so these dives are not merged.
+bool cylinder_references_valid(const struct dive &d)
+{
+	int cylinders = static_cast<int>(d.cylinders.size());
+	for (const struct divecomputer &dc : d.dcs) {
+		for (const struct event &ev : dc.events) {
+			if (ev.is_gaschange() && ev.gas.index >= cylinders)
+				return false;
+		}
+		for (const struct tank_sensor_mapping &mapping : dc.tank_sensor_mappings) {
+			if (mapping.sensor_id != NO_SENSOR &&
+			    (mapping.cylinder_index < 0 || mapping.cylinder_index >= cylinders))
+				return false;
+		}
+	}
+	return true;
+}
+
+// The pairs of neighbours in the dive table that may be merged, oldest first.
+json list_merge_pairs()
+{
+	json out = json::array();
+	for (size_t i = 1; i < divelog.dives.size(); ++i) {
+		const struct dive &earlier = *divelog.dives[i - 1];
+		const struct dive &later = *divelog.dives[i];
+		if (may_merge(earlier, later) && cylinder_references_valid(earlier) &&
+		    cylinder_references_valid(later))
+			out.push_back(json{
+				{ "earlierId", earlier.id },
+				{ "laterId", later.id },
+				{ "surfaceIntervalSec", surface_gap(earlier, later) },
+			});
+	}
+	return out;
+}
+
+// The dives named by args.diveIds, oldest first, once they are known to be
+// neighbours in the table within reach of each other.
+std::vector<struct dive *> require_mergeable(const json &args)
+{
+	std::vector<struct dive *> dives = require_dives(args);
+	if (dives.size() < 2)
+		fail("merging takes at least two dives");
+	for (const struct dive *d : dives) {
+		if (!cylinder_references_valid(*d))
+			fail("a dive that names a cylinder it does not have cannot be merged");
+	}
+	size_t first = divelog.dives.get_idx(dives[0]);
+	for (size_t i = 1; i < dives.size(); ++i) {
+		if (divelog.dives[first + i].get() != dives[i])
+			fail("only neighbouring dives can be merged");
+		if (!may_merge(*dives[i - 1], *dives[i]))
+			fail("dives more than 30 minutes apart cannot be merged");
+	}
+	return dives;
+}
+
+struct prepared_merge {
+	std::unique_ptr<struct dive> dive;
+	std::optional<location_t> set_location;
+	std::vector<std::pair<struct dive *, int>> renumber;
+};
+
+// The constructor of the MergeDives command. Changes nothing in the log.
+prepared_merge prepare_merge(const std::vector<struct dive *> &dives)
+{
+	auto [merged, set_location] = divelog.dives.merge_dives(dives);
+
+	// The merged dive gets the number of the first dive with a non-zero number.
+	for (const struct dive *d : dives) {
+		if (d->number) {
+			merged->number = d->number;
+			break;
+		}
+	}
+
+	// fixup_dive() only fills in a sample pressure that is unset, and merging copied
+	// the first dive's. Without this the tank would read that dive's end pressure,
+	// and the SAC with it, until the next load works out the merged samples.
+	for (cylinder_t &cyl : merged->cylinders) {
+		cyl.sample_start = 0_bar;
+		cyl.sample_end = 0_bar;
+	}
+	divelog.dives.fixup_dive(*merged);
+
+	// The following dives close the gap only if both ends are numbered in order.
+	// So 1 3 6 7 8 with 1 and 3 merged is 1 4 5 6: missing numbers stay missing.
+	// A run out of order stops it: then all bets are off about what the user meant.
+	std::vector<std::pair<struct dive *, int>> renumber;
+	int first = dives.front()->number;
+	int last = dives.back()->number;
+	if (first && last && first < last) {
+		int diff = last - first;
+		int previous = first;
+		size_t next = divelog.dives.get_idx(dives.front()) + dives.size();
+		for (size_t i = next; i < divelog.dives.size(); ++i) {
+			int number = divelog.dives[i]->number - diff;
+			if (number <= previous)
+				break;
+			renumber.emplace_back(divelog.dives[i].get(), number);
+			previous = number;
+		}
+	}
+	return { std::move(merged), std::move(set_location), std::move(renumber) };
+}
+
+// What mergeDives would leave behind, for the question asked before it. A read:
+// the merged dive is thrown away, never entered into a trip or a site.
+json preview_merge(const json &args)
+{
+	std::vector<struct dive *> dives = require_mergeable(args);
+	prepared_merge merge = prepare_merge(dives);
+	int gap = 0;
+	for (size_t i = 1; i < dives.size(); ++i)
+		gap += surface_gap(*dives[i - 1], *dives[i]);
+	return json{
+		{ "dive", dive_to_json(*merge.dive) },
+		{ "surfaceIntervalSec", gap },
+		{ "renumberedDives", static_cast<int>(merge.renumber.size()) },
+	};
+}
+
+// redoit() of the MergeDives command. The merged dive enters its trip before the
+// source dives leave, so a trip they all belonged to is never empty on the way.
+// A site left without dives stays: desktop Subsurface keeps it too, and it is in
+// the file. The sources' other trips go away with their last dive.
+json merge_dives(const json &args)
+{
+	std::vector<struct dive *> dives = require_mergeable(args);
+	prepared_merge merge = prepare_merge(dives);
+
+	for (auto &[renumbered, number] : merge.renumber) {
+		renumbered->number = number;
+		renumbered->invalidate_cache();
+	}
+
+	// merge_dives() names the trip and the site but enters the dive in neither.
+	dive_trip *trip = merge.dive->divetrip;
+	dive_site *site = merge.dive->dive_site;
+	merge.dive->divetrip = nullptr;
+	merge.dive->dive_site = nullptr;
+	if (trip)
+		trip->add_dive(merge.dive.get());
+	if (site)
+		site->add_dive(merge.dive.get());
+	struct dive *merged = divelog.dives.register_dive(std::move(merge.dive));
+
+	for (struct dive *d : dives)
+		divelog.delete_single_dive(static_cast<int>(divelog.dives.get_idx(d)));
+	divelog.trips.sort();
+
+	if (merge.set_location && site)
+		site->location = *merge.set_location;
+
+	return json{
+		{ "id", merged->id },
+		{ "dives", static_cast<int>(divelog.dives.size()) },
+		{ "trips", static_cast<int>(divelog.trips.size()) },
+	};
 }
 
 json list_dives()
@@ -1449,6 +1640,12 @@ json dispatch(const std::string &method, const json &args)
 		return remove_dives_from_trip(args);
 	if (method == "updateTrip")
 		return update_trip(args);
+	if (method == "listMergePairs")
+		return list_merge_pairs();
+	if (method == "previewMerge")
+		return preview_merge(args);
+	if (method == "mergeDives")
+		return merge_dives(args);
 	if (method == "getLastError")
 		return joined_errors();
 	if (method == "clear") {

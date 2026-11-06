@@ -5,13 +5,14 @@
 // variants take the same props and read the same presentation model, so the
 // grouping and the formatting cannot diverge between platforms. There is no
 // swipe here; a long press offers what the iOS swipe actions and context menu
-// do, and a trip's section header leads to the trip.
+// do, merging included, and a trip's section header leads to the trip.
 //
 // The row itself is DiveRowView (dive-row.tsx), which matches the iOS row: the
 // dive number in a fixed-width badge, depth over duration at the end.
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  type AlertButton,
   Animated,
   Pressable,
   SectionList,
@@ -27,6 +28,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSummary, UnitSystem } from '@/models';
 import { diveRowTitle, sectionSubtitle, skeletonRows, toDiveRow, type DiveTripSection } from '@/models/dive-list';
+import type { MergeAction } from '@/models/dive-merge';
 import type { TripAction } from '@/models/trips';
 
 export type DiveListViewProps = {
@@ -45,6 +47,9 @@ export type DiveListViewProps = {
   selectedIds: ReadonlySet<number> | null;
   onToggleDive: (id: number) => void;
   onStartSelecting: (id: number) => void;
+  /** The merges a dive offers (models/dive-merge.ts). The screen confirms. */
+  mergeActions: (dive: DiveSummary) => MergeAction[];
+  onMergeAction: (dive: DiveSummary, action: MergeAction) => void;
 };
 
 export function DiveListView({
@@ -59,6 +64,8 @@ export function DiveListView({
   selectedIds,
   onToggleDive,
   onStartSelecting,
+  mergeActions,
+  onMergeAction,
 }: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
@@ -114,13 +121,49 @@ export function DiveListView({
                   // through the picker, which offers them all.
                   const pick =
                     tripActions(item).find((action) => action.kind === 'pick') ?? null;
+                  const trip: AlertButton = {
+                    text: 'Trip',
+                    onPress: () => (pick ? onTripAction(item, pick) : undefined),
+                  };
+                  const select: AlertButton = {
+                    text: 'Select',
+                    onPress: () => onStartSelecting(item.id),
+                  };
+                  const remove: AlertButton = {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => onDeleteDive(item),
+                  };
+                  const merges = mergeActions(item);
+                  if (merges.length === 0) {
+                    Alert.alert(diveRowTitle(item), undefined, [trip, select, remove]);
+                    return;
+                  }
+                  // No room for a fourth button: the rest moves one step further.
                   Alert.alert(diveRowTitle(item), undefined, [
+                    trip,
                     {
-                      text: 'Trip',
-                      onPress: () => (pick ? onTripAction(item, pick) : undefined),
+                      text: 'Merge',
+                      onPress: () =>
+                        merges.length === 1
+                          ? onMergeAction(item, merges[0])
+                          : Alert.alert('Merge with', undefined, [
+                              { text: 'Cancel', style: 'cancel' },
+                              ...merges.map((action) => ({
+                                text: action.kind === 'next' ? 'Next Dive' : 'Previous Dive',
+                                onPress: () => onMergeAction(item, action),
+                              })),
+                            ]),
                     },
-                    { text: 'Select', onPress: () => onStartSelecting(item.id) },
-                    { text: 'Delete', style: 'destructive', onPress: () => onDeleteDive(item) },
+                    {
+                      text: 'More',
+                      onPress: () =>
+                        Alert.alert(diveRowTitle(item), undefined, [
+                          { text: 'Cancel', style: 'cancel' },
+                          select,
+                          remove,
+                        ]),
+                    },
                   ]);
                 }
           }

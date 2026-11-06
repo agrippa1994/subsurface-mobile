@@ -29,6 +29,9 @@ import {
   type NitroxPlan,
   type NitroxPlanInput,
   type PlotInfo,
+  type MergePair,
+  type MergePreview,
+  type MergeResult,
   type SaveResult,
   type StatsFilter,
   type StatsSummary,
@@ -344,6 +347,25 @@ export function removeDivesFromTrip(diveIds: number[]): RemoveFromTripResult {
 /** Applies a partial update to a trip's location and notes. */
 export function updateTrip(id: number, patch: TripPatch): Trip {
   return call<Trip>('updateTrip', { id, ...patch });
+}
+
+/** The neighbouring dives that can be merged, oldest first. */
+export function listMergePairs(): MergePair[] {
+  return call<MergePair[]>('listMergePairs');
+}
+
+/** What mergeDives() would leave behind. A read: nothing changes. */
+export function previewMerge(diveIds: number[]): MergePreview {
+  return call<MergePreview>('previewMerge', { diveIds });
+}
+
+/**
+ * Replaces neighbouring dives with one merged dive, which has a new id. Numbers
+ * of later dives can change, and a trip left without dives goes away. There is no
+ * undo. See api.cpp, merge_dives().
+ */
+export function mergeDives(diveIds: number[]): MergeResult {
+  return call<MergeResult>('mergeDives', { diveIds });
 }
 
 // `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:

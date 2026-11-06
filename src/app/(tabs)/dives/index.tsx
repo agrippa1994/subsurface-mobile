@@ -11,6 +11,9 @@
 // group or move at once. A selection lasts until the log changes - which is what
 // finishing one of those actions does, wherever it was finished.
 //
+// A long press on a row can also merge the dive with a neighbour. The list stays
+// where it is afterwards, with the merged dive in place of the two.
+//
 // The header search bar narrows the list by site, trip, buddy, dive guide,
 // dive number or date (see searchDives); while a query is typed, the list says
 // how many dives it kept.
@@ -22,6 +25,7 @@ import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
 import { DiveSelectionBar } from '@/components/dive-selection-bar';
 import { HeaderActions } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
+import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { selectionChanged, warned } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
@@ -58,6 +62,7 @@ export default function DivesScreen() {
   const tripsQuery = useTrips();
   const trips = useMemo(() => tripsQuery.data ?? [], [tripsQuery.data]);
   const tripActions = useTripActions();
+  const diveMerge = useDiveMerge();
 
   const adjacent = useMemo(() => adjacentTripsByDive(dives, trips), [dives, trips]);
 
@@ -250,6 +255,8 @@ export default function DivesScreen() {
         selectedIds={selectedIds}
         onToggleDive={toggleDive}
         onStartSelecting={(id) => setSelection({ ids: new Set([id]), of: dives })}
+        mergeActions={(dive) => diveMerge.actionsFor(dive.id)}
+        onMergeAction={(dive, action) => diveMerge.confirmMerge(dive.id, action)}
       />
       {selectedIds ? (
         <DiveSelectionBar

@@ -569,6 +569,26 @@ export type TripPatch = {
 /** What is left after removeDivesFromTrip(). */
 export type RemoveFromTripResult = { trips: number };
 
+/** Two neighbouring dives that mergeDives() takes. See api.cpp, may_merge(). */
+export type MergePair = {
+  earlierId: number;
+  laterId: number;
+  /** Time on the surface between them; 0 when they overlap. */
+  surfaceIntervalSec: number;
+};
+
+/** What mergeDives() would leave behind. Nothing has changed yet. */
+export type MergePreview = {
+  /** The merged dive. Its id is not one the log knows. */
+  dive: Dive;
+  surfaceIntervalSec: number;
+  /** How many later dives would have their number changed. */
+  renumberedDives: number;
+};
+
+/** The merged dive's new id, and what the logbook holds now. */
+export type MergeResult = { id: number; dives: number; trips: number };
+
 /** What the logbook holds after deleteDive(): the trip count can drop too. */
 export type DeleteDiveResult = { dives: number; trips: number };
 

@@ -12,7 +12,7 @@
 // next to the native screens without looking off.
 import { HeaderAction } from '@/components/header-action';
 import { SymbolView, type SymbolViewProps } from '@/components/symbol';
-import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Children, Fragment, isValidElement, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -23,8 +23,10 @@ import { Spacing } from '@/constants/theme';
 import { ComputerPicker } from '@/features/dives/computer-picker';
 import { useComputerSelection } from '@/features/dives/use-computer-selection';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
+import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
+import { useCurrentDiveId } from '@/lib/merged-dives';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
   formatDepth,
@@ -67,6 +69,7 @@ export type DiveStackPath = '/dives' | '/sites/dive';
 export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
+  const currentId = useCurrentDiveId(diveId);
   const unitSystem = useUnitSystem();
   // Which gradient factor curves the profile draws. A display preference only -
   // both series are in every plot_info, so toggling one costs no recomputation.
@@ -96,6 +99,12 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         : null,
     [computer.index, dive, profile],
   );
+
+  // Merged since this screen opened, from here or from anywhere else: the dive
+  // goes on under a new id, and only then would the lookup below fail.
+  if (currentId !== diveId) {
+    return <Redirect href={`${stackPath}/${currentId}`} />;
+  }
 
   const failure = diveQuery.error ?? profileQuery.error;
   if (failure) {
@@ -296,6 +305,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         )}
       </Section>
 
+      <MergeSection diveId={dive.id} />
+
       <CsvExportSection dive={dive} />
     </ScrollView>
   );
@@ -357,6 +368,31 @@ function TripSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
           />
         ),
       )}
+    </Section>
+  );
+}
+
+/**
+ * The merges this dive offers, if any. Its own component for the same reason as
+ * the trip section above.
+ */
+function MergeSection({ diveId }: { diveId: number }) {
+  const { actionsFor, confirmMerge } = useDiveMerge();
+  const actions = actionsFor(diveId);
+  if (actions.length === 0) {
+    return null;
+  }
+  return (
+    <Section title="Merge">
+      {actions.map((action) => (
+        <ActionRow
+          key={action.kind}
+          symbol={action.symbol}
+          label={action.label}
+          detail={action.detail}
+          onPress={() => confirmMerge(diveId, action)}
+        />
+      ))}
     </Section>
   );
 }

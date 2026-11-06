@@ -33,6 +33,7 @@ import {
   exportDiveCSV,
   importFile,
   loadFromXML,
+  mergeDives,
   removeDivesFromTrip,
   saveToXML,
   ungroupDives,
@@ -48,12 +49,14 @@ import type {
   DiveSiteInput,
   ImportResult,
   LoadResult,
+  MergeResult,
   RemoveFromTripResult,
   Trip,
   TripPatch,
 } from '@/models';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { flush, schedulePersist, setPersistTarget } from '@/lib/logbook-persist';
+import { recordMerge } from '@/lib/merged-dives';
 import { queryKeys } from '@/lib/query-keys';
 import { ensureLogbookLoaded, settleLogbook, type Logbook } from '@/queries/logbook';
 
@@ -107,6 +110,28 @@ export function useDeleteDive(): UseMutationResult<DeleteDiveResult, Error, numb
     onSuccess: async (_result, id) => {
       client.removeQueries({ queryKey: queryKeys.dive(id) });
       client.removeQueries({ queryKey: queryKeys.diveProfiles(id) });
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/**
+ * Merges neighbouring dives into one, with a new id. A screen may still be open on
+ * a source dive, so where it went is recorded before anything re-reads, and only
+ * entries no screen is watching are removed: re-reading a watched one is what
+ * tells that screen to move on (see src/lib/merged-dives.ts).
+ */
+export function useMergeDives(): UseMutationResult<MergeResult, Error, number[]> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: number[]) => mergeDives(ids),
+    onSuccess: async (result, ids) => {
+      recordMerge(ids, result.id);
+      for (const id of ids) {
+        client.removeQueries({ queryKey: queryKeys.dive(id), type: 'inactive' });
+        client.removeQueries({ queryKey: queryKeys.diveProfiles(id), type: 'inactive' });
+      }
       await invalidateData(client);
       schedulePersist();
     },

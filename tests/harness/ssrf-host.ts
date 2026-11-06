@@ -36,6 +36,9 @@ import type {
   Trip,
   TripPatch,
   UngroupResult,
+  MergePair,
+  MergePreview,
+  MergeResult,
 } from '../../src/models';
 import { SsrfCoreError } from '../../src/models';
 import { HOST_BINARY, XSLT_DIR } from './fixtures';
@@ -179,6 +182,18 @@ export class SsrfHost {
 
   updateTrip(id: number, patch: TripPatch): Promise<Trip> {
     return this.call<Trip>('updateTrip', { id, ...patch });
+  }
+
+  listMergePairs(): Promise<MergePair[]> {
+    return this.call<MergePair[]>('listMergePairs');
+  }
+
+  previewMerge(diveIds: number[]): Promise<MergePreview> {
+    return this.call<MergePreview>('previewMerge', { diveIds });
+  }
+
+  mergeDives(diveIds: number[]): Promise<MergeResult> {
+    return this.call<MergeResult>('mergeDives', { diveIds });
   }
 
   getDive(id: number): Promise<Dive> {
