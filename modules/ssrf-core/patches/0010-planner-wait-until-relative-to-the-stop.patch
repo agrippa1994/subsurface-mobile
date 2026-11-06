@@ -1,0 +1,22 @@
+Measure the two-day stop limit in wait_until() from the start of the stop.
+The limit is on the clock of the whole dive, so once a dive passes 48 hours every
+call returns 50 hours, which is earlier than the clock. plan() takes the difference
+as a negative stop time and doubles it into the next call's leap, and from there
+wait_until() recurses without end until the stack is gone: a 300 m trimix plan
+under VPM-B crashes the app. Nothing changes for a dive shorter than two days. A
+stop of two days still comes back as a stop of more than two days, which is what
+plan() reports as PLAN_ERROR_TIMEOUT. Report upstream.
+
+--- a/core/planner.cpp
++++ b/core/planner.cpp
+@@ -585,8 +585,8 @@
+ static int wait_until(struct deco_state *ds, struct dive *dive, int clock, int min, int leap, int stepsize, depth_t depth, depth_t target_depth, depth_t avg_depth, int bottom_time, struct gasmix gasmix, int po2, double surface_pressure, enum divemode_t divemode)
+ {
+ 	// When a deco stop exceeds two days, there is something wrong...
+-	if (min >= 48 * 3600)
+-		return 50 * 3600;
++	if (min - clock >= 48 * 3600)
++		return clock + 50 * 3600;
+ 	// Round min + leap up to the next multiple of stepsize
+ 	int upper = min + leap + stepsize - 1 - (min + leap - 1) % stepsize;
+ 	// Is the upper boundary too small?
