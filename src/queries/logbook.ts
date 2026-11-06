@@ -29,9 +29,10 @@ import {
   getStatistics,
   listDives,
   listDiveSites,
+  listTrips,
   loadFromXML,
 } from '../../modules/ssrf-core/src';
-import type { Dive, DiveSite, DiveSummary, LoadResult, PlotInfo, StatsSummary } from '@/models';
+import type { Dive, DiveSite, DiveSummary, LoadResult, PlotInfo, StatsSummary, Trip } from '@/models';
 import { toStatsFilter, type StatsFilterInput } from '@/models/statistics';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { setPersistTarget } from '@/lib/logbook-persist';
@@ -110,6 +111,14 @@ export function useSites(): UseQueryResult<DiveSite[]> {
   });
 }
 
+export function useTrips(): UseQueryResult<Trip[]> {
+  return useQuery({
+    queryKey: queryKeys.trips(),
+    queryFn: () => listTrips(),
+    enabled: useLogLoaded(),
+  });
+}
+
 /**
  * One full dive. The cached list rows carry no notes, suit or cylinders, so
  * anything past the list reads the dive itself.
@@ -133,6 +142,16 @@ export function useProfile(id: number, dcIndex = 0): UseQueryResult<PlotInfo> {
     queryKey: queryKeys.profile(id, dcIndex, gf),
     queryFn: () => getProfile(id, dcIndex, gf),
     enabled: useLogLoaded() && Number.isFinite(id),
+  });
+}
+
+/** One trip's totals, computed by the same statistics.cpp as everything else. */
+export function useTripStatistics(tripId: number): UseQueryResult<StatsSummary> {
+  const filter = { tripId };
+  return useQuery({
+    queryKey: queryKeys.statistics(filter),
+    queryFn: () => getStatistics(filter),
+    enabled: useLogLoaded() && Number.isFinite(tripId),
   });
 }
 

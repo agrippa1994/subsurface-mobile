@@ -25,15 +25,19 @@ import {
 } from '@tanstack/react-query';
 
 import {
+  addDivesToTrip,
+  createTrip,
   dcDownloadAccept,
   deleteDive,
   deleteDiveSite,
   exportDiveCSV,
   importFile,
   loadFromXML,
+  removeDivesFromTrip,
   saveToXML,
   ungroupDives,
   updateDive,
+  updateTrip,
   upsertDiveSite,
 } from '../../modules/ssrf-core/src';
 import type {
@@ -44,6 +48,9 @@ import type {
   DiveSiteInput,
   ImportResult,
   LoadResult,
+  RemoveFromTripResult,
+  Trip,
+  TripPatch,
 } from '@/models';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { flush, schedulePersist, setPersistTarget } from '@/lib/logbook-persist';
@@ -121,6 +128,53 @@ export function useDeleteSite(): UseMutationResult<void, Error, number> {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (uuid: number) => deleteDiveSite(uuid),
+    onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/** A new trip holding these dives; they leave any trip they were in. */
+export function useCreateTrip(): UseMutationResult<Trip, Error, { diveIds: number[]; location?: string }> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ diveIds, location }) => createTrip(diveIds, location),
+    onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/** Moves dives into an existing trip. */
+export function useAddDivesToTrip(): UseMutationResult<Trip, Error, { diveIds: number[]; tripId: number }> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ diveIds, tripId }) => addDivesToTrip(diveIds, tripId),
+    onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/** Takes dives out of their trips; a trip left without dives goes with them. */
+export function useRemoveDivesFromTrip(): UseMutationResult<RemoveFromTripResult, Error, number[]> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (diveIds) => removeDivesFromTrip(diveIds),
+    onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+export function useUpdateTrip(): UseMutationResult<Trip, Error, { id: number; patch: TripPatch }> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }) => updateTrip(id, patch),
     onSuccess: async () => {
       await invalidateData(client);
       schedulePersist();
