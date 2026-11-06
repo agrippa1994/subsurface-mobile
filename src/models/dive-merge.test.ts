@@ -82,7 +82,7 @@ describe('mergeActionsFor', () => {
       'Shark Reef. Starts 5 min after this dive ends',
     );
     expect(mergeActionsFor(2, neighbours, dives)[1].detail).toBe(
-      'North Wall. Starts 5 min before this dive',
+      'North Wall. Ended 5 min before this dive',
     );
   });
 });

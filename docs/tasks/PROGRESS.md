@@ -972,3 +972,42 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   (the XML is written by the core's own save-xml.cpp and read back by its parser).
 
   Follow-ups: merging two trips, and adding dives from the trip screen.
+
+- **Merging dives**: a long press on a dive row offers "Merge with Next Dive" or "Merge
+  with Previous Dive", and dive detail has a Merge section, both only for a pair the core
+  would merge. A confirmation names both dives and says what happens to the site, the trip
+  and later dive numbers, from the core's own preview. There is no undo. From the list the
+  user stays on the list; a detail screen open on a source dive, in either tab's stack,
+  moves on to the merged dive (`src/lib/merged-dives.ts`).
+
+  `mergeDives` in `cpp/bindings/api.cpp` repeats the desktop's `MergeDives` command around
+  `dive_table::merge_dives()`. The rule is the legacy mobile app's `canMerge`: neighbours
+  at most 30 minutes apart, with no "merge anyway" as on the desktop. Two differences from
+  the command, both deliberate: sample pressures and SAC are worked out again, because the
+  command leaves the first dive's in memory until the next load, and a dive naming a
+  cylinder it does not have is refused.
+
+  Two out-of-bounds reads in the core turned up under AddressSanitizer. `merge_samples()`
+  read before the cylinder map on an ordinary sample with no sensor, and could write the
+  value read into the sample: fixed by build patch 0009, worth sending upstream.
+  `event_renumber()` and `dc_tank_sensor_mappings_renumber()` read past it for a cylinder
+  the dive does not have (`dives/test-tank-sensor-mapping-merge.xml` holds one): that is the
+  refusal above. The legacy app and the desktop have both.
+
+  Verified: `tests/merge-dives.test.ts` through the host binary, also under AddressSanitizer
+  (overlapping dives, surface intervals, refusals, trips, sites, numbering, SSRF round trip,
+  and one merge from every fixture that offers one); model tests. On a throwaway iOS
+  simulator with a synthetic logbook, in light and dark mode: the menu, cancel, merging from
+  the list and from detail, the saved file, a stale detail screen in the Sites tab. That run
+  found the React Compiler memoizing the id lookup, hence the store.
+
+  Not verified: opening a merged file in desktop Subsurface (only this build's own copy of
+  its parser read it back); the Android long-press menu and the merge on Android, which
+  compile but were not run; a real logbook. On the simulator, the trip lines of the question
+  were not seen, and neither was a merge of dives from two dive computers: both are covered
+  by tests only. The patched core was built for the iOS simulator and the host, not for an
+  iOS device or Android.
+
+  Not done: merging from selection mode or from a trip's dive list. The binding takes more
+  than two dives, and the UI offers two.
+

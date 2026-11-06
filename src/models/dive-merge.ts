@@ -40,7 +40,9 @@ function actionDetail(other: DiveSummary | undefined, kind: MergeAction['kind'],
   const relation =
     gap === 0
       ? 'Overlaps this dive'
-      : `Starts ${gapText(gap)} ${kind === 'next' ? 'after this dive ends' : 'before this dive'}`;
+      : kind === 'next'
+        ? `Starts ${gapText(gap)} after this dive ends`
+        : `Ended ${gapText(gap)} before this dive`;
   return other ? `${diveRowTitle(other)}. ${relation}` : relation;
 }
 
