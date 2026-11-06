@@ -28,9 +28,9 @@ describe('the mix', () => {
 });
 
 describe('the table', () => {
-  it('rounds the MOD down, in the unit asked for', () => {
+  it('rounds the MOD down and the END up, in the unit asked for', () => {
     const row = { po2Mbar: 1400, modMm: 56900, narcoticDepthMm: 30400 };
-    expect(rowTexts(row, 'metric')).toEqual({ po2: '1.4 bar', mod: '56 m', narcotic: '30 m' });
+    expect(rowTexts(row, 'metric')).toEqual({ po2: '1.4 bar', mod: '56 m', narcotic: '31 m' });
     expect(rowTexts(row, 'imperial').mod).toBe('186 ft');
   });
 

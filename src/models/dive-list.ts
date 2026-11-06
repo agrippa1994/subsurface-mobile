@@ -113,6 +113,8 @@ export type DiveRow = {
   /** 0-5, as stored; the UI draws the stars. */
   rating: number;
   invalid: boolean;
+  /** Made by the planner, not dived. */
+  planned: boolean;
   /**
    * What VoiceOver reads for the row. The visual row is glanceable shorthand -
    * "#12", a run of stars, "20.1 m - 42:15" - which a screen reader would
@@ -184,6 +186,9 @@ export function toDiveRow(
   if (dive.invalid) {
     spoken.push('marked invalid');
   }
+  if (dive.planned) {
+    spoken.push('planned, not logged');
+  }
 
   return {
     id: dive.id,
@@ -197,6 +202,7 @@ export function toDiveRow(
     durationText,
     rating: dive.rating,
     invalid: dive.invalid,
+    planned: dive.planned,
     accessibilityLabel: spoken.join(', '),
   };
 }
@@ -319,6 +325,7 @@ export function skeletonRows(count = 8): DiveRow[] {
     durationText: '42:15',
     rating: 0,
     invalid: false,
+    planned: false,
     accessibilityLabel: '',
   }));
 }

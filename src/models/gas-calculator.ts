@@ -3,15 +3,15 @@
 // the core through `gasInfo` (cpp/bindings/planner.cpp).
 
 import type { GasInfoInput, GasInfoRow } from './index';
-import { depthFromValue, WATER_SALINITY, type Water } from './planner';
+import { WATER_SALINITY, type Water } from './planner';
 import { formatMod } from './nitrox';
-import { type UnitSystem } from './units';
+import { mmToFeet, type UnitSystem } from './units';
 
 export type GasCalculatorInput = {
   o2Percent: number;
   hePercent: number;
   water: Water;
-  /** Depth the best mix is for, in the unit the stepper moves. */
+  /** The depth the best mix is for. */
   bestMixDepthMm: number;
 };
 
@@ -62,7 +62,10 @@ export function gasRowLevel(row: GasInfoRow): GasRowLevel {
   return row.po2Mbar <= 1600 ? 'contingency' : 'beyond';
 }
 
-/** Rounded down, like every MOD in this app: a limit must not be shown past itself. */
+/**
+ * The MOD rounded down, like every MOD in this app: a limit must not be shown past
+ * itself. The END or EAD rounded up, for the same reason: it must not read better than it is.
+ */
 export function rowTexts(
   row: GasInfoRow,
   system: UnitSystem,
@@ -70,7 +73,10 @@ export function rowTexts(
   return {
     po2: `${(row.po2Mbar / 1000).toFixed(1)} bar`,
     mod: formatMod(row.modMm, system),
-    narcotic: system === 'imperial' ? formatMod(row.narcoticDepthMm, system) : `${Math.round(row.narcoticDepthMm / 1000)} m`,
+    narcotic:
+      system === 'imperial'
+        ? `${Math.ceil(mmToFeet(row.narcoticDepthMm))} ft`
+        : `${Math.ceil(row.narcoticDepthMm / 1000)} m`,
   };
 }
 
@@ -83,8 +89,7 @@ export function hypoxicLine(minDepthMm: number, system: UnitSystem): string | nu
   if (minDepthMm <= 0) {
     return null;
   }
-  const rounded = system === 'imperial' ? formatMod(minDepthMm + 304, system) : `${Math.ceil(minDepthMm / 1000)} m`;
+  const rounded =
+    system === 'imperial' ? `${Math.ceil(mmToFeet(minDepthMm))} ft` : `${Math.ceil(minDepthMm / 1000)} m`;
   return `Hypoxic: below 0.16 bar of oxygen above ${rounded}. Not breathable at the surface.`;
 }
-
-export { depthFromValue as bestMixDepthFromValue };

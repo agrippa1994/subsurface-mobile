@@ -16,6 +16,7 @@ import { Link, Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-rou
 import { Children, Fragment, isValidElement, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { PlanNotesView } from '@/components/plan-notes-view';
 import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
@@ -152,6 +153,12 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         numberText={row.numberText}
       />
 
+      {dive.planned ? (
+        <Text style={[styles.plannedBanner, { color: theme.warning }]}>
+          This dive was planned, not dived. Its figures come from the planner.
+        </Text>
+      ) : null}
+
       <Section title="Profile" inset>
         {severalComputers ? (
           <View style={styles.computerPicker}>
@@ -234,10 +241,14 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       <TripSection dive={dive} stackPath={stackPath} />
 
       {notes !== '' ? (
-        <Section title="Notes">
-          <Text selectable style={[styles.notes, { color: theme.text }]}>
-            {notes}
-          </Text>
+        <Section title={dive.planned ? 'Plan' : 'Notes'}>
+          {dive.planned ? (
+            <PlanNotesView notes={notes} />
+          ) : (
+            <Text selectable style={[styles.notes, { color: theme.text }]}>
+              {notes}
+            </Text>
+          )}
         </Section>
       ) : null}
 
@@ -833,6 +844,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     paddingVertical: Spacing.four,
+  },
+  plannedBanner: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   notes: {
     fontSize: 17,

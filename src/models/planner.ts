@@ -145,6 +145,21 @@ export function defaultPlanDraft(system: UnitSystem, when: number): PlanDraft {
   };
 }
 
+/** A `when` as the Date a picker shows, which reads it on the local clock. */
+export function whenToDate(when: number): Date {
+  const utc = new Date(when * 1000);
+  return new Date(when * 1000 + utc.getTimezoneOffset() * 60000);
+}
+
+export function whenFromDate(date: Date): number {
+  return Math.floor(date.getTime() / 1000) - date.getTimezoneOffset() * 60;
+}
+
+/** For the portable screen, which steps the time instead of a native picker. */
+export function formatWhen(when: number): string {
+  return new Date(when * 1000).toISOString().slice(0, 16).replace('T', ' ');
+}
+
 // --- Editing -----------------------------------------------------------------
 
 export const TIME_RANGE = { min: 1, max: 240, step: 1 } as const;
@@ -153,6 +168,9 @@ export const TIME_RANGE = { min: 1, max: 240, step: 1 } as const;
 export function depthRange(system: UnitSystem): { min: number; max: number; step: number } {
   return system === 'imperial' ? { min: 10, max: 500, step: 5 } : { min: 3, max: 150, step: 1 };
 }
+
+/** A setpoint in the steps of the legacy spin box, 0.05 bar. */
+export const SETPOINT_RANGE = { min: 160, max: 2000, step: 50 } as const;
 
 export function depthUnit(system: UnitSystem): string {
   return system === 'imperial' ? 'ft' : 'm';
@@ -562,6 +580,11 @@ export function surfaceIntervalText(result: PlanResult): string | null {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
   return `Repetitive dive: ${hours}:${String(minutes).padStart(2, '0')} h after the previous dive in the logbook, whose tissue loading is included.`;
+}
+
+/** The deepest a plan goes as entered: what a best mix is for. */
+export function plannedMaxDepthMm(draft: PlanDraft): number {
+  return draft.segments.reduce((max, segment) => Math.max(max, segment.depthMm), 0);
 }
 
 export const PLAN_DISCLAIMER =
