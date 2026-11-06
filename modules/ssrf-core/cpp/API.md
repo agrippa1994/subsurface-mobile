@@ -275,6 +275,8 @@ directly and avoids the copy.
   than 30 minutes apart, the rule of `QMLManager::canMerge()`, which is stricter
   than the desktop's warning. `listMergePairs` answers that rule for every pair,
   and `previewMerge` returns the dive a merge would make without changing anything.
+  A dive whose gas change or sensor mapping names a cylinder it does not have is
+  refused: the core's renumbering would read out of bounds on it.
 
 ### Downloading from a dive computer
 

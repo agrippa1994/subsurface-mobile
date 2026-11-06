@@ -6,11 +6,11 @@
 // merge, the trip, site and numbers left behind. As everywhere, a change only
 // counts once it is in the SSRF file, so each case saves and loads it again.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { fixture, snapshotLog, tempDir } from './harness/fixtures';
+import { DIVES_DIR, fixture, snapshotLog, tempDir } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
 
 /** Four dives on one day with 5, 2 and 5 minutes on the surface between them. */
@@ -121,6 +121,22 @@ describe('what may be merged', () => {
     await expect(sample.host.mergeDives([dives[0].id, 999_999])).rejects.toThrow(/no dive with id/);
 
     expect(await snapshotLog(sample.host)).toEqual(before);
+  });
+});
+
+describe('dives the core cannot merge safely', () => {
+  // Dive 3 of this file has one cylinder and a gas change to its third. The core
+  // would read past its renumbering table; AddressSanitizer found this one.
+  it('neither offers nor merges a dive naming a cylinder it does not have', async () => {
+    const { host } = await freshLogbook('bad-cylinder.ssrf', OVERLAPPING);
+    const dives = await divesOldestFirst(host);
+    const bad = dives.find((dive) => dive.number === 3)!;
+    const other = dives.find((dive) => dive.number === 2)!;
+    const pairs = await host.listMergePairs();
+    expect(pairs.some((pair) => pair.earlierId === bad.id || pair.laterId === bad.id)).toBe(false);
+    await expect(host.previewMerge([other.id, bad.id])).rejects.toThrow(/cylinder/);
+    await expect(host.mergeDives([other.id, bad.id])).rejects.toThrow(/cylinder/);
+    expect(await host.listDives()).toHaveLength(dives.length);
   });
 });
 
@@ -352,6 +368,38 @@ describe('sites', () => {
     const site = (await reloaded.listDiveSites()).find((s) => s.uuid === bare)!;
     expect(site.latUdeg).toBe(28_000_000);
     expect(site.lonUdeg).toBe(34_000_000);
+  });
+});
+
+describe('every fixture', () => {
+  // Run under AddressSanitizer too (SSRF_HOST_BINARY): this is what found the
+  // cylinder references above.
+  it('merges each pair the core offers, and loads back with one dive less', async () => {
+    let merged = 0;
+    for (const name of readdirSync(DIVES_DIR).filter((file) => /\.(xml|ssrf)$/.test(file))) {
+      const path = join(workDir, `every-${name}`);
+      const host = new SsrfHost();
+      try {
+        await host.loadFromXML(fixture(name));
+      } catch {
+        await host.close();
+        continue;
+      }
+      const pair = (await host.listMergePairs())[0];
+      if (pair) {
+        const before = (await host.listDives()).length;
+        await host.previewMerge([pair.earlierId, pair.laterId]);
+        await host.mergeDives([pair.earlierId, pair.laterId]);
+        await host.saveToXML(path);
+        const reloaded = new SsrfHost();
+        await reloaded.loadFromXML(path);
+        expect((await reloaded.listDives()).length, name).toBe(before - 1);
+        await reloaded.close();
+        merged += 1;
+      }
+      await host.close();
+    }
+    expect(merged).toBeGreaterThan(5);
   });
 });
 

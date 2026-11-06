@@ -25,6 +25,7 @@
 #include "core/save-profiledata.h"
 #include "core/statistics.h"
 #include "core/subsurface-time.h"
+#include "core/tanksensormapping.h"
 #include "core/tag.h"
 #include "core/trip.h"
 #include "core/units.h"
@@ -479,6 +480,28 @@ int surface_gap(const struct dive &earlier, const struct dive &later)
 	return std::max(0, static_cast<int>(later.when - earlier.endtime()));
 }
 
+// Merging renumbers the cylinders through a table the size of the dive's cylinder
+// list, without checking (event_renumber() and dc_tank_sensor_mappings_renumber()
+// in core/dive.cpp). A gas change or a sensor mapping naming a cylinder the dive
+// does not have reads past that table, and the dive then points at an arbitrary
+// cylinder. The parser lets such a file through, so these dives are not merged.
+bool cylinder_references_valid(const struct dive &d)
+{
+	int cylinders = static_cast<int>(d.cylinders.size());
+	for (const struct divecomputer &dc : d.dcs) {
+		for (const struct event &ev : dc.events) {
+			if (ev.is_gaschange() && ev.gas.index >= cylinders)
+				return false;
+		}
+		for (const struct tank_sensor_mapping &mapping : dc.tank_sensor_mappings) {
+			if (mapping.sensor_id != NO_SENSOR &&
+			    (mapping.cylinder_index < 0 || mapping.cylinder_index >= cylinders))
+				return false;
+		}
+	}
+	return true;
+}
+
 // The pairs of neighbours in the dive table that may be merged, oldest first.
 json list_merge_pairs()
 {
@@ -486,7 +509,8 @@ json list_merge_pairs()
 	for (size_t i = 1; i < divelog.dives.size(); ++i) {
 		const struct dive &earlier = *divelog.dives[i - 1];
 		const struct dive &later = *divelog.dives[i];
-		if (may_merge(earlier, later))
+		if (may_merge(earlier, later) && cylinder_references_valid(earlier) &&
+		    cylinder_references_valid(later))
 			out.push_back(json{
 				{ "earlierId", earlier.id },
 				{ "laterId", later.id },
@@ -503,6 +527,10 @@ std::vector<struct dive *> require_mergeable(const json &args)
 	std::vector<struct dive *> dives = require_dives(args);
 	if (dives.size() < 2)
 		fail("merging takes at least two dives");
+	for (const struct dive *d : dives) {
+		if (!cylinder_references_valid(*d))
+			fail("a dive that names a cylinder it does not have cannot be merged");
+	}
 	size_t first = divelog.dives.get_idx(dives[0]);
 	for (size_t i = 1; i < dives.size(); ++i) {
 		if (divelog.dives[first + i].get() != dives[i])
