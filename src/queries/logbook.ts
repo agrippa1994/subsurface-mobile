@@ -29,10 +29,20 @@ import {
   getStatistics,
   listDives,
   listDiveSites,
+  listMergePairs,
   listTrips,
   loadFromXML,
 } from '../../modules/ssrf-core/src';
-import type { Dive, DiveSite, DiveSummary, LoadResult, PlotInfo, StatsSummary, Trip } from '@/models';
+import type {
+  Dive,
+  DiveSite,
+  DiveSummary,
+  LoadResult,
+  MergePair,
+  PlotInfo,
+  StatsSummary,
+  Trip,
+} from '@/models';
 import { toStatsFilter, type StatsFilterInput } from '@/models/statistics';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { setPersistTarget } from '@/lib/logbook-persist';
@@ -115,6 +125,15 @@ export function useTrips(): UseQueryResult<Trip[]> {
   return useQuery({
     queryKey: queryKeys.trips(),
     queryFn: () => listTrips(),
+    enabled: useLogLoaded(),
+  });
+}
+
+/** The neighbouring dives the core would merge. */
+export function useMergePairs(): UseQueryResult<MergePair[]> {
+  return useQuery({
+    queryKey: queryKeys.mergePairs(),
+    queryFn: () => listMergePairs(),
     enabled: useLogLoaded(),
   });
 }

@@ -25,6 +25,7 @@ export const queryKeys = {
   dives: () => ['log', 'data', 'dives'] as const,
   sites: () => ['log', 'data', 'sites'] as const,
   trips: () => ['log', 'data', 'trips'] as const,
+  mergePairs: () => ['log', 'data', 'merge-pairs'] as const,
   dive: (id: number) => ['log', 'data', 'dive', id] as const,
   /**
    * One plotted profile. The gradient factors are part of the key because they
