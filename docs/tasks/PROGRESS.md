@@ -1106,9 +1106,9 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   that changes nothing leaves no entry, and a mutation that throws half way can be undone.
 
   What it costs, on `subsurface.xml` (6.8 MB, 186 dives), macOS host at `-O0`, so a phone
-  will differ: an edit went from about 25 ms to 72 ms (one serialization more, and the
-  first change of a session takes another, 154 ms); an undo is a parse, 468 ms in all,
-  which blocks the JS thread as a load does. Memory: states share chunks cut at each
+  will differ: an edit took 72 ms, of which one extra serialization is about 47 ms, and the
+  first change of a session, which serializes twice, 154 ms; an undo is a parse and a
+  serialization, 468 ms in all, which blocks the JS thread as a load does. Memory: states share chunks cut at each
   dive, site and trip, and 50 edits to 50 dives hold 8.09 MB, where full copies would be
   340 MB. Capped at 50 entries and 64 MB, keeping at least one entry. A mutation that
   renumbers every dive shares nothing and costs a whole log; the 64 MB cap then leaves
@@ -1156,10 +1156,10 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   whose dive, trip or site was undone away goes back once it is in front; an editor's
   draft is rebuilt after an undo, or Save would put back what was undone.
 
-  Shake to undo was not added. iOS only offers it through `NSUndoManager` and the
-  responder chain, which React Native screens do not take part in; the alternative is
+  Shake to undo was not added, and not tried. iOS offers it through `NSUndoManager` and the
+  responder chain, which would need native code mirroring this history; the alternative is
   reading the accelerometer, which is what fights the platform. In a dev client the shake
-  also opens the dev menu, so it could not have been tried there.
+  also opens the dev menu, so it could not have been checked there.
 
   **Confirmations changed.**
   - Removed, because the action undoes: delete dive (swipe, long press, editor), delete
@@ -1188,7 +1188,9 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   hold, `merged-dives.test.ts` for following a merge back and forth. vitest, lint and
   typecheck. On a throwaway iOS 27 simulator with a copy of `abitofeverything.ssrf`, since
   deleted, in light and dark: delete from the editor with toast, menu, undo reopening the
-  dive, redo leaving its screen, and a second undo; the file on disk after each. Merge
+  dive, redo leaving its screen; the file on disk after each. A second undo after that
+  found the stale cached failure above; its fix is covered by a unit test, and was seen on
+  screen only through a relaunch and the site delete, not by repeating those steps. Merge
   from the dive screen and its undo, with the file byte-identical and the screen moving to
   the first source. Delete site with dives and undo through the Sites menu, byte-identical.
   Remove from trip without a warning and undo, byte-identical. A relaunch keeping the log
