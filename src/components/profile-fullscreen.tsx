@@ -32,9 +32,13 @@ const CHROME_HEIGHT = 96;
 export type ProfileFullscreenProps = Omit<ProfileChartProps, 'height'> & {
   /** Named above the chart, since the modal covers the navigation bar. */
   title: string;
+  /** Beside the title: the dive computer picker, on a dive with several. */
+  accessory?: React.ReactNode;
+  /** Changing it starts the chart afresh, as when the computer changes. */
+  chartKey?: React.Key;
 };
 
-export function ProfileFullscreen({ title, ...chart }: ProfileFullscreenProps) {
+export function ProfileFullscreen({ title, accessory, chartKey, ...chart }: ProfileFullscreenProps) {
   const landscape = useLandscapeCapable();
   const theme = useTheme();
   const [available, setAvailable] = useState(0);
@@ -53,14 +57,17 @@ export function ProfileFullscreen({ title, ...chart }: ProfileFullscreenProps) {
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
           <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-            <Text style={[styles.title, { color: theme.textSecondary }]} numberOfLines={1}>
-              {title}
-            </Text>
+            <View style={styles.titleLine}>
+              <Text style={[styles.title, { color: theme.textSecondary }]} numberOfLines={1}>
+                {title}
+              </Text>
+              {accessory}
+            </View>
             <View
               style={styles.body}
               onLayout={(event) => setAvailable(event.nativeEvent.layout.height)}>
               {available > 0 ? (
-                <ProfileChart {...chart} height={Math.max(160, available - CHROME_HEIGHT)} />
+                <ProfileChart key={chartKey} {...chart} height={Math.max(160, available - CHROME_HEIGHT)} />
               ) : null}
             </View>
           </SafeAreaView>
@@ -75,7 +82,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.three,
   },
+  titleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
   title: {
+    flex: 1,
     fontSize: 12,
     paddingTop: Spacing.one,
   },
