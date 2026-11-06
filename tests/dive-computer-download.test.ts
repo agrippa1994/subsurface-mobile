@@ -266,6 +266,28 @@ describe('a download', () => {
   });
 });
 
+describe('undoing a download', () => {
+  it('takes the dives out again, and the next download brings them back', async () => {
+    const host = await open();
+    const first = await download(host);
+    await host.call('dcDownloadAccept', { indices: first.dives.map((d) => d.index) });
+    const state = await host.historyState();
+    expect(state.undo).toMatchObject({ kind: 'dcDownloadAccept', divesBefore: 0, divesAfter: 3 });
+
+    await host.undo();
+    expect(await host.listDives()).toEqual([]);
+    await host.redo();
+    expect(await host.listDives()).toHaveLength(3);
+    await host.undo();
+
+    // The stored fingerprint names a dive the log no longer has, so the download
+    // must not stop at it as it would at a dive already in the log.
+    const second = await download(host);
+    expect(second.state).toBe('finished');
+    expect(second.dives).toHaveLength(3);
+  });
+});
+
 describe('incremental downloads', () => {
   it('only fetches what is new, in the same session', async () => {
     const host = await open();

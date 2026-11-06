@@ -24,6 +24,8 @@ import type {
   DiveSiteInput,
   DiveSummary,
   GradientFactors,
+  HistoryState,
+  HistoryStepResult,
   ImportResult,
   LoadResult,
   NitroxPlan,
@@ -119,6 +121,22 @@ export class SsrfHost {
   }
 
   // --- The module API, one wrapper per method ------------------------------
+
+  undo(): Promise<HistoryStepResult> {
+    return this.call<HistoryStepResult>('undo');
+  }
+
+  redo(): Promise<HistoryStepResult> {
+    return this.call<HistoryStepResult>('redo');
+  }
+
+  historyState(): Promise<HistoryState> {
+    return this.call<HistoryState>('historyState');
+  }
+
+  clearHistory(): Promise<HistoryState> {
+    return this.call<HistoryState>('clearHistory');
+  }
 
   loadFromXML(path: string): Promise<LoadResult> {
     return this.call<LoadResult>('loadFromXML', { path });

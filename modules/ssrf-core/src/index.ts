@@ -24,6 +24,8 @@ import {
   type DownloadOptions,
   type DownloadStatus,
   type GradientFactors,
+  type HistoryState,
+  type HistoryStepResult,
   type ImportResult,
   type LoadResult,
   type NitroxPlan,
@@ -50,11 +52,30 @@ import {
 
 export * from './SsrfCore.types';
 
-type Envelope<T> =
-  { ok: true; result: T; errors?: string[] } | { ok: false; error: string; errors?: string[] };
+type Envelope<T> = (
+  { ok: true; result: T; errors?: string[] } | { ok: false; error: string; errors?: string[] }
+) & { history?: HistoryState };
+
+const historyListeners = new Set<(state: HistoryState) => void>();
+
+/**
+ * Told whenever the undo history changes, whichever call changed it: the reply of any
+ * method carries the new state if it did, so a new mutation needs nothing here.
+ */
+export function subscribeHistory(listener: (state: HistoryState) => void): () => void {
+  historyListeners.add(listener);
+  return () => {
+    historyListeners.delete(listener);
+  };
+}
 
 function call<T>(method: string, args: Record<string, unknown> = {}): T {
   const reply = JSON.parse(SsrfCoreModule.call(method, JSON.stringify(args))) as Envelope<T>;
+  if (reply.history) {
+    for (const listener of historyListeners) {
+      listener(reply.history);
+    }
+  }
   if (!reply.ok) {
     throw new SsrfCoreError(reply.error, reply.errors ?? []);
   }
@@ -255,9 +276,31 @@ export function deleteDiveSite(uuid: number): void {
   call<{ sites: number }>('deleteDiveSite', { uuid });
 }
 
-/** Applies a partial update; absent fields are left alone. */
-export function updateDive(id: number, patch: DivePatch): Dive {
-  return call<Dive>('updateDive', { id, patch });
+/**
+ * Applies a partial update; absent fields are left alone. `historyKind` files the
+ * change under something other than an edit, for one the diver did not make as such.
+ */
+export function updateDive(id: number, patch: DivePatch, historyKind?: string): Dive {
+  return call<Dive>('updateDive', { id, patch, ...(historyKind ? { historyKind } : {}) });
+}
+
+/** Takes the log back to before the newest change. Throws if there is none. */
+export function undo(): HistoryStepResult {
+  return call<HistoryStepResult>('undo');
+}
+
+/** Puts back the change last undone. Throws if there is none. */
+export function redo(): HistoryStepResult {
+  return call<HistoryStepResult>('redo');
+}
+
+export function getHistoryState(): HistoryState {
+  return call<HistoryState>('historyState');
+}
+
+/** Forgets the history, for changes that came from elsewhere (a git sync's merge). */
+export function clearHistory(): void {
+  call<HistoryState>('clearHistory');
 }
 
 /**

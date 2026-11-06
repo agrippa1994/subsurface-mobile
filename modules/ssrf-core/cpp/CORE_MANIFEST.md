@@ -111,6 +111,7 @@ is a stub returning `DC_STATUS_UNSUPPORTED` in `ble-stream.cpp`: no download ask
 | `0009-merge-samples-absent-sensor` | `core/dive.cpp` | `merge_samples()` read before the start of the cylinder map for a slot holding `NO_SENSOR`, and could write the value read into the sample. Skips those slots, as `sensors_renumber()` does. A bug fix worth sending upstream. |
 
 | `0010-planner-wait-until-relative-to-the-stop` | `planner.cpp` | Not a Qt patch. `wait_until()`'s two-day limit is on the dive's clock rather than the stop's, so past 48 hours of runtime it returns a time before the clock, `plan()` turns that into a negative leap, and the recursion never ends: a stack overflow, on a 300 m VPM-B trimix plan. Measures from the start of the stop. Dives under two days plan the same (`tests/planner.test.ts` holds `testplan.cpp`'s runtimes). Report upstream. |
+| `0011-save-xml-expose-save-dives-buffer` | `save-xml.cpp` | Not a Qt patch. Removes `static` from `save_dives_buffer()` so that the undo history (`bindings/history.cpp`) can serialize the log to memory. A temporary file per edit would be disk writes for nothing, and a way for an edit to fail on a full disk. |
 
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
@@ -218,6 +219,7 @@ The module API, all new code — no upstream file is involved.
 | File | Role |
 | --- | --- |
 | `api.h` / `api.cpp` | The single JSI entry point `ssrf::call(method, argsJson)`, its dispatch table, and the load/save/import/mutate implementations |
+| `history.h` / `history.cpp` | Undo and redo: wraps the dispatch, keeps states of the log as shared chunks of its XML, and puts dive and trip ids back after a restore |
 | `marshal.h` / `marshal.cpp` | Core structs → JSON, in raw core units |
 | `base64.h` / `base64.cpp` | Base64 decoding: the JSI boundary passes buffers this way, and so does a Suunto DM4 XML export |
 | `zip-reader.h` / `zip-reader.cpp` | Read-only ZIP decoding (stored + deflate, over zlib) for `.sde`/`.dld`. Upstream uses libzip in `core/file.cpp`, which ships with neither SDK; the container is all that is needed, and the dive data still goes through the core's parser |

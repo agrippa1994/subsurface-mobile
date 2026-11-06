@@ -1,0 +1,17 @@
+Let the bindings serialize the log without going through a file.
+The undo history (cpp/bindings/history.cpp) keeps logbook states as the XML that
+would be saved. save_dives() only writes to a path, and the buffer it writes from
+is static; a temporary file per edit would be disk writes for nothing, and a way
+for an edit to fail on a full disk. Removes `static`, and changes nothing else.
+
+--- a/core/save-xml.cpp	2026-11-06 18:07:37
++++ b/core/save-xml.cpp	2026-11-06 18:07:37
+@@ -637,7 +637,7 @@
+ 	put_format(b, "</site>\n");
+ }
+ 
+-static void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize)
++void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize)
+ {
+ 	put_format(b, "<divelog program='subsurface' version='%d'>\n<settings>\n", dataformat_version);
+ 
