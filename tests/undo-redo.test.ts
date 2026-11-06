@@ -199,7 +199,7 @@ describe('undo and redo', () => {
 
   it('leaves no entry for a change that changes nothing, or a call that failed', async () => {
     const [dive] = await dives();
-    await host.updateDive(dive.id, { notes: dive.notes });
+    await host.updateDive(dive.id, { notes: (await host.getDive(dive.id)).notes });
     await expect(host.deleteDive(99999999)).rejects.toThrow();
     await expect(host.call('noSuchMethod')).rejects.toThrow();
     expect((await host.historyState()).canUndo).toBe(false);
