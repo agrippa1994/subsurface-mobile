@@ -933,3 +933,42 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   out of the iOS build (`react-native.config.js`) and `expo-maps` out of the Android one
   (`expo.autolinking` in `package.json`). Zoom levels stay in the app's 256 px units and
   are converted in the component. OpenFreeMap has no SLA.
+
+- 2026-11-06 — Trip management, closing the gap with the legacy mobile app:
+  create a trip from dives, add to any trip (the ones above and below as well as
+  through a picker), remove from a trip, and view and edit a trip's location and
+  notes.
+
+  Native: `listTrips`, `createTrip`, `addDivesToTrip`, `removeDivesFromTrip` and
+  `updateTrip`, a `tripId` on every dive, and a `tripId` statistics filter so a
+  trip's totals come from statistics.cpp. The Qt undo commands are not in this
+  build, so the methods repeat what those commands do through the same core
+  functions: a trip goes away with its last dive, and a removed dive gets
+  `notrip`, written as `tripflag='NOTRIP'`, so desktop does not autogroup it.
+  `core/triptable.cpp` joined the vendored subset.
+
+  The list now groups by trip id. Grouping by location string merged neighbouring
+  trips of one place and showed a trip without a location as "Not in a trip". A
+  trip gets one section even when other dives lie between its own, which the
+  picker makes possible.
+
+  UI: a trip's section header opens it; a dive row offers the trip actions on a
+  leading swipe and on long press; dive detail has a Trip section. Trip detail
+  has summary, notes, dives and Ungroup. The picker is a sheet, nearest trip
+  first, with search. "Select" in the list marks several dives for a new trip, a
+  move or removal; on iOS the actions are a navigation bar menu, because a bottom
+  toolbar sits behind the floating tab bar. A selection ends when the log changes.
+  Moving a dive needs no confirmation unless it ends a trip that has a location or
+  notes; Ungroup always asks. The "Ungroup all dives" button stays in Settings: it
+  is the logbook-wide cleanup for trips an autogrouping build wrote, which a
+  per-trip action does not replace.
+
+  Verified: vitest, including `tests/trips.test.ts` (bindings through the host
+  binary, SSRF round trips, a sweep over the `subsurface/dives/` fixtures) and
+  `src/models/trips.test.ts`; lint and typecheck. On an iOS 27 simulator of its
+  own, in light and dark: list, context menus, swipe, selection, picker, trip
+  detail, editor, ungroup, the Sites stack and a 186-dive log. Not verified: the
+  portable variants on Android, and opening an exported file in desktop Subsurface
+  (the XML is written by the core's own save-xml.cpp and read back by its parser).
+
+  Follow-ups: merging two trips, and adding dives from the trip screen.
