@@ -13,7 +13,8 @@
 // is removed, so the button has no destructive role - that role makes SwiftUI
 // animate the row away before the user has answered. Swiping from the leading
 // edge, or a long press, offers the trip actions, and a trip's section header
-// leads to the trip. Everything shown comes from the presentation model in src/models/dive-list.ts - no formatting
+// leads to the trip. A long press also offers a merge with a neighbouring dive,
+// when the core would do one; the screen confirms first. Everything shown comes from the presentation model in src/models/dive-list.ts - no formatting
 // decisions are made here.
 //
 // The loading skeleton is the same List drawn over stand-in rows with SwiftUI's
@@ -89,6 +90,8 @@ export function DiveListView({
   selectedIds,
   onToggleDive,
   onStartSelecting,
+  mergeActions,
+  onMergeAction,
 }: DiveListViewProps) {
   return (
     <Host style={{ flex: 1 }}>
@@ -144,6 +147,7 @@ export function DiveListView({
                 );
               }
               const actions = tripActions(dive);
+              const merges = mergeActions(dive);
               const swipe = actions.find((action) => action.kind === 'remove') ??
                 actions.find((action) => action.kind === 'pick');
               return (
@@ -156,6 +160,15 @@ export function DiveListView({
                           label={`${action.label}${action.kind === 'pick' ? '...' : ''}`}
                           systemImage={action.symbol}
                           onPress={() => onTripAction(dive, action)}
+                        />
+                      ))}
+                      {merges.length > 0 ? <Divider /> : null}
+                      {merges.map((action) => (
+                        <Button
+                          key={action.kind}
+                          label={`${action.label}...`}
+                          systemImage={action.symbol}
+                          onPress={() => onMergeAction(dive, action)}
                         />
                       ))}
                       <Divider />

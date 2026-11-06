@@ -12,7 +12,7 @@
 // next to the native screens without looking off.
 import { HeaderAction } from '@/components/header-action';
 import { SymbolView, type SymbolViewProps } from '@/components/symbol';
-import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Children, Fragment, isValidElement, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -21,8 +21,10 @@ import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
+import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
+import { currentDiveId } from '@/lib/merged-dives';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
   DiveMode,
@@ -88,6 +90,13 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
     () => (dive && profile ? buildProfilePlot(profile, dive.dcs[0]?.events ?? []) : null),
     [dive, profile],
   );
+
+  // Merged since this screen opened, from here or from anywhere else: the dive
+  // goes on under a new id, and only then would the lookup below fail.
+  const currentId = currentDiveId(diveId);
+  if (currentId !== diveId) {
+    return <Redirect href={`${stackPath}/${currentId}`} />;
+  }
 
   const failure = diveQuery.error ?? profileQuery.error;
   if (failure) {
@@ -250,6 +259,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         )}
       </Section>
 
+      <MergeSection diveId={dive.id} />
+
       <CsvExportSection dive={dive} />
     </ScrollView>
   );
@@ -311,6 +322,31 @@ function TripSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
           />
         ),
       )}
+    </Section>
+  );
+}
+
+/**
+ * The merges this dive offers, if any. Its own component for the same reason as
+ * the trip section above.
+ */
+function MergeSection({ diveId }: { diveId: number }) {
+  const { actionsFor, confirmMerge } = useDiveMerge();
+  const actions = actionsFor(diveId);
+  if (actions.length === 0) {
+    return null;
+  }
+  return (
+    <Section title="Merge">
+      {actions.map((action) => (
+        <ActionRow
+          key={action.kind}
+          symbol={action.symbol}
+          label={action.label}
+          detail={action.detail}
+          onPress={() => confirmMerge(diveId, action)}
+        />
+      ))}
     </Section>
   );
 }
