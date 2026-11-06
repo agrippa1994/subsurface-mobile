@@ -118,7 +118,15 @@ export function SsiImportScreen() {
     importDives.mutate(
       { download: source, keys: new Set(chosen) },
       {
-        onSuccess: (result) => finish('SSI logbook', describeSsiImport(result)),
+        onSuccess: (result) => {
+          // A plain import is the toast's to report, with its Undo.
+          if (result.dives > 0 && result.unreadable === 0) {
+            operationSucceeded();
+            router.back();
+          } else {
+            finish('SSI logbook', describeSsiImport(result));
+          }
+        },
         onError: (caught) => fail('Could not import from SSI', caught),
       },
     );

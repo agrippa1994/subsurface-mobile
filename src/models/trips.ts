@@ -161,54 +161,6 @@ export function tripPickerTitle(dives: readonly DiveSummary[]): string {
   return dives.some((dive) => dive.tripId !== 0) ? 'Move to Trip' : 'Add to Trip';
 }
 
-// --- Trips that would go away ----------------------------------------------
-
-/**
- * The trips these dives would leave empty. The core removes such a trip, so its
- * location and notes are lost; `except` is the trip they are moving to.
- */
-export function tripsEmptiedBy(
-  dives: readonly DiveSummary[],
-  trips: readonly Trip[],
-  except = 0,
-): Trip[] {
-  const leaving = new Map<number, number>();
-  for (const dive of dives) {
-    if (dive.tripId !== 0 && dive.tripId !== except) {
-      leaving.set(dive.tripId, (leaving.get(dive.tripId) ?? 0) + 1);
-    }
-  }
-  return trips.filter((trip) => leaving.get(trip.id) === trip.diveCount);
-}
-
-export type TripLossWarning = { title: string; message: string };
-
-/**
- * What to ask before a move that ends a trip, or null when nothing is lost:
- * taking a dive out of a larger trip is undone by adding it back, and a trip with
- * neither location nor notes has nothing to lose.
- */
-export function tripLossWarning(emptied: readonly Trip[]): TripLossWarning | null {
-  const losing = emptied.filter((trip) => trip.location.trim() !== '' || trip.notes.trim() !== '');
-  if (losing.length === 0) {
-    return null;
-  }
-  if (losing.length === 1) {
-    return {
-      title: `Remove "${tripTitle(losing[0].location)}"?`,
-      message:
-        'This is the last of its dives, so the trip goes away with its location and notes. ' +
-        'The dives stay in your logbook.',
-    };
-  }
-  return {
-    title: `Remove ${losing.length} trips?`,
-    message:
-      'These are the last of their dives, so the trips go away with their locations and ' +
-      'notes. The dives stay in your logbook.',
-  };
-}
-
 // --- Trip summary ----------------------------------------------------------
 
 export type TripSummaryRow = { label: string; value: string };

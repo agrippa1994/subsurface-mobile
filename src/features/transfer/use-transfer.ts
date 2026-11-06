@@ -18,6 +18,7 @@ import {
   IMPORT_DOCUMENT_TYPES,
   describeImport,
   exportFileName,
+  importNeedsExplaining,
   isLogbookName,
 } from '@/models/transfer';
 import { useExportTo, useImportFile, useReplaceLogbook } from '@/queries/logbook-mutations';
@@ -58,7 +59,11 @@ export function useTransfer(): Transfer {
       try {
         const result = await importIntoLog.mutateAsync(path);
         operationSucceeded();
-        Alert.alert('Import complete', describeImport(result));
+        // A plain import is the toast's to report, with its Undo. Anything more
+        // needs reading.
+        if (importNeedsExplaining(result)) {
+          Alert.alert('Import complete', describeImport(result));
+        }
       } catch (error) {
         operationFailed();
         Alert.alert('Import failed', describeFailure(error));
@@ -101,12 +106,12 @@ export function useTransfer(): Transfer {
       if (path === null) {
         return;
       }
-      // Opening throws the current logbook away, which is the one destructive
-      // thing in this file - so it asks first, every time.
+      // Opening throws the current logbook away, and is the one thing here that
+      // does not undo - so it asks first, every time.
       warned();
       Alert.alert(
         'Open this logbook?',
-        'The dives currently in the app are replaced by the ones in the file. Import instead to keep both.',
+        'The dives currently in the app are replaced by the ones in the file. This cannot be undone. Import instead to keep both.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Import', onPress: () => void merge(path) },
@@ -180,7 +185,7 @@ export function useTransfer(): Transfer {
         await done(merge(path));
         return;
       }
-      Alert.alert(name, 'Add these dives to your logbook, or open the file instead?', [
+      Alert.alert(name, 'Add these dives to your logbook, or open the file instead? Opening replaces your logbook and cannot be undone.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Open', style: 'destructive', onPress: () => void done(replace(path)) },
         { text: 'Import', onPress: () => void done(merge(path)) },

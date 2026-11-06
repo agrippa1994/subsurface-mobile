@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 
 import { previewMerge } from '../../../modules/ssrf-core/src';
-import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
+import { operationFailed, operationSucceeded } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
 import { mergeActionsFor, mergeConfirmation, mergeNeighbours, type MergeAction } from '@/models/dive-merge';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -59,12 +59,12 @@ export function useDiveMerge(): DiveMerge {
         fail(error);
         return;
       }
-      warned();
+      // Asked for what it says, not as a warning: a merge undoes, but what it does to
+      // the numbers, the sites and the trips shows nowhere else before it happens.
       Alert.alert(question.title, question.message, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: question.confirmLabel,
-          style: 'destructive',
           onPress: () => {
             void (async () => {
               try {

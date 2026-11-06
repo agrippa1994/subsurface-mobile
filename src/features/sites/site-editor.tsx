@@ -15,14 +15,15 @@
 import { useForm } from '@tanstack/react-form';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
 import { fieldError, FormButtonRow, FormField, FormSection } from '@/components/form';
 import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
-import { warned } from '@/lib/haptics';
+import { operationSucceeded } from '@/lib/haptics';
+import { rememberScreenOfLastChange } from '@/lib/logbook-history';
 import { flush } from '@/lib/logbook-persist';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSite } from '@/models';
@@ -119,26 +120,15 @@ export function SiteEditor({ uuid }: { uuid: number }) {
     if (!original) {
       return;
     }
-    const attached =
-      original.diveCount > 0
-        ? `\n\n${original.diveCount} ${original.diveCount === 1 ? 'dive keeps' : 'dives keep'} its data but loses the site.`
-        : '';
-    warned();
-    Alert.alert(`Delete "${original.name || 'this site'}"?`, `This cannot be undone.${attached}`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            await deleteSite.mutateAsync(original.uuid);
-            await flush();
-            // Past the site's own page too: it would only say "not found".
-            router.dismissTo('/sites');
-          })();
-        },
-      },
-    ]);
+    void (async () => {
+      await deleteSite.mutateAsync(original.uuid);
+      await flush();
+      operationSucceeded();
+      // Undoing this comes back to the site's own screen, which this closes.
+      rememberScreenOfLastChange(`/sites/${original.uuid}`);
+      // Past the site's own page too: it would only say "not found".
+      router.dismissTo('/sites');
+    })().catch(() => undefined); // Shown above the form, from deleteSite.error.
   }, [deleteSite, original, router]);
 
   if (!isNew && !original) {

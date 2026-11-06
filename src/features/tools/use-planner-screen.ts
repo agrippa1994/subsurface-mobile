@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Alert, useWindowDimensions } from 'react-native';
 
+import { operationFailed, operationSucceeded } from '@/lib/haptics';
 import { CylinderUse, formatDepth, PlanDiveMode } from '@/models';
 import {
   addCylinder,
@@ -58,22 +59,18 @@ export function usePlannerScreen() {
     };
   }, [result, system, draft.when, planner.dives]);
 
+  // Asks nothing: the diver has just pressed the button for it, and it undoes.
   const savePlan = () => {
-    Alert.alert(
-      'Add to the logbook?',
-      'It is added as a planned dive, marked as such, with the plan in its notes.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: () =>
-            save.mutate(input, {
-              onSuccess: ({ id }) => router.navigate(`/dives/${id}`),
-              onError: (error) => Alert.alert('The plan was not saved', error.message),
-            }),
-        },
-      ],
-    );
+    save.mutate(input, {
+      onSuccess: ({ id }) => {
+        operationSucceeded();
+        router.navigate(`/dives/${id}`);
+      },
+      onError: (error) => {
+        operationFailed();
+        Alert.alert('The plan was not saved', error.message);
+      },
+    });
   };
 
   return {

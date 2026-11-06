@@ -91,6 +91,14 @@ function plural(count: number, noun: string): string {
  * importing the same file twice is a no-op by design, and without a word for it
  * that looks like the import silently failed.
  */
+/**
+ * True when an import's outcome is more than the toast's "12 dives imported": it
+ * added nothing, so no toast comes, or it left something out.
+ */
+export function importNeedsExplaining(result: ImportResult): boolean {
+  return result.added === 0 || result.failed > 0;
+}
+
 export function describeImport(result: ImportResult): string {
   const parts: string[] = [];
   if (result.added > 0) {

@@ -19,7 +19,7 @@ import {
 import * as Device from 'expo-device';
 import { File, Paths } from 'expo-file-system';
 
-import { importFile, listDives, listDiveSites, loadFromXML } from '../../modules/ssrf-core/src';
+import { clearHistory, importFile, listDives, listDiveSites, loadFromXML } from '../../modules/ssrf-core/src';
 import {
   aheadBehind,
   commitFile,
@@ -312,6 +312,11 @@ function syncDeps(client: QueryClient): SyncDeps {
       },
       mergeFrom: async (path) => {
         importFile(path);
+        // What came in is the server's, and is not the diver's to take back: a state
+        // from before it would overwrite it unasked. A sync with nothing to bring in
+        // leaves the history alone. Taking the server's logbook whole goes through
+        // loadFromXML, which forgets by itself.
+        clearHistory();
         await resetData(client);
         schedulePersist();
         await flush();

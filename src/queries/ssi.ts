@@ -27,6 +27,7 @@ import { resetData, useReplaceLogbook } from '@/queries/logbook-mutations';
 
 import { importFile, listDives, listDiveSites, updateDive } from '../../modules/ssrf-core/src';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
+import { SSI_TAG_KIND } from '@/models/logbook-history';
 import { fetchSsiSiteDetail, fetchSsiSiteLookups } from '@/lib/ssi/site-detail';
 import { queryKeys } from '@/lib/query-keys';
 import {
@@ -250,7 +251,7 @@ export function useSyncDiveToSsi(): UseMutationResult<void, Error, SsiSyncInput>
       );
 
       if (!isSyncedToSsi(dive)) {
-        updateDive(dive.id, { tags: [...dive.tags, SSI_TAG] });
+        updateDive(dive.id, { tags: [...dive.tags, SSI_TAG] }, SSI_TAG_KIND);
         // flush() only writes a change that was scheduled, so mark the log dirty
         // first. The screen is about to close, so this must not sit in the
         // debounce.
