@@ -172,7 +172,7 @@ export function historyToast(state: HistoryState): HistoryToast | null {
       if (!entry || isQuiet(entry)) {
         return null;
       }
-      const message = state.lastAction === 'change' ? changeDone(entry) : `Redid ${changeTitle(entry)}`;
+      const message = changeDone(entry);
       return {
         key: state.revision,
         message,

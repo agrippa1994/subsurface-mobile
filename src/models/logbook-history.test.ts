@@ -122,7 +122,7 @@ describe('historyToast', () => {
       actionAccessibilityLabel: 'Redo Delete Dive 42',
     });
     expect(historyToast(state({ lastAction: 'redo', undo: deleted }))).toMatchObject({
-      message: 'Redid Delete Dive 42',
+      message: 'Dive 42 deleted',
       action: 'undo',
     });
   });

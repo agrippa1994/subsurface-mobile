@@ -94,6 +94,13 @@ describe('stepHistory', () => {
     expect(native.saveToXML).not.toHaveBeenCalled();
   });
 
+  it('forgets an answer nobody is watching, such as a dive that was gone', async () => {
+    const client = new QueryClient();
+    client.setQueryData(['log', 'data', 'dive', 7], { id: 7 });
+    await stepHistory(client, 'undo');
+    expect(client.getQueryData(['log', 'data', 'dive', 7])).toBeUndefined();
+  });
+
   it('refuses while a sync is running, and takes it again afterwards', async () => {
     let finish = () => undefined as void;
     const sync = holdingHistory(() => new Promise<void>((resolve) => (finish = resolve)));

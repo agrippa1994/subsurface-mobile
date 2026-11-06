@@ -109,6 +109,10 @@ export async function stepHistory(
   const { entry, idsKept } = direction === 'undo' ? undo() : redo();
   reconcileMerges(new Set(listDives().map((dive) => dive.id)));
   if (idsKept) {
+    // Dropped, not left stale: nothing refetches on mount in this app, and a query
+    // that failed when a redo took its dive away would still say so after an undo
+    // brought the dive back.
+    client.removeQueries({ queryKey: queryKeys.logData(), type: 'inactive' });
     await client.invalidateQueries({ queryKey: queryKeys.logData() });
   } else {
     await client.resetQueries({ queryKey: queryKeys.logData() });

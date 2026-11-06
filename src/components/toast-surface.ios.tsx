@@ -22,7 +22,12 @@ export function ToastLayer({ children }: { children: ReactNode }) {
 export function ToastSurface({ children }: { children: ReactNode }) {
   const theme = useTheme();
   if (isLiquidGlassAvailable()) {
-    return <GlassView style={styles.surface}>{children}</GlassView>;
+    // Tinted: the list scrolling behind it must not read through the words on it.
+    return (
+      <GlassView style={styles.surface} tintColor={`${theme.backgroundElement}D9`}>
+        {children}
+      </GlassView>
+    );
   }
   return (
     <View style={[styles.surface, styles.solid, { backgroundColor: theme.backgroundElement }]}>
