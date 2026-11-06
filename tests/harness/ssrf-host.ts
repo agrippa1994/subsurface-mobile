@@ -28,6 +28,13 @@ import type {
   LoadResult,
   NitroxPlan,
   NitroxPlanInput,
+  GasInfo,
+  GasInfoInput,
+  PlanInput,
+  PlannerOptions,
+  PlannerSurface,
+  PlanResult,
+  SavePlanResult,
   PlotInfo,
   SaveResult,
   StatsFilter,
@@ -210,6 +217,28 @@ export class SsrfHost {
 
   nitroxPlan(input: NitroxPlanInput): Promise<NitroxPlan> {
     return this.call<NitroxPlan>('nitroxPlan', input);
+  }
+
+  planDive(input: PlanInput): Promise<PlanResult> {
+    return this.call<PlanResult>('planDive', input);
+  }
+
+  savePlan(input: PlanInput): Promise<SavePlanResult> {
+    return this.call<SavePlanResult>('savePlan', input);
+  }
+
+  gasInfo(input: GasInfoInput): Promise<GasInfo> {
+    return this.call<GasInfo>('gasInfo', input);
+  }
+
+  plannerOptions(): Promise<PlannerOptions> {
+    return this.call<PlannerOptions>('plannerOptions');
+  }
+
+  plannerSurface(
+    input: { altitudeMm: number } | { surfacePressureMbar: number },
+  ): Promise<PlannerSurface> {
+    return this.call<PlannerSurface>('plannerSurface', input);
   }
 
   listDiveSites(): Promise<DiveSite[]> {

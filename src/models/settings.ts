@@ -5,6 +5,11 @@
 // expo-file-system and can be tested in Node.
 
 import { parseRememberedComputers, type RememberedComputer } from './dive-computer';
+import {
+  DEFAULT_PLANNER_SETTINGS,
+  parsePlannerSettings,
+  type PlannerSettings,
+} from './planner-settings';
 import type { UnitSystem } from './units';
 
 export type Settings = {
@@ -21,6 +26,8 @@ export type Settings = {
   diveComputers: RememberedComputer[];
   /** Set the dive computer's clock after a download. */
   syncDiveComputerTime: boolean;
+  /** What the dive planner's settings screen holds. */
+  planner: PlannerSettings;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   diveComputers: [],
   // Off, as in the legacy app: this changes something on the dive computer.
   syncDiveComputerTime: false,
+  planner: DEFAULT_PLANNER_SETTINGS,
 };
 
 /**
@@ -91,6 +99,7 @@ export function parseSettings(json: string): Settings {
       showGfSurface: flag(raw?.showGfSurface, DEFAULT_SETTINGS.showGfSurface),
       diveComputers: parseRememberedComputers(raw?.diveComputers),
       syncDiveComputerTime: flag(raw?.syncDiveComputerTime, DEFAULT_SETTINGS.syncDiveComputerTime),
+      planner: parsePlannerSettings(raw?.planner),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -106,5 +115,6 @@ export function serializeSettings(settings: Settings): string {
     showGfSurface: settings.showGfSurface,
     diveComputers: settings.diveComputers,
     syncDiveComputerTime: settings.syncDiveComputerTime,
+    planner: settings.planner,
   });
 }

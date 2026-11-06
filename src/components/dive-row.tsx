@@ -32,7 +32,7 @@ export function DiveRowView({
   selected?: boolean;
 }) {
   const theme = useTheme();
-  const subtitle = [row.subtitle, row.invalid ? 'invalid' : ''].filter(Boolean).join('  ');
+  const subtitle = [row.subtitle, row.planned ? 'planned' : '', row.invalid ? 'invalid' : ''].filter(Boolean).join('  ');
   return (
     <Pressable
       accessible

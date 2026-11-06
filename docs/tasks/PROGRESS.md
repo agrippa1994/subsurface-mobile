@@ -1057,3 +1057,39 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Not done: merging from selection mode or from a trip's dive list. The binding takes more
   than two dives, and the UI offers two.
+
+- 2026-11-06 - Dive planner and gas calculator (task 15, `docs/tasks/15-dive-planner.md`).
+  `planDive`, `savePlan`, `gasInfo`, `plannerOptions` and `plannerSurface` in
+  `cpp/bindings/planner.cpp` do around the core's `plan()` what the Qt model does.
+  Tools has a planner, with a settings screen covering the legacy setup page, plan notes
+  drawn natively, and a gas calculator. A plan saved to the log is a `planned dive`,
+  which the list and the dive screen say, and it offers no SSI upload.
+
+  Verified: `tests/planner.test.ts` holds `testplan.cpp`'s plans through the bindings,
+  with its minimum gas, gas change depths and known runtimes exact, also under
+  AddressSanitizer. On an iOS 27 iPhone 18 Pro simulator of its own, against a copy of
+  `abitofeverything.ssrf` with two dives moved close enough to merge, in light and dark:
+  default plan, depth and time steppers, cylinder sheet, EAN50 deco gas, stops, gas used
+  against carried, profile, notes, settings, VPM-B, CCR, the bailout error with no plan
+  and saving disabled, overlap warning, landscape panes, saving a plan and a relaunch.
+  Testing on the simulator found what the unit tests could not: a warning appearing
+  above the form moved the steppers under the thumb, a chart in a SwiftUI row took no
+  width, the chart kept the zoom of an older plan, a vertical drag on the chart scrubbed
+  instead of scrolling, and a tank's 232 bar read as 230.
+
+  The same run covered tasks of main's: several dive computers per dive (dive 224: the
+  picker, each computer's own profile and events) and merging (from the dive screen and
+  from a long press in the list: confirmation, the screen moving on to the merged dive,
+  renumbering in the saved file, and surviving the relaunch).
+
+  **Not verified: anything on a real device, and the portable screens.** `planner.tsx`,
+  `planner-cylinder.tsx`, `planner-settings.tsx` and `gas.tsx` typecheck and share their
+  logic with iOS, but have not been run on Android. No plan has been compared with
+  desktop Subsurface side by side, beyond what `testplan.cpp` pins, nor has a saved plan
+  been opened in desktop Subsurface. pSCR ran through the host binary only, not on
+  screen, and the imperial screens were not looked at. Dynamic Type, VoiceOver itself
+  (labels were read through the accessibility tree, not spoken) and the time a plan
+  takes on a phone were not measured; timings are from the `-O0` macOS host binary.
+
+  Follow-ups: statistics count planned dives, as desktop does, which a diver may not
+  expect; patch 0010 should go upstream.

@@ -35,6 +35,7 @@ import {
   loadFromXML,
   mergeDives,
   removeDivesFromTrip,
+  savePlan,
   saveToXML,
   ungroupDives,
   updateDive,
@@ -50,6 +51,8 @@ import type {
   ImportResult,
   LoadResult,
   MergeResult,
+  PlanInput,
+  SavePlanResult,
   RemoveFromTripResult,
   Trip,
   TripPatch,
@@ -247,6 +250,26 @@ export function useImportFile(): UseMutationResult<ImportResult, Error, string> 
       // asked for a save.
       await ensureLogbookLoaded(client);
       return importFile(path);
+    },
+    onSuccess: async () => {
+      await resetData(client);
+      schedulePersist();
+      await flush();
+    },
+  });
+}
+
+/**
+ * Adds a plan to the log as a planned dive. The module plans it again from these
+ * arguments, so what is saved cannot be older than what is on screen. It waits for
+ * the logbook for the reason an import does, and the dive numbers can move.
+ */
+export function useSavePlan(): UseMutationResult<SavePlanResult, Error, PlanInput> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PlanInput) => {
+      await ensureLogbookLoaded(client);
+      return savePlan(input);
     },
     onSuccess: async () => {
       await resetData(client);

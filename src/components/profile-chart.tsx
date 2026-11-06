@@ -347,6 +347,9 @@ export function ProfileChart({
     const scrub = Gesture.Pan()
       .runOnJS(true)
       .maxPointers(1)
+      // A drag up or down is the page scrolling, not the diver looking at a moment.
+      .activeOffsetX([-8, 8])
+      .failOffsetY([-8, 8])
       .onBegin((event) => scrubTo(event.x))
       .onUpdate((event) => scrubTo(event.x));
 

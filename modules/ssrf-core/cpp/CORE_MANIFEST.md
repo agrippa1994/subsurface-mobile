@@ -110,6 +110,8 @@ is a stub returning `DC_STATUS_UNSUPPORTED` in `ble-stream.cpp`: no download ask
 | `0008-libdivecomputer-download-without-qt` | `libdivecomputer.{h,cpp}` | Compiles the downloader without Qt and for threads: BLE on, no QString address sniffing, the core lock around what touches shared state, an atomic cancel flag, and the progress callback called on every `DC_EVENT_PROGRESS`. The parsing and fingerprint logic are unchanged. |
 | `0009-merge-samples-absent-sensor` | `core/dive.cpp` | `merge_samples()` read before the start of the cylinder map for a slot holding `NO_SENSOR`, and could write the value read into the sample. Skips those slots, as `sensors_renumber()` does. A bug fix worth sending upstream. |
 
+| `0010-planner-wait-until-relative-to-the-stop` | `planner.cpp` | Not a Qt patch. `wait_until()`'s two-day limit is on the dive's clock rather than the stop's, so past 48 hours of runtime it returns a time before the clock, `plan()` turns that into a negative leap, and the recursion never ends: a stack overflow, on a 300 m VPM-B trimix plan. Measures from the start of the stop. Dives under two days plan the same (`tests/planner.test.ts` holds `testplan.cpp`'s runtimes). Report upstream. |
+
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
 

@@ -28,6 +28,13 @@ import {
   type LoadResult,
   type NitroxPlan,
   type NitroxPlanInput,
+  type GasInfo,
+  type GasInfoInput,
+  type PlanInput,
+  type PlannerOptions,
+  type PlannerSurface,
+  type PlanResult,
+  type SavePlanResult,
   type PlotInfo,
   type MergePair,
   type MergePreview,
@@ -195,6 +202,36 @@ export function getStatistics(filter?: StatsFilter): StatsSummary {
  */
 export function nitroxPlan(input: NitroxPlanInput): NitroxPlan {
   return call<NitroxPlan>('nitroxPlan', input);
+}
+
+/**
+ * Runs the core's plan() and returns the result, notes included. Touches nothing
+ * in the logbook, though the dives before `when` are part of the calculation.
+ */
+export function planDive(input: PlanInput): PlanResult {
+  return call<PlanResult>('planDive', input);
+}
+
+/** Plans again and adds the result to the logbook as a planned dive. */
+export function savePlan(input: PlanInput): SavePlanResult {
+  return call<SavePlanResult>('savePlan', input);
+}
+
+/** MOD and END or EAD per pO2 for one mix, and optionally the best mix for a depth. */
+export function gasInfo(input: GasInfoInput): GasInfo {
+  return call<GasInfo>('gasInfo', input);
+}
+
+/** The core's table of cylinder types. */
+export function plannerOptions(): PlannerOptions {
+  return call<PlannerOptions>('plannerOptions');
+}
+
+/** Altitude to surface pressure or back, whichever is given. */
+export function plannerSurface(
+  input: { altitudeMm: number } | { surfacePressureMbar: number },
+): PlannerSurface {
+  return call<PlannerSurface>('plannerSurface', input);
 }
 
 export function listDiveSites(): DiveSite[] {

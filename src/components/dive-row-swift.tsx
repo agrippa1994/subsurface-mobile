@@ -58,14 +58,19 @@ export function DiveRowContent({ row, selected }: { row: DiveRow; selected?: boo
           modifiers={[font({ textStyle: 'subheadline' }), foregroundStyle(SECONDARY), lineLimit(1)]}>
           {row.subtitle}
         </Text>
-        {stars > 0 || row.invalid ? (
+        {stars > 0 || row.invalid || row.planned ? (
           <HStack spacing={2}>
             {Array.from({ length: stars }, (_, i) => (
               <Image key={i} systemName="star.fill" size={10} color={STAR} />
             ))}
+            {row.planned ? (
+              <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>
+                {stars > 0 ? '  planned' : 'planned'}
+              </Text>
+            ) : null}
             {row.invalid ? (
               <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>
-                {stars > 0 ? '  invalid' : 'invalid'}
+                {stars > 0 || row.planned ? '  invalid' : 'invalid'}
               </Text>
             ) : null}
           </HStack>

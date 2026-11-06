@@ -81,6 +81,11 @@ rendered metric or imperial.
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
 | `nitroxPlan` | `{ depthMm, o2Permille, maxPo2Mbar?, salinity?, gfLow?, gfHigh? }` | `NitroxPlan` |
+| `planDive` | `PlanInput` | `PlanResult` |
+| `savePlan` | `PlanInput` | `{ id, dives }` |
+| `gasInfo` | `{ o2Permille, hePermille?, o2Narcotic?, salinity?, surfacePressureMbar?, bestMix? }` | `GasInfo` |
+| `plannerOptions` | none | `{ tanks }` |
+| `plannerSurface` | `{ altitudeMm }` or `{ surfacePressureMbar }` | `{ surfacePressureMbar, altitudeMm }` |
 | `exportDiveCSV` | `{ id, path, format, units?, gfLow?, gfHigh? }` | `{ path, format }` |
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
@@ -187,6 +192,35 @@ directly and avoids the copy.
   pressure (1 atm) and `salinity` (10300 sea, 10000 fresh). The gradient
   factors are applied as for `getProfile`, and `prefs.modpO2` is set to the
   working pO2 because `best_o2()` reads it from there.
+- **`planDive`** (`cpp/bindings/planner.cpp`) runs the core's `plan()` the way
+  `DivePlannerPointsModel::calculatePlan` does in the Qt app: cylinders, then
+  `reset_cylinders()`, then a zero-time waypoint for each open circuit gas with a
+  switch depth, then the segments. It changes nothing in the log, but
+  `init_decompression()` reads the dives before `when`, so a repetitive plan starts
+  from the tissues they left, and `surfaceIntervalSec` goes negative on an overlap.
+  Every setting is an argument: the call starts from `default_prefs`, applies
+  them, and restores `prefs` on the way out. `imperial` also picks the stop table
+  and the units of the notes. With `dropStone`, the first segment's descent at
+  `descrate` is carved out of its time, and a segment shorter than that descent is
+  refused. `o2Permille` is taken as given, and 0 is the core's air. A first segment
+  on another cylinder moves that cylinder to the front; `inputIndex` says which is
+  which. `error` is `plan()`'s result. On `timeout`, `inappropriateGas` and
+  `noSuitableBailoutGas` there is no ascent: `profile` and `dive` are null and the
+  notes hold the reason. `recreationalExceedsNdl` keeps them, so the diver sees why.
+  `displayVariations` runs `plan()` five more times, as `computeVariations` does, and
+  puts the result where the notes had the token `VARIATIONS`. `showIcd` defaults to
+  on, unlike the core, because the isobaric counterdiffusion warning depends on it.
+- **`savePlan`** runs `plan()` again with the disclaimer in the notes and adds the
+  dive as `Command::AddDive` does, renumbering nothing else. The dive computer model
+  is the core's `planned dive`, so `planned` is true on the dive after a round trip.
+  It refuses every error, `recreationalExceedsNdl` included.
+- **`gasInfo`** gives the MOD from `dive::gas_mod()` at the pO2 steps of the legacy
+  gas calculator, and the END or EAD there by the formula in
+  `calculate_gas_information_new()`. `bestMix` adds `dive::best_o2()` and
+  `best_he()`, with the helium capped so the mix adds up to 100%.
+- **`plannerOptions`** is `default_tank_info_table()`, sizes in ml at the working
+  pressure. **`plannerSurface`** is `altitude_to_pressure()` and
+  `pressure_to_altitude()`, clamped to 689-1100 mbar and sea level.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The

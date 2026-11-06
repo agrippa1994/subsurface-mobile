@@ -107,6 +107,7 @@ function dive(overrides: Partial<Dive> = {}): Dive {
     tags: [],
     divemode: DiveMode.OC,
     dcModel: 'Suunto Vaasa',
+    planned: false,
     invalid: false,
     cylinderDescriptions: [],
     weightDescriptions: [],

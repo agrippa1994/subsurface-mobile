@@ -1,9 +1,10 @@
 // AI-generated (Claude)
 // Nitrox calculator, portable fallback (Android in task 13, and web). iOS
 // renders a native Form instead - see nitrox.ios.tsx.
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FormSection, OptionField } from '@/components/form';
+import { StepperRow as Stepper } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
@@ -124,45 +125,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Stands in for the iOS variant's native Stepper.
-function Stepper({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  const theme = useTheme();
-  const button = (text: string, next: number, disabled: boolean) => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${text === '-' ? 'Decrease' : 'Increase'} ${label}`}
-      disabled={disabled}
-      onPress={() => onChange(next)}
-      style={[styles.stepButton, { backgroundColor: theme.backgroundSelected }]}
-    >
-      <Text style={{ color: disabled ? theme.textSecondary : theme.text }}>{text}</Text>
-    </Pressable>
-  );
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.rowLabel, { color: theme.text }]}>{label}</Text>
-      <View style={styles.stepButtons}>
-        {button('-', Math.max(min, value - step), value <= min)}
-        {button('+', Math.min(max, value + step), value >= max)}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: {
     padding: Spacing.three,
@@ -185,14 +147,5 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 17,
     fontVariant: ['tabular-nums'],
-  },
-  stepButtons: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  stepButton: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-    borderRadius: Spacing.two,
   },
 });

@@ -50,6 +50,7 @@ function summary(overrides: Partial<DiveSummary> & { id: number }): DiveSummary 
     weightDescriptions: [],
     divemode: DiveMode.OC,
     dcModel: '',
+    planned: false,
     invalid: false,
     ...overrides,
   };
@@ -293,6 +294,13 @@ describe('toDiveRow', () => {
   it('says a dive is invalid, which the row only marks with a word in the corner', () => {
     const label = toDiveRow(summary({ id: 1, invalid: true }), 'metric', LOCALE).accessibilityLabel;
     expect(label).toContain('marked invalid');
+  });
+
+  it('marks a planned dive, and says so', () => {
+    const row = toDiveRow(summary({ id: 1, planned: true }), 'metric', LOCALE);
+    expect(row.planned).toBe(true);
+    expect(row.accessibilityLabel).toContain('planned, not logged');
+    expect(toDiveRow(summary({ id: 1 }), 'metric', LOCALE).planned).toBe(false);
   });
 
   it('leaves out what the dive does not have', () => {

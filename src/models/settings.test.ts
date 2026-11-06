@@ -8,6 +8,7 @@ import {
   parseSettings,
   serializeSettings,
 } from './settings';
+import { DEFAULT_PLANNER_SETTINGS } from './planner-settings';
 
 describe('parseSettings', () => {
   it('reads a stored unit system', () => {
@@ -80,6 +81,7 @@ describe('parseSettings', () => {
       showGfSurface: true,
       diveComputers: [{ vendor: 'Shearwater', product: 'Perdix', address: 'a', name: 'Perdix 1' }],
       syncDiveComputerTime: true,
+      planner: { ...DEFAULT_PLANNER_SETTINGS, gfLow: 40, verbatim: true },
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
   });
