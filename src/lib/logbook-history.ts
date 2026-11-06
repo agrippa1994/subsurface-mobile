@@ -78,6 +78,22 @@ export function screenToReopen(entry: HistoryEntry): string | undefined {
   return screenOfChange.get(entry.serial);
 }
 
+let holds = 0;
+
+/**
+ * Keeps undo and redo away while `work` runs. A git sync writes the server's logbook
+ * straight over the file and then reloads it: an undo landing in between would save
+ * over what just arrived, and the reload would then read that back as the server's.
+ */
+export async function holdingHistory<T>(work: () => Promise<T>): Promise<T> {
+  holds += 1;
+  try {
+    return await work();
+  } finally {
+    holds -= 1;
+  }
+}
+
 /**
  * Undoes or redoes the newest step, and writes the logbook: a sync, or a force-quit
  * right after, must find the undone state on disk. Dive ids survive it, so what is on
@@ -87,6 +103,9 @@ export async function stepHistory(
   client: QueryClient,
   direction: HistoryDirection,
 ): Promise<HistoryEntry> {
+  if (holds > 0) {
+    throw new Error('A sync is running. Try again when it has finished.');
+  }
   const { entry, idsKept } = direction === 'undo' ? undo() : redo();
   reconcileMerges(new Set(listDives().map((dive) => dive.id)));
   if (idsKept) {

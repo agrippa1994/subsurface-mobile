@@ -27,6 +27,7 @@ vi.mock('../../modules/ssrf-core/src', () => ({
 }));
 
 const {
+  holdingHistory,
   lastRestoreRevision,
   logbookHistory,
   rememberScreenOfLastChange,
@@ -91,6 +92,17 @@ describe('stepHistory', () => {
     });
     await expect(stepHistory(new QueryClient(), 'undo')).rejects.toThrow('nothing to undo');
     expect(native.saveToXML).not.toHaveBeenCalled();
+  });
+
+  it('refuses while a sync is running, and takes it again afterwards', async () => {
+    let finish = () => undefined as void;
+    const sync = holdingHistory(() => new Promise<void>((resolve) => (finish = resolve)));
+    await expect(stepHistory(new QueryClient(), 'undo')).rejects.toThrow('sync is running');
+    expect(native.undo).not.toHaveBeenCalled();
+    expect(native.saveToXML).not.toHaveBeenCalled();
+    finish();
+    await sync;
+    await expect(stepHistory(new QueryClient(), 'undo')).resolves.toBe(entry);
   });
 
   it('sends a screen on a merged dive back to the dives that came back', async () => {

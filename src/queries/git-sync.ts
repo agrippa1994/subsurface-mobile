@@ -35,6 +35,7 @@ import {
   type Remote,
 } from '../../modules/git-sync/src';
 import { toNativePath } from '@/lib/logbook-file';
+import { holdingHistory } from '@/lib/logbook-history';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
 import {
@@ -352,15 +353,17 @@ export function useGitSync(): UseMutationResult<SyncResult, Error, SyncMode> {
       const config = readConfig();
       const remote = await remoteFor(config);
       const device = Device.deviceName ?? 'Subsurface Mobile';
-      return runSync(
-        mode,
-        config,
-        remote,
-        {
-          update: `Update logbook from ${device}`,
-          merge: `Merge logbook changes into ${device}`,
-        },
-        syncDeps(client),
+      return holdingHistory(() =>
+        runSync(
+          mode,
+          config,
+          remote,
+          {
+            update: `Update logbook from ${device}`,
+            merge: `Merge logbook changes into ${device}`,
+          },
+          syncDeps(client),
+        ),
       );
     },
     onSuccess: () => {
