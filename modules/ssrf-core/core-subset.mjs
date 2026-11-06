@@ -98,4 +98,5 @@ export const PATCHES = [
 	'0006-xslt-match-namespace-declaration.patch',
 	'0007-suunto-json-without-fit.patch',
 	'0008-libdivecomputer-download-without-qt.patch',
+	'0009-merge-samples-absent-sensor.patch',
 ];

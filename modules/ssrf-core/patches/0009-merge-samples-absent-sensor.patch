@@ -1,0 +1,17 @@
+Do not look up an absent sensor when merging same-time samples.
+merge_samples() indexed the cylinder map with as->sensor[j] unchecked. A slot with
+no sensor holds NO_SENSOR (-1), so it read before the start of the map, and the
+value read could be written to sample.sensor[j]. sensors_renumber() checks for
+this; this loop did not. Found by AddressSanitizer through a dive merge.
+
+--- a/core/dive.cpp	2026-11-06 18:07:37
++++ b/core/dive.cpp	2026-11-06 18:07:37
+@@ -1232,6 +1232,8 @@
+ 		for (int j = 0; j < MAX_SENSORS; ++j) {
+ 			int sensor_id;
+ 
++			if (as->sensor[j] == NO_SENSOR)
++				continue;
+ 			sensor_id = cylinders_map_a[as->sensor[j]];
+ 			if (sensor_id < 0)
+ 				continue;
