@@ -1,8 +1,8 @@
 // AI-generated (Claude)
-// The dive planner, iOS variant: a native Form that leads with the result, so a
-// change to the plan shows what it did without scrolling. The figures are the core's,
-// see src/models/planner.ts and cpp/bindings/planner.cpp. In landscape the plan and
-// the detail of the result sit side by side.
+// The dive planner, iOS variant. The result is pinned above a native Form, so a change
+// to the plan shows what it did without scrolling, and the controls never move. The
+// figures are the core's, see src/models/planner.ts and cpp/bindings/planner.cpp. In
+// landscape the plan and the result sit side by side.
 import {
   Button,
   DatePicker,
@@ -22,7 +22,6 @@ import {
   VStack,
 } from '@expo/ui/swift-ui';
 import {
-  accessibilityElement,
   accessibilityLabel,
   font,
   foregroundStyle,
@@ -36,6 +35,7 @@ import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { HeaderActions } from '@/components/header-action';
+import { PlanSummaryBar } from '@/components/plan-summary-bar';
 import { ProfileChart } from '@/components/profile-chart';
 import { usePlannerScreen } from '@/features/tools/use-planner-screen';
 import { useTheme } from '@/hooks/use-theme';
@@ -63,7 +63,7 @@ export default function PlannerScreen() {
   const theme = useTheme();
   const { draft, system, outcome, view, result, planner } = screen;
 
-  const summary = (
+  const warningSection = (
     <>
       {outcome.kind !== 'planned' ? (
         <Section title="No plan">
@@ -94,118 +94,11 @@ export default function PlannerScreen() {
           ))}
         </Section>
       ) : null}
-
-      {view && result ? (
-        <Section footer={<Text>{PLAN_DISCLAIMER}</Text>}>
-          <VStack
-            alignment="leading"
-            spacing={4}
-            modifiers={[
-              accessibilityElement('combine'),
-              accessibilityLabel(
-                `Runtime ${view.headline.runtime}. ${view.headline.decoLine}. Maximum depth ${formatDepth(result.maxDepthMm, system)}.`,
-              ),
-            ]}
-          >
-            <HStack>
-              <Text modifiers={[font({ textStyle: 'largeTitle', weight: 'bold' }), monospacedDigit()]}>
-                {view.headline.runtime}
-              </Text>
-              <Spacer />
-              <Text modifiers={[font({ textStyle: 'title3' }), monospacedDigit(), foregroundStyle(SECONDARY)]}>
-                {formatDepth(result.maxDepthMm, system)}
-              </Text>
-            </HStack>
-            <Text modifiers={[foregroundStyle(SECONDARY)]}>{view.headline.decoLine}</Text>
-          </VStack>
-          {view.gasRows.map((row) => (
-            <VStack key={row.key} alignment="leading" spacing={4}>
-              <HStack>
-                <Text>{row.name}</Text>
-                <Spacer />
-                <Text modifiers={[monospacedDigit(), foregroundStyle(SECONDARY)]}>{row.usedText}</Text>
-              </HStack>
-              {row.usedFraction !== null ? (
-                <Gauge
-                  value={Math.min(1, row.usedFraction)}
-                  modifiers={[
-                    gaugeStyle('linearCapacity'),
-                    tint(
-                      row.level === 'danger'
-                        ? theme.danger
-                        : row.level === 'caution'
-                          ? theme.warning
-                          : theme.accent,
-                    ),
-                    accessibilityLabel(`${row.name}: ${row.usedText}`),
-                  ]}
-                />
-              ) : null}
-            </VStack>
-          ))}
-        </Section>
-      ) : null}
     </>
   );
 
   const inputs = (
     <>
-      <Section title="Dive">
-        <DatePicker
-          title="Start"
-          selection={whenToDate(draft.when)}
-          displayedComponents={['date', 'hourAndMinute']}
-          onDateChange={(date) => screen.setDraft((d) => ({ ...d, when: whenFromDate(date) }))}
-        />
-        <Picker
-          label="Deco model"
-          selection={planner.decoMode}
-          onSelectionChange={(value: number) => screen.setPlanner({ decoMode: value as PlanDecoMode })}
-          modifiers={[pickerStyle('menu')]}
-        >
-          {DECO_MODE_OPTIONS.map((option) => (
-            <Text key={option.value} modifiers={[tag(option.value)]}>
-              {option.label}
-            </Text>
-          ))}
-        </Picker>
-        <Picker
-          label="Dive mode"
-          selection={draft.diveMode}
-          onSelectionChange={(value: number) => screen.setMode(value as PlanDiveMode)}
-          modifiers={[pickerStyle('menu')]}
-        >
-          {DIVE_MODE_OPTIONS.map((option) => (
-            <Text key={option.value} modifiers={[tag(option.value)]}>
-              {option.label}
-            </Text>
-          ))}
-        </Picker>
-        {screen.isCcr || screen.isPscr ? (
-          planner.decoMode !== PlanDecoMode.Recreational ? (
-            <Toggle
-              label="Deco on open circuit bailout"
-              isOn={planner.doBailout}
-              onIsOnChange={(doBailout) => screen.setPlanner({ doBailout })}
-            />
-          ) : null
-        ) : null}
-        <Picker
-          label="Water"
-          selection={draft.water}
-          onSelectionChange={(value: string) =>
-            screen.setDraft((d) => ({ ...d, water: value as Water }))
-          }
-          modifiers={[pickerStyle('segmented')]}
-        >
-          {WATER_OPTIONS.map((option) => (
-            <Text key={option.value} modifiers={[tag(option.value)]}>
-              {option.label}
-            </Text>
-          ))}
-        </Picker>
-      </Section>
-
       {draft.segments.map((segment, index) => {
         const cylinder = draft.cylinders.find((c) => c.key === segment.cylinderKey);
         return (
@@ -290,9 +183,14 @@ export default function PlannerScreen() {
         {draft.cylinders.map((cylinder) => (
           <Button key={cylinder.key} onPress={() => screen.openCylinder(cylinder.key)}>
             <HStack>
-              <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'primary' })]}>
-                {cylinderSummary(cylinder, system)}
-              </Text>
+              <VStack alignment="leading" spacing={2}>
+                <Text modifiers={[foregroundStyle(theme.text)]}>
+                  {gasName(cylinder.o2Percent, cylinder.hePercent)}
+                </Text>
+                <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle(theme.textSecondary)]}>
+                  {cylinderSummary(cylinder, system)}
+                </Text>
+              </VStack>
               <Spacer />
               <Image systemName="chevron.right" size={12} color={theme.textSecondary} />
             </HStack>
@@ -301,9 +199,62 @@ export default function PlannerScreen() {
         <Button label="Add cylinder" systemImage="plus" onPress={screen.addCylinderAndOpen} />
       </Section>
 
-      <Section>
-        <Button label="Start over" role="destructive" onPress={screen.resetDraft} />
+      <Section title="Dive">
+        <DatePicker
+          title="Start"
+          selection={whenToDate(draft.when)}
+          displayedComponents={['date', 'hourAndMinute']}
+          onDateChange={(date) => screen.setDraft((d) => ({ ...d, when: whenFromDate(date) }))}
+        />
+        <Picker
+          label="Deco model"
+          selection={planner.decoMode}
+          onSelectionChange={(value: number) => screen.setPlanner({ decoMode: value as PlanDecoMode })}
+          modifiers={[pickerStyle('menu')]}
+        >
+          {DECO_MODE_OPTIONS.map((option) => (
+            <Text key={option.value} modifiers={[tag(option.value)]}>
+              {option.label}
+            </Text>
+          ))}
+        </Picker>
+        <Picker
+          label="Dive mode"
+          selection={draft.diveMode}
+          onSelectionChange={(value: number) => screen.setMode(value as PlanDiveMode)}
+          modifiers={[pickerStyle('menu')]}
+        >
+          {DIVE_MODE_OPTIONS.map((option) => (
+            <Text key={option.value} modifiers={[tag(option.value)]}>
+              {option.label}
+            </Text>
+          ))}
+        </Picker>
+        {screen.isCcr || screen.isPscr ? (
+          planner.decoMode !== PlanDecoMode.Recreational ? (
+            <Toggle
+              label="Deco on open circuit bailout"
+              isOn={planner.doBailout}
+              onIsOnChange={(doBailout) => screen.setPlanner({ doBailout })}
+            />
+          ) : null
+        ) : null}
+        <Picker
+          label="Water"
+          selection={draft.water}
+          onSelectionChange={(value: string) =>
+            screen.setDraft((d) => ({ ...d, water: value as Water }))
+          }
+          modifiers={[pickerStyle('segmented')]}
+        >
+          {WATER_OPTIONS.map((option) => (
+            <Text key={option.value} modifiers={[tag(option.value)]}>
+              {option.label}
+            </Text>
+          ))}
+        </Picker>
       </Section>
+
     </>
   );
 
@@ -328,8 +279,28 @@ export default function PlannerScreen() {
           footer={screen.isCcr ? <Text>Closed loop legs are not counted against the cylinders.</Text> : undefined}
         >
           {view.gasRows.map((row) => (
-            <VStack key={row.key} alignment="leading" spacing={2}>
-              <Text>{row.description ? `${row.name}, ${row.description}` : row.name}</Text>
+            <VStack key={row.key} alignment="leading" spacing={4}>
+              <HStack>
+                <Text>{row.description ? `${row.name}, ${row.description}` : row.name}</Text>
+                <Spacer />
+                <Text modifiers={[monospacedDigit(), foregroundStyle(SECONDARY)]}>{row.usedText}</Text>
+              </HStack>
+              {row.usedFraction !== null ? (
+                <Gauge
+                  value={Math.min(1, row.usedFraction)}
+                  modifiers={[
+                    gaugeStyle('linearCapacity'),
+                    tint(
+                      row.level === 'danger'
+                        ? theme.danger
+                        : row.level === 'caution'
+                          ? theme.warning
+                          : theme.accent,
+                    ),
+                    accessibilityLabel(`${row.name}: ${row.usedText}`),
+                  ]}
+                />
+              ) : null}
               {[row.endText, row.decoText, row.minimumText, row.switchText]
                 .filter((line): line is string => line !== null)
                 .map((line) => (
@@ -350,8 +321,9 @@ export default function PlannerScreen() {
         {view.plot && result.profile ? (
           <Section title="Profile" footer={view.interval ? <Text>{view.interval}</Text> : undefined}>
             <RNHostView matchContents>
-              <View style={{ width: '100%', minWidth: 280 }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, system)}`}>
-                <ProfileChart plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
+              <View style={{ width: screen.chartWidth }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, system)}`}>
+                {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
+                <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
               </View>
             </RNHostView>
           </Section>
@@ -359,14 +331,16 @@ export default function PlannerScreen() {
 
         <Section>
           <Button label="Full plan notes" systemImage="doc.text" onPress={screen.openNotes} />
-          <Button label="Planner settings" systemImage="gearshape" onPress={screen.openSettings} />
         </Section>
       </>
-    ) : (
-      <Section>
-        <Button label="Planner settings" systemImage="gearshape" onPress={screen.openSettings} />
-      </Section>
-    );
+    ) : null;
+
+  const ending = (
+    <Section footer={<Text>{PLAN_DISCLAIMER}</Text>}>
+      <Button label="Planner settings" systemImage="gearshape" onPress={screen.openSettings} />
+      <Button label="Start over" role="destructive" onPress={screen.resetDraft} />
+    </Section>
+  );
 
   return (
     <>
@@ -385,23 +359,31 @@ export default function PlannerScreen() {
       {screen.twoPanes ? (
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <Host style={{ flex: 1 }} useViewportSizeMeasurement>
-            <Form>
-              {summary}
-              {inputs}
-            </Form>
+            <Form>{inputs}</Form>
           </Host>
-          <Host style={{ flex: 1 }} useViewportSizeMeasurement>
-            <Form>{detail}</Form>
-          </Host>
+          <View style={{ flex: 1 }}>
+            <PlanSummaryBar {...screen.summaryBar} />
+            <Host style={{ flex: 1 }} useViewportSizeMeasurement>
+              <Form>
+                {warningSection}
+                {detail}
+                {ending}
+              </Form>
+            </Host>
+          </View>
         </View>
       ) : (
-        <Host style={{ flex: 1 }} useViewportSizeMeasurement>
-          <Form>
-            {summary}
-            {inputs}
-            {detail}
-          </Form>
-        </Host>
+        <View style={{ flex: 1 }}>
+          <PlanSummaryBar {...screen.summaryBar} />
+          <Host style={{ flex: 1 }} useViewportSizeMeasurement>
+            <Form>
+              {inputs}
+              {warningSection}
+              {detail}
+              {ending}
+            </Form>
+          </Host>
+        </View>
       )}
     </>
   );

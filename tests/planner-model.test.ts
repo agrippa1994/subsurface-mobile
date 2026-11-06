@@ -64,7 +64,7 @@ describe('the default plan', () => {
     for (const system of ['metric', 'imperial'] as const) {
       const result = await run(defaultPlanDraft(system, WHEN), DEFAULT_PLANNER_SETTINGS, system);
       expect(result.error).toBe('ok');
-      expect(planWarnings(result, system)).toEqual([]);
+      expect(planWarnings(result, system, WHEN, [])).toEqual([]);
       expect(planCanBeSaved(result)).toBe(true);
     }
   });
@@ -156,7 +156,7 @@ describe('the reply', () => {
     expect(row.usedFraction).toBeGreaterThan(1);
     // The core's cylinder reads negative; nobody should read that.
     expect(row.endText).toMatch(/^Ends at 0 bar/);
-    expect(planWarnings(result, 'metric').map((w) => w.text).join()).toContain('more gas than available');
+    expect(planWarnings(result, 'metric', WHEN, []).map((w) => w.text).join()).toContain('more gas than available');
   });
 
   it('warns below minimum gas, which the notes only colour', async () => {
@@ -165,15 +165,15 @@ describe('the reply', () => {
     const result = await run(patchSegment(draft, draft.segments[0].key, { depthMm: 18000, minutes: 30 }));
     const [cylinder] = result.cylinders;
     expect(cylinder.minimumGasMbar).toBeGreaterThan(cylinder.ascentStartMbar);
-    expect(planWarnings(result, 'metric').map((w) => w.text).join()).toContain('Below minimum gas');
+    expect(planWarnings(result, 'metric', WHEN, []).map((w) => w.text).join()).toContain('Below minimum gas');
     expect(planGasRows(result, 'metric')[0].level).toBe('caution');
   });
 
   it('surfaces a high pO2 from the notes', async () => {
     const draft = deep();
     const rich = patchCylinder(draft, draft.cylinders[0].key, { o2Percent: 50 });
-    const warnings = planWarnings(await run(rich), 'metric');
-    expect(warnings.map((w) => w.text).join()).toContain('high pO₂');
+    const warnings = planWarnings(await run(rich), 'metric', WHEN, []);
+    expect(warnings.map((w) => w.text).join()).toContain('High pO₂');
     expect(warnings[0].level).toBe('danger');
   });
 
@@ -183,7 +183,19 @@ describe('the reply', () => {
     const key = up.segments[1].key;
     const result = await run(patchSegment(up, key, { depthMm: 3000, minutes: 1 }));
     expect(result.waypointAboveCeiling).toBe(true);
-    expect(planWarnings(result, 'metric')[0].text).toContain('deco ceiling');
+    expect(planWarnings(result, 'metric', WHEN, [])[0].text).toContain('deco ceiling');
+  });
+
+  it('warns about a dive in the log the core does not look at', async () => {
+    const result = await run(defaultPlanDraft('metric', WHEN));
+    const warned = (when: number) =>
+      planWarnings(result, 'metric', WHEN, [{ when, durationSec: 600 }]).map((w) => w.text).join();
+    // At the same moment, as a plan just saved is, and starting during the plan.
+    expect(warned(WHEN)).toContain('overlaps a dive');
+    expect(warned(WHEN + 300)).toContain('overlaps a dive');
+    // Finished before it, or starting after it.
+    expect(warned(WHEN - 600)).toBe('');
+    expect(warned(WHEN + result.runtimeSec)).toBe('');
   });
 
   it('holds back a recreational plan over the limit, and says why', async () => {
@@ -191,7 +203,7 @@ describe('the reply', () => {
     expect(result.error).toBe('recreationalExceedsNdl');
     expect(planHasResult(result)).toBe(true);
     expect(planCanBeSaved(result)).toBe(false);
-    expect(planWarnings(result, 'metric')[0].text).toContain('no-decompression limit');
+    expect(planWarnings(result, 'metric', WHEN, [])[0].text).toContain('no-decompression limit');
   });
 
   it('shows the core\'s reason when there is no plan at all', async () => {
@@ -294,10 +306,11 @@ describe('editing the draft', () => {
     expect(off.waypoints[0].diveMode).toBe(PlanDiveMode.OpenCircuit);
   });
 
-  it('snaps depth and fill to the stepper, in both unit systems', () => {
+  it('snaps depth to the stepper and keeps the fill exact, in both unit systems', () => {
     expect(depthValue(18000, 'imperial')).toBe(60);
     expect(depthFromValue(depthValue(depthFromValue(60, 'imperial'), 'imperial'), 'imperial')).toBe(18288);
     expect(fillValue(200000, 'metric')).toBe(200);
+    expect(fillValue(232000, 'metric')).toBe(232);
     expect(fillValue(fillFromValue(3000, 'imperial'), 'imperial')).toBe(3000);
   });
 });

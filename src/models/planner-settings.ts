@@ -149,7 +149,7 @@ export type PlannerSetting = StepperSetting | ToggleSetting;
 
 export type PlannerSettingSection = {
   title: string;
-  footer?: string;
+  footer?: string | ((settings: PlannerSettings) => string | undefined);
   settings: PlannerSetting[];
 };
 
@@ -228,8 +228,10 @@ export const DECO_MODE_OPTIONS: readonly { value: PlanDecoMode; label: string }[
 export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
   {
     title: 'Decompression',
-    footer:
-      'Recreational mode plans no stops: it stays down until the no-deco limit or the reserve, whichever comes first.',
+    footer: (s) =>
+      isRecreational(s)
+        ? 'Recreational mode plans no stops: it stays down until the no-deco limit or the reserve, whichever comes first.'
+        : undefined,
     settings: [
       {
         kind: 'stepper',
@@ -283,8 +285,8 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
     settings: [
       rate('ascrate75', 'Below 75% of average depth'),
       rate('ascrate50', '75% to 50% of average depth'),
-      rate('ascratestops', '50% of average depth to 6 m'),
-      rate('ascratelast6m', 'Last 6 m to the surface'),
+      rate('ascratestops', '50% of average depth to 6 m / 20 ft'),
+      rate('ascratelast6m', 'Last 6 m / 20 ft'),
     ],
   },
   {
@@ -298,7 +300,7 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
   {
     title: 'Stops',
     settings: [
-      { kind: 'toggle', key: 'lastStop6m', label: 'Last stop at 6 m', visible: isDeco },
+      { kind: 'toggle', key: 'lastStop6m', label: 'Last stop at 6 m / 20 ft', visible: isDeco },
       { kind: 'toggle', key: 'o2Breaks', label: 'Back gas breaks', visible: isDeco },
       { kind: 'toggle', key: 'switchAtRequiredStop', label: 'Switch gas only at required stops', visible: isDeco },
       plain(

@@ -190,9 +190,9 @@ export function fillRange(system: UnitSystem): { min: number; max: number; step:
   return system === 'imperial' ? { min: 500, max: 4500, step: 100 } : { min: 50, max: 300, step: 10 };
 }
 
+/** Whole, not snapped to the step: a 232 bar tank must not read 230 while planning on 232. */
 export function fillValue(fillMbar: number, system: UnitSystem): number {
-  const { step } = fillRange(system);
-  return Math.round((system === 'imperial' ? mbarToPsi(fillMbar) : fillMbar / 1000) / step) * step;
+  return Math.round(system === 'imperial' ? mbarToPsi(fillMbar) : fillMbar / 1000);
 }
 
 export function fillFromValue(value: number, system: UnitSystem): number {
@@ -321,8 +321,9 @@ export function gasName(o2Percent: number, hePercent: number): string {
   return o2Percent === 100 ? 'Oxygen' : `EAN${o2Percent}`;
 }
 
+/** A tank's name often carries a pressure of its own, hence "filled to". */
 export function cylinderSummary(cylinder: PlanCylinderDraft, system: UnitSystem): string {
-  return `${gasName(cylinder.o2Percent, cylinder.hePercent)} · ${cylinder.tank} · ${formatPressure(cylinder.fillMbar, system)}`;
+  return `${cylinder.tank}, filled to ${formatPressure(cylinder.fillMbar, system)}`;
 }
 
 // --- Draft to arguments --------------------------------------------------------
@@ -459,6 +460,11 @@ function belowMinimumGas(cylinder: PlannedCylinder): boolean {
   return cylinder.minimumGasMbar > 0 && cylinder.ascentStartMbar < cylinder.minimumGasMbar;
 }
 
+/** A litre or two of gas is below what any of this is good for. */
+function gasVolume(ml: number, system: UnitSystem): string {
+  return system === 'imperial' ? formatVolume(ml, system) : `${Math.round(ml / 1000)} l`;
+}
+
 function gasRow(
   cylinder: PlannedCylinder,
   index: number,
@@ -480,8 +486,8 @@ function gasRow(
     description: cylinder.description,
     usedText:
       carried > 0
-        ? `${formatVolume(used, system)} of ${formatVolume(carried, system)}`
-        : formatVolume(used, system),
+        ? `${gasVolume(used, system)} of ${gasVolume(carried, system)}`
+        : gasVolume(used, system),
     usedFraction: fraction,
     endText:
       carried > 0
@@ -492,13 +498,21 @@ function gasRow(
         ? `Minimum gas ${formatPressure(cylinder.minimumGasMbar, system)}`
         : null,
     decoText:
-      cylinder.decoGasUsedMl > 0 ? `${formatVolume(cylinder.decoGasUsedMl, system)} in the ascent` : null,
+      cylinder.decoGasUsedMl > 0 ? `${gasVolume(cylinder.decoGasUsedMl, system)} in the ascent` : null,
     switchText:
       index !== firstGasIndex && cylinder.switchDepthMm > 0
         ? `Switch at ${formatDepth(cylinder.switchDepthMm, system)}`
         : null,
     level,
   };
+}
+
+/** The one nearest to running out, for the pinned bar. */
+export function tightestGasRow(rows: readonly PlanGasRow[]): PlanGasRow | null {
+  return rows.reduce<PlanGasRow | null>(
+    (worst, row) => ((row.usedFraction ?? 0) > (worst?.usedFraction ?? -1) ? row : worst),
+    null,
+  );
 }
 
 /** One row per cylinder that takes part: a closed loop's unused oxygen says nothing. */
@@ -509,6 +523,20 @@ export function planGasRows(result: PlanResult, system: UnitSystem): PlanGasRow[
     .map(({ cylinder, index }) => gasRow(cylinder, index, 0, system));
 }
 
+/**
+ * The core only looks at the dives before a plan, strictly: a dive at the very same
+ * time, or one that starts during the plan, goes unnoticed. A plan saved and left on
+ * screen is exactly that dive.
+ */
+export function planOverlapsDive(
+  result: PlanResult,
+  when: number,
+  dives: readonly Pick<DiveSummary, 'when' | 'durationSec'>[],
+): boolean {
+  const end = when + result.runtimeSec;
+  return dives.some((dive) => dive.when < end && dive.when + dive.durationSec > when);
+}
+
 export type PlanWarning = { level: 'danger' | 'caution'; text: string };
 
 /**
@@ -517,7 +545,12 @@ export type PlanWarning = { level: 'danger' | 'caution'; text: string };
  * above the ceiling (a label on the desktop profile), a cylinder below minimum gas
  * (a red line with no "Warning:") and an overlap (a phrase in the notes' title).
  */
-export function planWarnings(result: PlanResult, system: UnitSystem): PlanWarning[] {
+export function planWarnings(
+  result: PlanResult,
+  system: UnitSystem,
+  when: number,
+  dives: readonly Pick<DiveSummary, 'when' | 'durationSec'>[],
+): PlanWarning[] {
   const out: PlanWarning[] = [];
   // On a recreational plan over the limit, the core's own warning already says this.
   if (result.waypointAboveCeiling && result.error === 'ok') {
@@ -527,7 +560,8 @@ export function planWarnings(result: PlanResult, system: UnitSystem): PlanWarnin
     });
   }
   for (const text of planNoteWarnings(result.notes)) {
-    out.push({ level: 'danger', text });
+    // The core writes them to follow "Warning:"; here they stand alone.
+    out.push({ level: 'danger', text: text.charAt(0).toUpperCase() + text.slice(1) });
   }
   for (const cylinder of result.cylinders) {
     if (belowMinimumGas(cylinder)) {
@@ -537,7 +571,7 @@ export function planWarnings(result: PlanResult, system: UnitSystem): PlanWarnin
       });
     }
   }
-  if (result.surfaceIntervalSec < 0) {
+  if (result.surfaceIntervalSec < 0 || planOverlapsDive(result, when, dives)) {
     out.push({
       level: 'caution',
       text: 'This plan overlaps a dive in the logbook. Check the start time.',
@@ -556,7 +590,6 @@ export function planFailure(result: PlanResult): string {
 export function planHeadline(result: PlanResult): {
   runtime: string;
   decoLine: string;
-  depth: number;
 } {
   const stops = planStops(result);
   const ascentSec = result.runtimeSec - result.bottomTimeSec;
@@ -567,7 +600,6 @@ export function planHeadline(result: PlanResult): {
       stops.length === 0
         ? `No stops · ${formatMinutes(ascentSec)} ascent`
         : `${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}, ${formatMinutes(stopSec)} · ${formatMinutes(ascentSec)} ascent`,
-    depth: result.maxDepthMm,
   };
 }
 
@@ -586,6 +618,10 @@ export function surfaceIntervalText(result: PlanResult): string | null {
 export function plannedMaxDepthMm(draft: PlanDraft): number {
   return draft.segments.reduce((max, segment) => Math.max(max, segment.depthMm), 0);
 }
+
+/** The line on the pinned bar when it has nothing more urgent to say. */
+export const PLAN_SHORT_DISCLAIMER =
+  'A plan is not a substitute for training or a dive computer.';
 
 export const PLAN_DISCLAIMER =
   'A plan is not a substitute for training or a dive computer. This calculation has had limited testing. Check it against another source, and dive within your training.';

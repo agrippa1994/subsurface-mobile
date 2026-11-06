@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { FormButtonRow, FormSection, OptionField } from '@/components/form';
 import { HeaderActions } from '@/components/header-action';
+import { PlanSummaryBar } from '@/components/plan-summary-bar';
 import { ProfileChart } from '@/components/profile-chart';
 import { StepperRow } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
@@ -33,7 +34,7 @@ export default function PlannerScreen() {
   const levelColor = (level: 'ok' | 'caution' | 'danger') =>
     level === 'danger' ? theme.danger : level === 'caution' ? theme.warning : theme.accent;
 
-  const summary = (
+  const warningSection = (
     <>
       {outcome.kind !== 'planned' ? (
         <FormSection title="No plan">
@@ -47,7 +48,6 @@ export default function PlannerScreen() {
           {view.warnings.map((warning) => (
             <Text
               key={warning.text}
-              accessibilityRole="alert"
               selectable
               style={{ color: warning.level === 'danger' ? theme.danger : theme.warning }}
             >
@@ -56,87 +56,11 @@ export default function PlannerScreen() {
           ))}
         </FormSection>
       ) : null}
-      {view && result ? (
-        <FormSection footer={PLAN_DISCLAIMER}>
-          <View
-            accessible
-            accessibilityLabel={`Runtime ${view.headline.runtime}. ${view.headline.decoLine}. Maximum depth ${formatDepth(result.maxDepthMm, system)}.`}
-          >
-            <View style={styles.row}>
-              <Text style={[styles.runtime, { color: theme.text }]}>{view.headline.runtime}</Text>
-              <Text style={[styles.depth, { color: theme.textSecondary }]}>
-                {formatDepth(result.maxDepthMm, system)}
-              </Text>
-            </View>
-            <Text style={{ color: theme.textSecondary }}>{view.headline.decoLine}</Text>
-          </View>
-          {view.gasRows.map((row) => (
-            <View key={row.key} accessible accessibilityLabel={`${row.name}: ${row.usedText}`}>
-              <View style={styles.row}>
-                <Text style={{ color: theme.text }}>{row.name}</Text>
-                <Text style={[styles.tabular, { color: theme.textSecondary }]}>{row.usedText}</Text>
-              </View>
-              {row.usedFraction !== null ? (
-                <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-                  <View
-                    style={[
-                      styles.fill,
-                      {
-                        width: `${Math.min(100, row.usedFraction * 100)}%`,
-                        backgroundColor: levelColor(row.level),
-                      },
-                    ]}
-                  />
-                </View>
-              ) : null}
-            </View>
-          ))}
-        </FormSection>
-      ) : null}
     </>
   );
 
   const inputs = (
     <>
-      <FormSection title="Dive">
-        <StepperRow
-          label={`Day  ${formatWhen(draft.when)}`}
-          value={draft.when}
-          min={0}
-          max={Number.MAX_SAFE_INTEGER}
-          step={86400}
-          onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
-        />
-        <StepperRow
-          label="Time, by 15 min"
-          value={draft.when}
-          min={0}
-          max={Number.MAX_SAFE_INTEGER}
-          step={900}
-          onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
-        />
-        <OptionField
-          options={DECO_MODE_OPTIONS}
-          value={planner.decoMode}
-          onChange={(decoMode) => screen.setPlanner({ decoMode })}
-        />
-        <OptionField options={DIVE_MODE_OPTIONS} value={draft.diveMode} onChange={screen.setMode} />
-        {(screen.isCcr || screen.isPscr) && planner.decoMode !== PlanDecoMode.Recreational ? (
-          <View style={styles.row}>
-            <Text style={{ color: theme.text }}>Deco on open circuit bailout</Text>
-            <Switch
-              value={planner.doBailout}
-              onValueChange={(doBailout) => screen.setPlanner({ doBailout })}
-            />
-          </View>
-        ) : null}
-        <OptionField
-          options={WATER_OPTIONS}
-          value={draft.water}
-          onChange={(water) => screen.setDraft((d) => ({ ...d, water }))}
-        />
-      </FormSection>
-
       {draft.segments.map((segment, index) => {
         const cylinder = draft.cylinders.find((c) => c.key === segment.cylinderKey);
         return (
@@ -208,16 +132,53 @@ export default function PlannerScreen() {
         {draft.cylinders.map((cylinder) => (
           <FormButtonRow
             key={cylinder.key}
-            label={cylinderSummary(cylinder, system)}
+            label={gasName(cylinder.o2Percent, cylinder.hePercent)}
+            value={cylinderSummary(cylinder, system)}
             onPress={() => screen.openCylinder(cylinder.key)}
           />
         ))}
         <FormButtonRow label="Add cylinder" onPress={screen.addCylinderAndOpen} />
       </FormSection>
 
-      <FormSection>
-        <FormButtonRow label="Start over" destructive onPress={screen.resetDraft} />
+      <FormSection title="Dive">
+        <StepperRow
+          label={`Day  ${formatWhen(draft.when)}`}
+          value={draft.when}
+          min={0}
+          max={Number.MAX_SAFE_INTEGER}
+          step={86400}
+          onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
+        />
+        <StepperRow
+          label="Time, by 15 min"
+          value={draft.when}
+          min={0}
+          max={Number.MAX_SAFE_INTEGER}
+          step={900}
+          onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
+        />
+        <OptionField
+          options={DECO_MODE_OPTIONS}
+          value={planner.decoMode}
+          onChange={(decoMode) => screen.setPlanner({ decoMode })}
+        />
+        <OptionField options={DIVE_MODE_OPTIONS} value={draft.diveMode} onChange={screen.setMode} />
+        {(screen.isCcr || screen.isPscr) && planner.decoMode !== PlanDecoMode.Recreational ? (
+          <View style={styles.row}>
+            <Text style={{ color: theme.text }}>Deco on open circuit bailout</Text>
+            <Switch
+              value={planner.doBailout}
+              onValueChange={(doBailout) => screen.setPlanner({ doBailout })}
+            />
+          </View>
+        ) : null}
+        <OptionField
+          options={WATER_OPTIONS}
+          value={draft.water}
+          onChange={(water) => screen.setDraft((d) => ({ ...d, water }))}
+        />
       </FormSection>
+
     </>
   );
 
@@ -249,9 +210,25 @@ export default function PlannerScreen() {
         >
           {view.gasRows.map((row) => (
             <View key={row.key} accessible>
-              <Text style={{ color: theme.text }}>
-                {row.description ? `${row.name}, ${row.description}` : row.name}
-              </Text>
+              <View style={styles.row}>
+                <Text style={{ color: theme.text }}>
+                  {row.description ? `${row.name}, ${row.description}` : row.name}
+                </Text>
+                <Text style={[styles.tabular, { color: theme.textSecondary }]}>{row.usedText}</Text>
+              </View>
+              {row.usedFraction !== null ? (
+                <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+                  <View
+                    style={[
+                      styles.fill,
+                      {
+                        width: `${Math.min(100, row.usedFraction * 100)}%`,
+                        backgroundColor: levelColor(row.level),
+                      },
+                    ]}
+                  />
+                </View>
+              ) : null}
               {[row.endText, row.decoText, row.minimumText, row.switchText]
                 .filter((line): line is string => line !== null)
                 .map((line) => (
@@ -272,19 +249,21 @@ export default function PlannerScreen() {
         </FormSection>
         {view.plot && result.profile ? (
           <FormSection title="Profile" footer={view.interval ?? undefined}>
-            <ProfileChart plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
+            <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
           </FormSection>
         ) : null}
         <FormSection>
           <FormButtonRow label="Full plan notes" onPress={screen.openNotes} />
-          <FormButtonRow label="Planner settings" onPress={screen.openSettings} />
         </FormSection>
       </>
-    ) : (
-      <FormSection>
-        <FormButtonRow label="Planner settings" onPress={screen.openSettings} />
-      </FormSection>
-    );
+    ) : null;
+
+  const ending = (
+    <FormSection footer={PLAN_DISCLAIMER}>
+      <FormButtonRow label="Planner settings" onPress={screen.openSettings} />
+      <FormButtonRow label="Start over" destructive onPress={screen.resetDraft} />
+    </FormSection>
+  );
 
   return (
     <>
@@ -303,23 +282,27 @@ export default function PlannerScreen() {
       {screen.twoPanes ? (
         <View style={[styles.panes, { backgroundColor: theme.background }]}>
           <ScrollView style={styles.pane} contentContainerStyle={styles.content}>
-            {summary}
             {inputs}
           </ScrollView>
-          <ScrollView style={styles.pane} contentContainerStyle={styles.content}>
-            {detail}
-          </ScrollView>
+          <View style={styles.pane}>
+            <PlanSummaryBar {...screen.summaryBar} />
+            <ScrollView contentContainerStyle={styles.content}>
+              {warningSection}
+              {detail}
+              {ending}
+            </ScrollView>
+          </View>
         </View>
       ) : (
-        <ScrollView
-          style={{ backgroundColor: theme.background }}
-          contentContainerStyle={styles.content}
-          contentInsetAdjustmentBehavior="automatic"
-        >
-          {summary}
-          {inputs}
-          {detail}
-        </ScrollView>
+        <View style={[styles.pane, { backgroundColor: theme.background }]}>
+          <PlanSummaryBar {...screen.summaryBar} />
+          <ScrollView contentContainerStyle={styles.content}>
+            {inputs}
+            {warningSection}
+            {detail}
+            {ending}
+          </ScrollView>
+        </View>
       )}
     </>
   );
@@ -335,8 +318,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
-  runtime: { fontSize: 34, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  depth: { fontSize: 20, fontVariant: ['tabular-nums'] },
   tabular: { fontVariant: ['tabular-nums'] },
   small: { fontSize: 13 },
   track: { height: 6, borderRadius: 3, marginTop: Spacing.one, overflow: 'hidden' },

@@ -243,7 +243,9 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {notes !== '' ? (
         <Section title={dive.planned ? 'Plan' : 'Notes'}>
           {dive.planned ? (
-            <PlanNotesView notes={notes} />
+            <View style={styles.planNotes}>
+              <PlanNotesView notes={notes} />
+            </View>
           ) : (
             <Text selectable style={[styles.notes, { color: theme.text }]}>
               {notes}
@@ -292,6 +294,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         </Section>
       ) : null}
 
+      {/* A plan never happened, and an SSI logbook is of dives that did. */}
+      {dive.planned ? null : (
       <Section
         title="SSI"
         footer={
@@ -315,6 +319,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           </Link>
         )}
       </Section>
+      )}
 
       <MergeSection diveId={dive.id} />
 
@@ -844,6 +849,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     paddingVertical: Spacing.four,
+  },
+  planNotes: {
+    padding: Spacing.three,
   },
   plannedBanner: {
     fontSize: 15,

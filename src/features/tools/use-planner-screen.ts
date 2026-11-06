@@ -18,6 +18,7 @@ import {
   planGasRows,
   planHeadline,
   planStops,
+  tightestGasRow,
   planWarnings,
   removeSegment,
   setDiveMode,
@@ -37,22 +38,25 @@ export function usePlannerScreen() {
   const save = useSavePlan();
   const { width, height } = useWindowDimensions();
 
+  const twoPanes = width > height && width >= 700;
   const result = outcome.kind === 'planned' ? outcome.result : null;
 
   const view = useMemo(() => {
     if (result === null) {
       return null;
     }
+    const gasRows = planGasRows(result, system);
     return {
       headline: planHeadline(result),
       stops: planStops(result),
-      gasRows: planGasRows(result, system),
-      warnings: planWarnings(result, system),
+      gasRows,
+      tightestGas: tightestGasRow(gasRows),
+      warnings: planWarnings(result, system, draft.when, planner.dives),
       plot: result.profile ? buildProfilePlot(result.profile, result.dive?.dcs[0]?.events ?? []) : null,
       interval: surfaceIntervalText(result),
       canSave: planCanBeSaved(result),
     };
-  }, [result, system]);
+  }, [result, system, draft.when, planner.dives]);
 
   const savePlan = () => {
     Alert.alert(
@@ -77,11 +81,23 @@ export function usePlannerScreen() {
     result,
     view,
     /** Plan on one side, results on the other, as the dive screen does in landscape. */
-    twoPanes: width > height && width >= 700,
+    twoPanes,
+    /**
+     * A view hosted in a SwiftUI row takes no width from it, so it has to be told:
+     * the pane less the Form's margins (16 each side) and the row's insets (20 each).
+     */
+    chartWidth: (twoPanes ? width / 2 : width) - 72,
     depthRange: depthRange(system),
     depthUnit: depthUnit(system),
     depthOf: (segment: PlanSegmentDraft) => depthValue(segment.depthMm, system),
-    maxDepthText: result ? formatDepth(result.maxDepthMm, system) : '',
+    summaryBar: {
+      runtime: view?.headline.runtime ?? null,
+      depth: result ? formatDepth(result.maxDepthMm, system) : '',
+      decoLine: view?.headline.decoLine ?? '',
+      gas: view?.tightestGas ?? null,
+      warnings: view?.warnings ?? [],
+      problem: outcome.kind === 'planned' ? null : outcome.message,
+    },
     isDiluent: (cylinder: PlanCylinderDraft | undefined) => cylinder?.use === CylinderUse.Diluent,
     isCcr: draft.diveMode === PlanDiveMode.Ccr,
     isPscr: draft.diveMode === PlanDiveMode.Pscr,

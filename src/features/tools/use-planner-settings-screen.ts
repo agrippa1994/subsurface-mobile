@@ -20,8 +20,9 @@ export function usePlannerSettingsScreen() {
   const { planner, setPlanner, restorePlanner, system, gf } = usePlanner();
   const imperial = system === 'imperial';
 
-  const sections: PlannerSettingSection[] = PLANNER_SETTING_SECTIONS.map((section) => ({
+  const sections: (Omit<PlannerSettingSection, 'footer'> & { footer?: string })[] = PLANNER_SETTING_SECTIONS.map((section) => ({
     ...section,
+    footer: typeof section.footer === 'function' ? section.footer(planner) : section.footer,
     settings: section.settings.filter((setting) => setting.visible?.(planner) ?? true),
   })).filter((section) => section.settings.length > 0);
 

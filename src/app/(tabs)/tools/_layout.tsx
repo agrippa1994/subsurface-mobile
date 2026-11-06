@@ -7,7 +7,11 @@ export default function ToolsLayout() {
     <Stack screenOptions={{ headerLargeTitle: true }}>
       <Stack.Screen name="index" options={{ title: 'Tools' }} />
       <Stack.Screen name="nitrox" options={{ title: 'Nitrox', headerLargeTitle: false }} />
-      <Stack.Screen name="planner" options={{ title: 'Dive planner', headerLargeTitle: false }} />
+      {/* Opaque: the result is pinned right under the bar, not scrolling beneath it. */}
+      <Stack.Screen
+        name="planner"
+        options={{ title: 'Dive planner', headerLargeTitle: false, headerTransparent: false }}
+      />
       <Stack.Screen
         name="planner-settings"
         options={{ title: 'Planner settings', headerLargeTitle: false }}
