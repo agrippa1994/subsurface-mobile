@@ -167,7 +167,8 @@ export function useSettingsScreen(): SettingsScreen {
       'Ungroup all dives',
       `This removes ${tripCount === 1 ? 'the trip' : `all ${tripCount} trips`} from the logbook ` +
         'and leaves the dives themselves untouched. Trips made in desktop Subsurface go too - ' +
-        'a saved logbook does not record which trips were generated.',
+        'a saved logbook does not record which trips were generated. You can undo this from ' +
+        'the Dives tab.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

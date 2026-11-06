@@ -4,6 +4,7 @@
 #include "api-errors.h"
 #include "base64.h"
 #include "download.h"
+#include "history.h"
 #include "marshal.h"
 #include "planner.h"
 #include "suunto-xml.h"
@@ -298,7 +299,14 @@ json save_to_xml(const json &args)
 	// a crash mid-write can never truncate the logbook. rename(2) is atomic
 	// within a filesystem and the temp file is deliberately a sibling.
 	std::string tmp = path + ".tmp";
-	if (save_dives(tmp.c_str())) {
+	if (std::optional<std::string> restored = history_restored_xml()) {
+		try {
+			write_file(tmp, *restored);
+		} catch (...) {
+			remove(tmp.c_str());
+			throw;
+		}
+	} else if (save_dives(tmp.c_str())) {
 		remove(tmp.c_str());
 		fail("failed to serialize logbook to " + tmp);
 	}
@@ -1683,7 +1691,7 @@ std::string call(const std::string &method, const std::string &args_json)
 		json args = args_json.empty() ? json::object() : json::parse(args_json);
 		if (!args.is_object())
 			fail("arguments must be a JSON object");
-		response = json{ { "ok", true }, { "result", dispatch(method, args) } };
+		response = json{ { "ok", true }, { "result", history_run(method, args, dispatch) } };
 	} catch (const std::exception &e) {
 		response = json{
 			{ "ok", false },
@@ -1694,6 +1702,9 @@ std::string call(const std::string &method, const std::string &args_json)
 	// Core messages that did not abort the call are still worth surfacing.
 	if (response["ok"].get<bool>() && !g_errors.empty())
 		response["errors"] = g_errors;
+	// On any reply: a mutation that failed half way has still changed the history.
+	if (std::optional<json> history = history_take_change())
+		response["history"] = std::move(*history);
 	return response.dump();
 }
 

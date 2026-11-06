@@ -3,8 +3,8 @@
 //
 // The screen owns no data: it renders whatever the module answered on the last
 // read, grouped by the presentation model, and shows the loading / empty /
-// error placeholders around it. Deleting from the list (a swipe on iOS) asks
-// first, the same way the dive editor does - a deleted dive is gone for good.
+// error placeholders around it. Deleting from the list (a swipe on iOS) does not
+// ask: it undoes, and the toast says so (see src/lib/logbook-history.ts).
 //
 // Trips are reached from here too: a section header opens its trip, a row's swipe
 // or long press offers the trip actions, and "Select" marks several dives to
@@ -27,13 +27,12 @@ import { HeaderActions } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
-import { selectionChanged, warned } from '@/lib/haptics';
+import { operationFailed, operationSucceeded, selectionChanged } from '@/lib/haptics';
 import { flush } from '@/lib/logbook-persist';
 import type { DiveSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
 import {
   buildDiveSearchIndex,
-  diveRowTitle,
   groupDivesByTrip,
   searchDives,
   searchResultsText,
@@ -131,33 +130,18 @@ export default function DivesScreen() {
 
   const onDeleteDive = useCallback(
     (dive: DiveSummary) => {
-      warned();
-      Alert.alert(
-        `Delete "${diveRowTitle(dive)}"?`,
-        'This dive and its profile are gone for good.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                try {
-                  await deleteDive.mutateAsync(dive.id);
-                  // Same as the editor: a force-quit right after must still find
-                  // the dive gone from disk.
-                  await flush();
-                } catch (error) {
-                  Alert.alert(
-                    'The dive could not be deleted',
-                    formatErrorLine(describeError(error)),
-                  );
-                }
-              })();
-            },
-          },
-        ],
-      );
+      void (async () => {
+        try {
+          await deleteDive.mutateAsync(dive.id);
+          // Same as the editor: a force-quit right after must still find the
+          // dive gone from disk.
+          await flush();
+          operationSucceeded();
+        } catch (error) {
+          operationFailed();
+          Alert.alert('The dive could not be deleted', formatErrorLine(describeError(error)));
+        }
+      })();
     },
     [deleteDive],
   );
@@ -199,7 +183,10 @@ export default function DivesScreen() {
 
   if (dives.length === 0) {
     return (
-      <StatusView
+      <>
+        {/* The last dive may just have been deleted, and that undoes too. */}
+        <HeaderActions actions={[]} history />
+        <StatusView
         kind="empty"
         title="No dives yet"
         description="Download them from your dive computer, or import a Suunto database or a Subsurface logbook."
@@ -207,6 +194,7 @@ export default function DivesScreen() {
         actionLabel="Download from dive computer"
         onAction={openDownload}
       />
+      </>
     );
   }
 
@@ -234,6 +222,7 @@ export default function DivesScreen() {
         }}
       />
       <HeaderActions
+        history={!selectedIds}
         actions={
           selectedIds
             ? [{ label: 'Done', done: true, onPress: () => setSelection(null) }]

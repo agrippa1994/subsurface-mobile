@@ -40,6 +40,7 @@ import {
   type DownloadOutcome,
   type RememberedComputer,
 } from '@/models/dive-computer';
+import { importNeedsExplaining } from '@/models/transfer';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useAcceptDownload } from '@/queries/logbook-mutations';
 import {
@@ -306,7 +307,10 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
         const result = await acceptDownload.mutateAsync([...selected]);
         operationSucceeded();
         refreshStatus();
-        Alert.alert('Dives downloaded', acceptSummary(result));
+        // As an import: a plain result is the toast's to report, with its Undo.
+        if (importNeedsExplaining(result)) {
+          Alert.alert('Dives downloaded', acceptSummary(result));
+        }
         onDone();
       } catch (error) {
         operationFailed();

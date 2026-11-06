@@ -19,7 +19,7 @@ import {
 import * as Device from 'expo-device';
 import { File, Paths } from 'expo-file-system';
 
-import { importFile, listDives, listDiveSites, loadFromXML } from '../../modules/ssrf-core/src';
+import { clearHistory, importFile, listDives, listDiveSites, loadFromXML } from '../../modules/ssrf-core/src';
 import {
   aheadBehind,
   commitFile,
@@ -35,6 +35,7 @@ import {
   type Remote,
 } from '../../modules/git-sync/src';
 import { toNativePath } from '@/lib/logbook-file';
+import { holdingHistory } from '@/lib/logbook-history';
 import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
 import {
@@ -312,6 +313,11 @@ function syncDeps(client: QueryClient): SyncDeps {
       },
       mergeFrom: async (path) => {
         importFile(path);
+        // What came in is the server's, and is not the diver's to take back: a state
+        // from before it would overwrite it unasked. A sync with nothing to bring in
+        // leaves the history alone. Taking the server's logbook whole goes through
+        // loadFromXML, which forgets by itself.
+        clearHistory();
         await resetData(client);
         schedulePersist();
         await flush();
@@ -347,15 +353,17 @@ export function useGitSync(): UseMutationResult<SyncResult, Error, SyncMode> {
       const config = readConfig();
       const remote = await remoteFor(config);
       const device = Device.deviceName ?? 'Subsurface Mobile';
-      return runSync(
-        mode,
-        config,
-        remote,
-        {
-          update: `Update logbook from ${device}`,
-          merge: `Merge logbook changes into ${device}`,
-        },
-        syncDeps(client),
+      return holdingHistory(() =>
+        runSync(
+          mode,
+          config,
+          remote,
+          {
+            update: `Update logbook from ${device}`,
+            merge: `Merge logbook changes into ${device}`,
+          },
+          syncDeps(client),
+        ),
       );
     },
     onSuccess: () => {

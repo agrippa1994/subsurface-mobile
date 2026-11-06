@@ -6,10 +6,11 @@
 // labelled action such as "Save". iOS keeps the native toolbar item, see
 // header-action.ios.tsx.
 import { Stack } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SymbolView, type SFSymbol } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
+import { useHistoryMenu } from '@/features/history/use-history-actions';
 import { useTheme } from '@/hooks/use-theme';
 
 export type HeaderActionProps = {
@@ -23,16 +24,43 @@ export type HeaderActionProps = {
   onPress: () => void;
 };
 
-export function HeaderAction(props: HeaderActionProps) {
-  return <HeaderActions actions={[props]} />;
+export function HeaderAction({ history, ...props }: HeaderActionProps & { history?: boolean }) {
+  return <HeaderActions actions={[props]} history={history} />;
 }
 
-/** Several actions side by side: the header has one right slot. */
-export function HeaderActions({ actions }: { actions: HeaderActionProps[] }) {
+/**
+ * Several actions side by side: the header has one right slot. `history` adds an
+ * undo button, while there is anything to undo or redo. It asks which, by name,
+ * since this is the one way to get at the history once the toast has gone.
+ */
+export function HeaderActions({
+  actions,
+  history = false,
+}: {
+  actions: HeaderActionProps[];
+  history?: boolean;
+}) {
   const theme = useTheme();
+  const menu = useHistoryMenu();
+  const all: HeaderActionProps[] =
+    history && menu
+      ? [
+          {
+            label: 'Undo and redo',
+            icon: 'arrow.uturn.backward',
+            onPress: () =>
+              Alert.alert('Undo and redo', undefined, [
+                { text: 'Cancel', style: 'cancel' },
+                ...(menu.canRedo ? [{ text: menu.redoTitle, onPress: menu.redo }] : []),
+                ...(menu.canUndo ? [{ text: menu.undoTitle, onPress: menu.undo }] : []),
+              ]),
+          },
+          ...actions,
+        ]
+      : actions;
   const headerRight = () => (
     <View style={styles.row}>
-      {actions.map(({ label, icon, disabled = false, onPress }) => (
+      {all.map(({ label, icon, disabled = false, onPress }) => (
         <Pressable
           key={label}
           accessibilityRole="button"

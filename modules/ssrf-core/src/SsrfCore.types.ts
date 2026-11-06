@@ -872,3 +872,53 @@ export class SsrfCoreError extends Error {
     this.coreErrors = coreErrors;
   }
 }
+
+// --- Undo and redo (cpp/bindings/history.cpp) ------------------------------
+
+/**
+ * The facts of one change, as the bindings saw them. `kind` is the method that made
+ * it; which of the other fields are there depends on the kind. Worded by
+ * src/models/logbook-history.ts.
+ */
+export type HistoryEntry = {
+  kind: string;
+  /** Tells entries apart: a label need not be unique. */
+  serial: number;
+  divesBefore: number;
+  divesAfter: number;
+  tripsBefore: number;
+  tripsAfter: number;
+  diveNumber?: number;
+  diveSite?: string;
+  diveNumbers?: number[];
+  diveCount?: number;
+  isNew?: boolean;
+  siteName?: string;
+  siteDives?: number;
+  tripLocation?: string;
+};
+
+export type HistoryAction = 'none' | 'change' | 'undo' | 'redo' | 'clear';
+
+export type HistoryState = {
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: HistoryEntry | null;
+  redo: HistoryEntry | null;
+  undoDepth: number;
+  redoDepth: number;
+  /** What the kept states of the log hold in memory, shared parts counted once. */
+  bytes: number;
+  /** Counts up with every change to the history. */
+  revision: number;
+  /** What the last change to the history was. */
+  lastAction: HistoryAction;
+};
+
+export type HistoryStepResult = {
+  /** The change that was undone or redone. */
+  entry: HistoryEntry;
+  /** False if dive and trip ids could not be put back, so that none can be trusted. */
+  idsKept: boolean;
+  state: HistoryState;
+};

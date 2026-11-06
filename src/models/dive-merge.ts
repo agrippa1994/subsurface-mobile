@@ -156,7 +156,6 @@ export function mergeConfirmation(
         : `${preview.renumberedDives} later dives get a new number.`,
     );
   }
-  lines.push('This cannot be undone.');
 
   return { title: 'Merge these dives?', message: lines.join('\n\n'), confirmLabel: 'Merge' };
 }

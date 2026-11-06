@@ -11,9 +11,9 @@
 // touched from being written back.
 
 import { useForm } from '@tanstack/react-form';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
 import { fieldError, FormButtonRow, FormField, FormSection, RatingField } from '@/components/form';
@@ -26,7 +26,10 @@ import { PreviousDiveCard } from '@/features/dives/previous-dive-card';
 import { SitePicker } from '@/features/dives/site-picker';
 import { WeightEditor } from '@/features/dives/weight-editor';
 import { useTheme } from '@/hooks/use-theme';
-import { warned } from '@/lib/haptics';
+import { useLastRestore, useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
+import { operationSucceeded } from '@/lib/haptics';
+import { rememberScreenOfLastChange } from '@/lib/logbook-history';
+import { diveScreenOfEditor } from '@/models/logbook-history';
 import { flush } from '@/lib/logbook-persist';
 import { previewDive } from '../../../../../modules/ssrf-core/src';
 import type { Dive, DivePatch } from '@/models';
@@ -61,7 +64,6 @@ import {
   weightDraftsFrom,
   type WeightDraft,
 } from '@/models/weight-edit';
-import { diveRowTitle } from '@/models/dive-list';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive, useDives, useSites } from '@/queries/logbook';
 import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
@@ -87,6 +89,8 @@ export default function DiveEditScreen() {
   // The dive is read from the module rather than the cached list: the list rows
   // carry no notes or suit, and the editor writes those too.
   const diveQuery = useDive(diveId);
+  const lastRestore = useLastRestore();
+  useLeaveWhenGone(diveQuery.error !== null);
 
   if (diveQuery.error) {
     return (
@@ -105,12 +109,14 @@ export default function DiveEditScreen() {
 
   // Keyed on the dive so the form is rebuilt from scratch if the log is
   // reloaded underneath the editor - ids are process-local, and a draft over a
-  // dive that no longer exists would save into the wrong one.
-  return <DiveEditForm key={diveQuery.data.id} dive={diveQuery.data} unitSystem={unitSystem} />;
+  // dive that no longer exists would save into the wrong one. An undo counts: a draft
+  // made from what it took back would put that back on Save.
+  return <DiveEditForm key={`${diveQuery.data.id}-${lastRestore}`} dive={diveQuery.data} unitSystem={unitSystem} />;
 }
 
 function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType<typeof useUnitSystem> }) {
   const router = useRouter();
+  const pathname = usePathname();
   const theme = useTheme();
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
@@ -174,25 +180,18 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
   });
 
   const onDelete = useCallback(() => {
-    warned();
-    Alert.alert(`Delete "${diveRowTitle(dive)}"?`, 'This dive and its profile are gone for good.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            await deleteDive.mutateAsync(dive.id);
-            await flush();
-            // Not back(): the screen behind is this dive's detail view, which
-            // would come up as "Dive not found". Pop past it to whatever opened
-            // the dive - the dive list, or the site it was opened from.
-            router.dismiss(2);
-          })();
-        },
-      },
-    ]);
-  }, [deleteDive, dive, router]);
+    void (async () => {
+      await deleteDive.mutateAsync(dive.id);
+      await flush();
+      operationSucceeded();
+      // Undoing this comes back to the dive's own screen, which this closes.
+      rememberScreenOfLastChange(diveScreenOfEditor(pathname));
+      // Not back(): the screen behind is this dive's detail view, which
+      // would come up as "Dive not found". Pop past it to whatever opened
+      // the dive - the dive list, or the site it was opened from.
+      router.dismiss(2);
+    })().catch(() => undefined); // Shown above the form, from deleteDive.error.
+  }, [deleteDive, dive, pathname, router]);
 
   return (
     <ScrollView

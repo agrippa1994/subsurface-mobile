@@ -17,6 +17,7 @@ import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusView } from '@/components/status-view';
+import { UndoToastHost } from '@/features/history/undo-toast';
 import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
 import { usePortraitLock } from '@/hooks/use-landscape';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
@@ -88,6 +89,8 @@ function AppShell() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ssi-site-picker" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
+      {/* Above every screen: any of them can make a change. */}
+      <UndoToastHost />
     </ThemeProvider>
   );
 }

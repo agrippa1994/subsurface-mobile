@@ -13,9 +13,7 @@ import {
   searchTrips,
   tripActionsFor,
   tripDateText,
-  tripLossWarning,
   tripPickerTitle,
-  tripsEmptiedBy,
   tripSubtitle,
   tripSummaryFooter,
   tripSummaryRows,
@@ -213,31 +211,6 @@ describe('tripPickerTitle', () => {
   it('says move as soon as one of the dives is in a trip', () => {
     expect(tripPickerTitle([dive({ id: 1 })])).toBe('Add to Trip');
     expect(tripPickerTitle([dive({ id: 1 }), dive({ id: 2, tripId: 3 })])).toBe('Move to Trip');
-  });
-});
-
-describe('tripsEmptiedBy and tripLossWarning', () => {
-  const t1 = trip({ id: 1, diveCount: 2 });
-  const t2 = trip({ id: 2, diveCount: 1 });
-
-  it('finds a trip only when all of its dives leave', () => {
-    expect(tripsEmptiedBy([dive({ id: 1, tripId: 1 })], [t1, t2])).toEqual([]);
-    expect(
-      tripsEmptiedBy([dive({ id: 1, tripId: 1 }), dive({ id: 2, tripId: 1 })], [t1, t2]),
-    ).toEqual([t1]);
-  });
-
-  it('does not count the trip the dives are moving to', () => {
-    expect(tripsEmptiedBy([dive({ id: 1, tripId: 2 })], [t1, t2], 2)).toEqual([]);
-  });
-
-  it('warns only when a location or notes would be lost', () => {
-    expect(tripLossWarning([])).toBeNull();
-    expect(tripLossWarning([trip({ id: 1, location: ' ', notes: '' })])).toBeNull();
-    expect(tripLossWarning([trip({ id: 1, location: '', notes: 'Nice' })])?.title).toBe(
-      'Remove "Untitled trip"?',
-    );
-    expect(tripLossWarning([t1, t2])?.title).toBe('Remove 2 trips?');
   });
 });
 

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  importNeedsExplaining,
   csvFileName,
   describeImport,
   exportFileName,
@@ -68,5 +69,17 @@ describe('csvFileName', () => {
 
   it('leaves the number out of an unnumbered dive', () => {
     expect(csvFileName({ number: 0, when }, 'summary')).toBe('dive-2026-08-14-summary.csv');
+  });
+});
+
+describe('importNeedsExplaining', () => {
+  const result = { imported: 3, added: 3, merged: 0, failed: 0, dives: 3, sites: 0, trips: 0 };
+  it('leaves a plain import to the toast', () => {
+    expect(importNeedsExplaining(result)).toBe(false);
+    expect(importNeedsExplaining({ ...result, merged: 2 })).toBe(false);
+  });
+  it('explains an import that added nothing or left something out', () => {
+    expect(importNeedsExplaining({ ...result, added: 0, merged: 3 })).toBe(true);
+    expect(importNeedsExplaining({ ...result, failed: 1 })).toBe(true);
   });
 });

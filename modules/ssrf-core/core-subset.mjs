@@ -100,4 +100,5 @@ export const PATCHES = [
 	'0008-libdivecomputer-download-without-qt.patch',
 	'0009-merge-samples-absent-sensor.patch',
 	'0010-planner-wait-until-relative-to-the-stop.patch',
+	'0011-save-xml-expose-save-dives-buffer.patch',
 ];

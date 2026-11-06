@@ -1093,3 +1093,120 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 
   Follow-ups: statistics count planned dives, as desktop does, which a diver may not
   expect; patch 0010 should go upstream.
+
+- 2026-11-06 - Undo and redo for the logbook.
+
+  **Architecture: whole states of the log, not inverse commands.** A state is the XML the
+  log would be saved as, kept in `cpp/bindings/history.cpp`, which wraps the dispatch in
+  `api.cpp`. Inverse commands (legacy's `commands/`, on Qt) are finer-grained, but need an
+  inverse for every mutation, written again for each one to come, and a forgotten field in
+  one is silent corruption. A state cannot drift from the core: whatever the file keeps,
+  it keeps. Anything not listed as a read counts as a change, and leaves an entry if the
+  log serializes differently afterwards, so a new mutation has undo with no code, an edit
+  that changes nothing leaves no entry, and a mutation that throws half way can be undone.
+
+  What it costs, on `subsurface.xml` (6.8 MB, 186 dives), macOS host at `-O0`, so a phone
+  will differ: an edit took 72 ms, of which one extra serialization is about 47 ms, and the
+  first change of a session, which serializes twice, 154 ms; an undo is a parse and a
+  serialization, 468 ms in all, which blocks the JS thread as a load does. Memory: states share chunks cut at each
+  dive, site and trip, and 50 edits to 50 dives hold 8.09 MB, where full copies would be
+  340 MB. Capped at 50 entries and 64 MB, keeping at least one entry. A mutation that
+  renumbers every dive shares nothing and costs a whole log; the 64 MB cap then leaves
+  about nine entries on this log.
+
+  Ids: a parse hands out new dive and trip ids, so a state keeps each dive's ids, and a
+  restore puts them back by `when` and number. A restored dive has its old id, so open
+  screens and cached queries stay right with no mapping. `idsKept: false` would make the
+  app reset the cache instead; no test has produced it. New ids cannot collide, since the
+  core's only count up. The React Query cache re-reads what is watched and drops the rest:
+  nothing refetches on mount here, and a cached failure would outlive the dive's return
+  (found on the simulator).
+
+  A save straight after an undo writes the restored bytes rather than serializing again.
+  The first parse of a file the core did not write can round a derived figure differently
+  (`tests/round-trip.test.ts` says as much), and an undo must give back the very file.
+
+  Patch 0011 removes `static` from `save_dives_buffer`, so that a state needs no temporary
+  file. `CORE_MANIFEST.md` has it.
+
+  **What is undoable, and the boundaries.**
+  - Undoable: edit, delete and merge dives; add, edit and delete sites; every trip
+    operation; ungroup all; import a file, including SSI; accept a download; save a plan.
+    A download undone is not lost for good: the stored fingerprint names a dive the log no
+    longer has, so the next download fetches it (tested).
+  - Clears the history: opening a logbook, SSI's replace, and any other `loadFromXML`, also
+    a failed one, since the states are of a log no longer there. Their warnings stay, and
+    Open now says it cannot be undone.
+  - Git sync: a sync that brought changes in clears the history (a merge through
+    `clearHistory`, taking the server's logbook through `loadFromXML`), so an undo cannot
+    overwrite what arrived. A sync with nothing to bring in leaves it: an undo afterwards
+    is a new local change, for the next sync to commit. Undo refuses while a sync runs,
+    because a sync writes the server's file and then reloads it. An undo schedules and
+    flushes a save like any mutation, so a sync sees the undone state.
+  - History does not survive a restart. The menu is simply absent then.
+
+  **UX.** A toast (`src/features/history/undo-toast.tsx`) follows every change, with Undo;
+  after an undo it offers Redo. It listens to the history, reported on the envelope of any
+  call that changed it, so a new mutation gets it unasked. Five seconds, twelve with a
+  screen reader, swipe down to dismiss, announced to VoiceOver, its button labelled in
+  full. It sits in a `FullWindowOverlay`, on tinted liquid glass. Header menu on the dive
+  list, dive, trip and site screens, naming the action; on iOS also inside the Sites
+  list's options menu. Android has an icon opening an alert. Haptics through
+  `src/lib/haptics.ts`. The screen an editor's delete closed reopens on undo; a screen
+  whose dive, trip or site was undone away goes back once it is in front; an editor's
+  draft is rebuilt after an undo, or Save would put back what was undone.
+
+  Shake to undo was not added, and not tried. iOS offers it through `NSUndoManager` and the
+  responder chain, which would need native code mirroring this history; the alternative is
+  reading the accelerometer, which is what fights the platform. In a dev client the shake
+  also opens the dev menu, so it could not have been checked there.
+
+  **Confirmations changed.**
+  - Removed, because the action undoes: delete dive (swipe, long press, editor), delete
+    site, moving the last dive out of a trip with a location or notes (`tripLossWarning`
+    and `tripsEmptiedBy` went with it), ungroup one trip, add a plan to the log.
+  - Removed as alerts, because the toast reports them: import, download and SSI import
+    that went plainly. One that added nothing or left something out still gets its alert.
+  - Kept, changed: merge is no longer destructive in style or haptic, and no longer says
+    it cannot be undone. It stays because it says what will happen to numbers, sites and
+    trips, which shows nowhere else. Ungroup all trips stays, since it reaches over the
+    whole log from a screen that shows none of it, and now says it undoes.
+  - Kept: Open logbook, incoming file (both now state it cannot be undone), replace with
+    SSI, discard downloaded dives, git and SSI account actions.
+
+  **Parallel work.** Trip management, merging, several dive computers and the planner are
+  all in this branch's base, and those branches add no method beyond it. Nothing they need
+  to do. A later mutation needs nothing for undo; a case in `describe()` and in
+  `src/models/logbook-history.ts` gives it a label instead of "Change to the Logbook".
+
+  Verified: `tests/undo-redo.test.ts` through the host binary, also under AddressSanitizer:
+  undo and redo of each mutation against the saved file byte for byte, id survival, the
+  redo-cleared rule, the depth cap, cleared history on load, memory on `subsurface.xml`,
+  reads leaving the file alone, and delete, undo and redo on every loadable logbook in
+  `subsurface/dives/`. A download in `tests/dive-computer-download.test.ts`. Model tests
+  for labels and toasts, `src/lib/logbook-history.test.ts` for persistence and the sync
+  hold, `merged-dives.test.ts` for following a merge back and forth. vitest, lint and
+  typecheck. On a throwaway iOS 27 simulator with a copy of `abitofeverything.ssrf`, since
+  deleted, in light and dark: delete from the editor with toast, menu, undo reopening the
+  dive, redo leaving its screen; the file on disk after each. A second undo after that
+  found the stale cached failure above; its fix is covered by a unit test, and was seen on
+  screen only through a relaunch and the site delete, not by repeating those steps. Merge
+  from the dive screen and its undo, with the file byte-identical and the screen moving to
+  the first source. Delete site with dives and undo through the Sites menu, byte-identical.
+  Remove from trip without a warning and undo, byte-identical. A relaunch keeping the log
+  with no menu. The toast in landscape over the fullscreen profile.
+
+  **Not verified.** Anything on a real device, including how long an undo blocks there, and
+  haptics, which a simulator does not produce. Android: the portable surface, header button
+  and alert typecheck but have not been built or run. VoiceOver speaking the announcement
+  (the accessibility tree was read, not heard). Reduce Motion. Swipe to dismiss was only
+  flung once, and the toast being gone a second later is the evidence. Deleting from a list
+  swipe or long press: the simulator driver's gestures did not land, so that path was only
+  typechecked, though it shares its mutation with the editor. On screen, not tried: undoing
+  an import, a download, a saved plan, or anything around a real git sync; the sync's
+  `clearHistory` and hold are covered at the bindings and in `logbook-history.test.ts`, not
+  through `useGitSync`. Opening the undone file in desktop Subsurface.
+
+  Follow-ups: the core's date parser gives a dive from 2030 on `when` 0 when the file is
+  read back, seen while testing (`2030-01-01` saved, 0 after a load). Not caused by undo,
+  and it would hit a plan dated that far ahead on any relaunch. Worth a look upstream.

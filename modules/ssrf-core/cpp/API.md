@@ -418,3 +418,26 @@ printf 'loadFromXML\t{"path":"../../subsurface/dives/test29.xml"}\nlistDives\t{}
 One request per line, `<method>\t<args-json>`, answered by exactly one line
 carrying the envelope. That keeps a single long-lived divelog for a whole test
 file, which is the only way a load-then-query sequence can work.
+
+## Undo and redo
+
+`cpp/bindings/history.cpp` wraps the dispatch: a method it does not list as leaving
+the log alone counts as a change. If the log serializes differently afterwards, the
+call becomes an entry in the history, so a new mutation has undo with no code here.
+
+| Method | Args | Result |
+| --- | --- | --- |
+| `undo` | none | `{ entry, idsKept, state }`; fails when there is nothing to undo |
+| `redo` | none | as `undo` |
+| `historyState` | none | `{ canUndo, canRedo, undo, redo, undoDepth, redoDepth, bytes, revision, lastAction }` |
+| `clearHistory` | none | the state |
+
+- Any reply whose call changed the history carries the new state as a top-level
+  `history` key, next to `result`. `src/index.ts` passes it to `subscribeHistory`.
+- `loadFromXML` and `clear` forget the history: what they replace it with is not the
+  logbook it was the history of.
+- Dive and trip ids survive `undo` and `redo`, so a screen or a cached query on an id
+  is still right if the dive exists. A restored dive has its old id. `idsKept: false`
+  would mean they could not be put back, and every id has to be treated as new.
+- Any method may be given `historyKind`, a string filing the entry under that `kind`.
+- At most 50 entries are kept, and 64 MB of states, always at least one entry.
