@@ -419,8 +419,16 @@ json planned_cylinders_to_json(const built_plan &built)
 			if (dp.cylinderid == static_cast<int>(i) && dp.minimum_gas.mbar)
 				minimum_gas = dp.minimum_gas.mbar;
 		}
+		// What the cylinder reads when the ascent starts: the figure the notes hold
+		// against the minimum gas, by their formula (add_plan_to_notes).
+		int ascent_start = cyl.end.mbar;
+		if (cyl.type.size.mliter) {
+			int remaining = lrint((double)cyl.end.mbar * cyl.type.size.mliter / 1000.0 / gas_compressibility_factor(cyl.gasmix, cyl.end.mbar / 1000.0));
+			ascent_start = lrint(isothermal_pressure(cyl.gasmix, 1.0, remaining + cyl.deco_gas_used.mliter, cyl.type.size.mliter) * 1000);
+		}
 		out.push_back(json{
 			{ "inputIndex", built.input_index[i] },
+			{ "ascentStartMbar", ascent_start },
 			{ "description", cyl.type.description },
 			{ "o2Permille", get_o2(cyl.gasmix) },
 			{ "hePermille", get_he(cyl.gasmix) },

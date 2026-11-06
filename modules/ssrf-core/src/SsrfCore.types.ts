@@ -579,6 +579,8 @@ export type PlannedCylinder = {
   switchDepthMm: number;
   startMbar: number;
   endMbar: number;
+  /** What it reads when the ascent starts; held against the minimum gas. */
+  ascentStartMbar: number;
   gasUsedMl: number;
   decoGasUsedMl: number;
   gasCarriedMl: number;
