@@ -32,6 +32,9 @@ import {
   type SaveResult,
   type StatsFilter,
   type StatsSummary,
+  type RemoveFromTripResult,
+  type Trip,
+  type TripPatch,
   type UngroupResult,
 } from './SsrfCore.types';
 
@@ -310,6 +313,37 @@ export function addCoreEventListener(listener: (event: CoreEvent) => void): { re
   return SsrfCoreModule.addListener('onCoreEvent', ({ json }: { json: string }) => {
     listener(JSON.parse(json) as CoreEvent);
   });
+}
+
+/** Every trip that has dives, oldest first. */
+export function listTrips(): Trip[] {
+  return call<Trip[]>('listTrips');
+}
+
+/**
+ * A new trip holding these dives, which leave any trip they were in. Named after
+ * the site of the oldest dive unless `location` is given.
+ */
+export function createTrip(diveIds: number[], location?: string): Trip {
+  return call<Trip>('createTrip', location === undefined ? { diveIds } : { diveIds, location });
+}
+
+/** Moves dives into a trip. A trip left without dives goes away. */
+export function addDivesToTrip(diveIds: number[], tripId: number): Trip {
+  return call<Trip>('addDivesToTrip', { diveIds, tripId });
+}
+
+/**
+ * Takes dives out of their trips and marks them not to be grouped again. A trip
+ * left without dives goes away, its location and notes with it.
+ */
+export function removeDivesFromTrip(diveIds: number[]): RemoveFromTripResult {
+  return call<RemoveFromTripResult>('removeDivesFromTrip', { diveIds });
+}
+
+/** Applies a partial update to a trip's location and notes. */
+export function updateTrip(id: number, patch: TripPatch): Trip {
+  return call<Trip>('updateTrip', { id, ...patch });
 }
 
 // `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:

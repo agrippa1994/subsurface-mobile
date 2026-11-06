@@ -28,6 +28,7 @@ export const CORE_SOURCES = [
 	'core/tag.cpp',
 	'core/taxonomy.cpp',
 	'core/trip.cpp',
+	'core/triptable.cpp',
 	'core/units.cpp',
 	'core/pref.cpp',
 

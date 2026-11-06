@@ -330,6 +330,130 @@ json ungroup_dives()
 	};
 }
 
+// --- Trips -----------------------------------------------------------------
+//
+// The undo commands the desktop and the legacy mobile app go through
+// (commands/command_divelist.cpp, command_edit_trip.cpp) are Qt and not part of
+// this build, so these methods repeat what those commands do to the core, built
+// from the same core functions: the behaviour stays the core's, only the undo
+// bookkeeping and the Qt signals are left out.
+
+dive_trip &require_trip(int id)
+{
+	dive_trip *trip = divelog.trips.get_by_uniq_id(id);
+	if (!trip)
+		fail("no trip with id " + std::to_string(id));
+	return *trip;
+}
+
+// The dives named by args.diveIds, in the order of the dive table (oldest
+// first). Resolved in full before the caller changes anything, so a stale id
+// fails the call without a part of the selection having moved.
+std::vector<struct dive *> require_dives(const json &args)
+{
+	if (!args.contains("diveIds") || !args["diveIds"].is_array() || args["diveIds"].empty())
+		fail("missing required argument 'diveIds'");
+	std::vector<struct dive *> dives;
+	for (const auto &id : args["diveIds"]) {
+		if (!id.is_number_integer())
+			fail("'diveIds' must hold integers");
+		struct dive *d = &require_dive(id.get<int>());
+		if (std::find(dives.begin(), dives.end(), d) == dives.end())
+			dives.push_back(d);
+	}
+	std::sort(dives.begin(), dives.end(),
+		  [](const struct dive *a, const struct dive *b) { return comp_dives(*a, *b) < 0; });
+	return dives;
+}
+
+// moveDiveToTrip() of command_divelist.cpp: out of the old trip, which goes away
+// with its last dive (location and notes included), and into the new one. The
+// table is sorted by each trip's first dive and pull() searches it binarily, so
+// it is sorted first - as in divelog::delete_single_dive().
+void move_dive_to_trip(struct dive &d, dive_trip *to)
+{
+	if (d.divetrip == to)
+		return;
+	dive_trip *from = unregister_dive_from_trip(&d);
+	if (to)
+		to->add_dive(&d);
+	d.invalidate_cache();
+	if (from && from->dives.empty()) {
+		divelog.trips.sort();
+		divelog.trips.pull(from);
+	}
+}
+
+// A trip without dives is left out: nothing in the app can reach one, the file
+// does not keep it (save-xml.cpp writes trips from the dive table) and the core
+// removes a trip the moment it loses its last dive. One can only come from a
+// file with an empty <trip> element.
+json list_trips()
+{
+	json out = json::array();
+	for (const auto &trip : divelog.trips) {
+		if (!trip->dives.empty())
+			out.push_back(trip_to_json(*trip));
+	}
+	return out;
+}
+
+// CreateTrip of command_divelist.cpp: named by create_trip_from_dive() after the
+// site of the first dive, unless the caller already knows better. Not `autogen`:
+// the user made this one.
+json create_trip(const json &args)
+{
+	std::vector<struct dive *> dives = require_dives(args);
+	std::unique_ptr<dive_trip> created = create_trip_from_dive(dives.front());
+	if (args.contains("location"))
+		created->location = get_string(args, "location");
+	dive_trip *trip = divelog.trips.put(std::move(created)).ptr;
+	for (struct dive *d : dives)
+		move_dive_to_trip(*d, trip);
+	// A trip's place in the table follows its first dive, which has only now
+	// been decided.
+	divelog.trips.sort();
+	return trip_to_json(*trip);
+}
+
+// AddDivesToTrip of command_divelist.cpp. A dive that is in another trip moves.
+json add_dives_to_trip(const json &args)
+{
+	dive_trip &trip = require_trip(static_cast<int>(require_int(args, "tripId")));
+	for (struct dive *d : require_dives(args))
+		move_dive_to_trip(*d, &trip);
+	divelog.trips.sort();
+	return trip_to_json(trip);
+}
+
+// RemoveDivesFromTrip of command_divelist.cpp, `notrip` included: the user took
+// this dive out, so desktop Subsurface must not group it again if autogrouping
+// is on there. That is the difference to ungroup_dives(), which cleans up after
+// the app itself and has no such intent to record.
+json remove_dives_from_trip(const json &args)
+{
+	for (struct dive *d : require_dives(args)) {
+		if (!d->divetrip)
+			continue;
+		d->notrip = true;
+		move_dive_to_trip(*d, nullptr);
+	}
+	divelog.trips.sort();
+	return json{ { "trips", static_cast<int>(divelog.trips.size()) } };
+}
+
+// EditTripLocation and EditTripNotes of command_edit_trip.cpp. Absent fields are
+// left alone, the same partial-update rule the dive patch follows.
+json update_trip(const json &args)
+{
+	dive_trip &trip = require_trip(static_cast<int>(require_int(args, "id")));
+	if (args.contains("location"))
+		trip.location = get_string(args, "location");
+	if (args.contains("notes"))
+		trip.notes = get_string(args, "notes");
+	return trip_to_json(trip);
+}
+
 json list_dives()
 {
 	json out = json::array();
@@ -740,6 +864,7 @@ int apply_stats_filter(const json &filter)
 	int64_t from = get_int(filter, "fromWhen", 0);
 	int64_t to = get_int(filter, "toWhen", 0);
 	uint32_t site = static_cast<uint32_t>(get_int(filter, "siteUuid", 0));
+	int trip = static_cast<int>(get_int(filter, "tripId", 0));
 	int64_t minDepth = get_int(filter, "minDepthMm", 0);
 	int64_t maxDepth = get_int(filter, "maxDepthMm", 0);
 	std::string tag = get_string(filter, "tag");
@@ -757,6 +882,8 @@ int apply_stats_filter(const json &filter)
 		if (to && d.when > to)
 			match = false;
 		if (site && (!d.dive_site || d.dive_site->uuid != site))
+			match = false;
+		if (trip && (!d.divetrip || d.divetrip->id != trip))
 			match = false;
 		if (minDepth && d.maxdepth.mm < minDepth)
 			match = false;
@@ -1312,6 +1439,16 @@ json dispatch(const std::string &method, const json &args)
 		return preview_dive(args);
 	if (method == "ungroupDives")
 		return ungroup_dives();
+	if (method == "listTrips")
+		return list_trips();
+	if (method == "createTrip")
+		return create_trip(args);
+	if (method == "addDivesToTrip")
+		return add_dives_to_trip(args);
+	if (method == "removeDivesFromTrip")
+		return remove_dives_from_trip(args);
+	if (method == "updateTrip")
+		return update_trip(args);
 	if (method == "getLastError")
 		return joined_errors();
 	if (method == "clear") {

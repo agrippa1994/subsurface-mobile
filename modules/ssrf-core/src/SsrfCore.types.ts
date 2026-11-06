@@ -109,6 +109,8 @@ export type DiveSummary = {
   visibility: number;
   siteUuid: number;
   siteName: string;
+  /** The trip the dive is in, 0 for none. Process-local, like a dive id. */
+  tripId: number;
   tripLocation: string;
   buddy: string;
   diveguide: string;
@@ -461,6 +463,8 @@ export type StatsFilter = {
   fromWhen?: number;
   toWhen?: number;
   siteUuid?: number;
+  /** Only the dives of this trip (`Trip.id`). */
+  tripId?: number;
   /** Case-insensitive substring match on any tag. */
   tag?: string;
   /** Case-insensitive substring match on buddy or diveguide. */
@@ -542,6 +546,28 @@ export type ImportResult = {
 
 /** What is left after ungroupDives(): every dive, and no trips at all. */
 export type UngroupResult = { dives: number; trips: number };
+
+/** A trip with at least one dive. Its dives carry its id as `tripId`. */
+export type Trip = {
+  /** Process-local and reassigned on every load, like a dive id. */
+  id: number;
+  location: string;
+  notes: string;
+  diveCount: number;
+  /** Start of the first dive, in the same wall-clock seconds as `Dive.when`. */
+  when: number;
+  /** Start of the last dive. Equals `when` for a trip of one dive. */
+  lastDiveWhen: number;
+};
+
+/** The fields of a trip the user edits. Absent fields are left alone. */
+export type TripPatch = {
+  location?: string;
+  notes?: string;
+};
+
+/** What is left after removeDivesFromTrip(). */
+export type RemoveFromTripResult = { trips: number };
 
 /** What the logbook holds after deleteDive(): the trip count can drop too. */
 export type DeleteDiveResult = { dives: number; trips: number };
