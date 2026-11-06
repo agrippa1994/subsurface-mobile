@@ -94,6 +94,9 @@ rendered metric or imperial.
 | `addDivesToTrip` | `{ diveIds, tripId }` | `Trip` |
 | `removeDivesFromTrip` | `{ diveIds }` | `{ trips }` |
 | `updateTrip` | `{ id, location?, notes? }` | `Trip` |
+| `listMergePairs` | `{}` | `MergePair[]` |
+| `previewMerge` | `{ diveIds }` | `{ dive, surfaceIntervalSec, renumberedDives }` |
+| `mergeDives` | `{ diveIds }` | `{ id, dives, trips }` |
 | `getLastError` | `{}` | `string` |
 
 `ArrayBuffer` arguments cross as base64 (`base64` key); a `path` is used
@@ -261,6 +264,17 @@ directly and avoids the copy.
   dive ids. Dives carry `tripId` (0 for no trip).
 - **`getStatistics`** takes `tripId` in its filter, which is how a trip gets its
   totals from `statistics.cpp`.
+
+- **`mergeDives`** does what the `MergeDives` command of
+  `commands/command_divelist.cpp` does around `dive_table::merge_dives()`: the
+  merged dive takes the first non-zero number, later dives close the gap in the
+  numbering when both ends are numbered in order, the core picks the trip and the
+  site, and a site without GPS gets the first location among the sources. The
+  merged dive has a new id. A trip losing its last dive goes away; a site does
+  not. There is no undo. The dives must be neighbours in the table and no more
+  than 30 minutes apart, the rule of `QMLManager::canMerge()`, which is stricter
+  than the desktop's warning. `listMergePairs` answers that rule for every pair,
+  and `previewMerge` returns the dive a merge would make without changing anything.
 
 ### Downloading from a dive computer
 
