@@ -20,12 +20,13 @@ import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
+import { ComputerPicker } from '@/features/dives/computer-picker';
+import { useComputerSelection } from '@/features/dives/use-computer-selection';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
 import {
-  DiveMode,
   formatDepth,
   formatDuration,
   formatGasMix,
@@ -34,6 +35,12 @@ import {
   formatVolume,
   formatWeight,
 } from '@/models';
+import {
+  computerFigures,
+  computerLabels,
+  DIVE_MODE_LABEL,
+  plotForComputer,
+} from '@/models/dive-computers';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -48,13 +55,6 @@ import {
 import { useDive, useDives, useProfile, useTrips } from '@/queries/logbook';
 import { useGfSeries, useUnitSystem } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
-
-const DIVE_MODE_LABEL: Record<DiveMode, string> = {
-  [DiveMode.OC]: 'Open circuit',
-  [DiveMode.CCR]: 'CCR',
-  [DiveMode.PSCR]: 'pSCR',
-  [DiveMode.Freedive]: 'Freedive',
-};
 
 type SymbolName = SymbolViewProps['name'];
 
@@ -77,7 +77,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   // Both are keyed on the dive id and live under the log subtree, so a reload
   // drops them: ids are process-local and mean nothing across a load.
   const diveQuery = useDive(diveId);
-  const profileQuery = useProfile(diveId);
+  const computer = useComputerSelection(diveId, diveQuery.data?.dcs.length ?? 0);
+  const profileQuery = useProfile(diveId, computer.index);
   // Whether the SSI row offers an upload or points at Settings. A network
   // query, unlike everything else on this screen - see src/queries/ssi.ts.
   const ssiAccount = useSsiAccount();
@@ -85,8 +86,15 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const profile = profileQuery.data;
 
   const plot = useMemo(
-    () => (dive && profile ? buildProfilePlot(profile, dive.dcs[0]?.events ?? []) : null),
-    [dive, profile],
+    () =>
+      dive && profile
+        ? plotForComputer(
+            buildProfilePlot(profile, dive.dcs[computer.index]?.events ?? []),
+            dive.dcs,
+            computer.index,
+          )
+        : null,
+    [computer.index, dive, profile],
   );
 
   const failure = diveQuery.error ?? profileQuery.error;
@@ -106,7 +114,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   }
 
   const row = toDiveRow(dive, unitSystem);
-  const dc = dive.dcs[0];
+  const dc = dive.dcs[computer.index];
+  const severalComputers = dive.dcs.length > 1;
   const synced = isSyncedToSsi(dive);
   const notes = dive.notes.trim();
   const hasPeopleOrPlace =
@@ -135,8 +144,18 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       />
 
       <Section title="Profile" inset>
+        {severalComputers ? (
+          <View style={styles.computerPicker}>
+            <ComputerPicker
+              labels={computerLabels(dive.dcs)}
+              selectedIndex={computer.index}
+              onSelect={computer.select}
+            />
+          </View>
+        ) : null}
         {plot ? (
           <ProfileChart
+            key={computer.index}
             plot={plot}
             pi={profile}
             unitSystem={unitSystem}
@@ -154,6 +173,17 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {plot ? (
         <ProfileFullscreen
           title={row.title}
+          chartKey={computer.index}
+          accessory={
+            severalComputers ? (
+              <ComputerPicker
+                compact
+                labels={computerLabels(dive.dcs)}
+                selectedIndex={computer.index}
+                onSelect={computer.select}
+              />
+            ) : null
+          }
           plot={plot}
           pi={profile}
           unitSystem={unitSystem}
@@ -166,7 +196,10 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         {dive.meanDepthMm > 0 ? (
           <Row label="Average depth" value={formatDepth(dive.meanDepthMm, unitSystem)} />
         ) : null}
-        <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
+        {/* The summary's mode is the first computer's. With several, each states its own. */}
+        {severalComputers ? null : (
+          <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
+        )}
         {dive.airTempMkelvin > 0 ? (
           <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, unitSystem)} />
         ) : null}
@@ -219,21 +252,34 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       ) : null}
 
       {dc ? (
-        <Section title="Dive computer">
+        <Section
+          title="Dive computer"
+          footer={
+            severalComputers
+              ? 'The figures at the top of the screen and under Details cover the whole dive.'
+              : undefined
+          }
+        >
           <Row label="Model" value={dc.model || 'Unknown'} />
           {dc.serial ? <Row label="Serial" value={dc.serial} /> : null}
           {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
           <Row label="Samples" value={String(dc.sampleCount)} />
-          {dive.dcs.length > 1 ? (
-            <Row label="Other computers" value={String(dive.dcs.length - 1)} />
-          ) : null}
+          {severalComputers
+            ? computerFigures(dc, unitSystem).map(({ label, value }) => (
+                <Row key={label} label={label} value={value} />
+              ))
+            : null}
         </Section>
       ) : null}
 
       <Section
         title="SSI"
         footer={
-          ssiAccount.data === null ? 'Sign in under Settings, SSI to upload dives.' : undefined
+          ssiAccount.data === null
+            ? 'Sign in under Settings, SSI to upload dives.'
+            : severalComputers
+              ? 'Uploads the profile from the first computer.'
+              : undefined
         }
       >
         {ssiAccount.data === null ? (
@@ -322,7 +368,10 @@ function TripSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
 function CsvExportSection({ dive }: { dive: Dive }) {
   const { busy, share } = useDiveCsvExport(dive);
   return (
-    <Section title="Export as CSV">
+    <Section
+      title="Export as CSV"
+      footer={dive.dcs.length > 1 ? 'Uses the profile from the first computer.' : undefined}
+    >
       {CSV_FORMATS.map(({ format, label, description }) => (
         <ActionRow
           key={format}
@@ -740,6 +789,9 @@ const styles = StyleSheet.create({
   actionText: {
     flex: 1,
     gap: Spacing.half,
+  },
+  computerPicker: {
+    marginBottom: Spacing.two,
   },
   placeholder: {
     fontSize: 15,
