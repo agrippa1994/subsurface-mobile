@@ -64,11 +64,23 @@ export const CORE_SOURCES = [
 	'core/gaspressures.cpp',
 	'core/po2.cpp',
 	'core/statistics.cpp',
+
+	// Configurable statistics: the desktop's variables, binners, operations and
+	// valid combinations, compiled unchanged against the QString stand-in in
+	// cpp/shim/include/ssrf-qstring.h. The rest of stats/ draws through Qt Quick
+	// and is not used; cpp/bindings/stats-chart.cpp takes the place of statsview.cpp.
+	'stats/statsvariables.cpp',
+	'stats/statsstate.cpp',
 ];
 
 // Headers are copied wholesale: the core includes them by bare name and
 // cherry-picking them would only produce noisy churn. Copying is cheap.
-export const CORE_HEADER_GLOBS = ['core/*.h'];
+export const CORE_HEADER_GLOBS = [
+	'core/*.h',
+	'stats/statsvariables.h',
+	'stats/statsstate.h',
+	'stats/statstranslations.h',
+];
 
 // libdivecomputer is built from source as part of the module: the public
 // headers land in cpp/generated/libdivecomputer/, the C sources in its src/.

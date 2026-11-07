@@ -21,6 +21,8 @@
 
 struct picture;
 struct xml_params;
+struct gasmix;
+class QString; // shim/include/ssrf-qstring.h, for those who use get_gas_string().
 
 enum watertypes { FRESHWATER, BRACKISHWATER, EN13319WATER, SALTWATER, DC_WATERTYPE };
 
@@ -55,5 +57,8 @@ std::string local_file_path(const struct picture &picture);
 void emit_reset_signal();
 
 void subsurface_mkdir(const char *dir);
+
+// For stats/statsvariables.cpp.
+QString get_gas_string(struct gasmix gas);
 
 #endif // QTHELPER_H

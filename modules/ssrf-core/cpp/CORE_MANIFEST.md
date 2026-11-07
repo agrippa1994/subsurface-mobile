@@ -22,7 +22,7 @@ before `pod install`; `scripts/build-host.sh` runs it for the host build.
 Include order matters: the core includes its headers by bare name, so an
 overridden header wins by replacing the copy in `cpp/generated/core/`.
 
-## Compiled core sources (42)
+## Compiled core sources (44)
 
 **Model** — `dive.cpp`, `divecomputer.cpp`, `divelist.cpp`, `divelog.cpp`,
 `divesite.cpp`, `device.cpp`, `equipment.cpp`, `event.cpp`, `eventtype.cpp`,
@@ -40,6 +40,13 @@ overridden header wins by replacing the copy in `cpp/generated/core/`.
 
 **Math** — `deco.cpp`, `planner.cpp`, `plannernotes.cpp`, `profile.cpp`,
 `gaspressures.cpp`, `po2.cpp`, `statistics.cpp`
+
+**Configurable statistics** - `stats/statsvariables.cpp`, `stats/statsstate.cpp`, with
+`stats/statsvariables.h`, `stats/statsstate.h` and `stats/statstranslations.h`. Compiled
+byte-identical to upstream, against the `QString` stand-in below; no patch. The rest of
+`stats/` (the series, axes and items, `statsview.cpp`) draws through Qt Quick and is not
+compiled. `bindings/stats-chart.cpp` ports the data half of `StatsView::plot*`, and the
+slice selection of the `PieSeries` constructor.
 
 All headers in `subsurface/core/*.h` are copied (they include each other by
 bare name; cherry-picking them would only add churn).
@@ -123,8 +130,8 @@ that the submodule pin moved under a hand-written assumption.
 | `gettext.h` | Adds `QT_TRANSLATE_NOOP`, which `dive.cpp` / `equipment.cpp` use while including only this header (they get it via Qt upstream). | `translate()`, `trGettext()` |
 | `gettextfromc.h` | Upstream is a `Q_DECLARE_TR_FUNCTIONS` class returning `QString`. | `gettextFromC::tr()` returning `translated_string` (a `std::string` that also answers `toStdString()`) |
 | `format.h` | Declares QString formatters alongside the std ones. | `format_string_std`, `vformat_string_std`, `casprintf_loc` |
-| `string-format.h` | ~70 QString/QStringList formatters for the desktop UI. | `printGPSCoordsC`, `get_dive_date_c_string` |
-| `qthelper.h` | The desktop grab bag: QLocale formatting, Qt resources, proxies, cloud reachability, thumbnails. | `string_to_{weight,depth,pressure,volume,fraction}`, `get_dive_datetime_from_isostring`, `get_current_date`, `get_stylesheet`, `set_xslt_directory`, `subsurface_user_agent`, `get_file_name`, `local_file_path`, `emit_reset_signal`, `subsurface_mkdir` |
+| `string-format.h` | ~70 QString/QStringList formatters for the desktop UI. | `printGPSCoordsC`, `get_dive_date_c_string`, and what the statistics variables read (see `stats-helpers.cpp`) |
+| `qthelper.h` | The desktop grab bag: QLocale formatting, Qt resources, proxies, cloud reachability, thumbnails. | `string_to_{weight,depth,pressure,volume,fraction}`, `get_dive_datetime_from_isostring`, `get_current_date`, `get_stylesheet`, `set_xslt_directory`, `subsurface_user_agent`, `get_file_name`, `local_file_path`, `emit_reset_signal`, `subsurface_mkdir`, `get_gas_string` |
 | `fulltext.h` | QString word cache for the desktop dive list. | `full_text_cache`, `FullTextQuery`, `StringFilterMode`, the register/unregister entry points |
 | `divefilter.h` | Declares the `DiveFilter` singleton driving the desktop list. | `FilterData` (the payload of a filter preset, which is part of the file format) |
 | `filterconstraint.h` | `QStringList *` inside the constraint union plus a large translated-label API. | Enums, `filter_constraint` with `std::vector<std::string> *`, token conversions, `filter_constraint_data_to_string` |
@@ -139,6 +146,16 @@ file that includes them, and with them it compiles unchanged - which is the
 point: the JSON-to-dive mapping is ~700 lines of Suunto knowledge that must not
 be reimplemented. Only what that file calls is provided; Qt's JSON API is far
 larger.
+
+`cpp/shim/include/ssrf-qstring.h` is that `QString`, grown to what `stats/statsvariables.cpp`
+and `stats/statsstate.cpp` call, with `QObject`, `QLocale`, `QStringList`, `QStringLiteral`
+and `Q_OBJECT`, reached through same-named headers. A single class for all of them: two
+QStrings would have the linker merge their inline functions. Where it differs from Qt: text
+is UTF-8, so `<` orders by code point rather than UTF-16 unit; case-insensitive comparison
+folds ASCII, Latin-1, Latin Extended-A, Greek and Cyrillic rather than all of Unicode; and
+numbers format in the C locale with no group separator. Together these can change the order
+of two site names that differ only in the case of another script, and how a label is
+written, never a count.
 
 `cpp/shim/include/QtGlobal` and `cpp/shim/include/QtCore` are stand-ins on the
 include path: `gas.cpp`, `tag.cpp`, `taxonomy.cpp` and `time.cpp` include them
@@ -164,6 +181,7 @@ arriving transitively through a Qt header.
 | `git-access.cpp` | git storage stubs | `is_git_repository()` always false, so save-xml always takes the plain XML path. |
 | `platform.cpp` | POSIX wrappers from `core/ios.cpp`, and `readfile` from `core/file.cpp` | Wrappers are verbatim. The data directory comes from `set_data_directory()` (the app passes its container path) instead of `QStandardPaths`. The libzip wrappers (`subsurface_zip_open_readonly`, `subsurface_zip_close`) are not defined: nothing in the subset calls them, because `core/file.cpp` is not compiled and the zipped formats are read by `cpp/bindings/zip-reader.cpp` instead. |
 | `qPrefDiveComputer.cpp` | `qPrefDiveComputer::device()` | Always empty. |
+| `stats-helpers.cpp` | `formatTripTitle`, `formatDayOfWeek`, `get_*_unit`, `get_gas_string` | What `stats/statsvariables.cpp` takes from upstream's `string-format.cpp` and `qthelper.cpp`. Same symbols. A trip title's date is a fixed `9 Mar 2021` rather than `prefs.date_format` through QLocale. |
 
 ## Native dependencies
 
@@ -219,6 +237,7 @@ The module API, all new code — no upstream file is involved.
 | File | Role |
 | --- | --- |
 | `api.h` / `api.cpp` | The single JSI entry point `ssrf::call(method, argsJson)`, its dispatch table, and the load/save/import/mutate implementations |
+| `stats-chart.h` / `stats-chart.cpp` | Configurable statistics: rebuilds a `StatsState` from the app's configuration, and the data half of `StatsView::plot*` |
 | `history.h` / `history.cpp` | Undo and redo: wraps the dispatch, keeps states of the log as shared chunks of its XML, and puts dive and trip ids back after a restore |
 | `marshal.h` / `marshal.cpp` | Core structs → JSON, in raw core units |
 | `base64.h` / `base64.cpp` | Base64 decoding: the JSI boundary passes buffers this way, and so does a Suunto DM4 XML export |

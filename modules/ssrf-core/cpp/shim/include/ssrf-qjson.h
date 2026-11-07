@@ -18,48 +18,12 @@
 //     than reporting it.
 #pragma once
 
+#include "ssrf-qstring.h"
+
 #include <nlohmann/json.hpp>
 
 #include <string>
 #include <utility>
-
-class QString {
-public:
-	QString() = default;
-	QString(const char *value) : value_(value ? value : "") {}
-	explicit QString(std::string value) : value_(std::move(value)) {}
-
-	std::string toStdString() const { return value_; }
-	const std::string &str() const { return value_; }
-
-	// Qt's QString::arg() substitutes the lowest-numbered %N placeholder.
-	// The importer only ever builds "Pressure%1", so that is all this does.
-	QString arg(int n) const
-	{
-		std::string out = value_;
-		size_t at = out.find("%1");
-		if (at != std::string::npos)
-			out.replace(at, 2, std::to_string(n));
-		return QString(out);
-	}
-
-	QString toLower() const
-	{
-		std::string out = value_;
-		for (char &c : out)
-			c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
-		return QString(out);
-	}
-
-	bool isEmpty() const { return value_.empty(); }
-
-	bool operator==(const QString &other) const { return value_ == other.value_; }
-	bool operator!=(const QString &other) const { return value_ != other.value_; }
-	bool operator<(const QString &other) const { return value_ < other.value_; }
-
-private:
-	std::string value_;
-};
 
 class QByteArray {
 public:
