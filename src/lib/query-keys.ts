@@ -37,6 +37,9 @@ export const queryKeys = {
   /** Every profile of one dive, whichever dive computer it came from. */
   diveProfiles: (id: number) => ['log', 'data', 'profile', id] as const,
   statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,
+  /** One chart of the configurable statistics; the unit system picks its binners. */
+  statsChart: (config: unknown, filter: StatsFilter | undefined, imperial: boolean) =>
+    ['log', 'data', 'stats-chart', config, filter ?? null, imperial] as const,
 
   /** Preferences: a file of its own, untouched by loading a logbook. */
   settings: () => ['settings'] as const,

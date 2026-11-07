@@ -23,7 +23,24 @@
 // separated by a solid versus dashed stroke rather than by a tint difference no
 // deuteranope would see.
 
+// `series` is the reference palette's eight categorical slots, for the configurable
+// statistics. Eight only on adjacent pairs (stacks, grouped bars, pie), which is what
+// it colours; a scatter here is one series. Checked with the validator against this
+// app's surfaces, adjacent pairs:
+//
+//   light on #ffffff  CVD dE 9.1  normal dE 19.6 - magenta, yellow and aqua below 3:1,
+//                                                  so every series is named in a legend.
+//   dark on #000000   CVD dE 8.4  normal dE 19.3
 export type ChartPalette = {
+  /** Categorical slots, in a fixed order: a series keeps its colour. */
+  series: string[];
+  /** The mark behind a selection's outline, and dots. Same as `depth`: one series. */
+  dot: string;
+  /** The trend line and the mean marker. */
+  trend: string;
+  trendFill: string;
+  /** The median marker. */
+  median: string;
   depth: string;
   depthFill: string;
   /**
@@ -58,6 +75,11 @@ export type ChartPalette = {
 
 export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
   light: {
+    series: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+    dot: '#2a78d6',
+    trend: '#eb6834',
+    trendFill: 'rgba(235, 104, 52, 0.16)',
+    median: '#1baf7a',
     depth: '#2a78d6',
     depthFill: 'rgba(42, 120, 214, 0.18)',
     bar: '#2a78d6',
@@ -76,6 +98,11 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
     surface: '#ffffff',
   },
   dark: {
+    series: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
+    dot: '#3987e5',
+    trend: '#d95926',
+    trendFill: 'rgba(217, 89, 38, 0.24)',
+    median: '#199e70',
     depth: '#3987e5',
     depthFill: 'rgba(57, 135, 229, 0.22)',
     bar: '#3987e5',
