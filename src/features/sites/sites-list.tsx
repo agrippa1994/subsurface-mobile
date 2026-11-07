@@ -1,13 +1,14 @@
 // AI-generated (Claude)
 // The Sites tab as a list: every site by name, with its position and dive
 // count. How a row reads is decided in models/site-edit.ts, so the vitest
-// suite covers it. The map alternative is components/sites-map.tsx.
+// suite covers it. With a map, the same rows sit in a sheet over it instead, see
+// (tabs)/sites/index.tsx.
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSite } from '@/models';
-import { sortSitesByName, toSiteRow } from '@/models/site-edit';
+import { sortSitesByName, toSiteRow, type SiteRow } from '@/models/site-edit';
 
 export function SitesList({
   sites,
@@ -26,23 +27,29 @@ export function SitesList({
       style={{ backgroundColor: theme.background }}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => onSelectSite(item.uuid)}
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.row,
-            pressed ? { backgroundColor: theme.backgroundSelected } : null,
-          ]}
-        >
-          <View style={styles.main}>
-            <Text style={[styles.title, { color: theme.text }]}>{item.title}</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{item.subtitle}</Text>
-          </View>
-          <Text style={[styles.count, { color: theme.textSecondary }]}>{item.countText}</Text>
-        </Pressable>
-      )}
+      renderItem={({ item }) => <SiteRowView row={item} onPress={() => onSelectSite(item.uuid)} />}
     />
+  );
+}
+
+/** One site, in this list and in the sheet over the map. */
+export function SiteRowView({ row, onPress }: { row: SiteRow; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.row,
+        pressed ? { backgroundColor: theme.backgroundSelected } : null,
+      ]}
+    >
+      <View style={styles.main}>
+        <Text style={[styles.title, { color: theme.text }]}>{row.title}</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{row.subtitle}</Text>
+      </View>
+      <Text style={[styles.count, { color: theme.textSecondary }]}>{row.countText}</Text>
+    </Pressable>
   );
 }
 

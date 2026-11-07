@@ -13,7 +13,7 @@
 import { HeaderAction } from '@/components/header-action';
 import { SymbolView, type SymbolViewProps } from '@/components/symbol';
 import { Link, Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Children, Fragment, isValidElement, useMemo } from 'react';
+import { Children, Fragment, isValidElement, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PlanNotesView } from '@/components/plan-notes-view';
@@ -27,6 +27,7 @@ import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
+import { IS_TABLET } from '@/hooks/use-adaptive-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { useCurrentDiveId } from '@/lib/merged-dives';
 import type { Cylinder, Dive, WeightSystem } from '@/models';
@@ -79,6 +80,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const { showGfNow, showGfSurface } = useGfSeries();
   const theme = useTheme();
   const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
 
   // Both are keyed on the dive id and live under the log subtree, so a reload
   // drops them: ids are process-local and mean nothing across a load.
@@ -174,6 +176,21 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             ? 'Drawn from the depth and duration entered for this dive. Nothing was measured.'
             : undefined
         }
+        action={
+          IS_TABLET && plot ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Show profile full screen"
+              hitSlop={Spacing.three}
+              onPress={() => setExpanded(true)}>
+              <SymbolView
+                name="arrow.up.left.and.arrow.down.right"
+                size={17}
+                tintColor={theme.accent}
+              />
+            </Pressable>
+          ) : undefined
+        }
       >
         {severalComputers ? (
           <View style={styles.computerPicker}>
@@ -200,11 +217,13 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         )}
       </Section>
 
-      {/* Turning the device hands the same plot the whole screen. */}
+      {/* Turning a phone, or the button on a tablet, hands the same plot the whole screen. */}
       {plot ? (
         <ProfileFullscreen
           title={manualComputer ? `${row.title}, added manually` : row.title}
           chartKey={computer.index}
+          expanded={expanded}
+          onClose={() => setExpanded(false)}
           accessory={
             severalComputers ? (
               <ComputerPicker
@@ -542,18 +561,24 @@ function Section({
   title,
   footer,
   inset = false,
+  action,
   children,
 }: {
   title: string;
   footer?: string;
   inset?: boolean;
+  /** At the far end of the title line. */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const theme = useTheme();
   const rows = Children.toArray(children).filter(isValidElement);
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</Text>
+      <View style={styles.sectionTitleLine}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>{title}</Text>
+        {action}
+      </View>
       <View
         style={[
           styles.card,
@@ -791,10 +816,15 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
   },
+  sectionTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.three,
+  },
   sectionTitle: {
     fontSize: 13,
     textTransform: 'uppercase',
-    paddingHorizontal: Spacing.three,
   },
   sectionFooter: {
     fontSize: 13,

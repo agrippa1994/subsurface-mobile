@@ -80,7 +80,7 @@ function AppShell() {
   // Anything still inside the save debounce is written as the app backgrounds.
   useFlushOnBackground();
 
-  // Portrait everywhere; the dive profile opts back out while it is on screen.
+  // Portrait on a phone; the dive profile opts back out while it is on screen.
   usePortraitLock();
 
   return (

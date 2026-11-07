@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// Stack of the Sites tab: the list (or map), one site with its dives, a dive
+// Stack of the Sites tab: the map with its list, one site with its dives, a dive
 // opened from there with its editor, SSI sync and trip, the site editor, and the
 // "new site" form.
 import { Stack } from 'expo-router';
