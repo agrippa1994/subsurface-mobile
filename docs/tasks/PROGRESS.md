@@ -1210,3 +1210,76 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Follow-ups: the core's date parser gives a dive from 2030 on `when` 0 when the file is
   read back, seen while testing (`2030-01-01` saved, 0 after a load). Not caused by undo,
   and it would hit a plan dated that far ahead on any relaunch. Worth a look upstream.
+
+- 2026-11-07 - Configurable statistics (task 16).
+
+  **How far `stats/` reuses.** `stats/statsvariables.cpp` and `stats/statsstate.cpp` compile
+  byte-identical to upstream, with no patch: their Qt is strings, locale number formatting and
+  translation markers, and `cpp/shim/include/ssrf-qstring.h` stands in for those. So the
+  29 variables, binners, operations and valid combinations are the desktop's. The rest of
+  `stats/` draws through Qt Quick, and `statsview.cpp` keeps the data and the drawing in one
+  function per chart type. That data half is ported to `cpp/bindings/stats-chart.cpp`, in C++,
+  function for function; the regression, confidence area and pie slice selection with it.
+  TypeScript adds nothing up, except folding series past the eighth colour into "Other".
+
+  **Decisions.**
+  - Planned dives keep counting by default, because the numbers must match desktop, where
+    `DiveFilter` shows them. A log holding any gets a "Without planned dives" chip on the
+    overview and on charts, saying they are counted now. `excludePlanned` is a filter of
+    `getStatistics` and `statsChart` alike. This closes the planner's follow-up.
+  - One filter: the overview's, shared through `statistics-context.tsx` and shown on the chart
+    screen. Session only, as it was.
+  - The configuration is JSON in `settings.json`, replayed through `StatsState` on each call.
+    It replays to itself, tested across variables and offered charts, or a relaunch would move
+    a chart. Variables and enums go by name, binners by index.
+  - Rows, not a canvas, for horizontal charts: a virtualized list, each row a button. A long
+    list of names (sites, people, tags and so on) becomes rows when chosen.
+  - Left out, with reasons: `docs/tasks/16-configurable-statistics.md`.
+
+  **Found on the simulator, not by the tests.** With the chart undimmed behind the builder
+  sheet, its back button popped the chart from under the sheet, so the sheet is dimmed. Chart
+  rows' text took the button tint, and the sheet had no Done. A settings write re-rendered
+  every `useUnitSystem()` consumer, the dive list among them, which is a real cost on a large log;
+  it now selects.
+
+  **Verified.** `tests/stats-chart.test.ts`: per-year counts, operations, quartiles, stacked
+  splits and regression worked out from each dive's values with upstream's formulas written
+  out; the mean depth per year against `statistics.cpp`; every var1/var2 pair valid; imperial
+  binners with the preference restored; filters; undo history untouched; empty log; every
+  variable over every loadable file of `subsurface/dives/`; 5000 dives; `subsurface.xml`.
+  Also under AddressSanitizer. `tests/stats-chart-presets.test.ts`: each preset stays what it
+  says and has data on `subsurface.xml`, in both units for its binners. Model tests: words, rows,
+  readouts, summaries, folding, label collisions at any bin count, hit testing. vitest, lint and
+  typecheck. Palette through the data-viz validator against this app's surfaces, all gates
+  pass, the numbers in `chart-theme.ts`.
+
+  On an iOS 27 simulator of its own, since deleted, with a copy of `subsurface.xml`: overview
+  with the explore row, explore in light and dark, scatter, stacked histogram, rows, histogram with
+  mean and median, box plot, pie; tapping a dot, a bar, a slice; a row through to its dives and
+  on to a dive; the builder in a sheet with the chart following, the sectioned variable menu,
+  steps through a picker on the large log not reached (see below); a filter on a chart, and its
+  empty state; the last chart surviving relaunches; histogram in landscape, Show dives from there,
+  rows in landscape, a dive's profile rotating when opened from a chart. The iOS native build
+  links the two upstream files. On 5000 dives (`writeLargeLog`, 284 MB, its 24 dives repeated, so
+  dots overlap): press to chart 310 to 347 ms in a debug build, measured in the app, and a tap on
+  a dot answered; `statsChart` itself 10 to 13 ms at `-O0` on the macOS host.
+
+  **Not verified.** Numbers from a running desktop Subsurface: there is no Qt on this machine, so
+  nothing was compared side by side; the claim rests on the same source being compiled, and on
+  the expectations above. Anything on a real device, frame rates included: smoothness rests on the
+  measurements above and on looking, not on a profiler. Scrubbing by drag, a monthly chart of
+  hundreds of bins on screen (the test driver gave up on the large log's accessibility tree before
+  it got there; geometry is tested), grouped columns, dots per group's quartiles beyond one
+  glimpse behind the sheet, the planned-dives chip and imperial on screen (no such dive in that
+  log; both are covered at the bindings), undo while on a chart. VoiceOver itself: labels were read
+  through the accessibility tree, not spoken. Dynamic Type. Android: `explore.tsx`, `builder.tsx` and
+  the portable list typecheck but have not been built or run, and neither has the module on
+  Android with the two new files; `dynamic_cast` in `statsvariables.cpp` needs RTTI there.
+
+  Follow-ups: `StatusView`'s loading spinner sits at the left edge on iOS, seen here and not caused
+  by this. A selected chip is hard to tell from the others in dark mode, as before. Labels round
+  with `toFixed` where upstream uses printf, so an exact binary tie (15.25) can differ in its last
+  shown digit. Upstream's `abs(t)` in `is_linear_regression` can bind to the integer `abs`, depending
+  on the library, so desktop may draw a line here that this one does not, or the reverse, near the
+  threshold; ours uses `std::abs`, and it may be worth raising upstream.
+
