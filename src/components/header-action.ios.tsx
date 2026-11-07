@@ -8,6 +8,15 @@ import { useHistoryMenu } from '@/features/history/use-history-actions';
 
 import type { HeaderActionProps } from './header-action';
 
+/** The way out of a sheet, where the back button would be. */
+export function HeaderCancel({ onPress }: { onPress: () => void }) {
+  return (
+    <Stack.Toolbar placement="left">
+      <Stack.Toolbar.Button onPress={onPress}>Cancel</Stack.Toolbar.Button>
+    </Stack.Toolbar>
+  );
+}
+
 export function HeaderAction({ history, ...props }: HeaderActionProps & { history?: boolean }) {
   return <HeaderActions actions={[props]} history={history} />;
 }
@@ -42,8 +51,16 @@ export function HeaderActions({
           </Stack.Toolbar.MenuAction>
         </Stack.Toolbar.Menu>
       ) : null}
-      {actions.map(({ label, icon, done, disabled, onPress }) =>
-        icon ? (
+      {actions.map(({ label, icon, done, disabled, items, onPress }) =>
+        items ? (
+          <Stack.Toolbar.Menu key={label} icon={icon} accessibilityLabel={label}>
+            {items.map((item) => (
+              <Stack.Toolbar.MenuAction key={item.label} icon={item.icon} onPress={item.onPress}>
+                {item.label}
+              </Stack.Toolbar.MenuAction>
+            ))}
+          </Stack.Toolbar.Menu>
+        ) : icon ? (
           <Stack.Toolbar.Button
             key={label}
             icon={icon}

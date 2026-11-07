@@ -30,6 +30,18 @@ export type DiveDraft = {
   siteUuid: number;
 };
 
+/** The fields of a dive nobody has filled in. */
+export const BLANK_DIVE_DRAFT: DiveDraft = {
+  notes: '',
+  buddy: '',
+  diveguide: '',
+  suit: '',
+  rating: 0,
+  visibility: 0,
+  tags: [],
+  siteUuid: 0,
+};
+
 export function diveDraftFrom(dive: Dive): DiveDraft {
   return {
     notes: dive.notes,
@@ -240,7 +252,7 @@ function sameTags(a: readonly string[], b: readonly string[]): boolean {
  * Name lists and tags are normalized before comparison, so re-spacing
  * "Alice,Bob" to "Alice, Bob" is not a change.
  */
-export function buildDivePatch(dive: Dive, draft: DiveDraft): DivePatch {
+export function buildDivePatch(dive: DiveDraft, draft: DiveDraft): DivePatch {
   const patch: DivePatch = {};
 
   if (draft.notes !== dive.notes) {

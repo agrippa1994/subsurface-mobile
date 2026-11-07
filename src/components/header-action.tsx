@@ -21,8 +21,23 @@ export type HeaderActionProps = {
   /** The confirming action of a form (iOS draws it prominent). */
   done?: boolean;
   disabled?: boolean;
-  onPress: () => void;
+  /** Pressing it offers these instead of calling `onPress`. */
+  items?: HeaderMenuItem[];
+  onPress?: () => void;
 };
+
+export type HeaderMenuItem = { label: string; icon?: SFSymbol; onPress: () => void };
+
+/** The way out of a sheet, where the back button would be. */
+export function HeaderCancel({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  const headerLeft = () => (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={Spacing.two}>
+      <Text style={[styles.label, { color: theme.accent }]}>Cancel</Text>
+    </Pressable>
+  );
+  return <Stack.Screen options={{ headerLeft }} />;
+}
 
 export function HeaderAction({ history, ...props }: HeaderActionProps & { history?: boolean }) {
   return <HeaderActions actions={[props]} history={history} />;
@@ -60,14 +75,22 @@ export function HeaderActions({
       : actions;
   const headerRight = () => (
     <View style={styles.row}>
-      {all.map(({ label, icon, disabled = false, onPress }) => (
+      {all.map(({ label, icon, disabled = false, items, onPress }) => (
         <Pressable
           key={label}
           accessibilityRole="button"
           accessibilityLabel={label}
           accessibilityState={{ disabled }}
           disabled={disabled}
-          onPress={onPress}
+          onPress={
+            items
+              ? () =>
+                  Alert.alert(label, undefined, [
+                    { text: 'Cancel', style: 'cancel' },
+                    ...items.map((item) => ({ text: item.label, onPress: item.onPress })),
+                  ])
+              : onPress
+          }
           hitSlop={Spacing.two}
           android_ripple={{ color: theme.backgroundSelected, borderless: true }}
           style={[styles.button, disabled ? styles.disabled : null]}>

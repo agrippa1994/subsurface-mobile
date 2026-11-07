@@ -60,6 +60,8 @@ function added(entry: HistoryEntry): number {
 /** Names the change, for a menu: "Delete Dive 42" reads after "Undo". */
 export function changeTitle(entry: HistoryEntry): string {
   switch (entry.kind) {
+    case 'addDive':
+      return 'Add Dive';
     case 'updateDive':
       return `Edit ${diveName(entry)}`;
     case 'deleteDive':
@@ -97,6 +99,8 @@ export function changeTitle(entry: HistoryEntry): string {
 /** Says it happened, for the toast: "Dive 42 deleted". */
 export function changeDone(entry: HistoryEntry): string {
   switch (entry.kind) {
+    case 'addDive':
+      return 'Dive added';
     case 'updateDive':
       return `${diveName(entry)} updated`;
     case 'deleteDive':

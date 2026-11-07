@@ -146,7 +146,7 @@ export function validateWeightDrafts(
  * rewrite a weight on a save the user thought only changed the notes.
  */
 export function buildWeightPatches(
-  dive: Dive,
+  dive: Pick<Dive, 'weightsystems'>,
   drafts: readonly WeightDraft[],
   system: UnitSystem
 ): WeightSystemPatch[] | null {

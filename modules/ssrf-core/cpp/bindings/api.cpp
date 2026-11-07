@@ -777,6 +777,18 @@ json delete_dive(const json &args)
 	};
 }
 
+// utc_mktime() (core/time.cpp) gives 0 for any year past 2029, so a later date
+// would be saved and then lost when the file is read back.
+constexpr int64_t MIN_DIVE_WHEN = 1;
+constexpr int64_t MAX_DIVE_WHEN = 1893456000; // 2030-01-01 00:00:00
+// Legacy's cap in checkDepth, for the profile's sake. The floor is above the core's
+// SURFACE_THRESHOLD, under which a sample is not counted as being under water.
+constexpr int MIN_MANUAL_DEPTH_MM = 1000;
+constexpr int MAX_MANUAL_DEPTH_MM = 500000;
+constexpr int MAX_MANUAL_DURATION_SEC = 24 * 3600;
+constexpr int64_t MIN_TEMPERATURE_MKELVIN = 173150; // -100 C
+constexpr int64_t MAX_TEMPERATURE_MKELVIN = 373150; // 100 C
+
 // Overwrites exactly the fields the entry mentions, leaving the rest of the
 // cylinder as it was - the same partial-update rule the dive patch follows.
 void apply_cylinder_patch(cylinder_t &cyl, const json &entry)
@@ -958,6 +970,85 @@ void apply_weightsystems(struct dive &d, const json &list)
 	}
 }
 
+// When a dive took place, its temperatures and, for a manually added dive, the
+// figures its profile is drawn from. Legacy's checkDate, checkDuration and
+// checkDepth (mobile-widgets/qmlmanager.cpp) and desktop's EditDepth and
+// EditDuration (commands/command_edit.cpp), with the one difference that a change
+// the core would ignore is refused here rather than logged: on a downloaded dive,
+// depth and duration come from the samples.
+void apply_dive_basics(struct dive &d, const json &patch)
+{
+	bool changed = false;
+
+	if (patch.contains("when")) {
+		int64_t when = get_int(patch, "when", 0);
+		if (when < MIN_DIVE_WHEN || when >= MAX_DIVE_WHEN)
+			fail("'when' must be a date from 1970 to the end of 2029");
+		d.when = d.dcs[0].when = when;
+		changed = true;
+	}
+
+	auto temperature = [&](const char *key, temperature_t &value) {
+		if (!patch.contains(key))
+			return;
+		int64_t mkelvin = get_int(patch, key, 0);
+		if (mkelvin != 0 && (mkelvin < MIN_TEMPERATURE_MKELVIN || mkelvin > MAX_TEMPERATURE_MKELVIN))
+			fail(std::string("'") + key + "' is out of range");
+		value.mkelvin = static_cast<uint32_t>(mkelvin);
+		changed = true;
+	};
+	temperature("airTempMkelvin", d.airtemp);
+	temperature("waterTempMkelvin", d.watertemp);
+
+	bool new_depth = patch.contains("maxDepthMm"), new_duration = patch.contains("durationSec");
+	if (new_depth || new_duration || patch.contains("meanDepthMm")) {
+		struct divecomputer &dc = d.dcs[0];
+		if (!is_dc_manually_added_dive(&dc))
+			fail("depth and duration can only be changed on a manually added dive: on this one they come from its samples");
+
+		int depth = dc.maxdepth.mm, seconds = dc.duration.seconds;
+		if (new_depth)
+			depth = static_cast<int>(get_int(patch, "maxDepthMm", 0));
+		if (new_duration)
+			seconds = static_cast<int>(get_int(patch, "durationSec", 0));
+		if (depth < MIN_MANUAL_DEPTH_MM || depth > MAX_MANUAL_DEPTH_MM)
+			fail("'maxDepthMm' must be from 1 m to 500 m");
+		if (seconds < 1 || seconds > MAX_MANUAL_DURATION_SEC)
+			fail("'durationSec' must be from 1 second to 24 hours");
+
+		// What the core does when depth or duration change: the old average belongs
+		// to the old profile. An average given with them is what the new one aims for.
+		int mean = new_depth || new_duration ? 0 : dc.meandepth.mm;
+		if (patch.contains("meanDepthMm"))
+			mean = static_cast<int>(get_int(patch, "meanDepthMm", 0));
+		if (mean < 0 || mean >= depth)
+			fail("'meanDepthMm' must be less than the maximum depth");
+
+		dc.duration.seconds = seconds;
+		dc.maxdepth.mm = depth;
+		dc.meandepth.mm = mean;
+		dc.samples.clear();
+		fake_dc(&dc);
+
+		// As in AddDive: fixup_dive() takes the maximum and the duration from the
+		// samples just made, and it only ever raises a maximum it finds set. CNS and
+		// the maximum CNS are of the profile that was replaced.
+		dc.maxdepth = 0_m;
+		d.maxdepth = 0_m;
+		d.meandepth = 0_m;
+		d.cns = 0;
+		changed = true;
+	}
+
+	if (changed) {
+		// Rebuilt from the samples and the water temperature; the old water
+		// temperature would otherwise stay in the range until the next load.
+		d.mintemp = temperature_t();
+		d.maxtemp = temperature_t();
+		divelog.dives.fixup_dive(d);
+	}
+}
+
 // The part of a dive patch that does not touch the divelog itself, so that it
 // can also be applied to a throwaway copy of a dive (see preview_dive()).
 // Registering the dive with a site is deliberately not here: that mutates the
@@ -1004,6 +1095,9 @@ void apply_dive_patch(struct dive &d, const json &patch)
 	if (patch.contains("weightsystems"))
 		apply_weightsystems(d, patch["weightsystems"]);
 
+	// After the cylinders, since fixing the dive up works out its SAC.
+	apply_dive_basics(d, patch);
+
 	// The full-text cache indexes notes/buddy/tags, so it is stale now.
 	d.invalidate_cache();
 }
@@ -1022,6 +1116,7 @@ json update_dive(const json &args)
 	struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
 	const json &patch = require_patch(args);
 
+	timestamp_t was = d.when;
 	apply_dive_patch(d, patch);
 
 	if (patch.contains("siteUuid")) {
@@ -1031,7 +1126,54 @@ json update_dive(const json &args)
 			require_site(uuid).add_dive(&d);
 	}
 
+	// As Command::EditDive: a new date moves the dive within the tables and nothing
+	// more. It stays in its trip wherever the date falls, and keeps its number.
+	if (d.when != was) {
+		if (d.divetrip)
+			d.divetrip->sort_dives();
+		divelog.dives.sort();
+		divelog.trips.sort();
+	}
+
 	return dive_to_json(d);
+}
+
+// A dive as the diver describes it, not yet in the log: Command::AddDive and
+// dive_table::default_dive() with the diver's figures. The core's default cylinder
+// is left out: with no pressures it gives no SAC, and only says "unknown".
+std::unique_ptr<struct dive> new_manual_dive(const json &args)
+{
+	require_int(args, "when");
+	require_int(args, "durationSec");
+	require_int(args, "maxDepthMm");
+	auto d = std::make_unique<struct dive>();
+	make_manually_added_dive_dc(&d->dcs[0]);
+	apply_dive_patch(*d, args);
+	return d;
+}
+
+json add_dive(const json &args)
+{
+	// Looked up first, so that a site no longer there adds nothing.
+	uint32_t uuid = static_cast<uint32_t>(get_int(args, "siteUuid", 0));
+	struct dive_site *site = uuid ? &require_site(uuid) : nullptr;
+
+	std::unique_ptr<struct dive> d = new_manual_dive(args);
+	// The core's rule: the next number at the end of the log, none in the middle.
+	// Autogrouping is off (see disable_autogroup), so the dive joins no trip, not
+	// even one whose dates it falls between.
+	if (!args.contains("number"))
+		d->number = divelog.dives.get_dive_nr_at_idx(divelog.dives.get_insertion_index(d.get()));
+	struct dive *added = divelog.dives.register_dive(std::move(d));
+	if (site)
+		site->add_dive(added);
+	return dive_to_json(*added);
+}
+
+// What add_dive would add, for the SAC on the form. The log is untouched.
+json preview_new_dive(const json &args)
+{
+	return dive_to_json(*new_manual_dive(args));
 }
 
 /*
@@ -1666,6 +1808,10 @@ json dispatch(const std::string &method, const json &args)
 		return delete_dive_site(args);
 	if (method == "updateDive")
 		return update_dive(args);
+	if (method == "addDive")
+		return add_dive(args);
+	if (method == "previewNewDive")
+		return preview_new_dive(args);
 	if (method == "deleteDive")
 		return delete_dive(args);
 	if (method == "previewDive")

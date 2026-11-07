@@ -45,6 +45,7 @@ import {
   DIVE_MODE_LABEL,
   plotForComputer,
 } from '@/models/dive-computers';
+import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -131,6 +132,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const row = toDiveRow(dive, unitSystem);
   const dc = dive.dcs[computer.index];
   const severalComputers = dive.dcs.length > 1;
+  const manualComputer = dc?.model === MANUAL_DC_MODEL;
   const synced = isSyncedToSsi(dive);
   const notes = dive.notes.trim();
   const hasPeopleOrPlace =
@@ -164,7 +166,15 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         </Text>
       ) : null}
 
-      <Section title="Profile" inset>
+      <Section
+        title="Profile"
+        inset
+        footer={
+          manualComputer
+            ? 'Drawn from the depth and duration entered for this dive. Nothing was measured.'
+            : undefined
+        }
+      >
         {severalComputers ? (
           <View style={styles.computerPicker}>
             <ComputerPicker
@@ -193,7 +203,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {/* Turning the device hands the same plot the whole screen. */}
       {plot ? (
         <ProfileFullscreen
-          title={row.title}
+          title={manualComputer ? `${row.title}, added manually` : row.title}
           chartKey={computer.index}
           accessory={
             severalComputers ? (
@@ -280,17 +290,21 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       {dc ? (
         <Section
-          title="Dive computer"
+          title={manualComputer ? 'Source' : 'Dive computer'}
           footer={
             severalComputers
               ? 'The figures at the top of the screen and under Details cover the whole dive.'
               : undefined
           }
         >
-          <Row label="Model" value={dc.model || 'Unknown'} />
+          {manualComputer ? (
+            <Row label="Dive computer" value="None, added manually" />
+          ) : (
+            <Row label="Model" value={dc.model || 'Unknown'} />
+          )}
           {dc.serial ? <Row label="Serial" value={dc.serial} /> : null}
           {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
-          <Row label="Samples" value={String(dc.sampleCount)} />
+          {manualComputer ? null : <Row label="Samples" value={String(dc.sampleCount)} />}
           {severalComputers
             ? computerFigures(dc, unitSystem).map(({ label, value }) => (
                 <Row key={label} label={label} value={value} />
@@ -434,7 +448,11 @@ function CsvExportSection({ dive }: { dive: Dive }) {
           key={format}
           symbol="square.and.arrow.up"
           label={label}
-          detail={description}
+          detail={
+            format === 'details' && isManualDive(dive)
+              ? 'The points the profile was drawn through. Nothing was measured.'
+              : description
+          }
           disabled={busy}
           onPress={() => share(format)}
         />

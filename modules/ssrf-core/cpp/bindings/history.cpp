@@ -360,7 +360,7 @@ bool leaves_log_alone(const std::string &method)
 		"saveToXML", "listDives", "getDive", "getProfile", "getStatistics", "nitroxPlan", "planDive",
 		"gasInfo", "plannerOptions", "plannerSurface", "exportDiveCSV", "configure", "dcListComputers",
 		"dcDetect", "dcDownloadStart", "dcDownloadStatus", "dcDownloadCancel", "dcDownloadDiscard",
-		"bleScanStart", "bleScanStop", "bleScanStatus", "listDiveSites", "previewDive", "listTrips",
+		"bleScanStart", "bleScanStop", "bleScanStatus", "listDiveSites", "previewDive", "previewNewDive", "listTrips",
 		"listMergePairs", "previewMerge", "getLastError", "statsChart",
 	};
 	return std::any_of(std::begin(methods), std::end(methods),

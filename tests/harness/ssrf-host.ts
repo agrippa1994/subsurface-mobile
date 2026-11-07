@@ -28,6 +28,7 @@ import type {
   HistoryStepResult,
   ImportResult,
   LoadResult,
+  NewDiveInput,
   NitroxPlan,
   NitroxPlanInput,
   GasInfo,
@@ -275,6 +276,14 @@ export class SsrfHost {
 
   deleteDiveSite(uuid: number): Promise<{ sites: number }> {
     return this.call<{ sites: number }>('deleteDiveSite', { uuid });
+  }
+
+  addDive(input: NewDiveInput): Promise<Dive> {
+    return this.call<Dive>('addDive', input);
+  }
+
+  previewNewDive(input: NewDiveInput): Promise<Dive> {
+    return this.call<Dive>('previewNewDive', input);
   }
 
   updateDive(id: number, patch: DivePatch): Promise<Dive> {

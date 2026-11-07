@@ -1283,3 +1283,69 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   on the library, so desktop may draw a line here that this one does not, or the reverse, near the
   threshold; ours uses `std::abs`, and it may be worth raising upstream.
 
+- 2026-11-07 - Adding a dive manually, and correcting date, temperatures, number and depth.
+
+  **Bindings.** `addDive` is `Command::AddDive` with autogrouping off, on a dive built like
+  `default_dive()`: a computer named "manually added dive", samples from `fake_dc()`.
+  `previewNewDive` returns the same dive unadded, for the SAC on the form, and is listed as
+  a read in `history.cpp`. `DivePatch` gained `when`, `airTempMkelvin`, `waterTempMkelvin`,
+  `durationSec`, `maxDepthMm` and `meanDepthMm`. No core file was added, so
+  `CORE_MANIFEST.md` is unchanged, and nothing under `subsurface/` was edited.
+
+  **What the core does, and the app follows.**
+  - Numbering: `get_dive_nr_at_idx()`. The next number at the end of the log, 1 in an empty
+    one, 0 in the middle, with nothing renumbered. The form says so when a later dive exists.
+  - Trips: with autogrouping off, which is the app's rule, a dive inside a trip's dates joins
+    no trip. The form says so and the dive screen offers to add it. A dive whose date changes
+    stays in its trip wherever it lands and keeps its number, as in `Command::EditDive`.
+  - A new date also sets `dcs[0].when`, as legacy's `checkDate` does, and only that computer.
+  - A new depth or duration clears the average first (`EditDepth`, `EditDuration`).
+    `fixup_dive()` only raises a maximum it finds set, so the maxima are zeroed first, as in
+    `AddDive`; without that a dive could never get shallower.
+  - Clearing a temperature on a dive whose computer reported one brings that one back
+    (`fixup_watertemp`, `fixup_airtemp`).
+
+  **Decisions.** No default cylinder: the core's has no pressures, so gives no SAC, and says
+  "unknown". The previous-dive card copies a real setup in one tap. Depth or duration on a
+  dive that is not manual is refused by the bindings rather than logged and half applied, as
+  legacy's `checkDuration` does. Limits: 1 m to 500 m (the cap is legacy's), up to 24 hours,
+  dates before 2030, since `utc_mktime()` reads any later year as 0. The form also refuses a
+  date over a day ahead, except on a planned dive, and an average under a tenth of the maximum,
+  which `fake_dc()` would silently replace. Overlaps warn and do not block. What a dive already
+  had is not held against it when other fields are edited.
+
+  **UI.** `src/features/dives/dive-form.tsx` is the one form, used by the editor and by the new
+  `dives/add` modal. The Dives header has a plus menu in place of the Download icon; the empty
+  state offers both ways in. After saving, the dive opens with the existing toast. A manual dive
+  says the profile is drawn and nothing was measured, shows "None, added manually" instead of a
+  model and sample count, and words its CSV export to match. On a downloaded dive the editor
+  takes the date, temperatures and number, and shows depth and duration read-only.
+
+  Verified: `tests/add-dive.test.ts` through the host binary, also under AddressSanitizer:
+  numbering, profile, statistics, SAC, the file, a load and save coming back identical, undo and
+  redo byte for byte, the manual and downloaded rules, dates moving in the tables and within a
+  trip. `src/models/dive-basics.test.ts` for parsing, units, validation and patches. vitest, lint
+  and typecheck. On a throwaway iOS 27 simulator with a copy of `abitofeverything.ssrf` and then
+  an empty logbook, since deleted, the booted simulators untouched: in light and dark, the menu,
+  the sheet, validation, Cancel and swipe both asking before discarding, Save opening the dive
+  with the toast, a live SAC, the overlap warning, editing depth on a manual dive and the date on
+  a downloaded one through the native picker, undo of both back through the menu with the dive's
+  screen leaving, the first dive of an empty log numbered 1, the file on disk at each step, a
+  relaunch keeping it, and the fullscreen profile in landscape. The app holds portrait everywhere
+  else, so the sheet was not looked at in landscape beyond that lock.
+
+  **Not verified.** Opening a saved manual dive in desktop Subsurface: the file was checked
+  against what the core writes and reads, not in the desktop app. Anything on a real device,
+  including haptics. Android: the portable header menu, cancel button and date steppers typecheck
+  but were neither built nor run. VoiceOver speaking any of it (the accessibility tree was read,
+  not heard). Imperial units and the note about a trip's dates on screen: unit tests only. Dynamic
+  Type. Redo of an add on screen, which is covered at the bindings only.
+
+  One Save tap did nothing right after closing Expo's dev menu, and the next one saved. Its
+  floating Tools button also sits over Save and takes taps meant for it. Other first taps saved,
+  including one with the keyboard up, so this reads as the dev menu's, but it was not pinned down.
+
+  Known and left: with pressures entered, the chart draws a tank pressure line interpolated by the
+  core, and a deco ceiling from the drawn profile, under the note that nothing was measured. The
+  undo commit's follow-up about 2030 stands, and is why dates stop there. The version was not
+  bumped.
