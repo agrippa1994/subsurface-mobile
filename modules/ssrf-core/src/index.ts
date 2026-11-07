@@ -16,6 +16,7 @@ import {
   type DeleteDiveResult,
   type Dive,
   type DivePatch,
+  type NewDiveInput,
   type DiveSite,
   type DiveSiteInput,
   type DiveSummary,
@@ -293,6 +294,19 @@ export function deleteDiveSite(uuid: number): void {
  */
 export function updateDive(id: number, patch: DivePatch, historyKind?: string): Dive {
   return call<Dive>('updateDive', { id, patch, ...(historyKind ? { historyKind } : {}) });
+}
+
+/**
+ * Adds a dive by hand, on a dive computer called "manually added dive", with a
+ * profile the core draws from the figures. Numbered as the core numbers a new dive.
+ */
+export function addDive(input: NewDiveInput): Dive {
+  return call<Dive>('addDive', input);
+}
+
+/** The dive `addDive(input)` would add, without adding it. */
+export function previewNewDive(input: NewDiveInput): Dive {
+  return call<Dive>('previewNewDive', input);
 }
 
 /** Takes the log back to before the newest change. Throws if there is none. */

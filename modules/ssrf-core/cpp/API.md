@@ -91,6 +91,8 @@ rendered metric or imperial.
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
+| `addDive` | `NewDiveInput` | `Dive` |
+| `previewNewDive` | `NewDiveInput` | `Dive` |
 | `updateDive` | `{ id, patch }` | `Dive` |
 | `deleteDive` | `{ id }` | `{ dives, trips }` |
 | `previewDive` | `{ id, patch }` | `Dive` |
@@ -251,9 +253,28 @@ directly and avoids the copy.
     with `toMin: null` on the last, open-ended bucket at 180 min. 10 minutes is
     desktop's default duration binner (`stats/statsvariables.cpp`).
   - `siteCount`: distinct dive sites among the matched dives, counted by uuid.
+- **`addDive`** is upstream's `Command::AddDive` without the undo stack and with
+  autogrouping off, on a dive built like `dive_table::default_dive()`: a dive
+  computer called "manually added dive" (`make_manually_added_dive_dc`), and six
+  or fewer samples from `fake_dc()`. `when`, `durationSec` and `maxDepthMm` are
+  required, every other key is as in a `DivePatch`. The number is
+  `get_dive_nr_at_idx()`'s unless given: the next one at the end of the log, 0 in
+  the middle of it. The dive joins no trip, whatever dates it falls between. No
+  default cylinder is added: the core's has no pressures, so gives no SAC, and
+  says "unknown". `previewNewDive` returns the same dive without adding it.
 - **`updateDive`** applies only the keys present in `patch`, then calls
   `dive::invalidate_cache()` because the full-text cache indexes notes, buddy
   and tags. `siteUuid: 0` detaches the dive from its site.
+
+  `when`, `airTempMkelvin` and `waterTempMkelvin` go for any dive; a date also sets
+  the first computer's, as legacy's `checkDate` does, and sorts the tables, as
+  `Command::EditDive` does. The dive stays in its trip and keeps its number.
+  `durationSec`, `maxDepthMm` and `meanDepthMm` are refused unless the first
+  computer is the manual one, since elsewhere they come from the samples; they
+  replace the samples through `fake_dc()`. Without `meanDepthMm`, a new depth or
+  duration clears the average first (`EditDepth`, `EditDuration`). Ranges: a date
+  before 2030, which the core's date parser cannot read past; depth 1 m to 500 m;
+  duration up to 24 h. Any of these runs `fixup_dive()`.
 
   `patch.cylinders` is the dive's *whole* resulting cylinder list rather than a
   delta. An entry carrying `sourceIndex` keeps the cylinder the dive has at that

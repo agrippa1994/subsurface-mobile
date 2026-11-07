@@ -38,6 +38,7 @@ export type {
   DiveComputer,
   DiveEvent,
   DivePatch,
+  NewDiveInput,
   DiveSite,
   DiveSiteInput,
   DiveSummary,

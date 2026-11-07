@@ -41,6 +41,7 @@ function state(fields: Partial<HistoryState>): HistoryState {
 
 describe('labels', () => {
   it.each<[Partial<HistoryEntry>, string, string]>([
+    [{ kind: 'addDive', divesAfter: 11 }, 'Add Dive', 'Dive added'],
     [{ kind: 'updateDive', diveNumber: 42 }, 'Edit Dive 42', 'Dive 42 updated'],
     [{ kind: 'updateDive', diveSite: 'Lina' }, 'Edit Dive at Lina', 'Dive at Lina updated'],
     [{ kind: 'updateDive' }, 'Edit Dive', 'Dive updated'],

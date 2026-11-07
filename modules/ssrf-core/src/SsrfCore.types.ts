@@ -319,6 +319,30 @@ export type DivePatch = {
   cylinders?: CylinderPatch[];
   /** The dive's whole weightsystem list after the edit. */
   weightsystems?: WeightSystemPatch[];
+  /**
+   * Unix seconds, like `DiveSummary.when`. Moves the dive in the list; it keeps
+   * its trip and its number, as in the core.
+   */
+  when?: number;
+  /** 0 clears it, unless a dive computer reported one, which then shows again. */
+  airTempMkelvin?: number;
+  waterTempMkelvin?: number;
+  /**
+   * These three are for a manually added dive only, and refused on any other,
+   * whose figures come from its samples. Any of them redraws the profile. A new
+   * depth or duration without `meanDepthMm` drops the average for a new one.
+   */
+  durationSec?: number;
+  maxDepthMm?: number;
+  /** Less than the maximum depth; 0 for no particular average. */
+  meanDepthMm?: number;
+};
+
+/** `addDive`: a dive by its figures, plus whatever else the diver filled in. */
+export type NewDiveInput = Omit<DivePatch, 'invalid'> & {
+  when: number;
+  durationSec: number;
+  maxDepthMm: number;
 };
 
 /** One plotted sample. All depths in mm, pressures in mbar, temps in mkelvin. */
