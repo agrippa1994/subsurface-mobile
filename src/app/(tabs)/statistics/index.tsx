@@ -8,12 +8,15 @@
 //
 // React Native rather than SwiftUI, for the same reason the dive detail screen
 // is: the charts are Skia canvases, and a SwiftUI Form cannot host one.
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BarChart } from '@/components/bar-chart';
 import { StatusView } from '@/components/status-view';
+import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
+import { StatsFilterBar } from '@/features/statistics/stats-filter-bar';
 import { useStatisticsScreen } from '@/features/statistics/use-statistics-screen';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -27,7 +30,8 @@ import {
   summaryTiles,
   type StatTile,
 } from '@/models/statistics';
-import { useUnitSystem } from '@/queries/settings';
+import { chartHeadline } from '@/models/stats-chart';
+import { useSettings, useUnitSystem } from '@/queries/settings';
 
 export default function StatisticsScreen() {
   const screen = useStatisticsScreen();
@@ -91,7 +95,9 @@ export default function StatisticsScreen() {
         ))}
       </View>
 
-      <FilterRow screen={screen} />
+      <ExploreRow />
+
+      <StatsFilterBar screen={screen} />
 
       {screen.filtered && summary.matched === 0 ? (
         <Text style={[styles.note, { color: theme.textSecondary }]}>
@@ -140,76 +146,28 @@ function Tile({ tile }: { tile: StatTile }) {
   );
 }
 
-/**
- * Year and site filters, one row of chips each. Chips rather than a menu
- * because the whole point is to see what is selected without opening anything -
- * and both lists are short (a logbook covers a handful of years, and the site
- * list is the sites that actually have dives, most-dived first).
- */
-function FilterRow({ screen }: { screen: ReturnType<typeof useStatisticsScreen> }) {
+function ExploreRow() {
   const theme = useTheme();
-
-  return (
-    <View style={styles.filters}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Chip label="All years" selected={screen.filter.year === null} onPress={() => screen.setYear(null)} />
-        {screen.years.map((year) => (
-          <Chip
-            key={year}
-            label={String(year)}
-            selected={screen.filter.year === year}
-            onPress={() => screen.setYear(screen.filter.year === year ? null : year)}
-          />
-        ))}
-      </ScrollView>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Chip
-          label="All sites"
-          selected={screen.filter.siteUuid === null}
-          onPress={() => screen.setSite(null)}
-        />
-        {screen.sites.map((site) => (
-          <Chip
-            key={site.uuid}
-            label={`${site.name || 'Unnamed site'} (${site.diveCount})`}
-            selected={screen.filter.siteUuid === site.uuid}
-            onPress={() => screen.setSite(screen.filter.siteUuid === site.uuid ? null : site.uuid)}
-          />
-        ))}
-      </ScrollView>
-
-      {screen.filtered ? (
-        <Pressable onPress={screen.clearFilter} accessibilityRole="button">
-          <Text style={[styles.clear, { color: theme.textSecondary }]}>Clear filter</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-function Chip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const theme = useTheme();
+  const router = useRouter();
+  const { statsChart } = useSettings();
+  const detail = statsChart ? chartHeadline(statsChart) : 'Ask a question, or build your own chart';
   return (
     <Pressable
-      onPress={onPress}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
-      style={[
-        styles.chip,
-        { backgroundColor: selected ? theme.backgroundSelected : theme.backgroundElement },
+      accessibilityLabel={`Explore your dives. ${detail}`}
+      onPress={() => router.push('/statistics/explore')}
+      style={({ pressed }) => [
+        styles.explore,
+        { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement },
       ]}>
-      <Text style={[styles.chipLabel, { color: theme.text }]} numberOfLines={1}>
-        {label}
-      </Text>
+      <SymbolView name="chart.xyaxis.line" size={22} tintColor={theme.accent} />
+      <View style={styles.exploreText}>
+        <Text style={[styles.exploreTitle, { color: theme.text }]}>Explore your dives</Text>
+        <Text style={[styles.tileLabel, { color: theme.textSecondary }]} numberOfLines={2}>
+          {detail}
+        </Text>
+      </View>
+      <SymbolView name="chevron.right" size={13} tintColor={theme.textSecondary} />
     </Pressable>
   );
 }
@@ -242,25 +200,21 @@ const styles = StyleSheet.create({
   tileDetail: {
     fontSize: 12,
   },
-  filters: {
-    gap: Spacing.two,
+  explore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderRadius: 12,
+    padding: Spacing.three,
     marginTop: Spacing.two,
   },
-  chips: {
-    gap: Spacing.two,
-    paddingRight: Spacing.three,
+  exploreText: {
+    flex: 1,
+    gap: Spacing.half,
   },
-  chip: {
-    borderRadius: 16,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    maxWidth: 220,
-  },
-  chipLabel: {
-    fontSize: 14,
-  },
-  clear: {
-    fontSize: 14,
+  exploreTitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   note: {
     fontSize: 14,

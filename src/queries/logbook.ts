@@ -17,6 +17,7 @@
 //     whole ['log'] subtree rather than invalidating it.
 
 import {
+  keepPreviousData,
   queryOptions,
   useQuery,
   useQueryClient,
@@ -34,6 +35,7 @@ import {
   listMergePairs,
   listTrips,
   loadFromXML,
+  statsChart,
 } from '../../modules/ssrf-core/src';
 import type {
   Dive,
@@ -42,8 +44,11 @@ import type {
   LoadResult,
   MergePair,
   PlotInfo,
+  StatsChartConfigInput,
+  StatsChartResult,
   StatsSummary,
   Trip,
+  UnitSystem,
 } from '@/models';
 import { toStatsFilter, type StatsFilterInput } from '@/models/statistics';
 import { ensureLogbook } from '@/lib/logbook-file';
@@ -173,6 +178,25 @@ export function useTripStatistics(tripId: number): UseQueryResult<StatsSummary> 
     queryKey: queryKeys.statistics(filter),
     queryFn: () => getStatistics(filter),
     enabled: useLogLoaded() && Number.isFinite(tripId),
+  });
+}
+
+/**
+ * One chart of the configurable statistics. The previous chart stays up while the next
+ * is computed, so a change in the builder does not blank what the diver is looking at.
+ */
+export function useStatsChart(
+  config: StatsChartConfigInput,
+  input: StatsFilterInput,
+  system: UnitSystem,
+): UseQueryResult<StatsChartResult> {
+  const filter = toStatsFilter(input);
+  const imperial = system === 'imperial';
+  return useQuery({
+    queryKey: queryKeys.statsChart(config, filter, imperial),
+    queryFn: () => statsChart({ config, filter, imperial }),
+    enabled: useLogLoaded(),
+    placeholderData: keepPreviousData,
   });
 }
 

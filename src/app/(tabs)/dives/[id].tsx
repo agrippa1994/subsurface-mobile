@@ -66,7 +66,7 @@ type SymbolName = SymbolViewProps['name'];
  * The stacks this screen is pushed in. Its own links (Edit, Sync to SSI) stay in
  * the same stack, so Back from them returns here rather than to another tab.
  */
-export type DiveStackPath = '/dives' | '/sites/dive';
+export type DiveStackPath = '/dives' | '/sites/dive' | '/statistics/dive';
 
 export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();

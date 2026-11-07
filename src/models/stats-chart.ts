@@ -281,9 +281,18 @@ export function chartOptionKey(option: { type: StatsChartType; subtype: StatsCha
 
 // --- What the chart shows, in plain words ---------------------------------------------
 
-/** "Dives by Dive site", "Median SAC by Date": the screen's headline. */
-export function chartHeadline(config: StatsChartConfig): string {
-  const { var1, var2, operation } = config;
+/** A date binned per year reads "year" rather than "Date group". */
+function binWord(config: StatsChartConfig, options?: StatsChartOptions | null): string | null {
+  const binner = options?.binners1[config.binner1];
+  return config.var1 !== 'Date' || !binner
+    ? null
+    : ({ Yearly: 'year', Quarterly: 'quarter', Monthly: 'month' } as Record<string, string>)[binner] ?? null;
+}
+
+/** "Dives by Dive site", "Median SAC by year": the screen's headline. */
+export function chartHeadline(config: StatsChartConfig, options?: StatsChartOptions | null): string {
+  const { var2, operation } = config;
+  const var1 = binWord(config, options) ?? config.var1;
   switch (config.chart.type) {
     case 'ScatterPlot':
       return `${var2} against ${var1}`;
@@ -309,8 +318,14 @@ export function chartHeadline(config: StatsChartConfig): string {
  * before. It says what a mark is and how it is cut: this and the options are all the
  * builder has to go on, so nothing here looks at the data, except the regression.
  */
-export function chartDescription(config: StatsChartConfig, chart?: StatsChart): string {
+export function chartDescription(
+  config: StatsChartConfig,
+  chart?: StatsChart,
+  options?: StatsChartOptions | null,
+): string {
   const { var1, var2 } = config;
+  const period = binWord(config, options);
+  const group = period ?? `${var1} group`;
   const several = SEVERAL_PER_DIVE.has(var1)
     ? ` A dive with several ${var1 === 'People' ? 'people' : 'values'} counts once for each.`
     : '';
@@ -327,24 +342,24 @@ export function chartDescription(config: StatsChartConfig, chart?: StatsChart): 
     }
     case 'DiscreteValue':
     case 'HistogramValue':
-      return `Each bar is the ${operationPhrase(config.operation)} of ${var2} over the dives in one ${var1} group, among dives that have a value.`;
+      return `Each bar is the ${operationPhrase(config.operation)} of ${var2} over the dives of one ${group}, among dives that have a value.`;
     case 'DiscreteBox':
     case 'HistogramBox':
-      return `Each box covers the middle half of ${var2} in one ${var1} group, with a line at the median. The whiskers reach the lowest and highest values.`;
+      return `Each box covers the middle half of ${var2} in one ${group}, with a line at the median. The whiskers reach the lowest and highest values.`;
     case 'DiscreteScatter':
-      return `Each dot is one dive, grouped by ${var1}, with its ${var2} up. The bars mark the quartiles of each group.`;
+      return `Each dot is one dive, grouped by ${period ?? var1}, with its ${var2} up. The bars mark the quartiles of each group.`;
     case 'DiscreteBar':
       return config.chart.subtype.endsWith('Stacked')
-        ? `The dives of each ${var1} group, split by ${var2}.${several}`
-        : `Side by side, the dives of each ${var1} group, for every ${var2}.${several}`;
+        ? `The dives of each ${group}, split by ${var2}.${several}`
+        : `Side by side, the dives of each ${group}, for every ${var2}.${several}`;
     case 'HistogramStacked':
-      return `The dives of each ${var1} group, split by ${var2}.${several}`;
+      return `The dives of each ${group}, split by ${var2}.${several}`;
     case 'Pie':
-      return `The share of dives per ${var1}. Small groups fold into one slice.${several}`;
+      return `The share of dives per ${period ?? var1}. Small groups fold into one slice.${several}`;
     case 'HistogramCount':
-      return `How many dives fall into each ${var1} step.`;
+      return period ? `How many dives fall into each ${period}.` : `How many dives fall into each ${var1} step.`;
     default:
-      return `How many dives fall into each ${var1} group.${several}`;
+      return `How many dives there are for each ${period ?? (var1 === 'People' ? 'person' : var1)}.${several}`;
   }
 }
 
@@ -941,6 +956,12 @@ function pointReadout(chart: StatsChart, index: number): SelectionReadout | null
   };
 }
 
+/** The readout's title for a dot, once its dive is known. */
+export function dotTitle(siteName: string, when: number): string {
+  const date = formatDay(when / 86400);
+  return siteName.trim() === '' ? date : `${siteName}, ${date}`;
+}
+
 /** An axis title without its unit, which the value carries. */
 function axisName(axis: StatsAxis | undefined): string {
   return (axis?.title ?? '').replace(/ \[[^\]]*\]$/, '');
@@ -952,8 +973,13 @@ function axisName(axis: StatsAxis | undefined): string {
  * A chart's summary. VoiceOver cannot walk a canvas, so this says what it shows and
  * where it peaks, and the rows below it carry the values one at a time.
  */
-export function chartSummary(config: StatsChartConfig, chart: StatsChart, dives: number): string {
-  const head = chartHeadline(config);
+export function chartSummary(
+  config: StatsChartConfig,
+  chart: StatsChart,
+  dives: number,
+  options?: StatsChartOptions | null,
+): string {
+  const head = chartHeadline(config, options);
   if (chart.family === 'empty') {
     return `${head}. ${chartEmptyText(config, dives)}`;
   }

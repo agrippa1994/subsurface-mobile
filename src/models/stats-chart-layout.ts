@@ -65,7 +65,7 @@ export type ChartScene = {
   barWidth: number;
 };
 
-const PAD = { top: 10, right: 12, bottomLabels: 20, bottomTitle: 18 };
+const PAD = { top: 10, right: 12, bottomLabels: 26, bottomTitle: 18 };
 /** Roughly one digit at the 11 pt the axis labels are set in. */
 const CHAR_WIDTH = 6.1;
 const MIN_LABEL_GAP = 8;
