@@ -9,6 +9,12 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import { useTheme } from '@/hooks/use-theme';
 
+/** The toast's text and action on this surface. */
+export function useToastColors() {
+  const theme = useTheme();
+  return { text: theme.text, action: theme.accent };
+}
+
 export function ToastLayer({ children }: { children: ReactNode }) {
   return (
     <FullWindowOverlay>

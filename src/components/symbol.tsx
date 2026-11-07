@@ -73,7 +73,19 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'water.waves': 'waves',
   wind: 'air',
   'wrench.and.screwdriver': 'build',
+  percent: 'percent',
+  folder: 'folder_open',
+  'doc.on.doc': 'content_copy',
+  'arrow.up.right.square': 'open_in_new',
   xmark: 'close',
+  'arrow.up.left.and.arrow.down.right': 'open_in_full',
+  'checkmark.circle': 'task_alt',
+  'chevron.left': 'chevron_left',
+  'chevron.up.chevron.down': 'unfold_more',
+  'doc.text': 'description',
+  'line.3.horizontal.decrease': 'filter_list',
+  'trash': 'delete',
+  'xmark.circle.fill': 'cancel',
 };
 
 /** The Material Symbol drawn for an SF Symbol on Android, if there is one. */

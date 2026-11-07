@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// The dive planner, portable fallback (Android, and web). iOS renders a native Form
+// The dive planner, portable fallback (web). Android has planner.android.tsx. iOS renders a native Form
 // instead, see planner.ios.tsx; both take everything from use-planner-screen.
 import { Stack } from 'expo-router';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';

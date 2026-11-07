@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// Settings, portable variant (Android, and web). iOS renders a native Form
+// Settings, portable variant (web). Android has index.android.tsx. iOS renders a native Form
 // instead - see index.ios.tsx. The sections, rows and footers mirror that one,
 // built from the same grouped cards the editors use (components/form.tsx), with
 // the platform's own Switch.

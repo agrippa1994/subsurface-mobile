@@ -6,6 +6,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
+/** The toast's text and action on this surface. */
+export function useToastColors() {
+  const theme = useTheme();
+  return { text: theme.text, action: theme.accent };
+}
+
 export function ToastLayer({ children }: { children: ReactNode }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">

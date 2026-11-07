@@ -5,9 +5,12 @@
 // Symbol Android draws.
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { useTabBarStyle } from '@/hooks/use-navigation-theme';
+
 export default function TabsLayout() {
+  const tabBarStyle = useTabBarStyle();
   return (
-    <NativeTabs>
+    <NativeTabs {...tabBarStyle}>
       <NativeTabs.Trigger name="dives">
         <NativeTabs.Trigger.Label>Dives</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="list.bullet" md="format_list_bulleted" />

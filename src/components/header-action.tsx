@@ -1,6 +1,6 @@
 // AI-generated (Claude)
 // The actions a screen puts at the right of its navigation bar, portable
-// variant (Android). expo-router's Stack.Toolbar draws only bitmap icons on
+// variant (web; Android draws them in Compose, see header-action.android.tsx). expo-router's Stack.Toolbar draws only bitmap icons on
 // Android - no text, no SF Symbols - so they go into the header's
 // right slot instead: a Material Symbol icon button, or a text button for a
 // labelled action such as "Save". iOS keeps the native toolbar item, see

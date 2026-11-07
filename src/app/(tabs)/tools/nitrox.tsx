@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// Nitrox calculator, portable fallback (Android in task 13, and web). iOS
+// Nitrox calculator, portable fallback (web). Android has nitrox.android.tsx. iOS
 // renders a native Form instead - see nitrox.ios.tsx.
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 

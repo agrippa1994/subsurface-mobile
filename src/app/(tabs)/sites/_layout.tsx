@@ -3,10 +3,11 @@
 // opened from there with its editor, SSI sync and trip, the site editor, and the
 // "new site" form.
 import { Stack } from 'expo-router';
+import { STACK_OPTIONS } from '@/constants/navigation';
 
 export default function SitesLayout() {
   return (
-    <Stack screenOptions={{ headerLargeTitle: true }}>
+    <Stack screenOptions={STACK_OPTIONS}>
       <Stack.Screen name="index" options={{ title: 'Sites' }} />
       <Stack.Screen name="[uuid]" options={{ title: 'Site', headerLargeTitle: false }} />
       <Stack.Screen name="ssi-site/[id]" options={{ title: 'SSI site', headerLargeTitle: false }} />

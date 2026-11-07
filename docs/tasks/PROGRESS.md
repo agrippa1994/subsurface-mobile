@@ -17,7 +17,7 @@ criteria** pass. If blocked, leave it unchecked and add a note.
 - [x] 11 — Suunto import + SSRF import/export
 - [~] 12 — Polish + TestFlight beta (polish, robustness, release config done;
       TestFlight upload blocked on an Apple Developer account)
-- [~] 13 — Android parity (app builds and runs on Android; physical-device pass pending)
+- [~] 13 — Android parity (own Compose UI, runs on an emulator; physical-device pass pending)
 - [~] 14 — Dive computer download (done up to a real dive computer, which nobody has tried yet)
 
 ## Notes / blockers
@@ -1349,3 +1349,67 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   core, and a deco ceiling from the drawn profile, under the note that nothing was measured. The
   undo commit's follow-up about 2030 stands, and is why dates stop there. The version was not
   bumped.
+
+- 2026-11-07 — Android has its own UI, in Jetpack Compose through `@expo/ui`. iOS keeps its
+  SwiftUI screens. Until now Android drew the portable React Native variants, which are
+  iOS-shaped cards in iOS colours.
+
+  **How it is split.** A screen with a native UI has `x.ios.tsx`, `x.android.tsx` and the
+  portable `x.tsx`, which is now what web renders. All three read the same screen hook, so
+  nothing but the drawing differs. `src/components/material/` is the kit the Android files are
+  built from (rows, menus, dive row, action sheet, date and time rows). It imports
+  `@expo/ui/jetpack-compose`, so only `.android.tsx` files may import it, the way
+  `dive-row-swift.tsx` works on iOS. Routes with both native variants stay in the iOS bundle's
+  route context, as iOS ones do in the Android bundle; both apps ran with them there.
+
+  **Colour.** `use-theme.android.ts` maps the tokens every screen reads onto the Material You
+  palette, so the React Native screens match Compose and the wallpaper. Warning stays fixed:
+  Material has no such role, and a warning must not change with the wallpaper. Navigation bars
+  and the bottom bar take the same palette (`use-navigation-theme.android.ts`). `material/host.tsx`
+  passes the appearance to every Host, since the activity handles night mode itself and a Host
+  left alone keeps its first palette.
+
+  **Native conventions used.** A floating action button adds a dive. A long press opens a modal
+  bottom sheet where iOS has swipe actions and a context menu. Label-only header actions go in an
+  overflow menu. Undo is a snackbar on the inverse surface. Editors use outlined text fields with
+  supporting text for errors, filter chips, and Material's date and time dialogs. Steppers are
+  tonal icon button pairs, since Android has no stepper and a slider would not land on an exact
+  gradient factor. A section's rows sit in a tonal card, with its title and footnote outside.
+
+  **What can be tapped.** The first version drew every row alike and nobody could tell. Now a value
+  is plain text, an action is in the primary colour with an icon, or the error colour if it
+  destroys something, a row leading elsewhere ends in a chevron, a choice in a dropdown arrow, and
+  a date or time row in its icon. `M3ActionRow` takes `opens` for the second kind.
+
+  **Icons.** Compose draws vector drawables, not the font expo-symbols uses, so
+  `scripts/fetch-material-icons.mjs` writes `assets/material-symbols/` and
+  `material/icon-assets.ts` from `MATERIAL_SYMBOLS`. `icon-assets.test.ts` fails if a symbol has no
+  file. The screens keep naming SF Symbols. Nine symbols the Android side named but the table
+  lacked were added, including `trash`, so these no longer draw as nothing.
+
+  **Still React Native, in the Material palette.** Dive detail, statistics charts and filters, the
+  site list over the map, site detail, download, git sync and SSI, because they hold charts and
+  maps or have no platform split yet. Their form pieces come from `form.android.tsx`, so their
+  fields are Compose. Confirmation dialogs remain `Alert.alert`: native, but AppCompat rather than
+  Material 3. `ChoicePicker` is unchanged.
+
+  Verified: typecheck, lint, vitest (1292 passed, 1 skipped). On a throwaway Pixel 9 Pro AVD (API
+  36, Europe/Vienna), with a copy of `abitofeverything.ssrf`, in light and dark: list, FAB menu,
+  undo and overflow menus, selection, long press sheet, trip, tools, gas menu, planner with its
+  chart, statistics builder and its sectioned menu, settings. Adding a dive: typing, a validation
+  error, a focused field scrolled into view, date and time dialogs giving the right wall clock
+  under a non-UTC zone, Save, snackbar. 186 dives flung through without gaps. A release build,
+  made debuggable so the device tools would drive it, draws the same with its icons. A throwaway
+  iOS 27 simulator on the 1.8.0 dev client still shows the SwiftUI list and Settings.
+
+  **Not verified.** A physical device; golden tests on Android; TalkBack heard; a phone with a
+  soft keyboard over a field, since the emulator kept its hardware keyboard; a tablet's sidebar;
+  a real wallpaper palette beyond the emulator's; site editor, SSI and git screens on screen after
+  the form change; the undo menu's redo; merge. Opening an exported file in desktop Subsurface was
+  not part of this.
+
+  Known and left: switching appearance while the app runs leaves the status bar icons as they were
+  until the next launch. Dropdown menus open from the start of a full-width row. Stars and warning
+  keep fixed colours. The Material Symbols are Apache-2.0, as were the ones expo-symbols already
+  drew; whether that sits well beside GPL-2.0 was not looked into.
+
