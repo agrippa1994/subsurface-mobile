@@ -10,6 +10,7 @@
 import { Stack, usePathname } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { STACK_OPTIONS } from '@/constants/navigation';
 import { DiveListScreen } from '@/features/dives/dive-list-screen';
 import { useSplitLayout } from '@/hooks/use-adaptive-layout';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,12 +53,12 @@ function DivesStack({ split }: { split: boolean }) {
           split && routes[0]?.name === 'index' && routes[1]?.key === route.key;
         return detailRoot
           ? {
-              headerLargeTitle: true,
+              ...STACK_OPTIONS,
               headerBackVisible: false,
               gestureEnabled: false,
               animation: 'none',
             }
-          : { headerLargeTitle: true };
+          : STACK_OPTIONS;
       }}>
       <Stack.Screen name="index" options={{ title: 'Dives' }} />
       <Stack.Screen name="[id]" options={{ title: 'Dive', headerLargeTitle: false }} />

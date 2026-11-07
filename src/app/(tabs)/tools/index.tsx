@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// The Tools tab, portable fallback (Android in task 13, and web). iOS renders
+// The Tools tab, portable fallback (web). Android and iOS have their own, iOS renders
 // a native Form instead - see index.ios.tsx.
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';

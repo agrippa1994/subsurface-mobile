@@ -1,10 +1,11 @@
 // AI-generated (Claude)
 // Stack of the Tools tab: the list of tools, each tool pushed on top of it.
 import { Stack } from 'expo-router';
+import { STACK_OPTIONS } from '@/constants/navigation';
 
 export default function ToolsLayout() {
   return (
-    <Stack screenOptions={{ headerLargeTitle: true }}>
+    <Stack screenOptions={STACK_OPTIONS}>
       <Stack.Screen name="index" options={{ title: 'Tools' }} />
       <Stack.Screen name="nitrox" options={{ title: 'Nitrox', headerLargeTitle: false }} />
       {/* Opaque: the result is pinned right under the bar, not scrolling beneath it. */}

@@ -21,10 +21,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { ToastLayer, ToastSurface } from '@/components/toast-surface';
+import { ToastLayer, ToastSurface, useToastColors } from '@/components/toast-surface';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useHistoryActions } from '@/features/history/use-history-actions';
-import { useTheme } from '@/hooks/use-theme';
 import { subscribeLogbookHistory } from '@/lib/logbook-history';
 import { historyToast, type HistoryToast } from '@/models/logbook-history';
 
@@ -88,7 +87,7 @@ export function UndoToastHost() {
 }
 
 function Toast({ toast, onDismiss }: { toast: HistoryToast; onDismiss: () => void }) {
-  const theme = useTheme();
+  const colors = useToastColors();
   const { step } = useHistoryActions();
   const dragged = useSharedValue(0);
 
@@ -126,7 +125,7 @@ function Toast({ toast, onDismiss }: { toast: HistoryToast; onDismiss: () => voi
               <Text
                 accessibilityRole="alert"
                 numberOfLines={2}
-                style={[styles.message, { color: theme.text }]}>
+                style={[styles.message, { color: colors.text }]}>
                 {toast.message}
               </Text>
               <Pressable
@@ -135,7 +134,7 @@ function Toast({ toast, onDismiss }: { toast: HistoryToast; onDismiss: () => voi
                 hitSlop={Spacing.two}
                 onPress={() => step(toast.action)}
                 style={({ pressed }) => [styles.action, pressed ? styles.pressed : null]}>
-                <Text style={[styles.actionLabel, { color: theme.accent }]}>
+                <Text style={[styles.actionLabel, { color: colors.action }]}>
                   {toast.actionLabel}
                 </Text>
               </Pressable>

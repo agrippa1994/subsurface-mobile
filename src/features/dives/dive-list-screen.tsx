@@ -26,6 +26,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Alert, View } from 'react-native';
 
+import { ADD_DIVE_IN_HEADER, AddDiveButton } from '@/components/add-dive-button';
 import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
 import { DiveSelectionBar } from '@/components/dive-selection-bar';
 import { DiveSelectionRow } from '@/components/dive-selection-row';
@@ -226,6 +227,9 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
         {search ? (
           <Stack.SearchBar
             placeholder="Site, buddy, date"
+            textColor={theme.text}
+            hintTextColor={theme.textSecondary}
+            headerIconColor={theme.text}
             autoCapitalize="none"
             onChangeText={(event) => setQuery(event.nativeEvent.text)}
             onCancelButtonPress={() => setQuery('')}
@@ -311,6 +315,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
         onMergeAction={(dive, action) => diveMerge.confirmMerge(dive.id, action)}
         openDiveId={openDiveId}
       />
+      {!selectedIds && !pane && addAction.items ? <AddDiveButton items={addAction.items} /> : null}
       {selectedIds ? (
         pane ? (
           <DiveSelectionRow {...selectionActions} />
@@ -326,7 +331,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
       actions: selectedIds
         ? [{ label: 'Done', done: true, onPress: () => setSelection(null) }]
         : [
-            addAction,
+            ...(ADD_DIVE_IN_HEADER || pane ? [addAction] : []),
             { label: 'Select', onPress: () => setSelection({ ids: new Set(), of: dives }) },
           ],
     },

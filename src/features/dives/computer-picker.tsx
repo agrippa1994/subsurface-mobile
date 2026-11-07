@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// Switches the dive computer a dive is shown from, portable variant (Android).
+// Switches the dive computer a dive is shown from, portable variant (web). Android has computer-picker.android.tsx.
 // A row that opens the app's list picker. iOS keeps a native menu, see
 // computer-picker.ios.tsx.
 import { useMemo, useState } from 'react';

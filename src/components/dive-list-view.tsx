@@ -1,5 +1,5 @@
 // AI-generated (Claude)
-// The dive list, portable fallback (Android in task 13, and web).
+// The dive list, portable fallback (web). Android has dive-list-view.android.tsx.
 //
 // iOS renders a real SwiftUI List instead - see dive-list-view.ios.tsx. Both
 // variants take the same props and read the same presentation model, so the

@@ -2,7 +2,7 @@
 // Loading / empty / error placeholder, portable fallback.
 //
 // iOS gets the system ContentUnavailableView instead - see status-view.ios.tsx.
-// This variant is what Android (task 13) and web render.
+// This variant is what web renders; Android has status-view.android.tsx.
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SymbolView, type SFSymbol } from '@/components/symbol';

@@ -4,11 +4,12 @@
 import { Stack } from 'expo-router';
 
 import { StatisticsProvider } from '@/features/statistics/statistics-context';
+import { STACK_OPTIONS } from '@/constants/navigation';
 
 export default function StatisticsLayout() {
   return (
     <StatisticsProvider>
-      <Stack screenOptions={{ headerLargeTitle: true }}>
+      <Stack screenOptions={STACK_OPTIONS}>
         <Stack.Screen name="index" options={{ title: 'Statistics' }} />
         <Stack.Screen name="explore" options={{ title: 'Explore', headerLargeTitle: false }} />
         <Stack.Screen name="chart" options={{ title: 'Chart', headerLargeTitle: false }} />

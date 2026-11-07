@@ -11,15 +11,15 @@
 // need no startup step; they are read synchronously as the settings query's
 // initial data.
 import { QueryClientProvider } from '@tanstack/react-query';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusView } from '@/components/status-view';
 import { UndoToastHost } from '@/features/history/undo-toast';
 import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
 import { usePortraitLock } from '@/hooks/use-landscape';
+import { useNavigationTheme, useRootScreenOptions } from '@/hooks/use-navigation-theme';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
 import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
 import { queryClient } from '@/lib/query-client';
@@ -67,7 +67,8 @@ export default function RootLayout() {
 
 /** Everything that needs the query client, which the layout above creates. */
 function AppShell() {
-  const colorScheme = useColorScheme();
+  const navigationTheme = useNavigationTheme();
+  const rootScreenOptions = useRootScreenOptions();
 
   // Mounted here so the logbook starts loading at launch rather than when the
   // first screen that renders dives happens to mount.
@@ -84,8 +85,8 @@ function AppShell() {
   usePortraitLock();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
+    <ThemeProvider value={navigationTheme}>
+      <Stack screenOptions={rootScreenOptions}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ssi-site-picker" options={{ presentation: 'fullScreenModal' }} />
       </Stack>

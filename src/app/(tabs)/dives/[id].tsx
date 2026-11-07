@@ -14,7 +14,7 @@ import { HeaderAction } from '@/components/header-action';
 import { SymbolView, type SymbolViewProps } from '@/components/symbol';
 import { Link, Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Children, Fragment, isValidElement, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PlanNotesView } from '@/components/plan-notes-view';
 import { ProfileChart } from '@/components/profile-chart';
@@ -824,7 +824,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    textTransform: 'uppercase',
+    // Android's section titles are in sentence case, as its settings have them.
+    textTransform: Platform.OS === 'ios' ? 'uppercase' : 'none',
   },
   sectionFooter: {
     fontSize: 13,
