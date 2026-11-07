@@ -61,6 +61,7 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'square.and.arrow.down': 'save',
   'scalemass.fill': 'fitness_center',
   'square.and.arrow.up': 'share',
+  'square.and.pencil': 'edit_square',
   suitcase: 'luggage',
   'text.badge.plus': 'playlist_add',
   star: 'star_outline',

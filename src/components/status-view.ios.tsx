@@ -19,6 +19,8 @@ export function StatusView({
   systemImage,
   actionLabel,
   onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
 }: StatusViewProps) {
   const fallbackSymbol: SFSymbol = kind === 'error' ? 'exclamationmark.triangle' : 'water.waves';
 
@@ -38,7 +40,17 @@ export function StatusView({
           <Button
             label={actionLabel}
             onPress={onAction}
-            modifiers={[buttonStyle('glassProminent'), padding({ bottom: 24 })]}
+            modifiers={[
+              buttonStyle('glassProminent'),
+              padding({ bottom: secondaryActionLabel ? 0 : 24 }),
+            ]}
+          />
+        ) : null}
+        {secondaryActionLabel && onSecondaryAction ? (
+          <Button
+            label={secondaryActionLabel}
+            onPress={onSecondaryAction}
+            modifiers={[buttonStyle('glass'), padding({ bottom: 24 })]}
           />
         ) : null}
       </VStack>

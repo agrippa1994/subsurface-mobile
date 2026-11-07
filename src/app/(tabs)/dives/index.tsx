@@ -23,7 +23,7 @@ import { Alert } from 'react-native';
 
 import { DiveListSkeleton, DiveListView } from '@/components/dive-list-view';
 import { DiveSelectionBar } from '@/components/dive-selection-bar';
-import { HeaderActions } from '@/components/header-action';
+import { HeaderActions, type HeaderActionProps } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
@@ -121,6 +121,20 @@ export default function DivesScreen() {
   );
 
   const openDownload = useCallback(() => router.push('/dives/download'), [router]);
+  const openAdd = useCallback(() => router.push('/dives/add'), [router]);
+  // One button for the ways a dive gets into the log from here, so that the header
+  // keeps room for Select and undo.
+  const addAction = useMemo<HeaderActionProps>(
+    () => ({
+      label: 'Add dive',
+      icon: 'plus',
+      items: [
+        { label: 'Add dive manually', icon: 'square.and.pencil', onPress: openAdd },
+        { label: 'Download from dive computer', icon: 'arrow.down.circle', onPress: openDownload },
+      ],
+    }),
+    [openAdd, openDownload],
+  );
 
   const [query, setQuery] = useState('');
   const searchIndex = useMemo(() => buildDiveSearchIndex(dives), [dives]);
@@ -185,14 +199,16 @@ export default function DivesScreen() {
     return (
       <>
         {/* The last dive may just have been deleted, and that undoes too. */}
-        <HeaderActions actions={[]} history />
+        <HeaderActions actions={[addAction]} history />
         <StatusView
         kind="empty"
         title="No dives yet"
-        description="Download them from your dive computer, or import a Suunto database or a Subsurface logbook."
+        description="Download them from your dive computer, add one by hand, or import a Suunto database or a Subsurface logbook."
         systemImage="water.waves"
         actionLabel="Download from dive computer"
         onAction={openDownload}
+        secondaryActionLabel="Add dive manually"
+        onSecondaryAction={openAdd}
       />
       </>
     );
@@ -227,7 +243,7 @@ export default function DivesScreen() {
           selectedIds
             ? [{ label: 'Done', done: true, onPress: () => setSelection(null) }]
             : [
-                { label: 'Download', icon: 'arrow.down.circle', onPress: openDownload },
+                addAction,
                 { label: 'Select', onPress: () => setSelection({ ids: new Set(), of: dives }) },
               ]
         }

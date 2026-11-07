@@ -17,6 +17,9 @@ export type StatusViewProps = {
   systemImage?: SFSymbol;
   actionLabel?: string;
   onAction?: () => void;
+  /** A second way forward, drawn with less weight than the first. */
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
 };
 
 export function StatusView({
@@ -26,6 +29,8 @@ export function StatusView({
   systemImage,
   actionLabel,
   onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
 }: StatusViewProps) {
   const theme = useTheme();
 
@@ -42,6 +47,11 @@ export function StatusView({
       {actionLabel && onAction ? (
         <Pressable onPress={onAction} accessibilityRole="button">
           <Text style={styles.action}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+      {secondaryActionLabel && onSecondaryAction ? (
+        <Pressable onPress={onSecondaryAction} accessibilityRole="button">
+          <Text style={styles.action}>{secondaryActionLabel}</Text>
         </Pressable>
       ) : null}
     </View>

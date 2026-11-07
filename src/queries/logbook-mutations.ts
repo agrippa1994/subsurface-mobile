@@ -35,6 +35,7 @@ import {
   loadFromXML,
   mergeDives,
   removeDivesFromTrip,
+  addDive,
   savePlan,
   saveToXML,
   ungroupDives,
@@ -50,6 +51,7 @@ import type {
   DiveSiteInput,
   ImportResult,
   LoadResult,
+  NewDiveInput,
   MergeResult,
   PlanInput,
   SavePlanResult,
@@ -97,6 +99,25 @@ export function useUpdateDive(): UseMutationResult<Dive, Error, { id: number; pa
     onSuccess: async () => {
       await invalidateData(client);
       schedulePersist();
+    },
+  });
+}
+
+/**
+ * Adds a dive by hand. Written at once, as the screen it was made on is closing.
+ */
+export function useAddDive(): UseMutationResult<Dive, Error, NewDiveInput> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: NewDiveInput) => {
+      // As an import: it must not land in a logbook still being loaded.
+      await ensureLogbookLoaded(client);
+      return addDive(input);
+    },
+    onSuccess: async () => {
+      await invalidateData(client);
+      schedulePersist();
+      await flush();
     },
   });
 }
