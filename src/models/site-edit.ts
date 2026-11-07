@@ -331,6 +331,12 @@ export function sortSitesByName(sites: readonly DiveSite[]): DiveSite[] {
   return [...sites].sort((a, b) => a.name.localeCompare(b.name) || a.uuid - b.uuid);
 }
 
+/** The sites whose name holds the query; all of them for an empty one. */
+export function searchSites(sites: readonly DiveSite[], query: string): readonly DiveSite[] {
+  const wanted = query.trim().toLowerCase();
+  return wanted === '' ? sites : sites.filter((site) => site.name.toLowerCase().includes(wanted));
+}
+
 // --- Map -------------------------------------------------------------------
 
 /** Where a map opens: a centre in degrees and an Apple Maps zoom level. */

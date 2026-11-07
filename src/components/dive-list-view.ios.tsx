@@ -41,6 +41,7 @@ import {
   disabled,
   font,
   foregroundStyle,
+  listRowBackground,
   listStyle,
   redacted,
   tint,
@@ -55,6 +56,7 @@ export type { DiveListViewProps };
 
 const ACCENT = '#007AFF';
 const DESTRUCTIVE = '#FF3B30';
+const OPEN_ROW = '#007AFF33';
 const LABEL = PlatformColor('label');
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
@@ -92,7 +94,9 @@ export function DiveListView({
   onStartSelecting,
   mergeActions,
   onMergeAction,
+  openDiveId,
 }: DiveListViewProps) {
+  const inSidebar = openDiveId !== undefined;
   return (
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('insetGrouped')]}>
@@ -192,8 +196,11 @@ export function DiveListView({
                           // star images, "20.1 m" over "42:15"); VoiceOver reads the
                           // sentence from the presentation model instead.
                           accessibilityLabel(row.accessibilityLabel),
+                          ...(row.id === openDiveId
+                            ? [listRowBackground(OPEN_ROW), accessibilityAddTraits(['isSelected'])]
+                            : []),
                         ]}>
-                        <DiveRowContent row={row} />
+                        <DiveRowContent row={row} chevron={!inSidebar} />
                       </Button>
                     </ContextMenu.Trigger>
                   </ContextMenu>

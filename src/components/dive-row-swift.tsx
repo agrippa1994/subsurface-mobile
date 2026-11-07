@@ -26,9 +26,18 @@ const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
 /**
  * `selected` is for a list in selection mode: a circle leads the row, and the
- * chevron goes, since a tap now marks the dive rather than opening it.
+ * chevron goes, since a tap now marks the dive rather than opening it. So it does
+ * with `chevron` off, in a sidebar, whose dive opens beside it rather than on top.
  */
-export function DiveRowContent({ row, selected }: { row: DiveRow; selected?: boolean }) {
+export function DiveRowContent({
+  row,
+  selected,
+  chevron = true,
+}: {
+  row: DiveRow;
+  selected?: boolean;
+  chevron?: boolean;
+}) {
   const stars = ratingStars(row.rating).length;
   return (
     <HStack spacing={12} alignment="center" modifiers={[foregroundStyle(LABEL)]}>
@@ -94,7 +103,7 @@ export function DiveRowContent({ row, selected }: { row: DiveRow; selected?: boo
           </Text>
         ) : null}
       </VStack>
-      {selected === undefined ? (
+      {selected === undefined && chevron ? (
         <Image systemName="chevron.right" size={12} color="#C4C4C7" />
       ) : null}
     </HStack>

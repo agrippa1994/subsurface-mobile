@@ -1,6 +1,7 @@
 // AI-generated (Claude)
-// The dive profile, given the whole screen while the device is held in
-// landscape.
+// The dive profile, given the whole screen: on a phone while it is held in
+// landscape, on a tablet from the button on the chart. A tablet in landscape is not
+// a request for anything, and neither is a window dragged wider.
 //
 // It is a modal rather than another route: the native tab bar belongs to the
 // (tabs) layout and cannot be hidden from a screen pushed inside it, and a
@@ -12,12 +13,14 @@
 // GestureHandlerRootView inside it, and the safe area insets have to be measured
 // there rather than inherited from the portrait window behind it.
 import { useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProfileChart, type ProfileChartProps } from '@/components/profile-chart';
+import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
+import { IS_TABLET } from '@/hooks/use-adaptive-layout';
 import { useLandscapeCapable } from '@/hooks/use-landscape';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -36,24 +39,34 @@ export type ProfileFullscreenProps = Omit<ProfileChartProps, 'height'> & {
   accessory?: React.ReactNode;
   /** Changing it starts the chart afresh, as when the computer changes. */
   chartKey?: React.Key;
+  /** Tablet only: whether the button on the chart has opened it. */
+  expanded: boolean;
+  onClose: () => void;
 };
 
-export function ProfileFullscreen({ title, accessory, chartKey, ...chart }: ProfileFullscreenProps) {
+export function ProfileFullscreen({
+  title,
+  accessory,
+  chartKey,
+  expanded,
+  onClose,
+  ...chart
+}: ProfileFullscreenProps) {
   const landscape = useLandscapeCapable();
   const theme = useTheme();
   const [available, setAvailable] = useState(0);
 
   return (
     <Modal
-      visible={landscape}
+      visible={IS_TABLET ? expanded : landscape}
       animationType="fade"
       transparent={false}
       statusBarTranslucent
       // Without these the modal itself stays portrait while the window rotates.
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
-      // Rotating back is the only way out, and the OS handles that; this is here
-      // for the Android back button.
-      onRequestClose={() => {}}>
+      // On a phone rotating back is the only way out, and the OS handles that, so
+      // the Android back button does nothing there.
+      onRequestClose={IS_TABLET ? onClose : () => {}}>
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.background }}>
           <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
@@ -62,6 +75,15 @@ export function ProfileFullscreen({ title, accessory, chartKey, ...chart }: Prof
                 {title}
               </Text>
               {accessory}
+              {IS_TABLET ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close full screen profile"
+                  hitSlop={Spacing.two}
+                  onPress={onClose}>
+                  <SymbolView name="xmark.circle.fill" size={30} tintColor={theme.textSecondary} />
+                </Pressable>
+              ) : null}
             </View>
             <View
               style={styles.body}

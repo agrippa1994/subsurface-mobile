@@ -1,24 +1,29 @@
 // AI-generated (Claude)
-// Dive sites: a map or a list of them, the way into one site, and the way to a
-// new site.
+// Dive sites: a map with a list of them in a sheet over it, the way into one site,
+// and the way to a new site.
 //
-// With a map (Apple Maps on iOS, MapLibre on Android) the tab opens on it and offers the list as a toggle in the navigation
-// bar. Without one it only ever shows the list. This screen only picks the body and owns the header; the map and the
-// list are their own components.
+// With a map (Apple Maps on iOS, MapLibre on Android) the list and the map are one
+// screen, as in Maps, and the sheet's search narrows both. Without one it only ever
+// shows the list. This screen only picks the body and owns the header; the map, the
+// sheet and the list are their own components.
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Platform, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Keyboard, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { HeaderIconButton } from '@/components/header-icon-button';
+import { MapSheet, type MapSheetHandle } from '@/components/map-sheet';
+import { SearchField } from '@/components/search-field';
 import { MAPS_AVAILABLE } from '@/components/site-map';
 import { SitesMap } from '@/components/sites-map';
 import { useHistoryMenu } from '@/features/history/use-history-actions';
 import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
 import { StatusView } from '@/components/status-view';
-import { SitesList } from '@/features/sites/sites-list';
+import { Spacing } from '@/constants/theme';
+import { SiteRowView, SitesList } from '@/features/sites/sites-list';
+import { useTheme } from '@/hooks/use-theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { createMapViewport } from '@/models/map-viewport';
-import { NEARBY_ZOOM } from '@/models/site-edit';
+import { NEARBY_ZOOM, searchSites, sortSitesByName, toSiteRow } from '@/models/site-edit';
 import { useLogbook, useSites } from '@/queries/logbook';
 
 export default function SitesScreen() {
@@ -27,9 +32,12 @@ export default function SitesScreen() {
   const router = useRouter();
   const historyMenu = useHistoryMenu();
   const [source, setSource] = useState<'logbook' | 'ssi'>('logbook');
-  const [mode, setMode] = useState<'map' | 'list'>(MAPS_AVAILABLE ? 'map' : 'list');
-  // Owned here so the viewport survives switching between both kinds of site
-  // and between the map and the list.
+  const theme = useTheme();
+  const [query, setQuery] = useState('');
+  const sheet = useRef<MapSheetHandle>(null);
+  const matches = useMemo(() => searchSites(sites, query), [sites, query]);
+  const rows = useMemo(() => sortSitesByName(matches).map(toSiteRow), [matches]);
+  // Owned here so the viewport survives switching between both kinds of site.
   const [viewport] = useState(createMapViewport);
   const { locate, locating, locationGranted } = useUserLocation();
 
@@ -40,7 +48,11 @@ export default function SitesScreen() {
   };
 
   const openNew = () => router.push('/sites/new');
-  const openSite = (uuid: number) => router.push(`/sites/${uuid}`);
+  const openSite = (uuid: number) => {
+    // The sheet's search field would otherwise bring it back over the site's screen.
+    Keyboard.dismiss();
+    router.push(`/sites/${uuid}`);
+  };
 
   // Native bar button items, so New gets the system add button (liquid glass
   // on iOS 26) instead of a custom header view.
@@ -50,8 +62,8 @@ export default function SitesScreen() {
       <Stack.Screen
         options={{
           title: 'Sites',
-          headerTransparent: mode === 'map',
-          headerLargeTitle: mode === 'list',
+          headerTransparent: MAPS_AVAILABLE,
+          headerLargeTitle: !MAPS_AVAILABLE,
           headerSearchBarOptions: undefined,
           unstable_headerLeftItems: undefined,
         }}
@@ -80,15 +92,10 @@ export default function SitesScreen() {
           ) : null}
         </Stack.Toolbar.Menu>
         <Stack.Toolbar.Button
-          hidden={mode !== 'map' || sites.length === 0}
+          hidden={!MAPS_AVAILABLE || sites.length === 0}
           icon={locating ? 'location.fill' : 'location'}
           accessibilityLabel="Go to my location"
           onPress={() => void goToMyLocation()}
-        />
-        <Stack.Toolbar.Button
-          icon={mode === 'map' ? 'list.bullet' : 'map'}
-          accessibilityLabel={mode === 'map' ? 'Show as list' : 'Show on map'}
-          onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
         />
         <Stack.Toolbar.Button icon="plus" accessibilityLabel="New dive site" onPress={openNew} />
       </Stack.Toolbar>
@@ -100,18 +107,11 @@ export default function SitesScreen() {
       options={{
         headerRight: () => (
           <View style={{ flexDirection: 'row' }}>
-            {MAPS_AVAILABLE && mode === 'map' && sites.length > 0 ? (
+            {MAPS_AVAILABLE && sites.length > 0 ? (
               <HeaderIconButton
                 label="Go to my location"
                 icon={locating ? 'location.fill' : 'location'}
                 onPress={() => void goToMyLocation()}
-              />
-            ) : null}
-            {MAPS_AVAILABLE ? (
-              <HeaderIconButton
-                label={mode === 'map' ? 'Show as list' : 'Show on map'}
-                icon={mode === 'map' ? 'list.bullet' : 'map'}
-                onPress={() => setMode(mode === 'map' ? 'list' : 'map')}
               />
             ) : null}
             {historyMenu ? (
@@ -159,13 +159,37 @@ export default function SitesScreen() {
       actionLabel="New site"
       onAction={openNew}
     />
-  ) : mode === 'map' ? (
-    <SitesMap
-      sites={sites}
-      onSelectSite={openSite}
-      viewport={viewport}
-      showsUserLocation={locationGranted}
-    />
+  ) : MAPS_AVAILABLE ? (
+    <View style={styles.mapArea}>
+      <SitesMap
+        sites={matches}
+        onSelectSite={openSite}
+        viewport={viewport}
+        showsUserLocation={locationGranted}
+      />
+      <MapSheet
+        ref={sheet}
+        header={
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search dive sites"
+            onFocus={() => sheet.current?.expand()}
+            tint={`${theme.textSecondary}26`}
+          />
+        }
+        data={rows}
+        keyExtractor={(row) => String(row.uuid)}
+        renderItem={({ item }) => (
+          <SiteRowView row={item} onPress={() => openSite(item.uuid)} />
+        )}
+        ListEmptyComponent={
+          <Text style={[styles.noMatches, { color: theme.textSecondary }]}>
+            No site matches this search.
+          </Text>
+        }
+      />
+    </View>
   ) : (
     <SitesList sites={sites} onSelectSite={openSite} />
   );
@@ -185,3 +209,14 @@ export default function SitesScreen() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  mapArea: {
+    flex: 1,
+  },
+  noMatches: {
+    fontSize: 15,
+    textAlign: 'center',
+    padding: Spacing.four,
+  },
+});

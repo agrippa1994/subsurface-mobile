@@ -24,12 +24,15 @@ export function DiveRowView({
   onPress,
   onLongPress,
   selected,
+  open = false,
 }: {
   row: DiveRow;
   onPress: () => void;
   onLongPress?: () => void;
   /** Whether the list's selection holds this row; absent outside selection mode. */
   selected?: boolean;
+  /** Whether this dive is the one open beside the list, in a sidebar. */
+  open?: boolean;
 }) {
   const theme = useTheme();
   const subtitle = [row.subtitle, row.planned ? 'planned' : '', row.invalid ? 'invalid' : ''].filter(Boolean).join('  ');
@@ -43,7 +46,7 @@ export function DiveRowView({
       onLongPress={onLongPress}
       style={({ pressed }) => [
         diveRowStyles.row,
-        pressed ? { backgroundColor: theme.backgroundSelected } : null,
+        pressed || open ? { backgroundColor: theme.backgroundSelected } : null,
       ]}
     >
       {selected !== undefined ? (

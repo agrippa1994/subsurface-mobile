@@ -50,6 +50,11 @@ export type DiveListViewProps = {
   /** The merges a dive offers (models/dive-merge.ts). The screen confirms. */
   mergeActions: (dive: DiveSummary) => MergeAction[];
   onMergeAction: (dive: DiveSummary, action: MergeAction) => void;
+  /**
+   * In a sidebar: the dive open beside the list, or null with none open. Absent
+   * when a dive opens on top of the list instead.
+   */
+  openDiveId?: number | null;
 };
 
 export function DiveListView({
@@ -66,6 +71,7 @@ export function DiveListView({
   onStartSelecting,
   mergeActions,
   onMergeAction,
+  openDiveId,
 }: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
@@ -112,6 +118,7 @@ export function DiveListView({
         <DiveRowView
           row={toDiveRow(item, unitSystem)}
           selected={selectedIds ? selectedIds.has(item.id) : undefined}
+          open={item.id === openDiveId}
           onPress={() => (selectedIds ? onToggleDive(item.id) : onSelectDive(item.id))}
           onLongPress={
             selectedIds
