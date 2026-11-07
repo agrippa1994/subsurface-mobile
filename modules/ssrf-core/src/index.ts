@@ -42,6 +42,8 @@ import {
   type MergePreview,
   type MergeResult,
   type SaveResult,
+  type StatsChartRequest,
+  type StatsChartResult,
   type StatsFilter,
   type StatsSummary,
   type RemoveFromTripResult,
@@ -214,6 +216,15 @@ export function getProfile(id: number, dcIndex = 0, gf?: GradientFactors): PlotI
  */
 export function getStatistics(filter?: StatsFilter): StatsSummary {
   return call<StatsSummary>('getStatistics', filter ? { filter } : {});
+}
+
+/**
+ * One chart of the configurable statistics, and what its choices allow. The variables,
+ * binners, operations and valid combinations are the desktop's own, compiled from
+ * stats/statsvariables.cpp and stats/statsstate.cpp; see cpp/API.md.
+ */
+export function statsChart(request: StatsChartRequest = {}): StatsChartResult {
+  return call<StatsChartResult>('statsChart', request);
 }
 
 /**

@@ -39,6 +39,8 @@ import type {
   SavePlanResult,
   PlotInfo,
   SaveResult,
+  StatsChartRequest,
+  StatsChartResult,
   StatsFilter,
   StatsSummary,
   RemoveFromTripResult,
@@ -231,6 +233,10 @@ export class SsrfHost {
 
   getStatistics(filter?: StatsFilter): Promise<StatsSummary> {
     return this.call<StatsSummary>('getStatistics', filter ? { filter } : {});
+  }
+
+  statsChart(request: StatsChartRequest = {}): Promise<StatsChartResult> {
+    return this.call<StatsChartResult>('statsChart', request);
   }
 
   nitroxPlan(input: NitroxPlanInput): Promise<NitroxPlan> {

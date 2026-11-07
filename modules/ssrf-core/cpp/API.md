@@ -80,6 +80,7 @@ rendered metric or imperial.
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
+| `statsChart` | `{ config?, change?, filter?, imperial?, plot? }` | `{ config, options, dives, chart? }` |
 | `nitroxPlan` | `{ depthMm, o2Permille, maxPo2Mbar?, salinity?, gfLow?, gfHigh? }` | `NitroxPlan` |
 | `planDive` | `PlanInput` | `PlanResult` |
 | `savePlan` | `PlanInput` | `{ id, dives }` |
@@ -221,6 +222,18 @@ directly and avoids the copy.
 - **`plannerOptions`** is `default_tank_info_table()`, sizes in ml at the working
   pressure. **`plannerSurface`** is `altitude_to_pressure()` and
   `pressure_to_altitude()`, clamped to 689-1100 mbar and sea level.
+- **`statsChart`** is the desktop's chart configurator. `config` is a `StatsState` as JSON
+  (variables by name, binners by index into their list, enums by name, so reordering
+  upstream does not move a saved chart); a partial or unknown one completes as `StatsState`
+  would. It is replayed through `var1Changed()` and friends, then `change`, one user choice,
+  is applied, so `validate()` is what constrains the choices. `config` in the reply is what
+  to persist; it replays to itself. `options` is `getUIState()`: only what these choices
+  allow. `chart` is the data half of `StatsView::plot*()`: `family` (`bar`, `pie`, `box`,
+  `scatter`, or `empty` when nothing is left to draw), axes, and items with the ids of their
+  dives, in the unit `imperial` asks for, which also picks the binners. `filter` is
+  `getStatistics`' and selects dives the same way; `excludePlanned` applies to both. The
+  regression is `linear_regression()` and is null when upstream draws none, because the fit
+  is not significant. See `cpp/bindings/stats-chart.cpp`.
 - **`getStatistics`** marks the dives matching `filter` as `selected` (that is
   the input the core's statistics code takes) and then calls
   `calculate_stats_summary(true)` and `calculate_stats_selected()`. The
