@@ -267,7 +267,7 @@ function validateCylinderDraft(draft: CylinderDraft, system: UnitSystem): string
  * untouched field untouched by construction.
  */
 export function buildCylinderPatches(
-  dive: Dive,
+  dive: Pick<Dive, 'cylinders'>,
   drafts: readonly CylinderDraft[],
   system: UnitSystem
 ): CylinderPatch[] | null {

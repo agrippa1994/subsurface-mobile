@@ -2,29 +2,28 @@
 // The dive editor: the fields a diver fills in after the dive.
 //
 // Depth, duration and the samples come from the dive computer and are not
-// editable here - the core treats them as recorded data. What is editable is
-// what the diver knows: site, buddies, tags, gear, conditions, notes.
+// editable here, unless the dive was added by hand, when they are all there is.
+// The rest is what the diver knows: date, temperatures, site, buddies, tags,
+// gear, conditions, notes.
 //
 // The form holds the draft and is turned into the smallest possible
-// `updateDive` patch on save (models/dive-edit.ts): the form hands over full
-// values, so the diff against the loaded dive is what keeps a field nobody
-// touched from being written back.
+// `updateDive` patch on save (models/dive-edit.ts, models/dive-basics.ts): the
+// form hands over full values, so the diff against the loaded dive is what keeps
+// a field nobody touched from being written back.
 
-import { useForm } from '@tanstack/react-form';
 import { Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { HeaderAction } from '@/components/header-action';
-import { fieldError, FormButtonRow, FormField, FormSection, RatingField } from '@/components/form';
-import { NameField } from '@/components/name-field';
+import { FormButtonRow, FormSection } from '@/components/form';
 import { StatusView } from '@/components/status-view';
-import { SuggestField, SuggestionChips } from '@/components/suggest-field';
-import { Spacing } from '@/constants/theme';
-import { CylinderEditor } from '@/features/dives/cylinder-editor';
-import { PreviousDiveCard } from '@/features/dives/previous-dive-card';
-import { SitePicker } from '@/features/dives/site-picker';
-import { WeightEditor } from '@/features/dives/weight-editor';
+import {
+  DiveFormSections,
+  diveFormStyles,
+  useDiveForm,
+  type DiveFormValues,
+} from '@/features/dives/dive-form';
 import { useTheme } from '@/hooks/use-theme';
 import { useLastRestore, useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
 import { operationSucceeded } from '@/lib/haptics';
@@ -32,54 +31,26 @@ import { rememberScreenOfLastChange } from '@/lib/logbook-history';
 import { diveScreenOfEditor } from '@/models/logbook-history';
 import { flush } from '@/lib/logbook-persist';
 import { previewDive } from '../../../../../modules/ssrf-core/src';
-import type { Dive, DivePatch } from '@/models';
-import { formatSac } from '@/models';
-import {
-  copyCylinderSetup,
-  copyWeights,
-  findPreviousDive,
-  mergeNames,
-} from '@/models/copy-previous';
+import type { Dive, DivePatch, UnitSystem } from '@/models';
 import {
   buildCylinderPatches,
   cylinderDraftsFrom,
   validateCylinderDrafts,
-  type CylinderDraft,
 } from '@/models/cylinder-edit';
 import {
-  buildDivePatch,
-  harvestCylinderDescriptions,
-  harvestNames,
-  harvestSuits,
-  harvestTags,
-  harvestWeightDescriptions,
-  diveDraftFrom,
-  isEmptyPatch,
-  parseTagInput,
-  type DiveDraft,
-} from '@/models/dive-edit';
-import {
-  buildWeightPatches,
-  validateWeightDrafts,
-  weightDraftsFrom,
-  type WeightDraft,
-} from '@/models/weight-edit';
+  buildDiveBasicsPatch,
+  diveBasicsDraftFrom,
+  isManualDive,
+  localNowWhen,
+  validateDiveBasics,
+  type DiveBasicsRules,
+} from '@/models/dive-basics';
+import { buildDivePatch, diveDraftFrom, isEmptyPatch } from '@/models/dive-edit';
+import { buildWeightPatches, weightDraftsFrom } from '@/models/weight-edit';
 import { describeError, formatErrorLine } from '@/models/errors';
-import { useDive, useDives, useSites } from '@/queries/logbook';
+import { useDive } from '@/queries/logbook';
 import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
 import { useUnitSystem } from '@/queries/settings';
-
-/**
- * The draft, plus the things that are input rather than data: the raw tag text
- * (so a trailing comma survives being typed) and the cylinder and weight rows,
- * which carry the identity a row needs to survive a re-render (the drafts'
- * `key`).
- */
-type DiveFormValues = DiveDraft & {
-  tagText: string;
-  cylinders: CylinderDraft[];
-  weights: WeightDraft[];
-};
 
 export default function DiveEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -114,49 +85,40 @@ export default function DiveEditScreen() {
   return <DiveEditForm key={`${diveQuery.data.id}-${lastRestore}`} dive={diveQuery.data} unitSystem={unitSystem} />;
 }
 
-function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType<typeof useUnitSystem> }) {
+function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: UnitSystem }) {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
-  const { data: dives = [] } = useDives();
-  const { data: sites = [] } = useSites();
   const updateDive = useUpdateDive();
   const deleteDive = useDeleteDive();
-  const [pickingSite, setPickingSite] = useState(false);
 
-  const names = useMemo(() => harvestNames(dives), [dives]);
-  const knownTags = useMemo(() => harvestTags(dives), [dives]);
-  const knownSuits = useMemo(() => harvestSuits(dives), [dives]);
-  const knownCylinders = useMemo(() => harvestCylinderDescriptions(dives), [dives]);
-  const knownWeights = useMemo(() => harvestWeightDescriptions(dives), [dives]);
+  const [rules] = useState<DiveBasicsRules>(() => ({
+    profileEditable: isManualDive(dive),
+    allowFuture: dive.planned,
+    now: localNowWhen(Date.now(), new Date().getTimezoneOffset()),
+    seed: diveBasicsDraftFrom(dive, unitSystem),
+  }));
 
-  // The list rows carry no cylinders or weights, so the previous dive is read
-  // in full. NaN keeps the query disabled for the first dive in the log.
-  const previousSummary = useMemo(() => findPreviousDive(dives, dive), [dives, dive]);
-  const { data: previous } = useDive(previousSummary?.id ?? Number.NaN);
-
-  const form = useForm({
-    defaultValues: {
+  const initial = useMemo<DiveFormValues>(
+    () => ({
       ...diveDraftFrom(dive),
+      ...diveBasicsDraftFrom(dive, unitSystem),
       tagText: dive.tags.join(', '),
       cylinders: cylinderDraftsFrom(dive, unitSystem),
       weights: weightDraftsFrom(dive, unitSystem),
-    } as DiveFormValues,
-    validators: {
-      // The per-row messages are already on screen in red next to the fields
-      // they belong to; this is the line that says why Save did nothing.
-      onSubmit: ({ value }) => {
-        if (Object.keys(validateCylinderDrafts(value.cylinders, unitSystem)).length > 0) {
-          return 'Fix the cylinder fields marked in red before saving.';
-        }
-        if (Object.keys(validateWeightDrafts(value.weights, unitSystem)).length > 0) {
-          return 'Fix the weight fields marked in red before saving.';
-        }
-        return undefined;
-      },
-    },
-    onSubmit: async ({ value }) => {
-      const patch: DivePatch = buildDivePatch(dive, value);
+    }),
+    [dive, unitSystem],
+  );
+
+  const form = useDiveForm({
+    initial,
+    rules,
+    unitSystem,
+    onSave: async (value) => {
+      const patch: DivePatch = {
+        ...buildDivePatch(dive, value),
+        ...buildDiveBasicsPatch(dive, value, unitSystem),
+      };
       // `buildCylinderPatches` throws if the rows were reordered, which the
       // editor cannot do - so it is a bug rather than a validation failure, and
       // it is left to reach the form's error state as itself. The same holds
@@ -196,8 +158,9 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
   return (
     <ScrollView
       style={{ backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={diveFormStyles.content}
       contentInsetAdjustmentBehavior="automatic"
+      automaticallyAdjustKeyboardInsets
       keyboardDismissMode="on-drag">
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
@@ -215,219 +178,27 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
         )}
       </form.Subscribe>
 
-      <form.Subscribe selector={(state) => state.errorMap.onSubmit}>
-        {(submitError) => {
-          const message = fieldError([submitError, updateDive.error, deleteDive.error]);
-          return message ? (
-            <Text style={[styles.error, { color: theme.danger }]}>{message}</Text>
-          ) : null;
-        }}
-      </form.Subscribe>
-
-      {previous ? (
-        <PreviousDiveCard
-          previous={previous}
-          unitSystem={unitSystem}
-          onCopySite={() => form.setFieldValue('siteUuid', previous.siteUuid)}
-          onCopyBuddies={() =>
-            form.setFieldValue('buddy', (buddy) => mergeNames(buddy, previous.buddy))
-          }
-          onCopyDiveguide={() =>
-            form.setFieldValue('diveguide', (guide) => mergeNames(guide, previous.diveguide))
-          }
-          onCopySuit={() => form.setFieldValue('suit', previous.suit.trim())}
-          onCopyCylinders={() =>
-            form.setFieldValue('cylinders', (cylinders) =>
-              copyCylinderSetup(cylinders, previous.cylinders, unitSystem)
-            )
-          }
-          onCopyWeights={() =>
-            form.setFieldValue('weights', (weights) =>
-              copyWeights(weights, previous.weightsystems, unitSystem)
-            )
-          }
-        />
-      ) : null}
-
-      <FormSection title="Place">
-        <form.Field name="siteUuid">
-          {(field) => (
-            <>
-              <FormButtonRow
-                label="Dive site"
-                value={
-                  field.state.value === 0
-                    ? 'None'
-                    : sites.find((site) => site.uuid === field.state.value)?.name || 'Unnamed site'
-                }
-                onPress={() => setPickingSite(true)}
-              />
-              <SitePicker
-                visible={pickingSite}
-                selectedUuid={field.state.value}
-                onSelect={(siteUuid) => {
-                  field.handleChange(siteUuid);
-                  setPickingSite(false);
-                }}
-                onClose={() => setPickingSite(false)}
-              />
-            </>
-          )}
-        </form.Field>
-      </FormSection>
-
-      <FormSection title="People" footer="Separate names with commas.">
-        <form.Field name="buddy">
-          {(field) => (
-            <NameField
-              label="Buddy"
-              value={field.state.value}
-              corpus={names}
-              placeholder="Alice, Bob"
-              onChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-        <form.Field name="diveguide">
-          {(field) => (
-            <NameField
-              label="Divemaster"
-              value={field.state.value}
-              corpus={names}
-              onChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-
-      <FormSection title="Conditions">
-        <form.Field name="rating">
-          {(field) => (
-            <RatingField label="Rating" value={field.state.value} onChange={field.handleChange} />
-          )}
-        </form.Field>
-        <form.Field name="visibility">
-          {(field) => (
-            <RatingField
-              label="Visibility"
-              value={field.state.value}
-              onChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-        <form.Field name="suit">
-          {(field) => (
-            <SuggestField
-              label="Suit"
-              value={field.state.value}
-              corpus={knownSuits}
-              placeholder="5mm wetsuit"
-              onChange={field.handleChange}
-            />
-          )}
-        </form.Field>
-      </FormSection>
-
-      <form.Field name="cylinders">
-        {(field) => (
-          <CylinderEditor
-            drafts={field.state.value}
-            errors={validateCylinderDrafts(field.state.value, unitSystem)}
-            descriptions={knownCylinders}
-            unitSystem={unitSystem}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="weights">
-        {(field) => (
-          <WeightEditor
-            drafts={field.state.value}
-            errors={validateWeightDrafts(field.state.value, unitSystem)}
-            descriptions={knownWeights}
-            unitSystem={unitSystem}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-
-      <FormSection
-        title="Gas consumption"
-        footer="Surface air consumption, computed from the cylinder sizes and the start and end pressures.">
-        <form.Subscribe selector={(state) => state.values.cylinders}>
-          {(cylinders) => (
-            <View style={styles.sacRow}>
-              <Text style={[styles.sacLabel, { color: theme.text }]}>SAC</Text>
-              <Text style={[styles.sacValue, { color: theme.text }]}>
-                {(() => {
-                  const sac = previewSac(dive, cylinders, unitSystem);
-                  return sac > 0 ? formatSac(sac, unitSystem) : 'Not enough data';
-                })()}
-              </Text>
-            </View>
-          )}
-        </form.Subscribe>
-      </FormSection>
-
-      <FormSection title="Tags">
-        <form.Subscribe selector={(state) => state.values.tags}>
-          {(tags) => (
-            <>
-              <form.Field name="tagText">
-                {(field) => (
-                  <FormField
-                    label="Tags"
-                    value={field.state.value}
-                    onChangeText={(text) => {
-                      field.handleChange(text);
-                      form.setFieldValue('tags', parseTagInput(text));
-                    }}
-                    placeholder="boat, deep, night"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                )}
-              </form.Field>
-              <SuggestionChips
-                suggestions={knownTags.filter((tag) => !tags.includes(tag)).slice(0, 6)}
-                onSelect={(tag) => {
-                  const next = [...tags, tag];
-                  form.setFieldValue('tags', next);
-                  form.setFieldValue('tagText', next.join(', '));
-                }}
-              />
-            </>
-          )}
-        </form.Subscribe>
-      </FormSection>
-
-      <FormSection title="Notes">
-        <form.Field name="notes">
-          {(field) => (
-            <FormField
-              label="Notes"
-              value={field.state.value}
-              onChangeText={field.handleChange}
-              onBlur={field.handleBlur}
-              multiline
-            />
-          )}
-        </form.Field>
-      </FormSection>
+      <DiveFormSections
+        form={form}
+        self={dive}
+        rules={rules}
+        unitSystem={unitSystem}
+        previewSac={(values) => previewSac(dive, values, unitSystem, rules)}
+        errors={[updateDive.error, deleteDive.error]}
+      />
 
       <FormSection>
         <FormButtonRow label="Delete dive" onPress={onDelete} destructive />
       </FormSection>
 
-      <View style={styles.footerSpace} />
+      <View style={diveFormStyles.footerSpace} />
     </ScrollView>
   );
 }
 
 /**
- * SAC as the core would compute it once these cylinders are saved. It comes
- * from the module rather than from arithmetic here because it depends on gas
+ * SAC as the core would compute it once these values are saved. It comes from
+ * the module rather than from arithmetic here because it depends on gas
  * compressibility and the dive's mean depth (`calculate_sac` in
  * core/divelist.cpp) - a second implementation could disagree with the file.
  *
@@ -436,44 +207,26 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: ReturnType
  */
 function previewSac(
   dive: Dive,
-  cylinders: readonly CylinderDraft[],
-  unitSystem: ReturnType<typeof useUnitSystem>
+  values: DiveFormValues,
+  unitSystem: UnitSystem,
+  rules: DiveBasicsRules,
 ): number {
-  if (Object.keys(validateCylinderDrafts(cylinders, unitSystem)).length > 0) {
+  if (
+    Object.keys(validateCylinderDrafts(values.cylinders, unitSystem)).length > 0 ||
+    Object.keys(validateDiveBasics(values, unitSystem, rules)).length > 0
+  ) {
     return 0;
   }
   try {
-    const patches = buildCylinderPatches(dive, cylinders, unitSystem);
-    return patches === null ? dive.sac : previewDive(dive.id, { cylinders: patches }).sac;
+    const patch: DivePatch = buildDiveBasicsPatch(dive, values, unitSystem);
+    const cylinders = buildCylinderPatches(dive, values.cylinders, unitSystem);
+    if (cylinders !== null) {
+      patch.cylinders = cylinders;
+    }
+    return isEmptyPatch(patch) ? dive.sac : previewDive(dive.id, patch).sac;
   } catch {
     // A preview is a convenience; a failure here must not stop the editor.
     // Whatever is wrong will be reported when the save attempts it for real.
     return 0;
   }
 }
-
-const styles = StyleSheet.create({
-  content: {
-    padding: Spacing.three,
-    gap: Spacing.four,
-  },
-  error: {
-    fontSize: 15,
-  },
-  sacRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  sacLabel: {
-    fontSize: 17,
-  },
-  sacValue: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  footerSpace: {
-    height: Spacing.six,
-  },
-});
