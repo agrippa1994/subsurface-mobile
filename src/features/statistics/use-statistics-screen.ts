@@ -5,13 +5,18 @@
 // populate the year picker, and one for the filter in force. The filtered
 // numbers are never derived from the unfiltered ones - the module recomputes
 // them, which is what keeps them identical to desktop's.
+//
+// The filter is the stack's (statistics-context.tsx), so that a chart answers to the
+// same one.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { DiveSite, StatsSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { filterYears, isFiltered, NO_FILTER, type StatsFilterInput } from '@/models/statistics';
 import { useDives, useSites, useStatistics } from '@/queries/logbook';
+
+import { useStatisticsContext } from './statistics-context';
 
 export type StatisticsScreen = {
   /** null while the module could not answer; `error` says why. */
@@ -27,13 +32,16 @@ export type StatisticsScreen = {
   sites: DiveSite[];
   setYear: (year: number | null) => void;
   setSite: (uuid: number | null) => void;
+  /** Planned dives in the log. They count, as on desktop, unless left out. */
+  plannedDives: number;
+  setExcludePlanned: (exclude: boolean) => void;
   clearFilter: () => void;
   /** True when the log itself is empty, as opposed to the filter matching nothing. */
   logEmpty: boolean;
 };
 
 export function useStatisticsScreen(): StatisticsScreen {
-  const [filter, setFilter] = useState<StatsFilterInput>(NO_FILTER);
+  const { filter, setFilter } = useStatisticsContext();
   const active = isFiltered(filter);
 
   const { data: dives = [] } = useDives();
@@ -64,7 +72,9 @@ export function useStatisticsScreen(): StatisticsScreen {
     sites: sitesWithDives,
     setYear: (year) => setFilter((current) => ({ ...current, year })),
     setSite: (siteUuid) => setFilter((current) => ({ ...current, siteUuid })),
-    clearFilter: () => setFilter(NO_FILTER),
+    plannedDives: dives.filter((dive) => dive.planned).length,
+    setExcludePlanned: (excludePlanned) => setFilter((current) => ({ ...current, excludePlanned })),
+    clearFilter: () => setFilter(() => NO_FILTER),
     logEmpty: dives.length === 0,
   };
 }

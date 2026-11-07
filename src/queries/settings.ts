@@ -62,9 +62,18 @@ export function useSettings(): Settings {
   return data;
 }
 
-/** Convenience selector: the unit system every formatter takes. */
+/**
+ * Convenience selector: the unit system every formatter takes. Selected, so that a
+ * preference nothing here reads (the last chart, say) does not re-render a whole list.
+ */
 export function useUnitSystem(): UnitSystem {
-  return useSettings().unitSystem;
+  const { data } = useQuery({
+    queryKey: queryKeys.settings(),
+    queryFn: readSettings,
+    initialData: readSettings,
+    select: (settings) => settings.unitSystem,
+  });
+  return data;
 }
 
 /**

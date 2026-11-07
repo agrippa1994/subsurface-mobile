@@ -10,6 +10,8 @@ import {
   parsePlannerSettings,
   type PlannerSettings,
 } from './planner-settings';
+import { parseStatsConfig } from './stats-chart';
+import type { StatsChartConfig } from './index';
 import type { UnitSystem } from './units';
 
 export type Settings = {
@@ -28,6 +30,8 @@ export type Settings = {
   syncDiveComputerTime: boolean;
   /** What the dive planner's settings screen holds. */
   planner: PlannerSettings;
+  /** The last chart of the configurable statistics. Null until there has been one. */
+  statsChart: StatsChartConfig | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +47,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Off, as in the legacy app: this changes something on the dive computer.
   syncDiveComputerTime: false,
   planner: DEFAULT_PLANNER_SETTINGS,
+  statsChart: null,
 };
 
 /**
@@ -100,6 +105,7 @@ export function parseSettings(json: string): Settings {
       diveComputers: parseRememberedComputers(raw?.diveComputers),
       syncDiveComputerTime: flag(raw?.syncDiveComputerTime, DEFAULT_SETTINGS.syncDiveComputerTime),
       planner: parsePlannerSettings(raw?.planner),
+      statsChart: parseStatsConfig(raw?.statsChart),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -116,5 +122,6 @@ export function serializeSettings(settings: Settings): string {
     diveComputers: settings.diveComputers,
     syncDiveComputerTime: settings.syncDiveComputerTime,
     planner: settings.planner,
+    statsChart: settings.statsChart,
   });
 }

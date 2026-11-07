@@ -1,0 +1,6 @@
+// AI-generated (Claude)
+//
+// Stand-in for Qt's <QLocale>. See ssrf-qstring.h.
+#pragma once
+
+#include "ssrf-qstring.h"

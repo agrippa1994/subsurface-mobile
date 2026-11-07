@@ -475,6 +475,8 @@ export type StatsFilter = {
   maxDepthMm?: number;
   /** Dives flagged invalid are excluded unless this is set. */
   includeInvalid?: boolean;
+  /** Leaves out dives that were planned rather than dived. Desktop counts them. */
+  excludePlanned?: boolean;
 };
 
 // --- Dive planner -------------------------------------------------------------
@@ -921,4 +923,203 @@ export type HistoryStepResult = {
   /** False if dive and trip ids could not be put back, so that none can be trusted. */
   idsKept: boolean;
   state: HistoryState;
+};
+
+// --- Configurable statistics (statsChart) --------------------------------------
+//
+// See cpp/API.md. The configuration is what StatsState holds on the desktop; the app
+// persists it and hands it back, and the bindings rebuild the state from it.
+
+export type StatsChartType =
+  | 'DiscreteBar'
+  | 'DiscreteValue'
+  | 'DiscreteCount'
+  | 'DiscreteBox'
+  | 'DiscreteScatter'
+  | 'Pie'
+  | 'HistogramCount'
+  | 'HistogramValue'
+  | 'HistogramBox'
+  | 'HistogramStacked'
+  | 'ScatterPlot'
+  | 'Invalid';
+
+export type StatsChartSubtype =
+  | 'Vertical'
+  | 'VerticalGrouped'
+  | 'VerticalStacked'
+  | 'Horizontal'
+  | 'HorizontalGrouped'
+  | 'HorizontalStacked'
+  | 'Dots'
+  | 'Box'
+  | 'Pie';
+
+export type StatsOperationName =
+  | 'Median'
+  | 'Mean'
+  | 'TimeWeightedMean'
+  | 'Sum'
+  | 'Min'
+  | 'Max'
+  | 'Invalid';
+
+export type StatsSortMode = 'Bin' | 'Count' | 'Value';
+
+export type StatsFeature =
+  | 'labels'
+  | 'legend'
+  | 'median'
+  | 'mean'
+  | 'quartiles'
+  | 'regression'
+  | 'confidence';
+
+export type StatsChartConfig = {
+  /** The variable's name in `stats_variables`. */
+  var1: string;
+  var2: string | null;
+  /** Index into `StatsChartOptions.binners1`, -1 when that list is empty. */
+  binner1: number;
+  binner2: number;
+  operation: StatsOperationName;
+  chart: { type: StatsChartType; subtype: StatsChartSubtype };
+  sort: StatsSortMode;
+  features: Record<StatsFeature, boolean>;
+};
+
+/** A partial configuration is completed the way StatsState would. */
+export type StatsChartConfigInput = Partial<StatsChartConfig>;
+
+/** One user choice, as StatsState's var1Changed() and friends take it. */
+export type StatsChartChange =
+  | { kind: 'var1'; value: string }
+  | { kind: 'var2'; value: string | null }
+  | { kind: 'binner1' | 'binner2'; value: number }
+  | { kind: 'operation'; value: StatsOperationName }
+  | { kind: 'chart'; value: { type: StatsChartType; subtype: StatsChartSubtype } }
+  | { kind: 'sort'; value: StatsSortMode }
+  | { kind: 'feature'; value: { key: StatsFeature; on: boolean } };
+
+export type StatsVariableKind = 'discrete' | 'continuous' | 'numeric';
+
+export type StatsVariableOption = { name: string; type: StatsVariableKind; unit: string };
+
+export type StatsChartOption = {
+  type: StatsChartType;
+  subtype: StatsChartSubtype;
+  name: string;
+  subtypeName: string;
+  /** Valid but not recommended for these variables. */
+  warning: boolean;
+  selected: boolean;
+};
+
+/** Only what the current choices allow: StatsState::getUIState(). */
+export type StatsChartOptions = {
+  var1: StatsVariableOption[];
+  /** Without var1. Null in the configuration is "none". */
+  var2: StatsVariableOption[];
+  /** Empty when there is nothing to choose. */
+  binners1: string[];
+  binners2: string[];
+  operations: { key: StatsOperationName; name: string }[];
+  sorts: { key: StatsSortMode; name: string }[];
+  charts: StatsChartOption[];
+  features: { key: StatsFeature; on: boolean }[];
+};
+
+export type StatsAxis =
+  | { kind: 'count' | 'value'; title: string; min: number | null; max: number | null; decimals: number; unit: string }
+  | { kind: 'category'; title: string }
+  | { kind: 'histogram'; title: string; lastLabel: string; lastBound: number }
+  | { kind: 'date'; title: string; min: number; max: number };
+
+export type StatsOperationResults = {
+  median: number | null;
+  mean: number | null;
+  timeWeightedMean: number | null;
+  sum: number | null;
+  min: number | null;
+  max: number | null;
+};
+
+export type StatsSegment = { count: number; dives: number[] };
+
+export type StatsBox = { min: number; q1: number; q2: number; q3: number; max: number };
+
+/**
+ * One bar, slice or box. Positions run along the category axis: bin numbers around
+ * whole numbers for a category axis, the binner's bounds for a histogram, cumulative
+ * dive counts for a slice.
+ */
+export type StatsChartItem = {
+  from: number;
+  to: number;
+  /** The bin alone, for an axis. Empty for a bin without a name. */
+  label: string;
+  /** With its unit, for a readout. */
+  full: string;
+  count: number;
+  /** All dives of the chart's bins, where a percentage means something. */
+  total?: number;
+  /** A count, or the operation's result. Null when no dive of the bin has one. */
+  value?: number | null;
+  operations?: StatsOperationResults;
+  segments?: StatsSegment[];
+  dives?: number[];
+  box?: StatsBox | null;
+  quartiles?: { q1: number; q2: number; q3: number };
+  /** Histogram: the tick at `from`, and whether it is worth keeping when thinning. */
+  tick?: string;
+  prefer?: boolean;
+  /** Pie: what the "other" slice holds. */
+  other?: { name: string; count: number }[];
+};
+
+export type StatsRegression = {
+  a: number;
+  b: number;
+  r2: number;
+  n: number;
+  fromX: number;
+  toX: number;
+  /** The 95% confidence area, empty with two points. */
+  band: { x: number; low: number; high: number }[];
+};
+
+export type StatsChart = {
+  family: 'bar' | 'pie' | 'box' | 'scatter' | 'empty';
+  title: string;
+  horizontal: boolean;
+  stacked: boolean;
+  histogram: boolean;
+  catAxis?: StatsAxis;
+  valAxis?: StatsAxis;
+  series?: string[];
+  items?: StatsChartItem[];
+  /** Parallel arrays: thousands of points are cheaper this way than as objects. */
+  points?: { x: number[]; y: number[]; dives: number[] };
+  regression?: StatsRegression | null;
+  mean?: number | null;
+  median?: number | null;
+};
+
+export type StatsChartResult = {
+  /** Complete, and what the state settled on: persist this one. */
+  config: StatsChartConfig;
+  options: StatsChartOptions;
+  /** How many dives the filter let through. */
+  dives: number;
+  /** Absent when asked with `plot: false`. */
+  chart?: StatsChart;
+};
+
+export type StatsChartRequest = {
+  config?: StatsChartConfigInput;
+  change?: StatsChartChange;
+  filter?: StatsFilter;
+  imperial?: boolean;
+  /** False when only the configuration and its options are of interest. */
+  plot?: boolean;
 };

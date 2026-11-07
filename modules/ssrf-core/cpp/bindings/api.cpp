@@ -7,6 +7,7 @@
 #include "history.h"
 #include "marshal.h"
 #include "planner.h"
+#include "stats-chart.h"
 #include "suunto-xml.h"
 #include "zip-reader.h"
 
@@ -1070,12 +1071,15 @@ int apply_stats_filter(const json &filter)
 	std::string tag = get_string(filter, "tag");
 	std::string buddy = get_string(filter, "buddy");
 	bool includeInvalid = filter.value("includeInvalid", false);
+	bool excludePlanned = filter.value("excludePlanned", false);
 
 	int selected = 0;
 	for (const auto &dp : divelog.dives) {
 		struct dive &d = *dp;
 		bool match = true;
 		if (!includeInvalid && d.invalid)
+			match = false;
+		if (excludePlanned && d.is_planned())
 			match = false;
 		if (from && d.when < from)
 			match = false;
@@ -1200,6 +1204,23 @@ json get_statistics(const json &args)
 	out["matched"] = selected;
 	out.update(extra_statistics());
 	return out;
+}
+
+// One chart of the configurable statistics, over the same dives getStatistics reads.
+json get_stats_chart(const json &args)
+{
+	json filter = json::object();
+	auto it = args.find("filter");
+	if (it != args.end() && it->is_object())
+		filter = *it;
+	apply_stats_filter(filter);
+
+	std::vector<struct dive *> dives;
+	for (const auto &dp : divelog.dives) {
+		if (dp->selected)
+			dives.push_back(dp.get());
+	}
+	return stats_chart(args, dives);
 }
 
 // Bounds the nitrox calculator accepts. The depth range is the one a
@@ -1589,6 +1610,8 @@ json dispatch(const std::string &method, const json &args)
 		return get_profile(args);
 	if (method == "getStatistics")
 		return get_statistics(args);
+	if (method == "statsChart")
+		return get_stats_chart(args);
 	if (method == "nitroxPlan")
 		return nitrox_plan(args);
 	if (method == "planDive")

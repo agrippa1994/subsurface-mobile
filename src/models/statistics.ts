@@ -364,9 +364,11 @@ export type StatsFilterInput = {
   year: number | null;
   /** Dive site uuid, or null for every site. Uuids are stable across loads. */
   siteUuid: number | null;
+  /** Leaves out planned dives. Off by default: desktop Subsurface counts them. */
+  excludePlanned?: boolean;
 };
 
-export const NO_FILTER: StatsFilterInput = { year: null, siteUuid: null };
+export const NO_FILTER: StatsFilterInput = { year: null, siteUuid: null, excludePlanned: false };
 
 /**
  * Turns the screen's filter state into the module's `StatsFilter`. The module
@@ -382,6 +384,9 @@ export function toStatsFilter(input: StatsFilterInput): StatsFilter | undefined 
   }
   if (input.siteUuid !== null) {
     filter.siteUuid = input.siteUuid;
+  }
+  if (input.excludePlanned) {
+    filter.excludePlanned = true;
   }
   return Object.keys(filter).length > 0 ? filter : undefined;
 }
@@ -399,5 +404,5 @@ export function filterYears(summary: StatsSummary): number[] {
 }
 
 export function isFiltered(input: StatsFilterInput): boolean {
-  return input.year !== null || input.siteUuid !== null;
+  return input.year !== null || input.siteUuid !== null || Boolean(input.excludePlanned);
 }

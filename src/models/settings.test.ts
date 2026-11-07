@@ -82,6 +82,7 @@ describe('parseSettings', () => {
       diveComputers: [{ vendor: 'Shearwater', product: 'Perdix', address: 'a', name: 'Perdix 1' }],
       syncDiveComputerTime: true,
       planner: { ...DEFAULT_PLANNER_SETTINGS, gfLow: 40, verbatim: true },
+      statsChart: null,
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
   });
