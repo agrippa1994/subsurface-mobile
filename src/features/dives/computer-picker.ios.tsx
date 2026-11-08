@@ -19,9 +19,9 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 
 import { useTheme } from '@/hooks/use-theme';
-import { computerPositionText } from '@/models/dive-computers';
+import { computerPositionText, MAKE_FIRST_LABEL } from '@/models/dive-computers';
 
-import { MAKE_FIRST_LABEL, type ComputerPickerProps } from './computer-picker';
+import type { ComputerPickerProps } from './computer-picker';
 
 export function ComputerPicker({
   labels,

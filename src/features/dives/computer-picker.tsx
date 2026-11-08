@@ -26,8 +26,6 @@ export type ComputerPickerProps = {
   onMakeFirst?: (index: number) => void;
 };
 
-export const MAKE_FIRST_LABEL = 'Make First Computer';
-
 export function ComputerPicker({
   labels,
   selectedIndex,

@@ -14,7 +14,9 @@ import { useState } from 'react';
 import { M3MenuRow } from '@/components/material/list';
 import { M3Icon } from '@/components/material/icon';
 
-import { MAKE_FIRST_LABEL, type ComputerPickerProps } from './computer-picker';
+import { MAKE_FIRST_LABEL } from '@/models/dive-computers';
+
+import type { ComputerPickerProps } from './computer-picker';
 
 export type { ComputerPickerProps };
 

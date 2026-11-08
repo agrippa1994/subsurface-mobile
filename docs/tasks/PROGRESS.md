@@ -1440,3 +1440,9 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   `abitofeverything.ssrf`): new order, same id, trip and site; the order survives a save
   and load; undo and redo to the file byte for byte; index 0 no-op; out of range and
   unknown dive rejected. Full suite, typecheck and lint green.
+
+  On the iOS simulator (a throwaway one, `abitofeverything.ssrf` as the logbook), dive 333:
+  the menu offers the action only for a computer that is not first; Shearwater Petrel made
+  first moved to the top with the selection on it and the same profile shown; the undo
+  toast and Undo put Aeris A300CS back first; the row under Dive computer did the same for
+  the OSTC 3, and the CSV footer named it. Android was not run.

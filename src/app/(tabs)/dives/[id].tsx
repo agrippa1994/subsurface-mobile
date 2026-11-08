@@ -21,7 +21,7 @@ import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
-import { ComputerPicker, MAKE_FIRST_LABEL } from '@/features/dives/computer-picker';
+import { ComputerPicker } from '@/features/dives/computer-picker';
 import { useComputerSelection } from '@/features/dives/use-computer-selection';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
@@ -44,6 +44,7 @@ import {
   computerFigures,
   computerLabels,
   DIVE_MODE_LABEL,
+  MAKE_FIRST_LABEL,
   plotForComputer,
 } from '@/models/dive-computers';
 import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
