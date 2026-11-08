@@ -21,7 +21,7 @@ import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
-import { ComputerPicker } from '@/features/dives/computer-picker';
+import { ComputerPicker, MAKE_FIRST_LABEL } from '@/features/dives/computer-picker';
 import { useComputerSelection } from '@/features/dives/use-computer-selection';
 import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
@@ -198,6 +198,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
               labels={computerLabels(dive.dcs)}
               selectedIndex={computer.index}
               onSelect={computer.select}
+              onMakeFirst={computer.makeFirst}
             />
           </View>
         ) : null}
@@ -231,6 +232,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
                 labels={computerLabels(dive.dcs)}
                 selectedIndex={computer.index}
                 onSelect={computer.select}
+                onMakeFirst={computer.makeFirst}
               />
             ) : null
           }
@@ -329,6 +331,16 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
                 <Row key={label} label={label} value={value} />
               ))
             : null}
+          {/* Desktop's "Make first dive computer": what reads the first computer
+              (the mode in the summary, SSI upload, CSV export) reads this one after. */}
+          {severalComputers && computer.index > 0 ? (
+            <ActionRow
+              symbol="arrow.up"
+              label={MAKE_FIRST_LABEL}
+              detail="The first computer is the one SSI upload and CSV export use."
+              onPress={() => computer.makeFirst(computer.index)}
+            />
+          ) : null}
         </Section>
       ) : null}
 
@@ -340,7 +352,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           ssiAccount.data === null
             ? 'Sign in under Settings, SSI to upload dives.'
             : severalComputers
-              ? 'Uploads the profile from the first computer.'
+              ? `Uploads the profile from the first computer, ${computerLabels(dive.dcs)[0]}. To upload another, make it first under Dive computer.`
               : undefined
         }
       >
@@ -460,7 +472,11 @@ function CsvExportSection({ dive }: { dive: Dive }) {
   return (
     <Section
       title="Export as CSV"
-      footer={dive.dcs.length > 1 ? 'Uses the profile from the first computer.' : undefined}
+      footer={
+        dive.dcs.length > 1
+          ? `Uses the profile from the first computer, ${computerLabels(dive.dcs)[0]}. To export another, make it first under Dive computer.`
+          : undefined
+      }
     >
       {CSV_FORMATS.map(({ format, label, description }) => (
         <ActionRow

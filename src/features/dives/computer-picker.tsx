@@ -18,7 +18,15 @@ export type ComputerPickerProps = {
   onSelect: (index: number) => void;
   /** Drops the "Computer" caption, for the title line of the fullscreen profile. */
   compact?: boolean;
+  /**
+   * Moves the selected computer to the front, offered where the picker has a menu
+   * and only for a computer that is not first already. The portable row has none:
+   * the dive screen has its own action for it.
+   */
+  onMakeFirst?: (index: number) => void;
 };
+
+export const MAKE_FIRST_LABEL = 'Make First Computer';
 
 export function ComputerPicker({
   labels,

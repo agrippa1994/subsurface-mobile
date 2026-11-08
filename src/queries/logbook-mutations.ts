@@ -33,6 +33,7 @@ import {
   exportDiveCSV,
   importFile,
   loadFromXML,
+  makeFirstDiveComputer,
   mergeDives,
   removeDivesFromTrip,
   addDive,
@@ -156,6 +157,32 @@ export function useMergeDives(): UseMutationResult<MergeResult, Error, number[]>
         client.removeQueries({ queryKey: queryKeys.dive(id), type: 'inactive' });
         client.removeQueries({ queryKey: queryKeys.diveProfiles(id), type: 'inactive' });
       }
+      await invalidateData(client);
+      schedulePersist();
+    },
+  });
+}
+
+/**
+ * Moves one of a dive's computers to the front. The dive keeps its id, so a re-read
+ * is all the screens need: the dive, its profiles (keyed by computer index, which
+ * all moved) and the list row, whose mode is the first computer's. The reordered
+ * dive is put in the cache first, and `onApplied` runs before anything re-reads:
+ * that is where a screen moves its selection, in step with the data.
+ */
+export function useMakeFirstDiveComputer(): UseMutationResult<
+  Dive,
+  Error,
+  { id: number; dcIndex: number; onApplied?: () => Promise<void> }
+> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, dcIndex }) => makeFirstDiveComputer(id, dcIndex),
+    onSuccess: async (dive, { id, onApplied }) => {
+      client.setQueryData(queryKeys.dive(id), dive);
+      // Every index now names another computer: none of the cached plots is kept.
+      client.removeQueries({ queryKey: queryKeys.diveProfiles(id), type: 'inactive' });
+      await onApplied?.();
       await invalidateData(client);
       schedulePersist();
     },
