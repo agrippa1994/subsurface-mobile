@@ -1413,3 +1413,30 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   keep fixed colours. The Material Symbols are Apache-2.0, as were the ones expo-symbols already
   drew; whether that sits well beside GPL-2.0 was not looked into.
 
+
+- 2026-11-08 - **Make First Computer**: on a dive with several computers, the selected
+  one can be moved to the front, desktop's "Make first dive computer". The first computer
+  is what the SSI upload, CSV export, the summary's mode and the default profile read, so
+  they follow it with no change of their own.
+
+  Native: `makeFirstDiveComputer({ id, dcIndex })` in `cpp/bindings/api.cpp` does what
+  `MoveDiveComputerToFront` (`commands/command_divelist.cpp`) does around the core's
+  `clone_make_first_dc()`: the copy enters the old dive's trip and site, is registered
+  (caches invalidated), and the old dive is deleted. Unlike desktop the dive keeps its id,
+  taken back once the old dive is gone, so open screens and cached queries need only
+  re-read. Index 0 changes nothing and leaves no undo step; an index out of range fails.
+  Undo goes through the state history like every mutation; its entry names the computer
+  ("Shearwater Petrel is now first on Dive 224"). No core file changed, so
+  `CORE_MANIFEST.md` stays as it was.
+
+  UI: "Make First Computer" in the computer picker's menu on iOS (Profile card and
+  landscape profile), in the landscape dropdown on Android, and as a row under Dive
+  computer on every platform (Android's portrait picker is a menu row with no room for
+  it). The reordered dive and the new first computer's profile are cached before the
+  selection moves to index 0, so the screen keeps showing the same computer. The SSI and
+  CSV footers name the first computer and point at the action.
+
+  Verified: vitest (`tests/make-first-computer.test.ts`, dive 224 of
+  `abitofeverything.ssrf`): new order, same id, trip and site; the order survives a save
+  and load; undo and redo to the file byte for byte; index 0 no-op; out of range and
+  unknown dive rejected. Full suite, typecheck and lint green.
