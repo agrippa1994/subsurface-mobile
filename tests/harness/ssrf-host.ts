@@ -224,6 +224,10 @@ export class SsrfHost {
     return this.call<MergeResult>('mergeDives', { diveIds });
   }
 
+  makeFirstDiveComputer(id: number, dcIndex: number): Promise<Dive> {
+    return this.call<Dive>('makeFirstDiveComputer', { id, dcIndex });
+  }
+
   getDive(id: number): Promise<Dive> {
     return this.call<Dive>('getDive', { id });
   }

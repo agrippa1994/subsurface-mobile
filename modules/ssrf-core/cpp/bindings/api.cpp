@@ -655,6 +655,48 @@ json merge_dives(const json &args)
 	};
 }
 
+// --- Dive computers --------------------------------------------------------
+//
+// MoveDiveComputerToFront of commands/command_divelist.cpp (desktop's "Make
+// first dive computer"), with the undo bookkeeping and the signals left out:
+// clone_make_first_dc() builds a copy with the computer moved to the front, and
+// the copy replaces the dive in the table, in the old dive's trip and site
+// (DiveComputerBase). The copy enters the trip before the old dive leaves it, so
+// a trip of one dive does not go away on the way.
+//
+// One difference: the core hands the copy a new id, as two dives with one id
+// would confuse its lookups. Once the old dive is gone the copy takes its id
+// back, so to the screens and cached queries it is the same dive, as it is to
+// the file (ids are not saved). register_dive() invalidates the copy's caches.
+json make_first_dive_computer(const json &args)
+{
+	struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
+	int index = static_cast<int>(require_int(args, "dcIndex"));
+	int count = d.number_of_computers();
+	if (index < 0 || index >= count)
+		fail("dive computer " + std::to_string(index) + " out of range, the dive has " +
+		     std::to_string(count));
+	if (index == 0)
+		return dive_to_json(d);
+
+	int id = d.id;
+	std::unique_ptr<struct dive> copy = clone_make_first_dc(d, index);
+	copy->selected = false;
+	copy->divetrip = nullptr;
+	copy->dive_site = nullptr;
+	if (d.divetrip)
+		d.divetrip->add_dive(copy.get());
+	if (d.dive_site)
+		d.dive_site->add_dive(copy.get());
+	struct dive *replacement = divelog.dives.register_dive(std::move(copy));
+
+	divelog.delete_single_dive(static_cast<int>(divelog.dives.get_idx(&d)));
+	replacement->id = id;
+	divelog.trips.sort();
+
+	return dive_to_json(*replacement);
+}
+
 json list_dives()
 {
 	json out = json::array();
@@ -1834,6 +1876,8 @@ json dispatch(const std::string &method, const json &args)
 		return preview_merge(args);
 	if (method == "mergeDives")
 		return merge_dives(args);
+	if (method == "makeFirstDiveComputer")
+		return make_first_dive_computer(args);
 	if (method == "getLastError")
 		return joined_errors();
 	if (method == "clear") {

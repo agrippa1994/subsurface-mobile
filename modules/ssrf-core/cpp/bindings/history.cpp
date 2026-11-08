@@ -278,6 +278,12 @@ json describe(const std::string &method, const json &args)
 
 	if (method == "updateDive" || method == "deleteDive") {
 		describe_dive(description, find_dive(number_at("id", 0)));
+	} else if (method == "makeFirstDiveComputer") {
+		const struct dive *d = find_dive(number_at("id", 0));
+		describe_dive(description, d);
+		int index = number_at("dcIndex", 0);
+		if (d && index >= 0 && index < d->number_of_computers())
+			description["computerModel"] = d->get_dc(index)->model;
 	} else if (method == "mergeDives") {
 		json numbers = json::array();
 		if (args.contains("diveIds") && args["diveIds"].is_array()) {
