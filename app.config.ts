@@ -157,6 +157,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-location',
       { locationWhenInUsePermission: 'Use your location to find nearby SSI dive sites.' },
     ],
+    // The phone's barometer for the live surface GF (src/features/surface-gf).
+    // iOS reads it through CMAltimeter, which asks for Motion & Fitness access.
+    [
+      'expo-sensors',
+      {
+        motionPermission:
+          'Subsurface reads the air pressure from the barometer to work out your surface gradient factor at your altitude.',
+      },
+    ],
     [
       'expo-splash-screen',
       {
