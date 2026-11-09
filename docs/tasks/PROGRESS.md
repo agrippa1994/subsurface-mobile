@@ -1446,3 +1446,67 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   first moved to the top with the selection on it and the same profile shown; the undo
   toast and Undo put Aeris A300CS back first; the row under Dive computer did the same for
   the OSTC 3, and the CSV footer named it. Android was not run.
+
+
+- 2026-11-09 - **Six parity gaps with the legacy Qt mobile app**, one commit each.
+
+  1. **Dive summary periods.** The legacy summary model (`qt-models/divesummarymodel.cpp`) is
+     Qt and not vendored, so its periods became a statistics filter: `getStatistics` takes
+     `recentMonths` and the bindings place the start as the legacy model did (wall clock now,
+     less N calendar months, day clamped, dives strictly after). The reply adds first and last
+     dive, nitrox dives, dives past 39 m and the period's start. On the overview the periods
+     join the year chips in one "When" row (picking one clears the other), so the configurable
+     charts follow the same filter. A "Last dive" tile and the dive count's line show the rest.
+  2. **Dive site on the map.** Dive detail gets a Dive site section when the site has a
+     position: a small map, a row opening the site in the same stack (new `dives/site/[uuid]`
+     and `statistics/site/[uuid]` routes; Sites keeps its own), and Open in Maps (Apple Maps
+     link on iOS, `geo:` on Android). Site detail has Open in Maps too.
+  3. **Units per quantity.** Settings holds `units` (depth, pressure, volume, temperature,
+     weight) with Metric / Imperial / Custom; old files migrate from `unitSystem`, which is
+     still written for older builds. Every formatter and parser takes `Units` and throws for a
+     bare unit system; a test also scans the sources for unit-system reads. Planner notes, the
+     configurable statistics and CSV export take `units` per call. CSV needed a stylesheet
+     patch (`patches/xslt-0001`, byte for byte the same with only `units`) and core patch
+     0012 (`transform_xslt` not static). The test harness now reads the patched stylesheets.
+     The MCP server stays metric by design: each key names its unit.
+  4. **Dates and times.** No setting of the app's own: the device's region and 12/24-hour
+     clock are already the diver's choice. Every date goes through `src/models/date-format.ts`
+     (expo-localization added for the clock), with an explicit hour cycle. Month names in the
+     statistics, the configurable charts' date axis and the core's own month binner and trip
+     titles (`configure({ monthNames })`, gettext shim) follow the region.
+  5. **Default cylinder.** Settings, New dives: a type from the core's tank table, or None
+     (the core's default). Set as the core's `default_cylinder` through `configure`;
+     `defaultCylinder` returns `create_new_cylinder()`, which seeds a new dive's cylinder, Add
+     Cylinder in the editor and the planner's cylinders. Downloads use it where the core does.
+  6. **Ceilings and grid.** The profile draws the computer's reported ceiling (red, desktop's
+     DiveReportedCeiling) and the core's calculated ceiling (green, dashed) apart, named in
+     the legend, the scrub readout and the VoiceOver summary; a 3 m grid quantizes to 3, 6,
+     15 x 10^n in the displayed unit, as desktop does (30/60/90 ft in feet). Settings splits
+     Decompression (GF) from a Profile section with five switches. Defaults are the core's:
+     computer ceiling on, calculated ceiling and grid off - so the calculated ceiling, always
+     drawn until now, is off until switched on. The planner's chart follows the same switches.
+
+  Verified: vitest 79 files, 1391 passed, 1 skipped (new: `tests/units.test.ts`,
+  `month-names.test.ts`, `default-cylinder.test.ts`, period tests in `statistics.test.ts`, and
+  model tests for settings migration, units, date formats, ceilings, grid, maps links).
+  Typecheck and lint clean. On a throwaway iPhone 18 Pro simulator (iOS 27, region de-AT,
+  `abitofeverything.ssrf`): Custom units with feet and bar on lists, detail, editor and
+  profile; both ceilings and the 3 m grid in feet on dive 333 (Shearwater Petrel) with the
+  readout naming both; landscape fullscreen; dark mode; Dive site section, site in the Dives
+  stack, Open in Maps opened Apple Maps; 3 months period ("Dives after 9. Aug. 2026"); Add
+  Dive seeded with AL80. A throwaway iPad Pro 13" simulator: detail pane with the site
+  section and the site pushed in the detail stack. A throwaway Pixel 9 Pro AVD (API 36, en-US,
+  12-hour): Material Settings with Custom unit rows, psi in the default cylinder list,
+  profile with metres and psi and the calculated ceiling, site section on MapLibre, Open in
+  Maps reaching Google Maps with a named pin, statistics in dark mode. All three devices were
+  deleted afterwards; the user's simulators were not touched.
+
+  **Not verified.** CSV files from the app opened in desktop Subsurface; the default cylinder
+  filling a downloaded dive (the simulated computer reports no gas, so the test only shows no
+  cylinder is invented); a device whose 12/24-hour switch differs from its region on iOS;
+  VoiceOver and TalkBack heard; the planner on screen with the new switches; Android tablet;
+  Android landscape. Not added: a date or time format override, deliberately.
+
+  Known and left: cylinder size in cubic feet is shown and entered as water volume (an AL80
+  reads 0.4 cuft) in the editor, as before this change; only the new default cylinder list
+  names imperial types by their gas capacity (AL80, 80 cuft).
