@@ -36,6 +36,12 @@ export const queryKeys = {
     ['log', 'data', 'profile', id, dcIndex, gf.gfLow, gf.gfHigh] as const,
   /** Every profile of one dive, whichever dive computer it came from. */
   diveProfiles: (id: number) => ['log', 'data', 'profile', id] as const,
+  /**
+   * The surface GF series after a dive (null: the latest). The ambient pressure
+   * and gradient factors are in the key because the core computes with them.
+   */
+  surfaceGf: (id: number | null, gf: GradientFactors, ambientMbar: number) =>
+    ['log', 'data', 'surface-gf', id, gf.gfLow, gf.gfHigh, ambientMbar] as const,
   statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,
   /** One chart of the configurable statistics; the units pick its binners. */
   statsChart: (config: unknown, filter: StatsFilter | undefined, units: Units) =>

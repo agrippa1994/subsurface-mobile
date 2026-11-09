@@ -109,7 +109,7 @@ export async function settleLogbook(client: QueryClient): Promise<void> {
 }
 
 /** True once a logbook is in the module and its ids are safe to use. */
-function useLogLoaded(): boolean {
+export function useLogLoaded(): boolean {
   return useLogbook().isSuccess;
 }
 
