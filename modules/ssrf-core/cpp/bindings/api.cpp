@@ -59,6 +59,9 @@ extern int suunto_json_import(const std::string &buffer, const std::string &fit_
 extern void set_data_directory(const std::string &path);
 // cpp/shim/gettext.cpp: the region's short month names for the core's own labels.
 extern void set_month_names(const std::vector<std::string> &names);
+// core/equipment.cpp defines it, but no header declares it (desktop reaches it
+// through the Qt models); what the core's "add cylinder" starts from.
+extern cylinder_t create_new_cylinder(const struct dive *d);
 // Made non-static by patches/0011 and 0012: the CSV export runs the stylesheet
 // itself when the units are chosen one by one.
 extern void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize);
@@ -1853,18 +1856,57 @@ json import_file(const json &args)
 // Paths the core needs from the app: the directory holding the XSLT
 // stylesheets, which is how every non-SSRF XML format is read (the desktop app
 // gets them from Qt resources - see cpp/shim/qthelper.cpp).
+// The core's default cylinder (`prefs.default_cylinder`), by its name in the
+// tank table. fill_default_cylinder() looks it up in `tank_info_table`, which
+// holds the built-in types plus the log's own once a log has been loaded; a name
+// not there yet means the table has not been built, so it is built.
+void set_default_cylinder(const std::string &name)
+{
+	auto known = [&name] {
+		return std::any_of(tank_info_table.begin(), tank_info_table.end(),
+				   [&name](const tank_info &info) { return info.name == name; });
+	};
+	if (!name.empty() && !known()) {
+		reset_tank_info_table(tank_info_table);
+		if (!known())
+			fail("unknown cylinder type '" + name + "'");
+	}
+	prefs.default_cylinder = name;
+}
+
+// What a new cylinder starts as with the default cylinder set:
+// create_new_cylinder(), as desktop's "add cylinder" and the core's default
+// dive use it - the type's size and working pressure, filled to it, air. Null
+// when no default is set.
+json default_cylinder_json()
+{
+	if (prefs.default_cylinder.empty())
+		return nullptr;
+	struct dive d;
+	return new_cylinder_to_json(create_new_cylinder(&d));
+}
+
 //
 // And the app's preferences the core reads itself: `monthNames`, the twelve short
 // month names of the device's region, January first, for the month labels the
-// core writes (statistics binners, trip titles).
+// core writes (statistics binners, trip titles); `defaultCylinder`, the name of
+// the cylinder type new dives, downloaded dives without a size and the planner
+// start from ("" for none, the core's default).
 json configure(const json &args)
 {
 	std::string xslt = get_string(args, "xsltDir");
 	std::string data = get_string(args, "dataDir");
 	auto months = args.find("monthNames");
 	bool has_months = months != args.end() && !months->is_null();
-	if (xslt.empty() && data.empty() && !has_months)
-		fail("missing required argument 'xsltDir', 'dataDir' or 'monthNames'");
+	auto cylinder = args.find("defaultCylinder");
+	bool has_cylinder = cylinder != args.end() && !cylinder->is_null();
+	if (xslt.empty() && data.empty() && !has_months && !has_cylinder)
+		fail("missing required argument 'xsltDir', 'dataDir', 'monthNames' or 'defaultCylinder'");
+	if (has_cylinder) {
+		if (!cylinder->is_string())
+			fail("argument 'defaultCylinder' must be a string");
+		set_default_cylinder(cylinder->get<std::string>());
+	}
 	if (has_months) {
 		if (!months->is_array() || months->size() != 12)
 			fail("argument 'monthNames' must be an array of 12 strings");
@@ -1922,6 +1964,8 @@ json dispatch(const std::string &method, const json &args)
 		return import_file(args);
 	if (method == "configure")
 		return configure(args);
+	if (method == "defaultCylinder")
+		return default_cylinder_json();
 	if (method == "dcListComputers")
 		return dc_list_computers();
 	if (method == "dcDetect")

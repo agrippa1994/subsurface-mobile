@@ -19,7 +19,9 @@ import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
 import type { Units } from '@/models';
+import { defaultCylinderOptions, type DefaultCylinderOption } from '@/models/cylinder-edit';
 import { unitPreset, unitsForSystem, type UnitPresetChoice } from '@/models/units';
+import { plannerOptions } from '../../../modules/ssrf-core/src';
 import { useDives, useSites, useTrips } from '@/queries/logbook';
 import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
@@ -31,6 +33,8 @@ import {
   useRememberedComputers,
   useSetGfSeries,
   useSetGradientFactors,
+  useDefaultCylinderName,
+  useSetDefaultCylinder,
   useSetUnits,
   useUnits,
 } from '@/queries/settings';
@@ -51,6 +55,15 @@ export type SettingsScreen = {
   /** Whether the five per-quantity rows are shown. */
   showUnitRows: boolean;
   setUnit: <K extends keyof Units>(key: K, value: Units[K]) => void;
+  /** New dives: the cylinder type they start with, from the core's tank table. */
+  defaultCylinder: {
+    value: string;
+    /** "None" first, then the core's types with size and working pressure. */
+    options: DefaultCylinderOption[];
+    /** The chosen option's label. */
+    label: string;
+    set: (name: string) => void;
+  };
   /** Buehlmann gradient factors, in percent, the profile ceiling is computed with. */
   gfLow: number;
   gfHigh: number;
@@ -147,6 +160,23 @@ export function useSettingsScreen(): SettingsScreen {
     },
     [setUnits],
   );
+  const defaultCylinderName = useDefaultCylinderName();
+  const setDefaultCylinder = useSetDefaultCylinder();
+  const defaultCylinder = useMemo(() => {
+    let tanks: { name: string; sizeMl: number; workingPressureMbar: number }[] = [];
+    try {
+      tanks = plannerOptions().tanks;
+    } catch {
+      // No native module (web): only None.
+    }
+    const options = defaultCylinderOptions(tanks, units);
+    return {
+      value: defaultCylinderName,
+      options,
+      label: options.find((option) => option.value === defaultCylinderName)?.label ?? defaultCylinderName,
+      set: setDefaultCylinder,
+    };
+  }, [defaultCylinderName, setDefaultCylinder, units]);
   const setUnit = useCallback(
     <K extends keyof Units>(key: K, value: Units[K]) => {
       setCustomChosen(true);
@@ -337,6 +367,7 @@ export function useSettingsScreen(): SettingsScreen {
     setUnitPreset,
     showUnitRows: shownPreset === 'personalized',
     setUnit,
+    defaultCylinder,
     gfLow,
     gfHigh,
     setGfLow,

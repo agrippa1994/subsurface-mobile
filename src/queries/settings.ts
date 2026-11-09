@@ -12,9 +12,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import type { GradientFactors, Units } from '@/models';
+import type { Cylinder, GradientFactors, Units } from '@/models';
 import { rememberComputer, type RememberedComputer } from '@/models/dive-computer';
 import {
   clampGradientFactors,
@@ -24,6 +24,7 @@ import {
   type Settings,
 } from '@/models/settings';
 import { queryKeys } from '@/lib/query-keys';
+import { configurePreferences, defaultCylinder } from '../../modules/ssrf-core/src';
 
 const SETTINGS_FILENAME = 'settings.json';
 
@@ -170,4 +171,61 @@ export function useSetGradientFactors(): (gf: GradientFactors) => void {
     (gf: GradientFactors) => update.mutate(clampGradientFactors(gf.gfLow, gf.gfHigh)),
     [update],
   );
+}
+
+/** The default cylinder's name, "" for none. */
+export function useDefaultCylinderName(): string {
+  return useSettings().defaultCylinder;
+}
+
+export function useSetDefaultCylinder(): (name: string) => void {
+  const { mutate } = useUpdateSettings();
+  return useCallback((name: string) => mutate({ defaultCylinder: name }), [mutate]);
+}
+
+/**
+ * Hands the core the preferences it reads itself and that live in this file, as
+ * they change. Mounted once, at the root: a downloaded dive without a cylinder
+ * size is filled in by the core from `default_cylinder`, wherever the app is.
+ */
+export function useSyncCorePreferences(): void {
+  const name = useDefaultCylinderName();
+  useEffect(() => {
+    applyDefaultCylinder(name);
+  }, [name]);
+}
+
+function applyDefaultCylinder(name: string): void {
+  try {
+    configurePreferences({ defaultCylinder: name });
+  } catch {
+    // A type the core no longer knows (an older table) leaves none set: the
+    // same as choosing none, and new dives start blank rather than failing.
+    try {
+      configurePreferences({ defaultCylinder: '' });
+    } catch {
+      // No native module (web).
+    }
+  }
+}
+
+/**
+ * What a new cylinder starts as: the core's new cylinder of the default type, or
+ * null without one. Read from the core, so size and working pressure are its
+ * tank table's, imperial types converted the core's way.
+ */
+export function useDefaultCylinder(): Cylinder | null {
+  const name = useDefaultCylinderName();
+  return useMemo(() => {
+    if (name === '') {
+      return null;
+    }
+    try {
+      // Set first: this can run before the root's effect has.
+      applyDefaultCylinder(name);
+      return defaultCylinder();
+    } catch {
+      return null;
+    }
+  }, [name]);
 }

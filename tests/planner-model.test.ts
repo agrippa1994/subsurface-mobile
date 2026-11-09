@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { CylinderUse, PlanDecoMode, PlanDiveMode } from '../src/models';
+import { CylinderUse, PlanDecoMode, PlanDiveMode, type Cylinder } from '../src/models';
 import {
   addCylinder,
   addSegment,
@@ -26,6 +26,7 @@ import {
   planHeadline,
   planInput,
   planStops,
+  planTankFrom,
   planWarnings,
   removeCylinder,
   removeSegment,
@@ -313,5 +314,31 @@ describe('editing the draft', () => {
     expect(fillValue(200000, METRIC_UNITS)).toBe(200);
     expect(fillValue(232000, METRIC_UNITS)).toBe(232);
     expect(fillValue(fillFromValue(3000, IMPERIAL_UNITS), IMPERIAL_UNITS)).toBe(3000);
+  });
+});
+
+describe('the default cylinder', () => {
+  const al80 = {
+    description: 'AL80',
+    sizeMl: 11094,
+    workingPressureMbar: 206843,
+    startMbar: 206843,
+  } as unknown as Cylinder;
+
+  it('starts the plan and every added cylinder, full', () => {
+    const tank = planTankFrom(al80);
+    expect(tank).toEqual({ name: 'AL80', sizeMl: 11094, fillMbar: 206843 });
+    expect(defaultPlanDraft(METRIC_UNITS, WHEN, tank).cylinders[0]).toMatchObject({
+      tank: 'AL80',
+      sizeMl: 11094,
+      fillMbar: 206843,
+      o2Percent: 21,
+    });
+    expect(newCylinderDraft(METRIC_UNITS, tank)).toMatchObject({ tank: 'AL80' });
+  });
+
+  it('leaves the planner its own tank without one', () => {
+    expect(planTankFrom(null)).toBeNull();
+    expect(defaultPlanDraft(METRIC_UNITS, WHEN).cylinders[0].tank).not.toBe('AL80');
   });
 });

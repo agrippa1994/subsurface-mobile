@@ -45,6 +45,7 @@ import {
 } from '@/models/dive-edit';
 import { validateWeightDrafts, type WeightDraft } from '@/models/weight-edit';
 import { useDive, useDives, useSites, useTrips } from '@/queries/logbook';
+import { useDefaultCylinder } from '@/queries/settings';
 
 /**
  * The draft, plus the things that are input rather than data: the raw tag text
@@ -300,6 +301,7 @@ export function DiveFormSections({
   const knownTags = useMemo(() => harvestTags(dives), [dives]);
   const knownSuits = useMemo(() => harvestSuits(dives), [dives]);
   const knownCylinders = useMemo(() => harvestCylinderDescriptions(dives), [dives]);
+  const defaultCylinder = useDefaultCylinder();
   const knownWeights = useMemo(() => harvestWeightDescriptions(dives), [dives]);
 
   // The list rows carry no cylinders or weights, so the previous dive is read
@@ -438,6 +440,7 @@ export function DiveFormSections({
             errors={validateCylinderDrafts(field.state.value, units)}
             descriptions={knownCylinders}
             units={units}
+            template={defaultCylinder}
             onChange={field.handleChange}
           />
         )}

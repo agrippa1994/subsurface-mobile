@@ -16,6 +16,7 @@ struct plot_info;
 struct stats_t;
 struct stats_summary;
 struct units;
+struct cylinder_t;
 
 namespace ssrf {
 
@@ -23,6 +24,9 @@ using json = nlohmann::json;
 
 // Cheap row for the dive list: no cylinders, no samples, no events.
 json dive_summary_to_json(const struct dive &d);
+
+// One cylinder that belongs to no dive yet, as Dive.cylinders holds them.
+json new_cylinder_to_json(const struct cylinder_t &cyl);
 
 // Everything about one dive except the samples (those come from getProfile).
 json dive_to_json(const struct dive &d);

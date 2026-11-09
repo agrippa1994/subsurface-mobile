@@ -113,7 +113,7 @@ export function usePlannerScreen() {
     openCylinder: (key: string) =>
       router.push({ pathname: '/tools/planner-cylinder', params: { key } }),
     addCylinderAndOpen: () => {
-      const cylinder = newCylinderDraft(units);
+      const cylinder = newCylinderDraft(units, planner.defaultTank);
       setDraft((d) => addCylinder(d, cylinder));
       router.push({ pathname: '/tools/planner-cylinder', params: { key: cylinder.key } });
     },

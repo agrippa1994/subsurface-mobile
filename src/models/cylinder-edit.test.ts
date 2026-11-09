@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { CylinderUse, DiveMode } from './index';
 import type { Cylinder, Dive } from './index';
 import {
+  defaultCylinderOptions,
   buildCylinderPatches,
   cylinderDraftsFrom,
   newCylinderDraft,
@@ -232,5 +233,49 @@ describe('buildCylinderPatches', () => {
       const entry = patches[0];
       expect(Math.abs((entry.startMbar ?? 200000) - 200000)).toBeLessThan(100);
     }
+  });
+});
+
+describe('the default cylinder', () => {
+  const template = cylinder({ startMbar: 207000, endMbar: 0 });
+
+  it('starts a new row from it, as a new cylinder and full', () => {
+    const draft = newCylinderDraft(template, METRIC_UNITS);
+    expect(draft).toMatchObject({
+      sourceIndex: null,
+      description: 'AL80',
+      sizeText: '11.1',
+      workingPressureText: '207',
+      startText: '207',
+      endText: '',
+      used: false,
+    });
+  });
+
+  it('reads it in the diver units', () => {
+    expect(newCylinderDraft(template, IMPERIAL_UNITS)).toMatchObject({ sizeText: '0.4', startText: '3002' });
+  });
+
+  it('leaves the row blank without one', () => {
+    expect(newCylinderDraft(null, METRIC_UNITS)).toMatchObject({ description: '', sizeText: '' });
+    expect(newCylinderDraft()).toMatchObject({ description: '', sizeText: '' });
+  });
+
+  it('offers none first, then the tank table with sizes in the diver units', () => {
+    const options = defaultCylinderOptions(
+      [
+        { name: 'AL80', sizeMl: 11094, workingPressureMbar: 206843 },
+        { name: '12l 232 bar', sizeMl: 12000, workingPressureMbar: 232000 },
+      ],
+      METRIC_UNITS,
+    );
+    expect(options).toEqual([
+      { value: '', label: 'None' },
+      { value: 'AL80', label: 'AL80 (11.1 l, 207 bar)' },
+      { value: '12l 232 bar', label: '12l 232 bar (12 l, 232 bar)' },
+    ]);
+    expect(
+      defaultCylinderOptions([{ name: 'AL80', sizeMl: 11094, workingPressureMbar: 206843 }], IMPERIAL_UNITS)[1].label,
+    ).toBe('AL80 (80 cuft, 3000 psi)');
   });
 });

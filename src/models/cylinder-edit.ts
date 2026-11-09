@@ -22,6 +22,8 @@ import type { Cylinder, CylinderPatch, Dive } from './index';
 import { CylinderUse } from './index';
 import {
   barToMbar,
+  formatPressure,
+  formatVolume,
   cuftToMl,
   litersToMl,
   mbarToBar,
@@ -127,11 +129,15 @@ export function cylinderDraftsFrom(dive: Dive, units: Units): CylinderDraft[] {
 }
 
 /**
- * A new cylinder row. Left blank rather than pre-filled with an AL80: the core's
- * `add_default_cylinder` fills from a preference this app has no UI for, and a
- * guessed size would silently change the SAC the diver is looking at.
+ * A new cylinder row. From `template`, the core's new cylinder with the default
+ * cylinder set (`defaultCylinder()` in the module: size, working pressure, filled
+ * to it, air), when the diver chose one in Settings; blank otherwise, rather than
+ * a guessed AL80 that would silently change the SAC the diver is looking at.
  */
-export function newCylinderDraft(): CylinderDraft {
+export function newCylinderDraft(template?: Cylinder | null, units?: Units): CylinderDraft {
+  if (template && units) {
+    return { ...cylinderDraftFrom(template, 0, units), key: makeKey(), sourceIndex: null, endText: '', used: false };
+  }
   return {
     key: makeKey(),
     sourceIndex: null,
@@ -336,3 +342,40 @@ export function buildCylinderPatches(
   return changed ? entries : null;
 }
 
+
+/** One choice of the default cylinder setting: the core's tank table, plus none. */
+export type DefaultCylinderOption = { value: string; label: string };
+
+/**
+ * The default cylinder's choices: none, then the core's tank table in its own
+ * order (`plannerOptions().tanks`), each with its size and working pressure in
+ * the diver's units, so "AL80" and "12l 232 bar" read alike.
+ */
+export function defaultCylinderOptions(
+  tanks: readonly { name: string; sizeMl: number; workingPressureMbar: number }[],
+  units: Units,
+): DefaultCylinderOption[] {
+  return [
+    { value: '', label: 'None' },
+    ...tanks.map((tank) => ({
+      value: tank.name,
+      label:
+        tank.sizeMl > 0 && tank.workingPressureMbar > 0
+          ? `${tank.name} (${tankSize(tank.sizeMl, tank.workingPressureMbar, units)}, ${formatPressure(tank.workingPressureMbar, units)})`
+          : tank.name,
+    })),
+  ];
+}
+
+/**
+ * A tank's size as divers name it: water volume in litres, but in cubic feet the
+ * gas it holds at its working pressure - an AL80 is 80 cuft, not 0.4. The ideal
+ * gas figure, which is what the type names themselves are rounded from.
+ */
+function tankSize(sizeMl: number, workingPressureMbar: number, units: Units): string {
+  if (units.volume !== 'cuft') {
+    return formatVolume(sizeMl, units);
+  }
+  const atm = workingPressureMbar / 1013.25;
+  return `${Math.round(mlToCuft(sizeMl) * atm)} cuft`;
+}

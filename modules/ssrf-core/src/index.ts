@@ -11,6 +11,7 @@ import {
   SsrfCoreError,
   type BleScanStatus,
   type CorePreferences,
+  type Cylinder,
   type CoreEvent,
   type CsvExportOptions,
   type CsvExportResult,
@@ -195,6 +196,15 @@ export function configure(paths: { xsltDir: string }): void {
  */
 export function configurePreferences(preferences: CorePreferences): void {
   call('configure', preferences);
+}
+
+/**
+ * A new cylinder as the core makes one with the default cylinder set
+ * (`create_new_cylinder()`): the type's size and working pressure, filled to it,
+ * air. Null when no default cylinder is set.
+ */
+export function defaultCylinder(): Cylinder | null {
+  return call<Cylinder | null>('defaultCylinder');
 }
 
 // --- Reads -----------------------------------------------------------------

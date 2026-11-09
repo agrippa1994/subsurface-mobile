@@ -15,11 +15,12 @@ import {
   planFailure,
   planHasResult,
   planInput,
+  planTankFrom,
   type PlanDraft,
 } from '@/models/planner';
 import { DEFAULT_PLANNER_SETTINGS, type PlannerSettings } from '@/models/planner-settings';
 import { useDives } from '@/queries/logbook';
-import { useGradientFactors, useSettings, useUpdateSettings } from '@/queries/settings';
+import { useDefaultCylinder, useGradientFactors, useSettings, useUpdateSettings } from '@/queries/settings';
 
 import { planDive } from '../../../modules/ssrf-core/src';
 import { resetPlanDraft, updatePlanDraft, usePlanDraft } from './planner-store';
@@ -41,7 +42,10 @@ export function usePlanner() {
   const planner: PlannerSettings = settings.planner;
   const gf = useGradientFactors();
   const dives = useDives().data ?? NO_DIVES;
-  const draft = usePlanDraft(units, dives);
+  // The plan's cylinders start from the default cylinder in Settings, if any.
+  const defaultCylinder = useDefaultCylinder();
+  const defaultTank = useMemo(() => planTankFrom(defaultCylinder), [defaultCylinder]);
+  const draft = usePlanDraft(units, dives, defaultTank);
 
   const input: PlanInput = useMemo(
     () => planInput(draft, planner, units, gf),
@@ -86,7 +90,8 @@ export function usePlanner() {
     outcome,
     dives,
     setDraft: updatePlanDraft as (change: (current: PlanDraft) => PlanDraft) => void,
-    resetDraft: () => resetPlanDraft(units, dives),
+    resetDraft: () => resetPlanDraft(units, dives, defaultTank),
+    defaultTank,
     setPlanner,
     restorePlanner,
   };

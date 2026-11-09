@@ -385,6 +385,11 @@ json stats_summary_to_json(const struct stats_summary &s)
 	};
 }
 
+json new_cylinder_to_json(const cylinder_t &cyl)
+{
+	return cylinder_to_json(cyl, false);
+}
+
 namespace {
 
 // One quantity of `units_from_json`: `metric` and `imperial` name the two

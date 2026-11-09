@@ -8,6 +8,7 @@
 // warnings out of the notes it wrote.
 
 import type {
+  Cylinder,
   DiveSummary,
   PlanInput,
   PlannedCylinder,
@@ -93,9 +94,26 @@ const DEFAULT_TANK: Record<'metric' | 'imperial', { name: string; sizeMl: number
   imperial: { name: 'AL80', sizeMl: 11094, fillMbar: psiToMbar(3000) },
 };
 
-export function newCylinderDraft(units: Units): PlanCylinderDraft {
-  // Named the way the diver counts tanks: an AL80 is a cubic-feet name.
-  const tank = DEFAULT_TANK[units.volume === 'cuft' ? 'imperial' : 'metric'];
+/** A tank to start a cylinder from: the default cylinder from Settings. */
+export type PlanTankTemplate = { name: string; sizeMl: number; fillMbar: number };
+
+/** The default cylinder as the planner takes it, filled to its working pressure. */
+export function planTankFrom(cylinder: Cylinder | null): PlanTankTemplate | null {
+  if (!cylinder || cylinder.sizeMl <= 0) {
+    return null;
+  }
+  return {
+    name: cylinder.description,
+    sizeMl: cylinder.sizeMl,
+    fillMbar: cylinder.startMbar || cylinder.workingPressureMbar,
+  };
+}
+
+export function newCylinderDraft(units: Units, template: PlanTankTemplate | null = null): PlanCylinderDraft {
+  // The default cylinder when there is one, as desktop's planner adds cylinders
+  // (create_new_cylinder). Otherwise named the way the diver counts tanks: an
+  // AL80 is a cubic-feet name.
+  const tank = template ?? DEFAULT_TANK[units.volume === 'cuft' ? 'imperial' : 'metric'];
   return {
     key: makeKey('cyl'),
     tank: tank.name,
@@ -127,8 +145,12 @@ export function defaultPlanWhen(
  * A nothing-special dive that comes out clean under the core's defaults, which are
  * strict about minimum gas: a warning on the first screen would teach the wrong thing.
  */
-export function defaultPlanDraft(units: Units, when: number): PlanDraft {
-  const cylinder = newCylinderDraft(units);
+export function defaultPlanDraft(
+  units: Units,
+  when: number,
+  template: PlanTankTemplate | null = null,
+): PlanDraft {
+  const cylinder = newCylinderDraft(units, template);
   return {
     when,
     diveMode: PlanDiveMode.OpenCircuit,

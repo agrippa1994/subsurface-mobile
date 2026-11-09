@@ -30,6 +30,12 @@ export type CoreUnitsInput = {
 export type CorePreferences = {
   /** The device region's twelve short month names, January first. */
   monthNames?: string[];
+  /**
+   * The core's `default_cylinder`: a cylinder type's name from the tank table
+   * (`plannerOptions().tanks`), or "" for none. New dives, the planner's
+   * cylinders and downloaded dives whose computer gave no size start from it.
+   */
+  defaultCylinder?: string;
 };
 
 // Native surface exposed by the Swift/Kotlin module definition.

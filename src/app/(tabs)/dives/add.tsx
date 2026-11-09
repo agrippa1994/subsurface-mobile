@@ -21,7 +21,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { previewNewDive } from '../../../../modules/ssrf-core/src';
 import type { NewDiveInput, Units } from '@/models';
-import { buildCylinderPatches, validateCylinderDrafts } from '@/models/cylinder-edit';
+import { buildCylinderPatches, newCylinderDraft, validateCylinderDrafts } from '@/models/cylinder-edit';
 import {
   buildNewDiveBasics,
   localNowWhen,
@@ -32,7 +32,7 @@ import {
 import { BLANK_DIVE_DRAFT, buildDivePatch } from '@/models/dive-edit';
 import { buildWeightPatches } from '@/models/weight-edit';
 import { useAddDive } from '@/queries/logbook-mutations';
-import { useUnits } from '@/queries/settings';
+import { useDefaultCylinder, useUnits } from '@/queries/settings';
 
 /** What the cylinder and weight patches compare against: a dive with neither. */
 const NOTHING_YET = { cylinders: [], weightsystems: [] };
@@ -58,6 +58,7 @@ export default function AddDiveScreen() {
   const navigation = useNavigation();
   const theme = useTheme();
   const units = useUnits();
+  const template = useDefaultCylinder();
   const addDive = useAddDive();
   const scroll = useRef<ScrollViewInstance>(null);
   // Where the top of the form is. Not 0: the content starts under the header, by an
@@ -82,7 +83,8 @@ export default function AddDiveScreen() {
       ...BLANK_DIVE_DRAFT,
       ...newDiveBasicsDraft(now),
       tagText: '',
-      cylinders: [],
+      // The default cylinder from Settings, as the core's own new dive has it.
+      cylinders: template ? [newCylinderDraft(template, units)] : [],
       weights: [],
     },
     rules,

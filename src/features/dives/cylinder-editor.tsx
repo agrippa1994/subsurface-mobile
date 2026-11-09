@@ -17,7 +17,7 @@ import { FormField, FormSection, OptionField } from '@/components/form';
 import { SuggestField } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CylinderUse, formatGasMix, type Units } from '@/models';
+import { CylinderUse, formatGasMix, type Cylinder, type Units } from '@/models';
 import {
   newCylinderDraft,
   parseFractionInput,
@@ -38,6 +38,7 @@ export function CylinderEditor({
   descriptions,
   units,
   onChange,
+  template = null,
 }: {
   drafts: readonly CylinderDraft[];
   errors: CylinderErrors;
@@ -45,6 +46,8 @@ export function CylinderEditor({
   descriptions: readonly string[];
   units: Units;
   onChange: (drafts: CylinderDraft[]) => void;
+  /** What Add Cylinder starts from: the default cylinder, or null for a blank row. */
+  template?: Cylinder | null;
 }) {
   const theme = useTheme();
 
@@ -154,7 +157,7 @@ export function CylinderEditor({
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => onChange([...drafts, newCylinderDraft()])}
+        onPress={() => onChange([...drafts, newCylinderDraft(template, units)])}
         style={({ pressed }) => [
           styles.add,
           {

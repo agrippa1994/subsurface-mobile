@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 
 import {
   M3ActionRow,
+  M3MenuRow,
   M3Screen,
   M3Section,
   M3SegmentedRow,
@@ -15,7 +16,7 @@ import {
 } from '@/components/material/list';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
+import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
@@ -74,6 +75,16 @@ export default function SettingsScreen() {
           label="Show surface GF"
           value={screen.showGfSurface}
           onChange={screen.setShowGfSurface}
+        />
+      </M3Section>
+
+      <M3Section title="New dives" footer={SETTINGS_FOOTERS.newDives}>
+        <M3MenuRow
+          label="Default cylinder"
+          value={screen.defaultCylinder.value}
+          shown={screen.defaultCylinder.label}
+          options={screen.defaultCylinder.options}
+          onChange={screen.defaultCylinder.set}
         />
       </M3Section>
 

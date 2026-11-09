@@ -17,7 +17,7 @@ import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
+import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import {
   UNIT_PRESET_OPTIONS,
@@ -108,6 +108,20 @@ export default function SettingsScreen() {
             isOn={screen.showGfSurface}
             onIsOnChange={screen.setShowGfSurface}
           />
+        </Section>
+
+        <Section title="New dives" footer={<Text>{SETTINGS_FOOTERS.newDives}</Text>}>
+          <Picker
+            label="Default cylinder"
+            selection={screen.defaultCylinder.value}
+            onSelectionChange={(value: string) => screen.defaultCylinder.set(value)}
+            modifiers={[pickerStyle('menu')]}>
+            {screen.defaultCylinder.options.map((option) => (
+              <Text key={option.value || 'none'} modifiers={[tag(option.value)]}>
+                {option.label}
+              </Text>
+            ))}
+          </Picker>
         </Section>
 
         <Section title="Logbook">

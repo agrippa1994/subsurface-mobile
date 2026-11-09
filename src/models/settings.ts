@@ -36,6 +36,11 @@ export type Settings = {
   planner: PlannerSettings;
   /** The last chart of the configurable statistics. Null until there has been one. */
   statsChart: StatsChartConfig | null;
+  /**
+   * The cylinder type new dives start with, by its name in the core's tank table,
+   * or "" for none - the core's `default_cylinder` (core/pref.h).
+   */
+  defaultCylinder: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -52,6 +57,8 @@ export const DEFAULT_SETTINGS: Settings = {
   syncDiveComputerTime: false,
   planner: DEFAULT_PLANNER_SETTINGS,
   statsChart: null,
+  // None, as in the core's default_prefs: a guessed tank would change the SAC.
+  defaultCylinder: '',
 };
 
 /**
@@ -130,6 +137,7 @@ export function parseSettings(json: string): Settings {
       syncDiveComputerTime: flag(raw?.syncDiveComputerTime, DEFAULT_SETTINGS.syncDiveComputerTime),
       planner: parsePlannerSettings(raw?.planner),
       statsChart: parseStatsConfig(raw?.statsChart),
+      defaultCylinder: typeof raw?.defaultCylinder === 'string' ? raw.defaultCylinder.trim() : '',
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -150,5 +158,14 @@ export function serializeSettings(settings: Settings): string {
     syncDiveComputerTime: settings.syncDiveComputerTime,
     planner: settings.planner,
     statsChart: settings.statsChart,
+    defaultCylinder: settings.defaultCylinder,
   });
 }
+
+/** Footers of the Settings sections the three platforms share, so they say the same. */
+export const SETTINGS_FOOTERS = {
+  newDives:
+    'Dives you add start with this cylinder, and so do cylinders added in the editor and the planner. ' +
+    'A dive downloaded from a computer that does not report its tank size takes it too. ' +
+    'It starts full at its working pressure; set the end pressure on the dive.',
+} as const;

@@ -11,7 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
+import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
@@ -63,6 +63,15 @@ export default function SettingsScreen() {
           label="Show surface GF"
           value={screen.showGfSurface}
           onChange={screen.setShowGfSurface}
+        />
+      </FormSection>
+
+      <FormSection title="New dives" footer={SETTINGS_FOOTERS.newDives}>
+        <Text style={{ color: theme.textSecondary }}>Default cylinder</Text>
+        <OptionField
+          options={screen.defaultCylinder.options}
+          value={screen.defaultCylinder.value}
+          onChange={screen.defaultCylinder.set}
         />
       </FormSection>
 

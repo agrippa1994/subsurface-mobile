@@ -16,6 +16,7 @@ import { createInterface, type Interface } from 'node:readline';
 
 import type {
   CorePreferences,
+  Cylinder,
   CsvExportOptions,
   CsvExportResult,
   DeleteDiveResult,
@@ -188,6 +189,10 @@ export class SsrfHost {
 
   configurePreferences(preferences: CorePreferences): Promise<unknown> {
     return this.call('configure', preferences);
+  }
+
+  defaultCylinder(): Promise<Cylinder | null> {
+    return this.call<Cylinder | null>('defaultCylinder');
   }
 
   listDives(): Promise<DiveSummary[]> {

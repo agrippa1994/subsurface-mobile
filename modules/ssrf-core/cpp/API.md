@@ -75,7 +75,8 @@ rendered metric or imperial.
 | `clear` | `{}` | `{}` |
 | `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
 | `importFile` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
-| `configure` | `{ xsltDir?, dataDir?, monthNames? }` | `{ xsltDir, dataDir }` |
+| `configure` | `{ xsltDir?, dataDir?, monthNames?, defaultCylinder? }` | `{ xsltDir, dataDir }` |
+| `defaultCylinder` | `{}` | `Cylinder` or `null` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
@@ -523,4 +524,16 @@ configurable statistics' monthly binner and a trip's title, both through
 `monthname()` - and the gettext shim (cpp/shim/gettext.cpp) maps the English
 "Jan".."Dec" to these. An empty name keeps the English one. Every other date the
 app shows is formatted in TypeScript (src/models/date-format.ts).
+
+## Default cylinder
+
+`configure({ defaultCylinder })` sets the core's `prefs.default_cylinder` to a cylinder
+type's name from the tank table (`plannerOptions().tanks`), or `""` for none, the
+core's default. A name the table lacks is refused and leaves the previous one; the
+table is rebuilt first (`reset_tank_info_table`) in case no log has been loaded yet.
+The core reads it where desktop does: `fill_default_cylinder()` for a downloaded
+dive's cylinder that the computer named without a size. `defaultCylinder` returns
+`create_new_cylinder()` on a scratch dive - the type's size and working pressure,
+filled to it, air - which the app starts a new dive's cylinder and the planner's
+cylinders from; `null` when none is set.
 

@@ -116,8 +116,21 @@ describe('parseSettings', () => {
       syncDiveComputerTime: true,
       planner: { ...DEFAULT_PLANNER_SETTINGS, gfLow: 40, verbatim: true },
       statsChart: null,
+      defaultCylinder: 'AL80',
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
+  });
+});
+
+describe('default cylinder', () => {
+  it('is none, as in the core, for a file written before it existed', () => {
+    expect(parseSettings('{"gfLow":30}').defaultCylinder).toBe('');
+    expect(DEFAULT_SETTINGS.defaultCylinder).toBe('');
+  });
+
+  it('reads a name and ignores anything else', () => {
+    expect(parseSettings('{"defaultCylinder":"AL80"}').defaultCylinder).toBe('AL80');
+    expect(parseSettings('{"defaultCylinder":12}').defaultCylinder).toBe('');
   });
 });
 
