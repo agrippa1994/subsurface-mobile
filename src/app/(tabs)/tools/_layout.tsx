@@ -8,6 +8,7 @@ export default function ToolsLayout() {
     <Stack screenOptions={STACK_OPTIONS}>
       <Stack.Screen name="index" options={{ title: 'Tools' }} />
       <Stack.Screen name="nitrox" options={{ title: 'Nitrox', headerLargeTitle: false }} />
+      <Stack.Screen name="surface-gf" options={{ title: 'Surface GF', headerLargeTitle: false }} />
       {/* Opaque: the result is pinned right under the bar, not scrolling beneath it. */}
       <Stack.Screen
         name="planner"
