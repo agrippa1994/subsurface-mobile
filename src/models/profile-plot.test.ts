@@ -353,7 +353,17 @@ describe('a logbook with temperature, pressure and deco', () => {
       }
     }
     expect([...seen].sort()).toEqual(
-      ['deco', 'depth', 'gf-now', 'gf-surface', 'pressure', 'temperature', 'time'].sort()
+      [
+        'deco',
+        'deco-calc',
+        'deco-fresh',
+        'depth',
+        'gf-now',
+        'gf-surface',
+        'pressure',
+        'temperature',
+        'time',
+      ].sort()
     );
   });
 
@@ -506,8 +516,9 @@ describe('the two ceilings and the 3 m grid', () => {
     );
     expect(read({ showDcCeiling: true, showCalcCeiling: false }, 900).join(' ')).not.toContain('Calc');
     expect(read({ showDcCeiling: false, showCalcCeiling: true }, 900).join(' ')).not.toContain('DC ceiling');
-    // Out of deco the computer's slot says the NDL.
-    expect(read(DEFAULT_PROFILE_SERIES, 300)).toContain('NDL 5:00');
+    // Out of deco the computer's slot says its NDL, marked apart from the
+    // calculated one.
+    expect(read(DEFAULT_PROFILE_SERIES, 300)).toContain('DC NDL 5:00');
   });
 
   it('says both ceilings to VoiceOver when they are drawn', () => {
@@ -537,5 +548,80 @@ describe('the two ceilings and the 3 m grid', () => {
     const ticks = depthTicks(45000, IMPERIAL_UNITS, 6, true);
     expect(ticks.map((t) => t.label)).toEqual(['30', '60', '90', '120']);
     expect(ticks[0].value).toBeCloseTo(9144, 0);
+  });
+});
+
+// Subsurface's own NDL/TTS, and the same figures for clean tissues, on two
+// manual dives an hour apart: the second starts with the first one's nitrogen.
+describe('calculated NDL and TTS on a repetitive dive', () => {
+  const host = new SsrfHost();
+  // 2026-03-01 10:00:00. A: 40 min at 30 m. B: 45 min at 18 m, 1 h later.
+  const WHEN = 1772359200;
+  const A = { when: WHEN, durationSec: 2400, maxDepthMm: 30000 };
+  const B = { when: WHEN + 2400 + 3600, durationSec: 2700, maxDepthMm: 18000 };
+  let first: PlotInfo;
+  let second: PlotInfo;
+
+  beforeAll(async () => {
+    const a = await host.addDive(A);
+    const b = await host.addDive(B);
+    first = await host.getProfile(a.id);
+    second = await host.getProfile(b.id);
+  });
+
+  afterAll(async () => {
+    await host.close();
+  });
+
+  /** The calculated NDL at the sample nearest `sec`. */
+  const ndlAt = (pi: PlotInfo, sec: number) => pi.entry[nearestSampleIndex(pi, sec)].ndlCalcSec;
+
+  it('reports no earlier load and no comparison for the first dive', () => {
+    expect(first.surfaceIntervalSec).toBeNull();
+    expect(first.fresh).toBeNull();
+    expect(ndlAt(first, 300)).toBeGreaterThan(0);
+  });
+
+  it('carries the surface interval and a clean-tissue pass for the second', () => {
+    expect(second.surfaceIntervalSec).toBe(3600);
+    expect(second.fresh?.ndlCalcSec).toHaveLength(second.entry.length);
+    const index = nearestSampleIndex(second, 300);
+    // Residual nitrogen shortens the NDL; clean tissues do not.
+    expect(second.fresh!.ndlCalcSec[index]).toBeGreaterThan(second.entry[index].ndlCalcSec);
+    expect(second.entry[index].ndlCalcSec).toBeGreaterThan(0);
+  });
+
+  it('leaves the dive computer figures alone', () => {
+    // Neither dive has dive computer samples, so there is nothing real to
+    // report - in particular not the 2h the core writes into `ndl` shallower
+    // than 3 m when it calculates.
+    for (const entry of [...first.entry, ...second.entry]) {
+      expect(entry.ndlSec).toBeLessThanOrEqual(0);
+      expect(entry.ttsSec).toBe(0);
+    }
+  });
+
+  it('reads the calculated and the fresh figures in the scrubber', () => {
+    const early = readoutAt(second, 300, METRIC_UNITS)!;
+    expect(early.decoCalc?.kind).toBe('ndl');
+    expect(early.decoFresh?.kind).toBe('ndl');
+    expect(early.decoCalc?.text).not.toBe(early.decoFresh?.text);
+
+    // Late in the dive the loaded tissues are in deco while clean ones are not
+    // yet, or are with less to do.
+    const late = readoutAt(second, 1800, METRIC_UNITS)!;
+    expect(late.decoCalc?.kind).toBe('tts');
+
+    const keys = readoutLayout(second, METRIC_UNITS).map((slot) => slot.key);
+    expect(keys).toContain('deco-calc');
+    expect(keys).toContain('deco-fresh');
+    expect(readoutLayout(first, METRIC_UNITS).map((slot) => slot.key)).not.toContain('deco-fresh');
+  });
+
+  it('mentions the earlier dive in the plot and its summary', () => {
+    const plot = buildProfilePlot(second);
+    expect(plot.surfaceIntervalSec).toBe(3600);
+    expect(profileSummary(plot, METRIC_UNITS)).toMatch(/nitrogen from a dive 1:00:00 earlier/);
+    expect(buildProfilePlot(first).surfaceIntervalSec).toBeNull();
   });
 });

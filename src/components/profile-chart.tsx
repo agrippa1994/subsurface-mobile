@@ -650,6 +650,13 @@ export function ProfileChart({
         ) : null}
       </View>
 
+      {plot.surfaceIntervalSec !== null ? (
+        <Text style={[styles.footnote, { color: colors.label }]}>
+          {`NDL and TTS include nitrogen from the previous dive, ${formatDuration(
+            plot.surfaceIntervalSec
+          )} surface interval. "fresh" is the same dive started with clean tissues.`}
+        </Text>
+      ) : null}
       <Text style={[styles.footnote, { color: colors.label }]}>
         {zoomed
           ? `Showing ${formatDuration(view.from)} to ${formatDuration(view.to)} - double tap to reset`
