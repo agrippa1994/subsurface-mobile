@@ -146,6 +146,19 @@ export function formatInstant(ms: number): string {
   return formatter('instant', { dateStyle: 'medium', timeStyle: 'short', ...(hourCycle ? { hourCycle } : {}) }).format(ms);
 }
 
+/** "14:02" or "2:02 PM" in the phone's zone. */
+export function formatInstantTime(ms: number): string {
+  return formatter('instant-time', { minute: '2-digit', ...hourOptions() }).format(ms);
+}
+
+/** "12 Mar" in the phone's zone, with the year when it is not `nowMs`'s. */
+export function formatInstantDayMonth(ms: number, nowMs: number): string {
+  const sameYear = new Date(ms).getFullYear() === new Date(nowMs).getFullYear();
+  return sameYear
+    ? formatter('instant-day-month', { day: 'numeric', month: 'short' }).format(ms)
+    : formatter('instant-day-month-year', { day: 'numeric', month: 'short', year: 'numeric' }).format(ms);
+}
+
 /** "12 Mar 2024" in the phone's zone. */
 export function formatInstantDate(ms: number): string {
   return formatter('instant-date', { dateStyle: 'medium' }).format(ms);

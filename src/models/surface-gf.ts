@@ -10,6 +10,7 @@
 // computed for, the planned entry, and every text the card and the timeline
 // show - so the iOS, Android and fallback screens cannot word it differently.
 
+import { formatInstantDayMonth, formatInstantTime } from './date-format';
 import type { SurfaceGfSeries } from './index';
 import type { DepthUnit } from './units';
 
@@ -394,12 +395,12 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 /**
- * The phone's local time of day, 24 h, with the day when it is not today:
- * "15:30", "tomorrow 09:10", "yesterday 22:05", "12 Mar 14:00".
+ * The phone's local time of day by the device's clock, with the day when it is
+ * not today: "15:30", "tomorrow 09:10", "yesterday 22:05", "12 Mar 14:00".
  */
 export function formatClock(ms: number, nowMs: number): string {
   const date = new Date(ms);
-  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const time = formatInstantTime(ms);
   const now = new Date(nowMs);
   if (sameDay(date, now)) {
     return time;
@@ -414,9 +415,7 @@ export function formatClock(ms: number, nowMs: number): string {
   if (sameDay(date, yesterday)) {
     return `yesterday ${time}`;
   }
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const year = date.getFullYear() === now.getFullYear() ? '' : ` ${date.getFullYear()}`;
-  return `${date.getDate()} ${months[date.getMonth()]}${year} ${time}`;
+  return `${formatInstantDayMonth(ms, nowMs)} ${time}`;
 }
 
 /** Said once wherever the value is shown. */
@@ -520,4 +519,99 @@ export function belowText(timeline: SurfaceGfTimeline, threshold: number, nowMs:
     return `Already at or below ${threshold} %`;
   }
   return `In ${formatDuration(at - nowMs)}, ${formatClock(at, nowMs)}`;
+}
+
+// --- Timeline chart ---------------------------------------------------------
+
+/** The spans the timeline offers, hours after the dive; 'all' is the whole series. */
+export const TIMELINE_SPANS = [
+  { key: '6h', label: '6 h', hours: 6 },
+  { key: '12h', label: '12 h', hours: 12 },
+  { key: '24h', label: '24 h', hours: 24 },
+  { key: 'all', label: 'All', hours: null },
+] as const;
+
+export type TimelineSpanKey = (typeof TIMELINE_SPANS)[number]['key'];
+
+/**
+ * The window the timeline draws: from the end of the dive for the span, but
+ * always reaching `includeMs` (now, the cursor or a planned entry) when it lies
+ * further out, and never past the series.
+ */
+export function timelineWindow(
+  timeline: SurfaceGfTimeline,
+  span: TimelineSpanKey,
+  includeMs: readonly (number | null)[],
+): { fromMs: number; toMs: number } {
+  const hours = TIMELINE_SPANS.find((entry) => entry.key === span)?.hours ?? null;
+  let toMs = hours === null ? timeline.endMs : Math.min(timeline.endMs, timeline.startMs + hours * 3600_000);
+  for (const ms of includeMs) {
+    if (ms !== null && ms > toMs) {
+      toMs = Math.min(timeline.endMs, ms + 30 * 60_000);
+    }
+  }
+  return { fromMs: timeline.startMs, toMs: Math.max(toMs, timeline.startMs + 3600_000) };
+}
+
+/** Top of the GF axis: a multiple of 25, room for the curve and gf high, at least 50. */
+export function gfAxisMax(timeline: SurfaceGfTimeline, gfHigh: number): number {
+  // The series falls from its first value, so that is its peak.
+  const peak = Math.max(gfHigh, timeline.values[0] ?? 0);
+  return Math.max(50, Math.ceil(peak / 25) * 25);
+}
+
+/**
+ * Time ticks on whole local hours, spaced so a window has four to eight of
+ * them. Returns instants.
+ */
+export function hourTicks(fromMs: number, toMs: number): number[] {
+  const hours = (toMs - fromMs) / 3600_000;
+  const step = [1, 2, 3, 6, 12, 24].find((candidate) => hours / candidate <= 8) ?? 24;
+  const first = new Date(fromMs);
+  first.setMinutes(0, 0, 0);
+  if (first.getTime() < fromMs) {
+    first.setHours(first.getHours() + 1);
+  }
+  // Align to the step in local hours, so 3 h ticks read 03:00, 06:00, ...
+  while (first.getHours() % step !== 0) {
+    first.setHours(first.getHours() + 1);
+  }
+  const ticks: number[] = [];
+  for (const tick = new Date(first); tick.getTime() <= toMs; tick.setHours(tick.getHours() + step)) {
+    ticks.push(tick.getTime());
+  }
+  return ticks;
+}
+
+/** The readout over the chart for the cursor's instant. */
+export function cursorReadout(
+  timeline: SurfaceGfTimeline,
+  cursorMs: number,
+  nowMs: number,
+): { gfText: string; whenText: string; phaseText: string; accessibilityLabel: string } {
+  const gf = gfAt(timeline, cursorMs);
+  const clock = formatClock(cursorMs, nowMs);
+  const delta = cursorMs - nowMs;
+  const whenText =
+    Math.abs(delta) < 60_000
+      ? `Now, ${clock}`
+      : delta > 0
+        ? `${clock}, in ${formatDuration(delta)}`
+        : `${clock}, ${formatDuration(-delta)} ago`;
+  const phase = phaseAt(timeline, cursorMs);
+  const phaseText =
+    phase === 'diving'
+      ? 'Before the end of the dive'
+      : phase === 'supersaturated'
+        ? 'Supersaturated'
+        : phase === 'residual'
+          ? 'Residual nitrogen'
+          : 'Clean';
+  const gfText = gf === null ? '-' : formatGf(gf);
+  return {
+    gfText,
+    whenText,
+    phaseText,
+    accessibilityLabel: `Surface GF ${gfText} at ${whenText}. ${phaseText}.`,
+  };
 }

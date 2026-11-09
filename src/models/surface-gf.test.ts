@@ -10,6 +10,10 @@ import {
   formatClock,
   formatDuration,
   formatGf,
+  gfAxisMax,
+  hourTicks,
+  cursorReadout,
+  timelineWindow,
   gfAt,
   mbarToAltitudeMm,
   parseAltitude,
@@ -256,5 +260,42 @@ describe('texts', () => {
     expect(formatClock(new Date(2026, 10, 8, 22, 0).getTime(), now)).toBe('yesterday 22:00');
     expect(formatClock(new Date(2026, 2, 12, 14, 0).getTime(), now)).toBe('12 Mar 14:00');
     expect(formatClock(new Date(2025, 2, 12, 14, 0).getTime(), now)).toBe('12 Mar 2025 14:00');
+  });
+});
+
+describe('timeline chart', () => {
+  it('windows the span and reaches out to what must be shown', () => {
+    const long = timeline({ surfaceGf: new Array(200).fill(10), stepSec: 600 });
+    expect(timelineWindow(long, '6h', [])).toEqual({ fromMs: START, toMs: START + 6 * HOUR });
+    expect(timelineWindow(long, '6h', [START + 8 * HOUR]).toMs).toBe(START + 8.5 * HOUR);
+    expect(timelineWindow(long, 'all', []).toMs).toBe(long.endMs);
+    expect(timelineWindow(long, '6h', [START + 1000 * HOUR]).toMs).toBe(long.endMs);
+  });
+
+  it('sizes the GF axis to the curve and gf high', () => {
+    expect(gfAxisMax(timeline(), 75)).toBe(75);
+    expect(gfAxisMax(timeline(), 30)).toBe(75);
+    expect(gfAxisMax(timeline({ surfaceGf: [110, 0] }), 75)).toBe(125);
+    expect(gfAxisMax(timeline({ surfaceGf: [5, 0] }), 20)).toBe(50);
+  });
+
+  it('puts ticks on whole hours, four to eight of them', () => {
+    // TZ is UTC in the test run.
+    const from = Date.UTC(2026, 10, 9, 10, 20);
+    expect(hourTicks(from, from + 5 * HOUR)).toEqual(
+      [11, 12, 13, 14, 15].map((h) => Date.UTC(2026, 10, 9, h)),
+    );
+    const day = hourTicks(from, from + 24 * HOUR);
+    expect(day.length).toBeLessThanOrEqual(8);
+    expect(day.every((tick) => new Date(tick).getUTCHours() % 3 === 0)).toBe(true);
+  });
+
+  it('reads out the cursor', () => {
+    const readout = cursorReadout(timeline(), START + 30 * MIN, START + 10 * MIN);
+    expect(readout.gfText).toBe('30 %');
+    expect(readout.whenText).toMatch(/, in 20 min$/);
+    expect(readout.phaseText).toBe('Supersaturated');
+    expect(cursorReadout(timeline(), START - HOUR, START).gfText).toBe('-');
+    expect(cursorReadout(timeline(), START, START).whenText.startsWith('Now, ')).toBe(true);
   });
 });
