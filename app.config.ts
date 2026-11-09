@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.11.0',
+  version: '1.12.0',
   // The app declares every orientation so a tablet can use any, and a phone's
   // dive profile can go full screen when the device is turned
   // (src/hooks/use-landscape.ts). A phone's other screens are held in portrait at
@@ -105,7 +105,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'codes.mani.subsurfacereact',
-    versionCode: 7,
+    versionCode: 8,
     adaptiveIcon: {
       backgroundColor: '#062C53',
       foregroundImage: './assets/images/android-icon-foreground.png',
@@ -202,6 +202,93 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           scheme: 'subsurface-dev',
           icon: './assets/subsurface-dev.icon',
         },
+      },
+    ],
+    // Home screen and Lock Screen widgets (src/widgets), kept current by
+    // src/features/widgets/use-widget-sync.ios.ts. Listed after the variants
+    // plugin on purpose: a later plugin's mods run first, so the variants plugin
+    // sees the widget extension target and gives the debug build its own widget
+    // bundle identifier and app group.
+    [
+      'expo-widgets',
+      {
+        widgets: [
+          {
+            name: 'LastDive',
+            displayName: 'Last Dive',
+            description: 'Your latest dive: site, depth, time and profile.',
+            ios: {
+              supportedFamilies: [
+                'systemSmall',
+                'systemMedium',
+                'systemLarge',
+                'accessoryCircular',
+                'accessoryRectangular',
+                'accessoryInline',
+              ],
+              initialLayout: 'src/widgets/last-dive.tsx',
+            },
+            android: null,
+          },
+          {
+            name: 'SurfaceInterval',
+            displayName: 'Surface Interval',
+            description: 'Time since your last dive ended, counting up.',
+            ios: {
+              supportedFamilies: [
+                'systemSmall',
+                'accessoryCircular',
+                'accessoryRectangular',
+                'accessoryInline',
+              ],
+              initialLayout: 'src/widgets/surface-interval.tsx',
+            },
+            android: null,
+          },
+          {
+            name: 'LogbookTotals',
+            displayName: 'Logbook Totals',
+            description: 'Dives, hours underwater, deepest and longest dive.',
+            ios: {
+              supportedFamilies: [
+                'systemSmall',
+                'systemMedium',
+                'systemLarge',
+                'accessoryCircular',
+                'accessoryRectangular',
+                'accessoryInline',
+              ],
+              initialLayout: 'src/widgets/logbook-totals.tsx',
+              configuration: {
+                title: 'Logbook Totals',
+                description: 'Choose which dives the totals cover.',
+                parameters: {
+                  period: {
+                    title: 'Period',
+                    type: 'enum',
+                    default: 'all',
+                    values: [
+                      { name: 'All dives', value: 'all' },
+                      { name: 'This year', value: 'year' },
+                      { name: 'Last 12 months', value: 'last12' },
+                    ],
+                  },
+                },
+              },
+            },
+            android: null,
+          },
+          {
+            name: 'DiveActivity',
+            displayName: 'Dive Activity',
+            description: 'Dives per month over the last year.',
+            ios: {
+              supportedFamilies: ['systemSmall', 'systemMedium', 'systemLarge'],
+              initialLayout: 'src/widgets/dive-activity.tsx',
+            },
+            android: null,
+          },
+        ],
       },
     ],
   ],

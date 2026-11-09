@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusView } from '@/components/status-view';
 import { UndoToastHost } from '@/features/history/undo-toast';
 import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
+import { useWidgetSync } from '@/features/widgets/use-widget-sync';
 import { usePortraitLock } from '@/hooks/use-landscape';
 import { useNavigationTheme, useRootScreenOptions } from '@/hooks/use-navigation-theme';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
@@ -83,6 +84,9 @@ function AppShell() {
 
   // Portrait on a phone; the dive profile opts back out while it is on screen.
   usePortraitLock();
+
+  // The home screen and Lock Screen widgets show what the logbook holds now.
+  useWidgetSync();
 
   return (
     <ThemeProvider value={navigationTheme}>
