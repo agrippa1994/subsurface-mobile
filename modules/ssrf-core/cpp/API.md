@@ -75,7 +75,7 @@ rendered metric or imperial.
 | `clear` | `{}` | `{}` |
 | `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
 | `importFile` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
-| `configure` | `{ xsltDir?, dataDir? }` | `{ xsltDir, dataDir }` |
+| `configure` | `{ xsltDir?, dataDir?, monthNames? }` | `{ xsltDir, dataDir }` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
@@ -504,4 +504,13 @@ It sets `prefs.units` for that call only (`units_from_json`, marshal.cpp), and
 `prefs.unit_system` to METRIC, IMPERIAL or PERSONALIZE as desktop derives it. A
 quantity left out keeps the preset (`imperial`, else metric); any other value is an
 error. The older `imperial: true` remains and means every unit imperial.
+
+## Month names
+
+`configure({ monthNames })` takes the device region's twelve short month names,
+January first. The core spells a month in two places the app shows - the
+configurable statistics' monthly binner and a trip's title, both through
+`monthname()` - and the gettext shim (cpp/shim/gettext.cpp) maps the English
+"Jan".."Dec" to these. An empty name keeps the English one. Every other date the
+app shows is formatted in TypeScript (src/models/date-format.ts).
 

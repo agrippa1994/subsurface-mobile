@@ -10,6 +10,7 @@ import SsrfCoreModule from './SsrfCoreModule';
 import {
   SsrfCoreError,
   type BleScanStatus,
+  type CorePreferences,
   type CoreEvent,
   type CsvExportOptions,
   type CsvExportResult,
@@ -186,6 +187,14 @@ export function importFile(pathOrBuffer: string | ArrayBuffer): ImportResult {
  */
 export function configure(paths: { xsltDir: string }): void {
   call<{ xsltDir: string }>('configure', paths);
+}
+
+/**
+ * Hands the core the app's preferences it reads itself (see CorePreferences).
+ * Kept in the core's global `prefs`, so it lasts until the next call.
+ */
+export function configurePreferences(preferences: CorePreferences): void {
+  call('configure', preferences);
 }
 
 // --- Reads -----------------------------------------------------------------

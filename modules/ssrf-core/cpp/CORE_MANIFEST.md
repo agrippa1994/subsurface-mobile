@@ -171,7 +171,7 @@ arriving transitively through a Qt header.
 
 | File | Provides | Divergence from upstream worth knowing |
 | --- | --- | --- |
-| `gettext.cpp` | `trGettext` | Identity. Localization is deferred to the TypeScript layer. |
+| `gettext.cpp` | `trGettext`, `set_month_names` | Identity, except the twelve short month names, which map to the device region's once `configure({ monthNames })` has set them (statistics binners, trip titles). Other localization is deferred to the TypeScript layer. |
 | `format.cpp` | the `std::string` formatters | Formats in the **C locale**. Upstream routes through `QString::arg()` and formats per `QLocale`. Every consumer in the subset writes XML or a log line, where a localized decimal separator would be a bug. |
 | `string-format.cpp` | `printGPSCoordsC`, `get_dive_date_c_string` | `get_dive_date_c_string` renders fixed `YYYY-MM-DD HH:MM` in UTC instead of `prefs.date_format_short` via QLocale. |
 | `qthelper.cpp` | the qthelper corner above, and `subsurface_mkdir` | `string_to_*` match upstream except that the **localized** unit suffixes ("kg"/"lbs"/"m"/"ft"/…) are only recognized in English. `get_current_date` maps the common `prefs.date_format_short` patterns onto `strftime`. `get_stylesheet` reads from the directory set by `set_xslt_directory()` instead of Qt resources. |

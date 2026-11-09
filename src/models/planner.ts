@@ -15,6 +15,7 @@ import type {
   PlanTank,
   PlanWaypoint,
 } from './index';
+import { formatDiveDateTime } from './date-format';
 import { CylinderUse, PlanDiveMode } from './index';
 import { planNoteWarnings } from './plan-notes';
 import { plannerSettingsInput, type PlannerSettings } from './planner-settings';
@@ -158,7 +159,7 @@ export function whenFromDate(date: Date): number {
 
 /** For the portable screen, which steps the time instead of a native picker. */
 export function formatWhen(when: number): string {
-  return new Date(when * 1000).toISOString().slice(0, 16).replace('T', ' ');
+  return formatDiveDateTime(when);
 }
 
 // --- Editing -----------------------------------------------------------------

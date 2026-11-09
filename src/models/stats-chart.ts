@@ -25,6 +25,7 @@ import type {
   StatsSortMode,
   StatsVariableOption,
 } from './index';
+import { formatDayNumber, shortMonthName } from './date-format';
 
 // --- Names ---------------------------------------------------------------------
 
@@ -60,17 +61,14 @@ function numericAxis(axis: StatsAxis | undefined): { decimals: number; unit: str
     : { decimals: 0, unit: '' };
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
 /** A date axis counts days since 1970, as upstream's date variable does. */
 export function formatDay(days: number): string {
-  const date = new Date(days * 86400 * 1000);
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return formatDayNumber(days);
 }
 
 export function monthYear(days: number): { month: string; year: number } {
   const date = new Date(days * 86400 * 1000);
-  return { month: MONTHS[date.getUTCMonth()], year: date.getUTCFullYear() };
+  return { month: shortMonthName(date.getUTCMonth() + 1), year: date.getUTCFullYear() };
 }
 
 // --- The variable pickers -----------------------------------------------------------

@@ -31,11 +31,9 @@ import {
   useImportKey,
   useSaveRepositorySettings,
 } from '@/queries/git-sync';
+import { formatInstant } from '@/models/date-format';
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+const dateFormatter = { format: (date: Date | number) => formatInstant(Number(date)) };
 
 function failed(title: string, error: unknown) {
   operationFailed();

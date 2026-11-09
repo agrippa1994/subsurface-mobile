@@ -57,6 +57,8 @@
 // repeated rather than the guard weakened.
 extern int suunto_json_import(const std::string &buffer, const std::string &fit_buffer, struct divelog *log);
 extern void set_data_directory(const std::string &path);
+// cpp/shim/gettext.cpp: the region's short month names for the core's own labels.
+extern void set_month_names(const std::vector<std::string> &names);
 // Made non-static by patches/0011 and 0012: the CSV export runs the stylesheet
 // itself when the units are chosen one by one.
 extern void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize);
@@ -1790,12 +1792,29 @@ json import_file(const json &args)
 // Paths the core needs from the app: the directory holding the XSLT
 // stylesheets, which is how every non-SSRF XML format is read (the desktop app
 // gets them from Qt resources - see cpp/shim/qthelper.cpp).
+//
+// And the app's preferences the core reads itself: `monthNames`, the twelve short
+// month names of the device's region, January first, for the month labels the
+// core writes (statistics binners, trip titles).
 json configure(const json &args)
 {
 	std::string xslt = get_string(args, "xsltDir");
 	std::string data = get_string(args, "dataDir");
-	if (xslt.empty() && data.empty())
-		fail("missing required argument 'xsltDir' or 'dataDir'");
+	auto months = args.find("monthNames");
+	bool has_months = months != args.end() && !months->is_null();
+	if (xslt.empty() && data.empty() && !has_months)
+		fail("missing required argument 'xsltDir', 'dataDir' or 'monthNames'");
+	if (has_months) {
+		if (!months->is_array() || months->size() != 12)
+			fail("argument 'monthNames' must be an array of 12 strings");
+		std::vector<std::string> names;
+		for (const json &name : *months) {
+			if (!name.is_string())
+				fail("argument 'monthNames' must be an array of 12 strings");
+			names.push_back(name.get<std::string>());
+		}
+		set_month_names(names);
+	}
 	if (!xslt.empty())
 		set_xslt_directory(xslt);
 	if (!data.empty()) {

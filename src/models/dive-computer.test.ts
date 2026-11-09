@@ -149,7 +149,7 @@ describe('the review list', () => {
   });
 
   it('reads in the unit system, and in the time the dive computer showed', () => {
-    const [metric] = downloadedDiveRows([DIVE], METRIC_UNITS, 'en-GB');
+    const [metric] = downloadedDiveRows([DIVE], METRIC_UNITS);
     expect(metric.dateText).toContain('2 Jan 2026');
     expect(metric.dateText).toContain('10:00');
     expect(metric.detailText).toBe('25 m / 30:00');

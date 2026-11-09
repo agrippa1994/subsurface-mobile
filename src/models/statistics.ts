@@ -8,6 +8,7 @@
 // only decides labels, bucket trimming and axis scales, which is what the
 // vitest suite can check without a device.
 
+import { formatMonthYear, shortMonthName } from './date-format';
 import type { StatsFilter, StatsSummary } from './index';
 import {
   formatDepth,
@@ -134,20 +135,6 @@ function spanInMonths(summary: StatsSummary): number {
   return (last.year - first.year) * 12 + (last.month - first.month) + 1;
 }
 
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 export function divesOverTime(
   summary: StatsSummary,
@@ -177,12 +164,12 @@ export function divesOverTime(
   const bars: StatBar[] = [];
   for (let y = first.year, m = first.month; y < last.year || (y === last.year && m <= last.month); ) {
     const key = `${y}-${m}`;
-    const label = m === 1 ? String(y) : MONTH_NAMES[m - 1];
+    const label = m === 1 ? String(y) : shortMonthName(m);
     bars.push({
       key,
       label,
       value: counts.get(key) ?? 0,
-      caption: `${MONTH_NAMES[m - 1]} ${y}: ${diveCount(counts.get(key) ?? 0)}`,
+      caption: `${formatMonthYear(y, m)}: ${diveCount(counts.get(key) ?? 0)}`,
     });
     m += 1;
     if (m > 12) {
@@ -228,12 +215,12 @@ export function sacOverTime(
     if (!entry || month.avgSacMlPerMin <= 0) {
       return;
     }
-    const name = MONTH_NAMES[entry.month - 1];
+    const name = shortMonthName(entry.month);
     // The year goes on the first bar of each year, since months may be missing.
     const label = entry.year !== previousYear ? String(entry.year) : name;
     previousYear = entry.year;
     const key = `${entry.year}-${entry.month}`;
-    bars.push(sacBar(key, label, `${name} ${entry.year}`, month.avgSacMlPerMin, units));
+    bars.push(sacBar(key, label, formatMonthYear(entry.year, entry.month), month.avgSacMlPerMin, units));
   });
   return bars;
 }

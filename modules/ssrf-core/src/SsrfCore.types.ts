@@ -23,6 +23,15 @@ export type CoreUnitsInput = {
   weight: 'kg' | 'lbs';
 };
 
+/**
+ * App preferences the core reads itself, set with `configurePreferences`. Each is
+ * applied when present and left as it was when absent.
+ */
+export type CorePreferences = {
+  /** The device region's twelve short month names, January first. */
+  monthNames?: string[];
+};
+
 // Native surface exposed by the Swift/Kotlin module definition.
 export type SsrfCoreNativeModule = {
   // The whole core API. Returns the JSON envelope described in cpp/api.h.

@@ -21,6 +21,7 @@ import { useIncomingFileImports } from '@/features/transfer/use-incoming-files';
 import { usePortraitLock } from '@/hooks/use-landscape';
 import { useNavigationTheme, useRootScreenOptions } from '@/hooks/use-navigation-theme';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
+import { useDeviceClock } from '@/lib/device-clock';
 import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
 import { queryClient } from '@/lib/query-client';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -67,6 +68,9 @@ export default function RootLayout() {
 
 /** Everything that needs the query client, which the layout above creates. */
 function AppShell() {
+  // Before anything formats a date: the region and the 12/24-hour clock.
+  useDeviceClock();
+
   const navigationTheme = useNavigationTheme();
   const rootScreenOptions = useRootScreenOptions();
 

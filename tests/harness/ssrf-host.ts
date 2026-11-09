@@ -15,6 +15,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 
 import type {
+  CorePreferences,
   CsvExportOptions,
   CsvExportResult,
   DeleteDiveResult,
@@ -183,6 +184,10 @@ export class SsrfHost {
    */
   configure(xsltDir: string = XSLT_DIR): Promise<{ xsltDir: string }> {
     return this.call<{ xsltDir: string }>('configure', { xsltDir });
+  }
+
+  configurePreferences(preferences: CorePreferences): Promise<unknown> {
+    return this.call('configure', preferences);
   }
 
   listDives(): Promise<DiveSummary[]> {

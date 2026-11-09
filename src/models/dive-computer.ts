@@ -14,6 +14,7 @@ import type {
   DownloadStatus,
   ImportResult,
 } from '../../modules/ssrf-core/src/SsrfCore.types';
+import { formatDiveDateTime } from './date-format';
 import { formatDepth, formatDuration, type Units } from './units';
 
 export type RememberedComputer = DiveComputerIdentity & {
@@ -154,20 +155,12 @@ export type DownloadedDiveRow = {
 export function downloadedDiveRows(
   dives: readonly DownloadedDive[],
   units: Units,
-  locale?: string,
 ): DownloadedDiveRow[] {
   return [...dives]
     .sort((a, b) => b.when - a.when)
     .map((dive) => ({
       index: dive.index,
-      dateText: new Date(dive.when * 1000).toLocaleString(locale, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
-      }),
+      dateText: formatDiveDateTime(dive.when),
       detailText: [
         dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '',
         dive.durationSec > 0 ? formatDuration(dive.durationSec) : '',

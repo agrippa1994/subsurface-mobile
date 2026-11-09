@@ -14,6 +14,7 @@ import { useMcpSection, type McpSection } from '@/features/mcp/use-mcp-section';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
+import { formatInstant } from '@/models/date-format';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
@@ -113,10 +114,7 @@ export type SettingsScreen = {
   clearDiagnostics: () => void;
 };
 
-const lastSyncFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+const lastSyncFormatter = { format: (ms: number) => formatInstant(ms) };
 
 function aboutInfo(): AboutInfo {
   const extra = Constants.expoConfig?.extra ?? {};

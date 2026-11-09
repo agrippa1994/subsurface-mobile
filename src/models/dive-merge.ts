@@ -84,8 +84,8 @@ export function mergeActionsFor(
 }
 
 /** "Dive 12: Shark Reef, 12 Mar 2024, 09:14", with no number if it has none. */
-function nameDive(dive: DiveSummary, units: Units, locale?: string): string {
-  const row = toDiveRow(dive, units, locale);
+function nameDive(dive: DiveSummary, units: Units): string {
+  const row = toDiveRow(dive, units);
   const name = `${row.title}, ${row.subtitle}`;
   return dive.number > 0 ? `Dive ${dive.number}: ${name}` : name;
 }
@@ -103,11 +103,10 @@ export function mergeConfirmation(
   preview: MergePreview,
   trips: readonly Trip[],
   units: Units,
-  locale?: string,
 ): MergeConfirmation {
   const merged = preview.dive;
   const ordered = [...dives].sort((a, b) => a.when - b.when || a.id - b.id);
-  const lines = [ordered.map((dive) => nameDive(dive, units, locale)).join('\n')];
+  const lines = [ordered.map((dive) => nameDive(dive, units)).join('\n')];
 
   const figures = `${formatDepth(merged.maxDepthMm, units)} deep, ${formatDuration(merged.durationSec)} long`;
   if (merged.dcs.length > 1) {

@@ -22,7 +22,6 @@ import {
 import { METRIC_UNITS } from './units';
 
 const DAY = 86400;
-const LOCALE = 'en-GB';
 
 function dive(overrides: Partial<DiveSummary> & { id: number }): DiveSummary {
   return {
@@ -67,19 +66,19 @@ describe('tripDateText and tripSubtitle', () => {
   const start = Date.UTC(2024, 2, 12, 9) / 1000;
 
   it('shows one date for a single day', () => {
-    expect(tripDateText(trip({ id: 1, when: start, lastDiveWhen: start + 3600 }), LOCALE)).toBe(
+    expect(tripDateText(trip({ id: 1, when: start, lastDiveWhen: start + 3600 }))).toBe(
       '12 Mar 2024',
     );
   });
 
   it('shows a range across days', () => {
-    expect(tripDateText(trip({ id: 1, when: start, lastDiveWhen: start + 3 * DAY }), LOCALE)).toBe(
+    expect(tripDateText(trip({ id: 1, when: start, lastDiveWhen: start + 3 * DAY }))).toBe(
       '12 Mar 2024 to 15 Mar 2024',
     );
   });
 
   it('counts the dives', () => {
-    expect(tripSubtitle(trip({ id: 1, when: start, lastDiveWhen: start, diveCount: 1 }), LOCALE)).toBe(
+    expect(tripSubtitle(trip({ id: 1, when: start, lastDiveWhen: start, diveCount: 1 }))).toBe(
       '1 dive - 12 Mar 2024',
     );
   });
@@ -129,13 +128,13 @@ describe('searchTrips', () => {
   }
 
   it('finds by location and date, every word having to match', () => {
-    expect(searchTrips(trips, 'red', LOCALE).map((t) => t.id)).toEqual([1]);
-    expect(searchTrips(trips, '2023', LOCALE).map((t) => t.id)).toEqual([2]);
-    expect(searchTrips(trips, 'red 2023', LOCALE)).toEqual([]);
+    expect(searchTrips(trips, 'red').map((t) => t.id)).toEqual([1]);
+    expect(searchTrips(trips, '2023').map((t) => t.id)).toEqual([2]);
+    expect(searchTrips(trips, 'red 2023')).toEqual([]);
   });
 
   it('keeps everything for a blank query', () => {
-    expect(searchTrips(trips, '  ', LOCALE)).toHaveLength(2);
+    expect(searchTrips(trips, '  ')).toHaveLength(2);
   });
 });
 
@@ -226,7 +225,7 @@ describe('tripSummaryRows and tripSummaryFooter', () => {
     ({ matched, total }) as unknown as StatsSummary;
 
   it('shows dates and count before the statistics are in', () => {
-    expect(tripSummaryRows(t, undefined, METRIC_UNITS, LOCALE)).toEqual([
+    expect(tripSummaryRows(t, undefined, METRIC_UNITS)).toEqual([
       { label: 'Dates', value: '12 Mar 2024' },
       { label: 'Dives', value: '3' },
     ]);
@@ -237,7 +236,6 @@ describe('tripSummaryRows and tripSummaryFooter', () => {
       t,
       stats({ totalTimeSec: 7500, maxDepthMm: 30000, avgDepthMm: 15000, minTempMkelvin: 293150 }),
       METRIC_UNITS,
-      LOCALE,
     );
     expect(rows.slice(2)).toEqual([
       { label: 'Total time', value: '2 h 5 min' },

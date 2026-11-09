@@ -95,7 +95,6 @@ describe('mergeConfirmation', () => {
       preview({}),
       [],
       METRIC_UNITS,
-      'en-GB',
     );
     expect(title).toBe('Merge these dives?');
     expect(confirmLabel).toBe('Merge');
@@ -112,7 +111,6 @@ describe('mergeConfirmation', () => {
       preview({}),
       [],
       METRIC_UNITS,
-      'en-GB',
     );
     expect(message.startsWith('Shark Reef, ')).toBe(true);
   });

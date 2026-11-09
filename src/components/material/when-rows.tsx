@@ -18,21 +18,17 @@ import { useState } from 'react';
 
 import { M3Icon } from './icon';
 
+import { formatDiveDateMedium, formatDiveTime, uses24HourClock } from '@/models/date-format';
 import { whenToDate } from '@/models/planner';
 
 const SECONDS_PER_DAY = 86400;
 
-const formatDay = (when: number) =>
-  new Date(when * 1000).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
-const formatTime = (when: number) =>
-  new Date(when * 1000).toLocaleTimeString(undefined, { timeStyle: 'short', timeZone: 'UTC' });
+const formatDay = formatDiveDateMedium;
+const formatTime = formatDiveTime;
 
 const secondsIntoDay = (when: number) => ((when % SECONDS_PER_DAY) + SECONDS_PER_DAY) % SECONDS_PER_DAY;
 
-function uses24Hours() {
-  const { hourCycle } = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
-  return hourCycle === 'h23' || hourCycle === 'h24';
-}
+const uses24Hours = uses24HourClock;
 
 function Row({
   label,
