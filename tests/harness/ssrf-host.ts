@@ -46,6 +46,8 @@ import type {
   StatsChartResult,
   StatsFilter,
   StatsSummary,
+  SurfaceGfInput,
+  SurfaceGfSeries,
   RemoveFromTripResult,
   Trip,
   TripPatch,
@@ -253,6 +255,10 @@ export class SsrfHost {
 
   statsChart(request: StatsChartRequest = {}): Promise<StatsChartResult> {
     return this.call<StatsChartResult>('statsChart', request);
+  }
+
+  surfaceGf(input: SurfaceGfInput): Promise<SurfaceGfSeries> {
+    return this.call<SurfaceGfSeries>('surfaceGf', input);
   }
 
   nitroxPlan(input: NitroxPlanInput): Promise<NitroxPlan> {

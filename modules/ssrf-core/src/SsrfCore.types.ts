@@ -784,6 +784,51 @@ export type NitroxPlan = {
   airNdlMin: number | null;
 };
 
+/** Arguments of `surfaceGf` - see cpp/API.md. */
+export type SurfaceGfInput = GradientFactors & {
+  /** The dive the surface interval follows. Default: the latest valid dive by end time. */
+  id?: number;
+  /** Ambient pressure on the surface, 500-1100 mbar. Default: the dive's own surface pressure. */
+  ambientMbar?: number;
+  /** Spacing of the series, 10-600 s. Default 60. */
+  stepSec?: number;
+  /** Length of the series, up to 72 h. Default: until clean plus an hour, at most 72 h. */
+  horizonSec?: number;
+};
+
+/**
+ * Result of `surfaceGf`: the Buehlmann surface gradient factor over the surface
+ * interval after one dive - see cpp/API.md. Times are the core's: wall clock
+ * written as if it were UTC, in seconds.
+ */
+export type SurfaceGfSeries = {
+  diveId: number;
+  diveNumber: number;
+  diveWhen: number;
+  /** `dive::endtime()`, where the core starts counting a surface interval. */
+  diveEndWhen: number;
+  /** When the series starts: the profile's last plotted point, at or just after diveEndWhen. */
+  startWhen: number;
+  diveSurfaceMbar: number;
+  ambientMbar: number;
+  stepSec: number;
+  /** Surface GF of the profile's last point against the dive's surface pressure, percent. */
+  endSurfaceGf: number;
+  /** Surface GF in percent, one value per `stepSec` from `startWhen`. Never below 0. */
+  surfaceGf: number[];
+  /** The compartment (0-15) that decides each value of `surfaceGf`. */
+  leadingCompartment: number[];
+  /** Seconds after startWhen until no compartment is supersaturated (GF 0 %); null past the series. */
+  gfZeroSec: number | null;
+  /**
+   * Seconds after startWhen until every compartment is within 2 % of its
+   * equilibrium with surface air; null past the series.
+   */
+  cleanSec: number | null;
+  /** The surface interval before the dive when earlier dives loaded its tissues, else null. */
+  residualFromSec: number | null;
+};
+
 export type LoadResult = { dives: number; sites: number; trips: number };
 export type SaveResult = { path: string; dives: number };
 

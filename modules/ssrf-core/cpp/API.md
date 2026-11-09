@@ -83,6 +83,7 @@ rendered metric or imperial.
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
 | `statsChart` | `{ config?, change?, filter?, units?, imperial?, plot? }` | `{ config, options, dives, chart? }` |
 | `nitroxPlan` | `{ depthMm, o2Permille, maxPo2Mbar?, salinity?, gfLow?, gfHigh? }` | `NitroxPlan` |
+| `surfaceGf` | `{ id?, ambientMbar?, stepSec?, horizonSec?, gfLow?, gfHigh? }` | `SurfaceGfSeries` |
 | `planDive` | `PlanInput` | `PlanResult` |
 | `savePlan` | `PlanInput` | `{ id, dives }` |
 | `gasInfo` | `{ o2Permille, hePermille?, o2Narcotic?, salinity?, surfacePressureMbar?, bestMix? }` | `GasInfo` |
@@ -209,6 +210,45 @@ directly and avoids the copy.
   pressure (1 atm) and `salinity` (10300 sea, 10000 fresh). The gradient
   factors are applied as for `getProfile`, and `prefs.modpO2` is set to the
   working pO2 because `best_o2()` reads it from there.
+- **`surfaceGf`** (`cpp/bindings/surface-gf.cpp`) is the live surface
+  gradient factor: how desaturated the diver is after a dive and how that goes
+  on over the surface interval. It reads the logbook and changes nothing.
+  - *Which dive*: `id`, or without it the valid dive with the latest
+    `dive::endtime()`. No dive fails the call.
+  - *Tissues at the end of the dive*: `init_decompression()` loads what the
+    earlier dives left (the same residual nitrogen `getProfile` starts from),
+    then the dive's own `create_plot_info_new()` points are walked with the
+    profile's `add_segment()` loop (`calculate_deco_information()`: 20 s steps,
+    interpolated depth, the gas and dive mode at each point, its o2 pressure).
+    `profile.cpp` keeps its deco state private, so it is rebuilt from the same
+    inputs with the same calls; `endSurfaceGf` therefore equals the
+    `surfaceGf` of the profile's last point (golden test
+    `tests/surface-gf.test.ts`). Only the Buehlmann path is rebuilt; VPM-B only
+    iterates the gradients, not the tissue loading.
+  - *Surface interval*: from `startWhen` (the profile's last point, at or a few
+    seconds past `diveEndWhen`) the tissues are stepped forward with
+    `add_segment()` on air at `ambientMbar` (500-1100, default the dive's own
+    surface pressure), `stepSec` (10-600, default 60) at a time - the call
+    `init_decompression()` itself makes for a surface interval. One ambient
+    pressure applies to the whole interval.
+  - *Surface GF*: `profile.cpp`'s formula at the ambient pressure: the maximum
+    over the 16 compartments of `100 * (p_tissue - p_amb) / (M(p_amb) - p_amb)`
+    with `M(p) = a + p / b` after `tissue_tolerance_calc()` set each
+    compartment's `a`/`b` for its N2/He mix. Like the profile the maximum starts
+    at 0, so the value never goes negative. It uses the raw M-value, so the
+    gradient factors do not change it; they are still applied (`set_gf()`) so
+    the plot built on the way matches `getProfile`.
+  - *Thresholds*: `gfZeroSec` is the first point where no compartment is above
+    ambient pressure (surface GF 0 %). `cleanSec` is the first point where every
+    compartment's inert gas pressure is within 2 % of its equilibrium with air at
+    `ambientMbar` (`clear_deco()`); that takes the slowest compartment roughly
+    the 48 h after which `init_decompression()` stops counting a dive. Either is
+    null when it falls past the series.
+  - *Length*: without `horizonSec` the series ends an hour after `cleanSec`,
+    at most 72 h; with it, at `horizonSec`. `leadingCompartment` names the
+    compartment behind each value. `residualFromSec` is the surface interval
+    before the dive when earlier dives loaded it (as `getProfile`'s
+    `surfaceIntervalSec`), else null.
 - **`planDive`** (`cpp/bindings/planner.cpp`) runs the core's `plan()` the way
   `DivePlannerPointsModel::calculatePlan` does in the Qt app: cylinders, then
   `reset_cylinders()`, then a zero-time waypoint for each open circuit gas with a

@@ -8,6 +8,7 @@
 #include "marshal.h"
 #include "planner.h"
 #include "stats-chart.h"
+#include "surface-gf.h"
 #include "suunto-xml.h"
 #include "zip-reader.h"
 
@@ -2017,6 +2018,10 @@ json dispatch(const std::string &method, const json &args)
 		return get_stats_chart(args);
 	if (method == "nitroxPlan")
 		return nitrox_plan(args);
+	if (method == "surfaceGf") {
+		apply_gradient_factors(args);
+		return surface_gf(args);
+	}
 	if (method == "planDive")
 		return plan_dive(args);
 	if (method == "savePlan")
