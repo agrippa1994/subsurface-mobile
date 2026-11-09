@@ -55,7 +55,7 @@ import {
 } from '@/models/trips';
 import { useDives, useLogbook, useTrips } from '@/queries/logbook';
 import { useDeleteDive } from '@/queries/logbook-mutations';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 function selectedTitle(count: number): string {
   return count === 0 ? 'Select Dives' : `${count} Selected`;
@@ -69,7 +69,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
   const logbook = useLogbook();
   const divesQuery = useDives();
   const dives = useMemo(() => divesQuery.data ?? [], [divesQuery.data]);
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const deleteDive = useDeleteDive();
   const tripsQuery = useTrips();
   const trips = useMemo(() => tripsQuery.data ?? [], [tripsQuery.data]);
@@ -301,7 +301,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     <>
       <DiveListView
         sections={sections}
-        unitSystem={unitSystem}
+        units={units}
         onSelectDive={onSelectDive}
         onDeleteDive={onDeleteDive}
         resultsText={searching ? searchResultsText(matches.length, dives.length) : undefined}

@@ -22,6 +22,7 @@ import {
   type ChartSelection,
 } from '@/models/stats-chart';
 import { useDives, useStatsChart } from '@/queries/logbook';
+import { coreUnits } from '@/models/units';
 import { useSettings, useUpdateSettings } from '@/queries/settings';
 
 import { useStatisticsContext } from './statistics-context';
@@ -31,27 +32,27 @@ export function useChartConfig() {
   const settings = useSettings();
   const update = useUpdateSettings();
   const config: StatsChartConfigInput = settings.statsChart ?? DEFAULT_STATS_CONFIG;
-  const imperial = settings.unitSystem === 'imperial';
+  const units = coreUnits(settings.units);
   const { mutate } = update;
 
   const setConfig = useCallback(
     (input: StatsChartConfigInput) => {
-      const result = statsChart({ config: input, imperial, plot: false });
+      const result = statsChart({ config: input, units, plot: false });
       mutate({ statsChart: result.config });
     },
-    [imperial, mutate],
+    [units, mutate],
   );
 
   const change = useCallback(
     (next: StatsChartChange) => {
-      const result = statsChart({ config, change: next, imperial, plot: false });
+      const result = statsChart({ config, change: next, units, plot: false });
       const friendly = phoneFriendlyChart(next, result.config, result.options);
       const settled = friendly
-        ? statsChart({ config: result.config, change: { kind: 'chart', value: friendly }, imperial, plot: false }).config
+        ? statsChart({ config: result.config, change: { kind: 'chart', value: friendly }, units, plot: false }).config
         : result.config;
       mutate({ statsChart: settled });
     },
-    [config, imperial, mutate],
+    [config, units, mutate],
   );
 
   return { config, setConfig, change };
@@ -62,9 +63,9 @@ export type ChartScreen = ReturnType<typeof useChartScreen>;
 export function useChartScreen() {
   const router = useRouter();
   const { filter, setBehind } = useStatisticsContext();
-  const { unitSystem } = useSettings();
+  const { units } = useSettings();
   const { config, change } = useChartConfig();
-  const query = useStatsChart(config, filter, unitSystem);
+  const query = useStatsChart(config, filter, units);
   const [selected, setSelected] = useState<{ chart: StatsChart; selection: ChartSelection } | null>(null);
 
   const result = query.data;

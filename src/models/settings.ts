@@ -12,10 +12,14 @@ import {
 } from './planner-settings';
 import { parseStatsConfig } from './stats-chart';
 import type { StatsChartConfig } from './index';
-import type { UnitSystem } from './units';
+import { METRIC_UNITS, parseUnits, unitPreset, unitsForSystem, type Units } from './units';
 
 export type Settings = {
-  unitSystem: UnitSystem;
+  /**
+   * One unit per quantity. Metric and imperial are presets of these; anything
+   * else is what the legacy app calls "personalized".
+   */
+  units: Units;
   /** Buehlmann gradient factor low, in percent. */
   gfLow: number;
   /** Buehlmann gradient factor high, in percent. */
@@ -35,7 +39,7 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  unitSystem: 'metric',
+  units: METRIC_UNITS,
   // The core's own defaults (subsurface/core/pref.cpp, default_prefs).
   gfLow: 30,
   gfHigh: 75,
@@ -87,15 +91,35 @@ function flag(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
 
+type RawSettings = Partial<Omit<Settings, 'units'>> & { units?: unknown; unitSystem?: unknown };
+
+/**
+ * Files written before units could be chosen one by one hold only
+ * `unitSystem`. That becomes its preset, and any per-quantity entry a later
+ * file has wins over it.
+ */
+function readUnits(raw: RawSettings | null): Units {
+  const preset = unitsForSystem(raw?.unitSystem === 'imperial' ? 'imperial' : 'metric');
+  return parseUnits(raw?.units, preset);
+}
+
+function legacyUnitSystem(units: Units): 'metric' | 'imperial' {
+  const preset = unitPreset(units);
+  if (preset !== 'personalized') {
+    return preset;
+  }
+  return units.depth === 'ft' ? 'imperial' : 'metric';
+}
+
 /**
  * Reads a settings file. Anything unrecognised, missing or malformed falls back
  * to the default, so an older or hand-edited file never blocks startup.
  */
 export function parseSettings(json: string): Settings {
   try {
-    const raw = JSON.parse(json) as Partial<Settings> | null;
+    const raw = JSON.parse(json) as RawSettings | null;
     return {
-      unitSystem: raw?.unitSystem === 'imperial' ? 'imperial' : 'metric',
+      units: readUnits(raw),
       ...clampGradientFactors(
         typeof raw?.gfLow === 'number' ? raw.gfLow : DEFAULT_SETTINGS.gfLow,
         typeof raw?.gfHigh === 'number' ? raw.gfHigh : DEFAULT_SETTINGS.gfHigh,
@@ -114,7 +138,10 @@ export function parseSettings(json: string): Settings {
 
 export function serializeSettings(settings: Settings): string {
   return JSON.stringify({
-    unitSystem: settings.unitSystem,
+    units: settings.units,
+    // Still written, for an older build reading this file: it knew only the two
+    // presets, and a personalized choice reads best as the system of its depth.
+    unitSystem: legacyUnitSystem(settings.units),
     gfLow: settings.gfLow,
     gfHigh: settings.gfHigh,
     showGfNow: settings.showGfNow,

@@ -20,6 +20,7 @@ import {
 } from '../src/models/statistics';
 import { fixture } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
+import { METRIC_UNITS } from '../src/models/units';
 
 let host: SsrfHost;
 let dives: DiveSummary[];
@@ -154,7 +155,7 @@ describe('the buckets the bindings add', () => {
     expect(summary.total.maxSacMlPerMin).toBe(Math.max(...sacs));
     expect(summary.total.avgSacMlPerMin).toBeGreaterThanOrEqual(summary.total.minSacMlPerMin);
     expect(summary.total.avgSacMlPerMin).toBeLessThanOrEqual(summary.total.maxSacMlPerMin);
-    expect(sacOverTime(summary).length).toBeGreaterThan(0);
+    expect(sacOverTime(summary, METRIC_UNITS).length).toBeGreaterThan(0);
   });
 
   it('agrees with the core on the yearly totals', () => {
@@ -197,10 +198,10 @@ describe('filters recompute in the module', () => {
     expect(filtered.siteCount).toBe(0);
     expect(filtered.timeline).toEqual([]);
     expect(divesOverTime(filtered)).toEqual([]);
-    expect(depthHistogram(filtered)).toEqual([]);
+    expect(depthHistogram(filtered, METRIC_UNITS)).toEqual([]);
     expect(durationHistogram(filtered)).toEqual([]);
-    expect(sacOverTime(filtered)).toEqual([]);
-    expect(summaryTiles(filtered).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
+    expect(sacOverTime(filtered, METRIC_UNITS)).toEqual([]);
+    expect(summaryTiles(filtered, METRIC_UNITS).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
   });
 
   it('restores the full picture once the filter is dropped', async () => {
@@ -219,9 +220,9 @@ describe('a single-dive logbook', () => {
       expect(one.matched).toBe(1);
       expect(one.timeline).toHaveLength(1);
       expect(divesOverTime(one)).toHaveLength(1);
-      expect(depthHistogram(one).reduce((acc, bar) => acc + bar.value, 0)).toBe(1);
+      expect(depthHistogram(one, METRIC_UNITS).reduce((acc, bar) => acc + bar.value, 0)).toBe(1);
       expect(durationHistogram(one).reduce((acc, bar) => acc + bar.value, 0)).toBe(1);
-      expect(summaryTiles(one)[0].value).toBe('1');
+      expect(summaryTiles(one, METRIC_UNITS)[0].value).toBe('1');
     } finally {
       await single.close();
     }

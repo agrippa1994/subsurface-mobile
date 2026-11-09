@@ -16,8 +16,11 @@ export const MODULE_ROOT = join(REPO_ROOT, 'modules/ssrf-core');
 // SSRF_HOST_BINARY points a run at a sanitizer build (build-host.sh --tsan, --asan).
 export const HOST_BINARY = process.env.SSRF_HOST_BINARY ?? join(MODULE_ROOT, 'build/host/ssrf-smoke');
 export const DIVES_DIR = join(REPO_ROOT, 'subsurface/dives');
-/** The stylesheets, taken from the submodule rather than from the vendored copy. */
-export const XSLT_DIR = join(REPO_ROOT, 'subsurface/xslt');
+/**
+ * The stylesheets the app ships: the vendored copy, which carries the patches in
+ * modules/ssrf-core/patches/xslt-*. global-setup.ts builds it before any test runs.
+ */
+export const XSLT_DIR = join(MODULE_ROOT, 'resources/xslt');
 
 export function fixture(name: string): string {
   return join(DIVES_DIR, name);

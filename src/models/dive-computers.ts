@@ -7,7 +7,7 @@
 // computer's next to its name, so this file decides what belongs to a computer.
 
 import { DiveMode, type DiveComputer } from './index';
-import { formatDepth, formatDuration, formatTemperature, type UnitSystem } from './units';
+import { formatDepth, formatDuration, formatTemperature, type Units } from './units';
 
 export const DIVE_MODE_LABEL: Record<DiveMode, string> = {
   [DiveMode.OC]: 'Open circuit',
@@ -70,25 +70,25 @@ export function computerPositionText(label: string, index: number, count: number
  */
 export function computerFigures(
   dc: DiveComputer,
-  system: UnitSystem,
+  units: Units,
 ): { label: string; value: string }[] {
   const figures = [
     { label: 'Mode', value: DIVE_MODE_LABEL[dc.divemode] ?? DIVE_MODE_LABEL[DiveMode.OC] },
   ];
   if (dc.maxDepthMm > 0) {
-    figures.push({ label: 'Max depth', value: formatDepth(dc.maxDepthMm, system) });
+    figures.push({ label: 'Max depth', value: formatDepth(dc.maxDepthMm, units) });
   }
   if (dc.meanDepthMm > 0) {
-    figures.push({ label: 'Average depth', value: formatDepth(dc.meanDepthMm, system) });
+    figures.push({ label: 'Average depth', value: formatDepth(dc.meanDepthMm, units) });
   }
   if (dc.durationSec > 0) {
     figures.push({ label: 'Duration', value: formatDuration(dc.durationSec) });
   }
   if (dc.waterTempMkelvin > 0) {
-    figures.push({ label: 'Water', value: formatTemperature(dc.waterTempMkelvin, system) });
+    figures.push({ label: 'Water', value: formatTemperature(dc.waterTempMkelvin, units) });
   }
   if (dc.airTempMkelvin > 0) {
-    figures.push({ label: 'Air', value: formatTemperature(dc.airTempMkelvin, system) });
+    figures.push({ label: 'Air', value: formatTemperature(dc.airTempMkelvin, units) });
   }
   return figures;
 }

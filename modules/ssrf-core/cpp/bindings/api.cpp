@@ -21,6 +21,7 @@
 #include "core/equipment.h"
 #include "core/errorhelper.h"
 #include "core/gas.h"
+#include "core/membuffer.h"
 #include "core/parse.h"
 #include "core/pref.h"
 #include "core/profile.h"
@@ -56,6 +57,11 @@
 // repeated rather than the guard weakened.
 extern int suunto_json_import(const std::string &buffer, const std::string &fit_buffer, struct divelog *log);
 extern void set_data_directory(const std::string &path);
+// Made non-static by patches/0011 and 0012: the CSV export runs the stylesheet
+// itself when the units are chosen one by one.
+extern void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize);
+extern std::pair<int, std::string> transform_xslt(const char *filename, struct membuffer &buf,
+						  struct xml_params *params, const char *export_xslt);
 
 std::recursive_mutex &ssrf_core_mutex()
 {
@@ -1538,7 +1544,27 @@ json export_dive_csv(const json &args)
 			fail("failed to write " + path);
 	} else if (format == "details" || format == "summary") {
 		const char *stylesheet = format == "details" ? "xml2detailscsv.xslt" : "xml2summarycsv.xslt";
-		auto [error, message] = export_dives_xslt(path.c_str(), true, units, stylesheet, false);
+		// `unitPrefs` names each quantity's unit, as the screens show them; the
+		// patched stylesheets take one switch per quantity, each defaulting to
+		// `units` (patches/xslt-0001). Without it this is export_dives_xslt().
+		std::pair<int, std::string> result;
+		auto prefs_arg = args.find("unitPrefs");
+		if (prefs_arg != args.end() && !prefs_arg->is_null()) {
+			struct units chosen = units_from_json(*prefs_arg, units ? IMPERIAL_units : SI_units);
+			membuffer buf;
+			xml_params params;
+			save_dives_buffer(&buf, true, false);
+			xml_params_add_int(&params, "units", units);
+			xml_params_add_int(&params, "unitsDepth", chosen.length == units::FEET);
+			xml_params_add_int(&params, "unitsPressure", chosen.pressure == units::PSI);
+			xml_params_add_int(&params, "unitsVolume", chosen.volume == units::CUFT);
+			xml_params_add_int(&params, "unitsTemperature", chosen.temperature == units::FAHRENHEIT);
+			xml_params_add_int(&params, "unitsWeight", chosen.weight == units::LBS);
+			result = transform_xslt(path.c_str(), buf, &params, stylesheet);
+		} else {
+			result = export_dives_xslt(path.c_str(), true, units, stylesheet, false);
+		}
+		auto [error, message] = result;
 		if (error)
 			fail(message.empty() ? "failed to write " + path : message);
 	} else {

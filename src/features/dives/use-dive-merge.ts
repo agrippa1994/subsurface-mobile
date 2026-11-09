@@ -16,7 +16,7 @@ import { mergeActionsFor, mergeConfirmation, mergeNeighbours, type MergeAction }
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDives, useMergePairs, useTrips } from '@/queries/logbook';
 import { useMergeDives } from '@/queries/logbook-mutations';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 export type DiveMerge = {
   actionsFor: (diveId: number) => MergeAction[];
@@ -28,7 +28,7 @@ export function useDiveMerge(): DiveMerge {
   const { data: dives = [] } = useDives();
   const { data: pairs = [] } = useMergePairs();
   const { data: trips = [] } = useTrips();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const merge = useMergeDives();
 
   const divesById = useMemo(() => new Map(dives.map((dive) => [dive.id, dive])), [dives]);
@@ -54,7 +54,7 @@ export function useDiveMerge(): DiveMerge {
       const ids = [first.id, second.id];
       let question;
       try {
-        question = mergeConfirmation([first, second], previewMerge(ids), trips, unitSystem);
+        question = mergeConfirmation([first, second], previewMerge(ids), trips, units);
       } catch (error) {
         fail(error);
         return;
@@ -81,7 +81,7 @@ export function useDiveMerge(): DiveMerge {
         },
       ]);
     },
-    [divesById, fail, merge, trips, unitSystem],
+    [divesById, fail, merge, trips, units],
   );
 
   return useMemo(() => ({ actionsFor, confirmMerge }), [actionsFor, confirmMerge]);

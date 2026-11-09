@@ -113,4 +113,9 @@ export const PATCHES = [
 	'0009-merge-samples-absent-sensor.patch',
 	'0010-planner-wait-until-relative-to-the-stop.patch',
 	'0011-save-xml-expose-save-dives-buffer.patch',
+	'0012-save-xml-expose-transform-xslt.patch',
 ];
+
+// Patches applied to the copied stylesheets in `resources/xslt/`, with
+// `patch -p1` inside that directory, the same way as PATCHES.
+export const XSLT_PATCHES = ['xslt-0001-csv-units-per-quantity.patch'];

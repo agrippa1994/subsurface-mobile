@@ -16,6 +16,7 @@ import {
   ssiVisibilityBars,
   ssiWaterTemperatureBars,
 } from './site-insights';
+import { IMPERIAL_UNITS, METRIC_UNITS } from '../units';
 
 const gosslerBucht = {
   dive_site_id: 742748,
@@ -91,7 +92,7 @@ describe('parseSsiSiteInsights', () => {
       bow: 'lava',
     } as unknown as SiteDetail);
     expect(empty).toMatchObject({ avgDepthM: null, water: null, diveTypes: [], environmentIds: [] });
-    expect(ssiWaterTemperatureBars(empty.months, 'metric')).toEqual([]);
+    expect(ssiWaterTemperatureBars(empty.months, METRIC_UNITS)).toEqual([]);
     expect(ssiMonthlyDiveBars(empty.months)).toEqual([]);
     expect(ssiRatingBars(empty.ratingCounts)).toEqual([]);
   });
@@ -101,7 +102,7 @@ describe('monthly bars', () => {
   const { months } = parseSsiSiteInsights(gosslerBucht);
 
   it('gives twelve bars, with the dive count behind each average', () => {
-    const bars = ssiWaterTemperatureBars(months, 'metric');
+    const bars = ssiWaterTemperatureBars(months, METRIC_UNITS);
     expect(bars).toHaveLength(12);
     expect(bars[7]).toMatchObject({
       label: 'A',
@@ -112,16 +113,16 @@ describe('monthly bars', () => {
   });
 
   it('converts to imperial', () => {
-    expect(ssiWaterTemperatureBars(months, 'imperial')[6].value).toBe(53.6);
-    expect(ssiAirTemperatureBars(months, 'imperial')[6].caption).toContain('60.8 F');
-    expect(ssiVisibilityBars(months, 'imperial')[7]).toMatchObject({ value: 33 });
-    expect(formatSsiDepth(16, 'imperial')).toBe('52 ft');
-    expect(formatSsiDepth(16, 'metric')).toBe('16 m');
+    expect(ssiWaterTemperatureBars(months, IMPERIAL_UNITS)[6].value).toBe(53.6);
+    expect(ssiAirTemperatureBars(months, IMPERIAL_UNITS)[6].caption).toContain('60.8 F');
+    expect(ssiVisibilityBars(months, IMPERIAL_UNITS)[7]).toMatchObject({ value: 33 });
+    expect(formatSsiDepth(16, IMPERIAL_UNITS)).toBe('52 ft');
+    expect(formatSsiDepth(16, METRIC_UNITS)).toBe('16 m');
   });
 
   it('keeps a below-freezing month out of the bars but not out of the caption', () => {
     const cold = months.map((month) => (month.month === 1 ? { ...month, airC: -3 } : month));
-    expect(ssiAirTemperatureBars(cold, 'metric')[0]).toMatchObject({
+    expect(ssiAirTemperatureBars(cold, METRIC_UNITS)[0]).toMatchObject({
       value: 0,
       caption: 'January: -3 C, from 0 dives',
     });

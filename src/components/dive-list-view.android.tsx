@@ -76,7 +76,7 @@ function SectionHeading({
 
 export function DiveListView({
   sections,
-  unitSystem,
+  units,
   onSelectDive,
   onDeleteDive,
   resultsText,
@@ -153,7 +153,7 @@ export function DiveListView({
                 case 'dive':
                   return (
                     <M3DiveRow
-                      row={toDiveRow(item.dive, unitSystem)}
+                      row={toDiveRow(item.dive, units)}
                       selected={selectedIds ? selectedIds.has(item.dive.id) : undefined}
                       open={item.dive.id === openDiveId}
                       onPress={() =>

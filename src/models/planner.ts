@@ -26,7 +26,7 @@ import {
   mbarToPsi,
   mmToFeet,
   psiToMbar,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 // --- The draft ---------------------------------------------------------------
@@ -87,13 +87,14 @@ function makeKey(prefix: string): string {
 }
 
 /** The working pressure a cylinder is filled to in the plan until the diver says otherwise. */
-const DEFAULT_TANK: Record<UnitSystem, { name: string; sizeMl: number; fillMbar: number }> = {
+const DEFAULT_TANK: Record<'metric' | 'imperial', { name: string; sizeMl: number; fillMbar: number }> = {
   metric: { name: '12L 200 bar', sizeMl: 12000, fillMbar: 200000 },
   imperial: { name: 'AL80', sizeMl: 11094, fillMbar: psiToMbar(3000) },
 };
 
-export function newCylinderDraft(system: UnitSystem): PlanCylinderDraft {
-  const tank = DEFAULT_TANK[system];
+export function newCylinderDraft(units: Units): PlanCylinderDraft {
+  // Named the way the diver counts tanks: an AL80 is a cubic-feet name.
+  const tank = DEFAULT_TANK[units.volume === 'cuft' ? 'imperial' : 'metric'];
   return {
     key: makeKey('cyl'),
     tank: tank.name,
@@ -125,8 +126,8 @@ export function defaultPlanWhen(
  * A nothing-special dive that comes out clean under the core's defaults, which are
  * strict about minimum gas: a warning on the first screen would teach the wrong thing.
  */
-export function defaultPlanDraft(system: UnitSystem, when: number): PlanDraft {
-  const cylinder = newCylinderDraft(system);
+export function defaultPlanDraft(units: Units, when: number): PlanDraft {
+  const cylinder = newCylinderDraft(units);
   return {
     when,
     diveMode: PlanDiveMode.OpenCircuit,
@@ -135,7 +136,7 @@ export function defaultPlanDraft(system: UnitSystem, when: number): PlanDraft {
     segments: [
       {
         key: makeKey('seg'),
-        depthMm: system === 'imperial' ? feetToMm(50) : 15000,
+        depthMm: units.depth === 'ft' ? feetToMm(50) : 15000,
         minutes: 20,
         cylinderKey: cylinder.key,
         setpointMbar: 0,
@@ -165,38 +166,38 @@ export function formatWhen(when: number): string {
 export const TIME_RANGE = { min: 1, max: 240, step: 1 } as const;
 
 /** Well inside what the bindings accept: past this, plans run for days. */
-export function depthRange(system: UnitSystem): { min: number; max: number; step: number } {
-  return system === 'imperial' ? { min: 10, max: 500, step: 5 } : { min: 3, max: 150, step: 1 };
+export function depthRange(units: Units): { min: number; max: number; step: number } {
+  return units.depth === 'ft' ? { min: 10, max: 500, step: 5 } : { min: 3, max: 150, step: 1 };
 }
 
 /** A setpoint in the steps of the legacy spin box, 0.05 bar. */
 export const SETPOINT_RANGE = { min: 160, max: 2000, step: 50 } as const;
 
-export function depthUnit(system: UnitSystem): string {
-  return system === 'imperial' ? 'ft' : 'm';
+export function depthUnit(units: Units): string {
+  return units.depth === 'ft' ? 'ft' : 'm';
 }
 
 /** The depth in the unit the stepper moves, snapped to its step. */
-export function depthValue(depthMm: number, system: UnitSystem): number {
-  const { step } = depthRange(system);
-  return Math.round((system === 'imperial' ? mmToFeet(depthMm) : depthMm / 1000) / step) * step;
+export function depthValue(depthMm: number, units: Units): number {
+  const { step } = depthRange(units);
+  return Math.round((units.depth === 'ft' ? mmToFeet(depthMm) : depthMm / 1000) / step) * step;
 }
 
-export function depthFromValue(value: number, system: UnitSystem): number {
-  return system === 'imperial' ? feetToMm(value) : value * 1000;
+export function depthFromValue(value: number, units: Units): number {
+  return units.depth === 'ft' ? feetToMm(value) : value * 1000;
 }
 
-export function fillRange(system: UnitSystem): { min: number; max: number; step: number } {
-  return system === 'imperial' ? { min: 500, max: 4500, step: 100 } : { min: 50, max: 300, step: 10 };
+export function fillRange(units: Units): { min: number; max: number; step: number } {
+  return units.pressure === 'psi' ? { min: 500, max: 4500, step: 100 } : { min: 50, max: 300, step: 10 };
 }
 
 /** Whole, not snapped to the step: a 232 bar tank must not read 230 while planning on 232. */
-export function fillValue(fillMbar: number, system: UnitSystem): number {
-  return Math.round(system === 'imperial' ? mbarToPsi(fillMbar) : fillMbar / 1000);
+export function fillValue(fillMbar: number, units: Units): number {
+  return Math.round(units.pressure === 'psi' ? mbarToPsi(fillMbar) : fillMbar / 1000);
 }
 
-export function fillFromValue(value: number, system: UnitSystem): number {
-  return system === 'imperial' ? psiToMbar(value) : value * 1000;
+export function fillFromValue(value: number, units: Units): number {
+  return units.pressure === 'psi' ? psiToMbar(value) : value * 1000;
 }
 
 /** A new level starts where the last one ended, like the plus button of the legacy table. */
@@ -322,8 +323,8 @@ export function gasName(o2Percent: number, hePercent: number): string {
 }
 
 /** A tank's name often carries a pressure of its own, hence "filled to". */
-export function cylinderSummary(cylinder: PlanCylinderDraft, system: UnitSystem): string {
-  return `${cylinder.tank}, filled to ${formatPressure(cylinder.fillMbar, system)}`;
+export function cylinderSummary(cylinder: PlanCylinderDraft, units: Units): string {
+  return `${cylinder.tank}, filled to ${formatPressure(cylinder.fillMbar, units)}`;
 }
 
 // --- Draft to arguments --------------------------------------------------------
@@ -336,13 +337,13 @@ function o2Permille(cylinder: PlanCylinderDraft): number {
 export function planInput(
   draft: PlanDraft,
   settings: PlannerSettings,
-  system: UnitSystem,
+  units: Units,
   gf: { gfLow: number; gfHigh: number },
 ): PlanInput {
   const index = new Map(draft.cylinders.map((cylinder, i) => [cylinder.key, i]));
   const defaultSetpoint = settings.defaultSetpointMbar;
   return {
-    ...plannerSettingsInput(settings, system, gf),
+    ...plannerSettingsInput(settings, units, gf),
     when: draft.when,
     diveMode: draft.diveMode,
     salinity: WATER_SALINITY[draft.water],
@@ -369,13 +370,13 @@ export function planInput(
 export function draftProblem(
   draft: PlanDraft,
   settings: PlannerSettings,
-  system: UnitSystem,
+  units: Units,
 ): string | null {
   const first = draft.segments[0];
   if (settings.dropStone && settings.descrate > 0) {
     const descentSec = first.depthMm / settings.descrate;
     if (first.minutes * 60 < Math.floor(descentSec)) {
-      return `The first level is shorter than the ${Math.ceil(descentSec / 60)} min descent to ${formatDepth(first.depthMm, system)}. Give it more time, or a shallower depth.`;
+      return `The first level is shorter than the ${Math.ceil(descentSec / 60)} min descent to ${formatDepth(first.depthMm, units)}. Give it more time, or a shallower depth.`;
     }
   }
   return null;
@@ -461,15 +462,15 @@ function belowMinimumGas(cylinder: PlannedCylinder): boolean {
 }
 
 /** A litre or two of gas is below what any of this is good for. */
-function gasVolume(ml: number, system: UnitSystem): string {
-  return system === 'imperial' ? formatVolume(ml, system) : `${Math.round(ml / 1000)} l`;
+function gasVolume(ml: number, units: Units): string {
+  return units.volume === 'cuft' ? formatVolume(ml, units) : `${Math.round(ml / 1000)} l`;
 }
 
 function gasRow(
   cylinder: PlannedCylinder,
   index: number,
   firstGasIndex: number,
-  system: UnitSystem,
+  units: Units,
 ): PlanGasRow {
   const carried = cylinder.gasCarriedMl;
   const used = cylinder.gasUsedMl;
@@ -486,22 +487,22 @@ function gasRow(
     description: cylinder.description,
     usedText:
       carried > 0
-        ? `${gasVolume(used, system)} of ${gasVolume(carried, system)}`
-        : gasVolume(used, system),
+        ? `${gasVolume(used, units)} of ${gasVolume(carried, units)}`
+        : gasVolume(used, units),
     usedFraction: fraction,
     endText:
       carried > 0
-        ? `Ends at ${formatPressure(Math.max(0, cylinder.endMbar), system)} of ${formatPressure(cylinder.startMbar, system)}`
+        ? `Ends at ${formatPressure(Math.max(0, cylinder.endMbar), units)} of ${formatPressure(cylinder.startMbar, units)}`
         : null,
     minimumText:
       cylinder.minimumGasMbar > 0
-        ? `Minimum gas ${formatPressure(cylinder.minimumGasMbar, system)}`
+        ? `Minimum gas ${formatPressure(cylinder.minimumGasMbar, units)}`
         : null,
     decoText:
-      cylinder.decoGasUsedMl > 0 ? `${gasVolume(cylinder.decoGasUsedMl, system)} in the ascent` : null,
+      cylinder.decoGasUsedMl > 0 ? `${gasVolume(cylinder.decoGasUsedMl, units)} in the ascent` : null,
     switchText:
       index !== firstGasIndex && cylinder.switchDepthMm > 0
-        ? `Switch at ${formatDepth(cylinder.switchDepthMm, system)}`
+        ? `Switch at ${formatDepth(cylinder.switchDepthMm, units)}`
         : null,
     level,
   };
@@ -516,11 +517,11 @@ export function tightestGasRow(rows: readonly PlanGasRow[]): PlanGasRow | null {
 }
 
 /** One row per cylinder that takes part: a closed loop's unused oxygen says nothing. */
-export function planGasRows(result: PlanResult, system: UnitSystem): PlanGasRow[] {
+export function planGasRows(result: PlanResult, units: Units): PlanGasRow[] {
   return result.cylinders
     .map((cylinder, index) => ({ cylinder, index }))
     .filter(({ cylinder }) => cylinder.use !== CylinderUse.NotUsed)
-    .map(({ cylinder, index }) => gasRow(cylinder, index, 0, system));
+    .map(({ cylinder, index }) => gasRow(cylinder, index, 0, units));
 }
 
 /**
@@ -547,7 +548,7 @@ export type PlanWarning = { level: 'danger' | 'caution'; text: string };
  */
 export function planWarnings(
   result: PlanResult,
-  system: UnitSystem,
+  units: Units,
   when: number,
   dives: readonly Pick<DiveSummary, 'when' | 'durationSec'>[],
 ): PlanWarning[] {
@@ -567,7 +568,7 @@ export function planWarnings(
     if (belowMinimumGas(cylinder)) {
       out.push({
         level: 'caution',
-        text: `Below minimum gas: ${cylinder.name} is at ${formatPressure(cylinder.ascentStartMbar, system)} when the ascent starts, and the minimum is ${formatPressure(cylinder.minimumGasMbar, system)}.`,
+        text: `Below minimum gas: ${cylinder.name} is at ${formatPressure(cylinder.ascentStartMbar, units)} when the ascent starts, and the minimum is ${formatPressure(cylinder.minimumGasMbar, units)}.`,
       });
     }
   }

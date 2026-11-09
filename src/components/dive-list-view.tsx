@@ -26,14 +26,14 @@ import { DiveRowView, diveRowStyles, diveRowTextStyles } from '@/components/dive
 import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { DiveSummary, UnitSystem } from '@/models';
+import type { DiveSummary, Units } from '@/models';
 import { diveRowTitle, sectionSubtitle, skeletonRows, toDiveRow, type DiveTripSection } from '@/models/dive-list';
 import type { MergeAction } from '@/models/dive-merge';
 import type { TripAction } from '@/models/trips';
 
 export type DiveListViewProps = {
   sections: DiveTripSection[];
-  unitSystem: UnitSystem;
+  units: Units;
   onSelectDive: (id: number) => void;
   /** Asks to delete a dive. The screen confirms; the list only reports the gesture. */
   onDeleteDive: (dive: DiveSummary) => void;
@@ -59,7 +59,7 @@ export type DiveListViewProps = {
 
 export function DiveListView({
   sections,
-  unitSystem,
+  units,
   onSelectDive,
   onDeleteDive,
   resultsText,
@@ -116,7 +116,7 @@ export function DiveListView({
       }}
       renderItem={({ item }) => (
         <DiveRowView
-          row={toDiveRow(item, unitSystem)}
+          row={toDiveRow(item, units)}
           selected={selectedIds ? selectedIds.has(item.id) : undefined}
           open={item.id === openDiveId}
           onPress={() => (selectedIds ? onToggleDive(item.id) : onSelectDive(item.id))}

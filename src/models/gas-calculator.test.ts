@@ -11,6 +11,7 @@ import {
   withHe,
   withO2,
 } from './gas-calculator';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 const options = { o2Narcotic: true, surfacePressureMbar: 1013, bottomPo2Mbar: 1400, bestMixEndMm: 30000 };
 
@@ -30,8 +31,8 @@ describe('the mix', () => {
 describe('the table', () => {
   it('rounds the MOD down and the END up, in the unit asked for', () => {
     const row = { po2Mbar: 1400, modMm: 56900, narcoticDepthMm: 30400 };
-    expect(rowTexts(row, 'metric')).toEqual({ po2: '1.4 bar', mod: '56 m', narcotic: '31 m' });
-    expect(rowTexts(row, 'imperial').mod).toBe('186 ft');
+    expect(rowTexts(row, METRIC_UNITS)).toEqual({ po2: '1.4 bar', mod: '56 m', narcotic: '31 m' });
+    expect(rowTexts(row, IMPERIAL_UNITS).mod).toBe('186 ft');
   });
 
   it('tells the working limits from the rest', () => {
@@ -49,11 +50,11 @@ describe('the table', () => {
 
 describe('hypoxicLine', () => {
   it('says nothing for a gas that is breathable at the surface', () => {
-    expect(hypoxicLine(0, 'metric')).toBeNull();
+    expect(hypoxicLine(0, METRIC_UNITS)).toBeNull();
   });
 
   it('rounds up, the safe way for a minimum depth', () => {
-    expect(hypoxicLine(5900, 'metric')).toContain('6 m');
-    expect(hypoxicLine(5900, 'imperial')).toContain('ft');
+    expect(hypoxicLine(5900, METRIC_UNITS)).toContain('6 m');
+    expect(hypoxicLine(5900, IMPERIAL_UNITS)).toContain('ft');
   });
 });

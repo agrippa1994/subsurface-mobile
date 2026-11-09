@@ -14,7 +14,10 @@
 #include "core/tag.h"
 #include "core/taxonomy.h"
 #include "core/trip.h"
+#include "core/pref.h"
 #include "core/units.h"
+
+#include <stdexcept>
 
 namespace ssrf {
 
@@ -380,6 +383,56 @@ json stats_summary_to_json(const struct stats_summary &s)
 		{ "byDepth", bucket(s.stats_by_depth) },
 		{ "byTemp", bucket(s.stats_by_temp) },
 	};
+}
+
+namespace {
+
+// One quantity of `units_from_json`: `metric` and `imperial` name the two
+// spellings the app sends, `field` is set to the matching enum value.
+template <typename E>
+void read_unit(const json &u, const char *key, const char *metric, const char *imperial, E metric_value,
+	       E imperial_value, E &field)
+{
+	auto it = u.find(key);
+	if (it == u.end() || it->is_null())
+		return;
+	if (!it->is_string())
+		throw std::runtime_error(std::string("units.") + key + " must be a string");
+	const std::string &value = it->get_ref<const std::string &>();
+	if (value == metric)
+		field = metric_value;
+	else if (value == imperial)
+		field = imperial_value;
+	else
+		throw std::runtime_error(std::string("units.") + key + " must be '" + metric + "' or '" + imperial + "'");
+}
+
+} // namespace
+
+struct units units_from_json(const json &u, const struct units &base)
+{
+	struct units out = base;
+	if (!u.is_object())
+		throw std::runtime_error("'units' must be an object");
+	read_unit(u, "depth", "m", "ft", units::METERS, units::FEET, out.length);
+	read_unit(u, "pressure", "bar", "psi", units::BAR, units::PSI, out.pressure);
+	read_unit(u, "volume", "l", "cuft", units::LITER, units::CUFT, out.volume);
+	read_unit(u, "temperature", "C", "F", units::CELSIUS, units::FAHRENHEIT, out.temperature);
+	read_unit(u, "weight", "kg", "lbs", units::KG, units::LBS, out.weight);
+	return out;
+}
+
+int unit_system_of(const struct units &u)
+{
+	auto same = [&u](const struct units &other) {
+		return u.length == other.length && u.pressure == other.pressure && u.volume == other.volume &&
+		       u.temperature == other.temperature && u.weight == other.weight;
+	};
+	if (same(SI_units))
+		return METRIC;
+	if (same(IMPERIAL_units))
+		return IMPERIAL;
+	return PERSONALIZE;
 }
 
 } // namespace ssrf

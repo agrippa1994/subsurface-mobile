@@ -62,7 +62,7 @@ export default function PlannerScreen() {
   const screen = usePlannerScreen();
   const theme = useTheme();
   const palette = useMaterialColors();
-  const { draft, system, outcome, view, result, planner } = screen;
+  const { draft, units, outcome, view, result, planner } = screen;
 
   const warningSection = (
     <>
@@ -164,7 +164,7 @@ export default function PlannerScreen() {
           <M3ActionRow
             key={cylinder.key}
             label={gasName(cylinder.o2Percent, cylinder.hePercent)}
-            detail={cylinderSummary(cylinder, system)}
+            detail={cylinderSummary(cylinder, units)}
             opens
             onPress={() => screen.openCylinder(cylinder.key)}
           />
@@ -217,7 +217,7 @@ export default function PlannerScreen() {
               <M3ValueRow
                 key={`${stop.depthMm}-${stop.endSec}`}
                 inline
-                label={`${formatDepth(stop.depthMm, system)} on ${stop.gas}`}
+                label={`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
                 value={formatMinutes(stop.durationSec)}
               />
             ))}
@@ -272,13 +272,13 @@ export default function PlannerScreen() {
               <RNHostView matchContents>
                 <View
                   style={{ width: screen.chartWidth }}
-                  accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, system)}`}>
+                  accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, units)}`}>
                   {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
                   <ProfileChart
                     key={result.runtimeSec}
                     plot={view.plot}
                     pi={result.profile}
-                    unitSystem={system}
+                    units={units}
                     height={200}
                   />
                 </View>

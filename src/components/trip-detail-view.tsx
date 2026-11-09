@@ -8,7 +8,7 @@ import { DiveRowView } from '@/components/dive-row';
 import { FormSection } from '@/components/form';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { DiveSummary, UnitSystem } from '@/models';
+import type { DiveSummary, Units } from '@/models';
 import { diveRowTitle, toDiveRow } from '@/models/dive-list';
 import type { TripSummaryRow } from '@/models/trips';
 
@@ -18,7 +18,7 @@ export type TripDetailViewProps = {
   location: string;
   notes: string;
   dives: DiveSummary[];
-  unitSystem: UnitSystem;
+  units: Units;
   onEdit: () => void;
   onSelectDive: (id: number) => void;
   onRemoveDive: (dive: DiveSummary) => void;
@@ -31,7 +31,7 @@ export function TripDetailView({
   location,
   notes,
   dives,
-  unitSystem,
+  units,
   onEdit,
   onSelectDive,
   onRemoveDive,
@@ -81,7 +81,7 @@ export function TripDetailView({
         {dives.map((dive) => (
           <DiveRowView
             key={dive.id}
-            row={toDiveRow(dive, unitSystem)}
+            row={toDiveRow(dive, units)}
             onPress={() => onSelectDive(dive.id)}
             onLongPress={() =>
               Alert.alert(diveRowTitle(dive), undefined, [

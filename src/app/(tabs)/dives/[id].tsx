@@ -60,7 +60,7 @@ import {
   type TripAction,
 } from '@/models/trips';
 import { useDive, useDives, useProfile, useTrips } from '@/queries/logbook';
-import { useGfSeries, useUnitSystem } from '@/queries/settings';
+import { useGfSeries, useUnits } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
 type SymbolName = SymbolViewProps['name'];
@@ -75,7 +75,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
   const currentId = useCurrentDiveId(diveId);
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   // Which gradient factor curves the profile draws. A display preference only -
   // both series are in every plot_info, so toggling one costs no recomputation.
   const { showGfNow, showGfSurface } = useGfSeries();
@@ -132,7 +132,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
     return <StatusView kind="loading" title="Opening dive" />;
   }
 
-  const row = toDiveRow(dive, unitSystem);
+  const row = toDiveRow(dive, units);
   const dc = dive.dcs[computer.index];
   const severalComputers = dive.dcs.length > 1;
   const manualComputer = dc?.model === MANUAL_DC_MODEL;
@@ -208,7 +208,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             key={computer.index}
             plot={plot}
             pi={profile}
-            unitSystem={unitSystem}
+            units={units}
             showGfNow={showGfNow}
             showGfSurface={showGfSurface}
           />
@@ -239,7 +239,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           }
           plot={plot}
           pi={profile}
-          unitSystem={unitSystem}
+          units={units}
           showGfNow={showGfNow}
           showGfSurface={showGfSurface}
         />
@@ -247,17 +247,17 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       <Section title="Details">
         {dive.meanDepthMm > 0 ? (
-          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, unitSystem)} />
+          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, units)} />
         ) : null}
         {/* The summary's mode is the first computer's. With several, each states its own. */}
         {severalComputers ? null : (
           <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
         )}
         {dive.airTempMkelvin > 0 ? (
-          <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, unitSystem)} />
+          <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, units)} />
         ) : null}
         {dive.sac > 0 ? (
-          <Row label="SAC" value={`${formatVolume(dive.sac, unitSystem)}/min`} />
+          <Row label="SAC" value={`${formatVolume(dive.sac, units)}/min`} />
         ) : null}
         {dive.otu > 0 ? <Row label="OTU" value={String(Math.round(dive.otu))} /> : null}
         {dive.maxcns > 0 ? <Row label="CNS" value={`${Math.round(dive.maxcns)} %`} /> : null}
@@ -305,7 +305,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             <WeightRow key={index} weight={weight} />
           ))}
           {dive.weightsystems.length > 1 ? (
-            <Row label="Total" value={formatWeight(dive.totalWeightGrams, unitSystem)} emphasized />
+            <Row label="Total" value={formatWeight(dive.totalWeightGrams, units)} emphasized />
           ) : null}
         </Section>
       ) : null}
@@ -328,7 +328,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
           {manualComputer ? null : <Row label="Samples" value={String(dc.sampleCount)} />}
           {severalComputers
-            ? computerFigures(dc, unitSystem).map(({ label, value }) => (
+            ? computerFigures(dc, units).map(({ label, value }) => (
                 <Row key={label} label={label} value={value} />
               ))
             : null}
@@ -513,17 +513,17 @@ function Header({
   numberText: string;
 }) {
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const stats: { label: string; value: string; symbol: SymbolName }[] = [
     {
       label: 'Max depth',
-      value: formatDepth(dive.maxDepthMm, unitSystem),
+      value: formatDepth(dive.maxDepthMm, units),
       symbol: 'arrow.down.to.line',
     },
     { label: 'Duration', value: formatDuration(dive.durationSec), symbol: 'clock' },
     {
       label: 'Water',
-      value: dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, unitSystem) : '-',
+      value: dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, units) : '-',
       symbol: 'thermometer.medium',
     },
   ];
@@ -741,7 +741,7 @@ function ActionRow({
 
 function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number }) {
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const gas = formatGasMix(
     cylinder.gasmix.o2EffectivePermille,
     cylinder.gasmix.heEffectivePermille,
@@ -750,10 +750,10 @@ function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number })
   const end = cylinder.endMbar || cylinder.sampleEndMbar;
   const pressure =
     start > 0 && end > 0
-      ? `${formatPressure(start, unitSystem)} to ${formatPressure(end, unitSystem)}`
+      ? `${formatPressure(start, units)} to ${formatPressure(end, units)}`
       : '';
   const name = cylinder.description || `Cylinder ${index + 1}`;
-  const size = cylinder.sizeMl > 0 ? formatVolume(cylinder.sizeMl, unitSystem) : '';
+  const size = cylinder.sizeMl > 0 ? formatVolume(cylinder.sizeMl, units) : '';
   const subtitle = [name, size].filter(Boolean).join(' - ');
 
   return (
@@ -774,11 +774,11 @@ function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number })
 }
 
 function WeightRow({ weight }: { weight: WeightSystem }) {
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   return (
     <Row
       label={weight.description || 'Weight'}
-      value={formatWeight(weight.weightGrams, unitSystem)}
+      value={formatWeight(weight.weightGrams, units)}
     />
   );
 }

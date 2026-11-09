@@ -10,6 +10,19 @@
 // formatting happens in C++, so the same numbers can be rendered metric or
 // imperial. The key mapping is documented in cpp/API.md.
 
+/**
+ * The core's `prefs.units` for one call, one unit per quantity (core/units.h,
+ * `struct units`). Only the calls whose output the core formats itself take
+ * it: planner notes, statistics chart labels and the CSV stylesheets.
+ */
+export type CoreUnitsInput = {
+  depth: 'm' | 'ft';
+  pressure: 'bar' | 'psi';
+  volume: 'l' | 'cuft';
+  temperature: 'C' | 'F';
+  weight: 'kg' | 'lbs';
+};
+
 // Native surface exposed by the Swift/Kotlin module definition.
 export type SsrfCoreNativeModule = {
   // The whole core API. Returns the JSON envelope described in cpp/api.h.
@@ -537,6 +550,9 @@ export type PlanSegmentInput = {
 
 /** The core's planner preferences. Anything left out is the core's default. See cpp/API.md. */
 export type PlanSettingsInput = {
+  /** Units the notes are written in and the stop table steps by (3 m or 10 ft). */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   decoMode?: PlanDecoMode;
   gfLow?: number;
@@ -724,7 +740,9 @@ export type CsvFormat = 'details' | 'summary' | 'profile';
 
 export type CsvExportOptions = {
   format: CsvFormat;
-  /** Unit system of `details` and `summary`; `profile` has none. Metric by default. */
+  /** Units of `details` and `summary`, one per quantity; `profile` has none. Metric by default. */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   /** Gradient factors `profile` computes the ceiling with, as for getProfile. */
   gf?: GradientFactors;
@@ -1145,6 +1163,9 @@ export type StatsChartRequest = {
   config?: StatsChartConfigInput;
   change?: StatsChartChange;
   filter?: StatsFilter;
+  /** Units the binners cut and label in. Metric by default. */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   /** False when only the configuration and its options are of interest. */
   plot?: boolean;

@@ -10,6 +10,7 @@ import { computerLabels, plotForComputer } from '../src/models/dive-computers';
 import { buildProfilePlot, profileSummary } from '../src/models/profile-plot';
 import { fixture } from './harness/fixtures';
 import { SsrfHost } from './harness/ssrf-host';
+import { METRIC_UNITS } from '../src/models/units';
 
 let host: SsrfHost;
 let dive: Dive;
@@ -62,7 +63,7 @@ describe('a dive with three computers', () => {
     expect(profile.maxDepthMm).toBe(dive.maxDepthMm);
     const plot = plotForComputer(buildProfilePlot(profile, dive.dcs[1].events), dive.dcs, 1);
     expect(plot.maxDepthMm).toBe(dive.dcs[1].maxDepthMm);
-    expect(profileSummary(plot, 'metric')).toContain('maximum depth 24.1');
+    expect(profileSummary(plot, METRIC_UNITS)).toContain('maximum depth 24.1');
   });
 
   it('rejects a computer out of range rather than wrapping', async () => {

@@ -18,7 +18,7 @@ import {
   mlToLiters,
   mmToFeet,
   mmToMeters,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 /** Depth bucket width in `StatsSummary.byDepth`. `STATS_DEPTH_BUCKET` in core/statistics.h. */
@@ -51,7 +51,7 @@ export type ChartGranularity = 'month' | 'year';
  * distinct sites they were spread over. `matched` is the filter's own count, and equals
  * `total.selectionSize` except that the latter drops dives flagged invalid.
  */
-export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric'): StatTile[] {
+export function summaryTiles(summary: StatsSummary, units: Units): StatTile[] {
   const { total } = summary;
   const dives = total.selectionSize;
 
@@ -71,29 +71,29 @@ export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric
     {
       key: 'depth',
       label: 'Max depth',
-      value: dives > 0 ? formatDepth(total.maxDepthMm, system) : '-',
-      detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, system)}` : '',
+      value: dives > 0 ? formatDepth(total.maxDepthMm, units) : '-',
+      detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, units)}` : '',
     },
     {
       key: 'sac',
       label: 'Avg SAC',
-      value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, system) : '-',
-      detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, system),
+      value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, units) : '-',
+      detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, units),
     },
     {
       key: 'sites',
       label: 'Dive sites',
       value: String(summary.siteCount),
-      detail: temperatureRange(summary, system),
+      detail: temperatureRange(summary, units),
     },
   ];
 }
 
-function sacRange(minMlPerMin: number, maxMlPerMin: number, system: UnitSystem): string {
+function sacRange(minMlPerMin: number, maxMlPerMin: number, units: Units): string {
   if (minMlPerMin <= 0 || maxMlPerMin <= 0) {
     return '';
   }
-  return `${formatSac(minMlPerMin, system)} to ${formatSac(maxMlPerMin, system)}`;
+  return `${formatSac(minMlPerMin, units)} to ${formatSac(maxMlPerMin, units)}`;
 }
 
 /** Bottom time is hours-and-minutes, not the `h:mm:ss` a single dive gets. */
@@ -104,12 +104,12 @@ export function formatTotalTime(seconds: number): string {
   return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
 }
 
-function temperatureRange(summary: StatsSummary, system: UnitSystem): string {
+function temperatureRange(summary: StatsSummary, units: Units): string {
   const { minTempMkelvin, maxTempMkelvin } = summary.total;
   if (minTempMkelvin <= 0 || maxTempMkelvin <= 0) {
     return '';
   }
-  return `${formatTemperature(minTempMkelvin, system)} to ${formatTemperature(maxTempMkelvin, system)}`;
+  return `${formatTemperature(minTempMkelvin, units)} to ${formatTemperature(maxTempMkelvin, units)}`;
 }
 
 // --- Dives over time -------------------------------------------------------
@@ -207,7 +207,7 @@ export function divesOverTime(
  */
 export function sacOverTime(
   summary: StatsSummary,
-  system: UnitSystem = 'metric',
+  units: Units,
   granularity: ChartGranularity = pickGranularity(summary)
 ): StatBar[] {
   const bars: StatBar[] = [];
@@ -216,7 +216,7 @@ export function sacOverTime(
     for (const year of summary.yearly) {
       if (year.avgSacMlPerMin > 0) {
         const name = String(year.period);
-        bars.push(sacBar(name, name, name, year.avgSacMlPerMin, system));
+        bars.push(sacBar(name, name, name, year.avgSacMlPerMin, units));
       }
     }
     return bars;
@@ -233,7 +233,7 @@ export function sacOverTime(
     const label = entry.year !== previousYear ? String(entry.year) : name;
     previousYear = entry.year;
     const key = `${entry.year}-${entry.month}`;
-    bars.push(sacBar(key, label, `${name} ${entry.year}`, month.avgSacMlPerMin, system));
+    bars.push(sacBar(key, label, `${name} ${entry.year}`, month.avgSacMlPerMin, units));
   });
   return bars;
 }
@@ -243,18 +243,18 @@ function sacBar(
   label: string,
   period: string,
   mlPerMin: number,
-  system: UnitSystem
+  units: Units
 ): StatBar {
   return {
     key: `sac-${key}`,
     label,
-    value: system === 'imperial' ? mlToCuft(mlPerMin) : mlToLiters(mlPerMin),
-    caption: `${period}: ${formatSac(mlPerMin, system)} average`,
+    value: units.volume === 'cuft' ? mlToCuft(mlPerMin) : mlToLiters(mlPerMin),
+    caption: `${period}: ${formatSac(mlPerMin, units)} average`,
   };
 }
 
-export function sacAxisUnit(system: UnitSystem = 'metric'): string {
-  return system === 'imperial' ? 'cuft/min' : 'l/min';
+export function sacAxisUnit(units: Units): string {
+  return units.volume === 'cuft' ? 'cuft/min' : 'l/min';
 }
 
 // --- Distributions ---------------------------------------------------------
@@ -265,29 +265,29 @@ export function sacAxisUnit(system: UnitSystem = 'metric'): string {
  * drawn against a 300 m axis. Bucket bounds stay metric even in imperial mode,
  * because that is how the core cut them - the labels convert, the cuts cannot.
  */
-export function depthHistogram(summary: StatsSummary, system: UnitSystem = 'metric'): StatBar[] {
+export function depthHistogram(summary: StatsSummary, units: Units): StatBar[] {
   const buckets = trimTrailingEmpty(summary.byDepth.slice(1), (b) => b.selectionSize);
   return buckets.map((bucket, index) => {
     const from = index * DEPTH_BUCKET_M;
     const to = from + DEPTH_BUCKET_M;
-    const label = depthBoundLabel(to, system);
+    const label = depthBoundLabel(to, units);
     return {
       key: `depth-${from}`,
       label,
       value: bucket.selectionSize,
-      caption: `${depthBoundLabel(from, system)} to ${label}: ${diveCount(bucket.selectionSize)}`,
+      caption: `${depthBoundLabel(from, units)} to ${label}: ${diveCount(bucket.selectionSize)}`,
     };
   });
 }
 
-function depthBoundLabel(meters: number, system: UnitSystem): string {
+function depthBoundLabel(meters: number, units: Units): string {
   const mm = meters * 1000;
-  return system === 'imperial' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
+  return units.depth === 'ft' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
 }
 
 /** Unit shown once on the depth axis, since the bounds themselves are bare. */
-export function depthAxisUnit(system: UnitSystem = 'metric'): string {
-  return system === 'imperial' ? 'ft' : 'm';
+export function depthAxisUnit(units: Units): string {
+  return units.depth === 'ft' ? 'ft' : 'm';
 }
 
 /**

@@ -9,7 +9,7 @@
 
 import { formatDate, sortDivesNewestFirst, tripTitle } from './dive-list';
 import type { DiveSummary, StatsSummary, Trip, TripPatch } from './index';
-import { formatDepth, formatTemperature, type UnitSystem } from './units';
+import { formatDepth, formatTemperature, type Units } from './units';
 import { formatTotalTime } from './statistics';
 
 export { tripTitle };
@@ -173,7 +173,7 @@ export type TripSummaryRow = { label: string; value: string };
 export function tripSummaryRows(
   trip: Trip,
   stats: StatsSummary | undefined,
-  system: UnitSystem = 'metric',
+  units: Units,
   locale?: string,
 ): TripSummaryRow[] {
   const rows: TripSummaryRow[] = [
@@ -188,13 +188,13 @@ export function tripSummaryRows(
     rows.push({ label: 'Total time', value: formatTotalTime(total.totalTimeSec) });
   }
   if (total.maxDepthMm > 0) {
-    rows.push({ label: 'Deepest', value: formatDepth(total.maxDepthMm, system) });
+    rows.push({ label: 'Deepest', value: formatDepth(total.maxDepthMm, units) });
   }
   if (total.avgDepthMm > 0) {
-    rows.push({ label: 'Average depth', value: formatDepth(total.avgDepthMm, system) });
+    rows.push({ label: 'Average depth', value: formatDepth(total.avgDepthMm, units) });
   }
   if (total.minTempMkelvin > 0) {
-    rows.push({ label: 'Coldest water', value: formatTemperature(total.minTempMkelvin, system) });
+    rows.push({ label: 'Coldest water', value: formatTemperature(total.minTempMkelvin, units) });
   }
   return rows;
 }

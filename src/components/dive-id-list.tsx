@@ -5,16 +5,16 @@ import { FlatList, StyleSheet, View } from 'react-native';
 
 import { DIVE_ROW_SEPARATOR_INSET, DiveRowView } from '@/components/dive-row';
 import { useTheme } from '@/hooks/use-theme';
-import type { DiveSummary, UnitSystem } from '@/models';
+import type { DiveSummary, Units } from '@/models';
 import { toDiveRow } from '@/models/dive-list';
 
 export type DiveIdListProps = {
   dives: DiveSummary[];
-  unitSystem: UnitSystem;
+  units: Units;
   onSelect: (id: number) => void;
 };
 
-export function DiveIdList({ dives, unitSystem, onSelect }: DiveIdListProps) {
+export function DiveIdList({ dives, units, onSelect }: DiveIdListProps) {
   const theme = useTheme();
   return (
     <FlatList
@@ -23,7 +23,7 @@ export function DiveIdList({ dives, unitSystem, onSelect }: DiveIdListProps) {
       data={dives}
       keyExtractor={(dive) => String(dive.id)}
       renderItem={({ item }) => (
-        <DiveRowView row={toDiveRow(item, unitSystem)} onPress={() => onSelect(item.id)} />
+        <DiveRowView row={toDiveRow(item, units)} onPress={() => onSelect(item.id)} />
       )}
       ItemSeparatorComponent={() => (
         <View

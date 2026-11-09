@@ -31,7 +31,7 @@ export function TripDetailView({
   location,
   notes,
   dives,
-  unitSystem,
+  units,
   onEdit,
   onSelectDive,
   onRemoveDive,
@@ -64,7 +64,7 @@ export function TripDetailView({
 
         <Section title="Dives">
           {dives.map((dive) => {
-            const row = toDiveRow(dive, unitSystem);
+            const row = toDiveRow(dive, units);
             return (
               <SwipeActions key={row.id}>
                 <Button

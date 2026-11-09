@@ -31,7 +31,7 @@ import { rememberScreenOfLastChange } from '@/lib/logbook-history';
 import { diveScreenOfEditor } from '@/models/logbook-history';
 import { flush } from '@/lib/logbook-persist';
 import { previewDive } from '../../../../../modules/ssrf-core/src';
-import type { Dive, DivePatch, UnitSystem } from '@/models';
+import type { Dive, DivePatch, Units } from '@/models';
 import {
   buildCylinderPatches,
   cylinderDraftsFrom,
@@ -50,12 +50,12 @@ import { buildWeightPatches, weightDraftsFrom } from '@/models/weight-edit';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive } from '@/queries/logbook';
 import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 export default function DiveEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
 
   // The dive is read from the module rather than the cached list: the list rows
   // carry no notes or suit, and the editor writes those too.
@@ -82,10 +82,10 @@ export default function DiveEditScreen() {
   // reloaded underneath the editor - ids are process-local, and a draft over a
   // dive that no longer exists would save into the wrong one. An undo counts: a draft
   // made from what it took back would put that back on Save.
-  return <DiveEditForm key={`${diveQuery.data.id}-${lastRestore}`} dive={diveQuery.data} unitSystem={unitSystem} />;
+  return <DiveEditForm key={`${diveQuery.data.id}-${lastRestore}`} dive={diveQuery.data} units={units} />;
 }
 
-function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: UnitSystem }) {
+function DiveEditForm({ dive, units }: { dive: Dive; units: Units }) {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
@@ -96,38 +96,38 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: UnitSystem
     profileEditable: isManualDive(dive),
     allowFuture: dive.planned,
     now: localNowWhen(Date.now(), new Date().getTimezoneOffset()),
-    seed: diveBasicsDraftFrom(dive, unitSystem),
+    seed: diveBasicsDraftFrom(dive, units),
   }));
 
   const initial = useMemo<DiveFormValues>(
     () => ({
       ...diveDraftFrom(dive),
-      ...diveBasicsDraftFrom(dive, unitSystem),
+      ...diveBasicsDraftFrom(dive, units),
       tagText: dive.tags.join(', '),
-      cylinders: cylinderDraftsFrom(dive, unitSystem),
-      weights: weightDraftsFrom(dive, unitSystem),
+      cylinders: cylinderDraftsFrom(dive, units),
+      weights: weightDraftsFrom(dive, units),
     }),
-    [dive, unitSystem],
+    [dive, units],
   );
 
   const form = useDiveForm({
     initial,
     rules,
-    unitSystem,
+    units,
     onSave: async (value) => {
       const patch: DivePatch = {
         ...buildDivePatch(dive, value),
-        ...buildDiveBasicsPatch(dive, value, unitSystem),
+        ...buildDiveBasicsPatch(dive, value, units),
       };
       // `buildCylinderPatches` throws if the rows were reordered, which the
       // editor cannot do - so it is a bug rather than a validation failure, and
       // it is left to reach the form's error state as itself. The same holds
       // for `buildWeightPatches`.
-      const cylinderPatches = buildCylinderPatches(dive, value.cylinders, unitSystem);
+      const cylinderPatches = buildCylinderPatches(dive, value.cylinders, units);
       if (cylinderPatches !== null) {
         patch.cylinders = cylinderPatches;
       }
-      const weightPatches = buildWeightPatches(dive, value.weights, unitSystem);
+      const weightPatches = buildWeightPatches(dive, value.weights, units);
       if (weightPatches !== null) {
         patch.weightsystems = weightPatches;
       }
@@ -182,8 +182,8 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: UnitSystem
         form={form}
         self={dive}
         rules={rules}
-        unitSystem={unitSystem}
-        previewSac={(values) => previewSac(dive, values, unitSystem, rules)}
+        units={units}
+        previewSac={(values) => previewSac(dive, values, units, rules)}
         errors={[updateDive.error, deleteDive.error]}
       />
 
@@ -208,18 +208,18 @@ function DiveEditForm({ dive, unitSystem }: { dive: Dive; unitSystem: UnitSystem
 function previewSac(
   dive: Dive,
   values: DiveFormValues,
-  unitSystem: UnitSystem,
+  units: Units,
   rules: DiveBasicsRules,
 ): number {
   if (
-    Object.keys(validateCylinderDrafts(values.cylinders, unitSystem)).length > 0 ||
-    Object.keys(validateDiveBasics(values, unitSystem, rules)).length > 0
+    Object.keys(validateCylinderDrafts(values.cylinders, units)).length > 0 ||
+    Object.keys(validateDiveBasics(values, units, rules)).length > 0
   ) {
     return 0;
   }
   try {
-    const patch: DivePatch = buildDiveBasicsPatch(dive, values, unitSystem);
-    const cylinders = buildCylinderPatches(dive, values.cylinders, unitSystem);
+    const patch: DivePatch = buildDiveBasicsPatch(dive, values, units);
+    const cylinders = buildCylinderPatches(dive, values.cylinders, units);
     if (cylinders !== null) {
       patch.cylinders = cylinders;
     }

@@ -16,6 +16,7 @@ import {
   validateCylinderDrafts,
   type CylinderDraft,
 } from './cylinder-edit';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 function cylinder(overrides: Partial<Cylinder> = {}): Cylinder {
   return {
@@ -104,14 +105,14 @@ describe('parseNumberInput', () => {
 
 describe('unit-aware parsing', () => {
   it('reads pressures as bar or psi', () => {
-    expect(parsePressureInput('200', 'metric')).toBe(200000);
-    expect(parsePressureInput('3000', 'imperial')).toBe(206843);
-    expect(parsePressureInput('', 'metric')).toBeUndefined();
+    expect(parsePressureInput('200', METRIC_UNITS)).toBe(200000);
+    expect(parsePressureInput('3000', IMPERIAL_UNITS)).toBe(206843);
+    expect(parsePressureInput('', METRIC_UNITS)).toBeUndefined();
   });
 
   it('reads sizes as litres or cubic feet', () => {
-    expect(parseSizeInput('12', 'metric')).toBe(12000);
-    expect(parseSizeInput('1', 'imperial')).toBe(28317);
+    expect(parseSizeInput('12', METRIC_UNITS)).toBe(12000);
+    expect(parseSizeInput('1', IMPERIAL_UNITS)).toBe(28317);
   });
 
   it('reads gas fractions as whole percent and refuses over 100', () => {
@@ -124,7 +125,7 @@ describe('unit-aware parsing', () => {
 
 describe('cylinderDraftsFrom', () => {
   it('seeds the fields in the display unit and keeps the air sentinel', () => {
-    const [draft] = cylinderDraftsFrom(dive([cylinder()]), 'metric');
+    const [draft] = cylinderDraftsFrom(dive([cylinder()]), METRIC_UNITS);
     expect(draft.sourceIndex).toBe(0);
     expect(draft.description).toBe('AL80');
     expect(draft.sizeText).toBe('11.1');
@@ -139,7 +140,7 @@ describe('cylinderDraftsFrom', () => {
   it('falls back to the sampled pressures when none were entered by hand', () => {
     const [draft] = cylinderDraftsFrom(
       dive([cylinder({ startMbar: 0, endMbar: 0, sampleStartMbar: 210000, sampleEndMbar: 70000 })]),
-      'metric'
+      METRIC_UNITS
     );
     expect(draft.startText).toBe('210');
     expect(draft.endText).toBe('70');
@@ -153,55 +154,55 @@ describe('validateCylinderDrafts', () => {
   });
 
   it('accepts a blank cylinder - plenty of dives are logged without one', () => {
-    expect(validateCylinderDrafts([newCylinderDraft()], 'metric')).toEqual({});
+    expect(validateCylinderDrafts([newCylinderDraft()], METRIC_UNITS)).toEqual({});
   });
 
   it('refuses a mix over 100% and an end pressure above the start', () => {
     const mix = draftOf({ o2Text: '60', heText: '50' });
-    expect(validateCylinderDrafts([mix], 'metric')[mix.key]).toMatch(/cannot exceed 100/);
+    expect(validateCylinderDrafts([mix], METRIC_UNITS)[mix.key]).toMatch(/cannot exceed 100/);
 
     const pressures = draftOf({ startText: '50', endText: '200' });
-    expect(validateCylinderDrafts([pressures], 'metric')[pressures.key]).toMatch(
+    expect(validateCylinderDrafts([pressures], METRIC_UNITS)[pressures.key]).toMatch(
       /cannot be above the start/
     );
   });
 
   it('refuses text where a number belongs', () => {
     const draft = draftOf({ sizeText: 'twelve' });
-    expect(validateCylinderDrafts([draft], 'metric')[draft.key]).toMatch(/Size/);
+    expect(validateCylinderDrafts([draft], METRIC_UNITS)[draft.key]).toMatch(/Size/);
   });
 });
 
 describe('buildCylinderPatches', () => {
   it('returns null when nothing about the cylinders changed', () => {
     const d = dive([cylinder(), cylinder({ description: 'Deco 80' })]);
-    expect(buildCylinderPatches(d, cylinderDraftsFrom(d, 'metric'), 'metric')).toBeNull();
+    expect(buildCylinderPatches(d, cylinderDraftsFrom(d, METRIC_UNITS), METRIC_UNITS)).toBeNull();
   });
 
   it('names only the fields that differ, and keeps the rest as sourceIndex', () => {
     const d = dive([cylinder(), cylinder({ description: 'Deco 80' })]);
-    const drafts = cylinderDraftsFrom(d, 'metric');
+    const drafts = cylinderDraftsFrom(d, METRIC_UNITS);
     drafts[0] = { ...drafts[0], endText: '60' };
 
-    const patches = buildCylinderPatches(d, drafts, 'metric')!;
+    const patches = buildCylinderPatches(d, drafts, METRIC_UNITS)!;
     expect(patches).toEqual([{ sourceIndex: 0, endMbar: 60000 }, { sourceIndex: 1 }]);
   });
 
   it('sends the whole list, so a removed cylinder is one that is simply absent', () => {
     const d = dive([cylinder(), cylinder({ description: 'Deco 80' })]);
-    const drafts = cylinderDraftsFrom(d, 'metric').slice(0, 1);
+    const drafts = cylinderDraftsFrom(d, METRIC_UNITS).slice(0, 1);
 
-    expect(buildCylinderPatches(d, drafts, 'metric')).toEqual([{ sourceIndex: 0 }]);
+    expect(buildCylinderPatches(d, drafts, METRIC_UNITS)).toEqual([{ sourceIndex: 0 }]);
   });
 
   it('sends a new cylinder in full, with no sourceIndex', () => {
     const d = dive([cylinder()]);
     const drafts = [
-      ...cylinderDraftsFrom(d, 'metric'),
+      ...cylinderDraftsFrom(d, METRIC_UNITS),
       { ...newCylinderDraft(), description: 'Deco 80', sizeText: '11', startText: '200' },
     ];
 
-    const patches = buildCylinderPatches(d, drafts, 'metric')!;
+    const patches = buildCylinderPatches(d, drafts, METRIC_UNITS)!;
     expect(patches[0]).toEqual({ sourceIndex: 0 });
     expect(patches[1]).toEqual({
       description: 'Deco 80',
@@ -217,16 +218,16 @@ describe('buildCylinderPatches', () => {
 
   it('refuses to build a patch that reorders cylinders', () => {
     const d = dive([cylinder(), cylinder({ description: 'Deco 80' })]);
-    const drafts = cylinderDraftsFrom(d, 'metric').reverse();
-    expect(() => buildCylinderPatches(d, drafts, 'metric')).toThrow(/reorder/i);
+    const drafts = cylinderDraftsFrom(d, METRIC_UNITS).reverse();
+    expect(() => buildCylinderPatches(d, drafts, METRIC_UNITS)).toThrow(/reorder/i);
   });
 
   it('converts an imperial draft back to the core units it came from', () => {
     const d = dive([cylinder()]);
-    const drafts = cylinderDraftsFrom(d, 'imperial');
+    const drafts = cylinderDraftsFrom(d, IMPERIAL_UNITS);
     // Seeded from 200000 mbar, so re-parsing what was rendered must land back
     // within the rounding of one psi rather than drifting on every open/save.
-    const patches = buildCylinderPatches(d, drafts, 'imperial');
+    const patches = buildCylinderPatches(d, drafts, IMPERIAL_UNITS);
     if (patches !== null) {
       const entry = patches[0];
       expect(Math.abs((entry.startMbar ?? 200000) - 200000)).toBeLessThan(100);

@@ -21,8 +21,8 @@ import { WeightEditor } from '@/features/dives/weight-editor';
 import { WhenField } from '@/features/dives/when-field';
 import { useTheme } from '@/hooks/use-theme';
 import { operationFailed } from '@/lib/haptics';
-import type { Dive, UnitSystem } from '@/models';
-import { formatDepth, formatDuration, formatSac } from '@/models';
+import type { Dive, Units } from '@/models';
+import { depthUnitName, formatDepth, formatDuration, formatSac, temperatureUnitName } from '@/models';
 import {
   dateNotes,
   depthUnit,
@@ -62,12 +62,12 @@ export type DiveFormValues = DiveDraft &
 export function useDiveForm({
   initial,
   rules,
-  unitSystem,
+  units,
   onSave,
 }: {
   initial: DiveFormValues;
   rules: DiveBasicsRules;
-  unitSystem: UnitSystem;
+  units: Units;
   onSave: (values: DiveFormValues) => Promise<void>;
 }) {
   return useForm({
@@ -76,13 +76,13 @@ export function useDiveForm({
       // The per-row messages are already on screen in red next to the fields
       // they belong to; this is the line that says why Save did nothing.
       onSubmit: ({ value }) => {
-        if (Object.keys(validateDiveBasics(value, unitSystem, rules)).length > 0) {
+        if (Object.keys(validateDiveBasics(value, units, rules)).length > 0) {
           return 'Fix the fields marked in red before saving.';
         }
-        if (Object.keys(validateCylinderDrafts(value.cylinders, unitSystem)).length > 0) {
+        if (Object.keys(validateCylinderDrafts(value.cylinders, units)).length > 0) {
           return 'Fix the cylinder fields marked in red before saving.';
         }
-        if (Object.keys(validateWeightDrafts(value.weights, unitSystem)).length > 0) {
+        if (Object.keys(validateWeightDrafts(value.weights, units)).length > 0) {
           return 'Fix the weight fields marked in red before saving.';
         }
         return undefined;
@@ -111,19 +111,19 @@ function BasicsSection({
   form,
   self,
   rules,
-  unitSystem,
+  units,
 }: {
   form: DiveForm;
   self?: Dive;
   rules: DiveBasicsRules;
-  unitSystem: UnitSystem;
+  units: Units;
 }) {
   const theme = useTheme();
   const { data: dives = [] } = useDives();
   const { data: trips = [] } = useTrips();
   const values = useStore(form.store, (state) => state.values);
   const attempted = useStore(form.store, (state) => state.submissionAttempts > 0);
-  const errors = validateDiveBasics(values, unitSystem, rules);
+  const errors = validateDiveBasics(values, units, rules);
   // A field not filled in yet is not a mistake until Save is pressed.
   const shown = (key: 'durationText' | 'maxDepthText') =>
     values[key].trim() !== '' || attempted ? errors[key] : undefined;
@@ -161,8 +161,8 @@ function BasicsSection({
           <form.Field name="maxDepthText">
             {(field) => (
               <FormField
-                label={`Maximum depth (${depthUnit(unitSystem)})`}
-                accessibilityLabel={`Maximum depth in ${unitSystem === 'imperial' ? 'feet' : 'meters'}`}
+                label={`Maximum depth (${depthUnit(units)})`}
+                accessibilityLabel={`Maximum depth in ${depthUnitName(units)}`}
                 value={field.state.value}
                 onChangeText={field.handleChange}
                 error={shown('maxDepthText')}
@@ -187,7 +187,7 @@ function BasicsSection({
         </>
       ) : self ? (
         <>
-          <ValueRow label="Maximum depth" value={formatDepth(self.maxDepthMm, unitSystem)} />
+          <ValueRow label="Maximum depth" value={formatDepth(self.maxDepthMm, units)} />
           <ValueRow label="Duration" value={formatDuration(self.durationSec)} />
         </>
       ) : null}
@@ -200,16 +200,16 @@ function DetailsSection({
   form,
   self,
   rules,
-  unitSystem,
+  units,
 }: {
   form: DiveForm;
   self?: Dive;
   rules: DiveBasicsRules;
-  unitSystem: UnitSystem;
+  units: Units;
 }) {
   const values = useStore(form.store, (state) => state.values);
-  const errors = validateDiveBasics(values, unitSystem, rules);
-  const unit = temperatureUnit(unitSystem);
+  const errors = validateDiveBasics(values, units, rules);
+  const unit = temperatureUnit(units);
   const manual = rules.profileEditable;
 
   return (
@@ -220,8 +220,8 @@ function DetailsSection({
         <form.Field name="meanDepthText">
           {(field) => (
             <FormField
-              label={`Average depth (${depthUnit(unitSystem)})`}
-              accessibilityLabel={`Average depth in ${unitSystem === 'imperial' ? 'feet' : 'meters'}`}
+              label={`Average depth (${depthUnit(units)})`}
+              accessibilityLabel={`Average depth in ${depthUnitName(units)}`}
               value={field.state.value}
               onChangeText={field.handleChange}
               error={errors.meanDepthText}
@@ -230,13 +230,13 @@ function DetailsSection({
           )}
         </form.Field>
       ) : self && self.meanDepthMm > 0 ? (
-        <ValueRow label="Average depth" value={formatDepth(self.meanDepthMm, unitSystem)} />
+        <ValueRow label="Average depth" value={formatDepth(self.meanDepthMm, units)} />
       ) : null}
       <form.Field name="waterTempText">
         {(field) => (
           <FormField
             label={`Water temperature (${unit})`}
-            accessibilityLabel={`Water temperature in degrees ${unitSystem === 'imperial' ? 'Fahrenheit' : 'Celsius'}`}
+            accessibilityLabel={`Water temperature in ${temperatureUnitName(units)}`}
             value={field.state.value}
             onChangeText={field.handleChange}
             error={errors.waterTempText}
@@ -248,7 +248,7 @@ function DetailsSection({
         {(field) => (
           <FormField
             label={`Air temperature (${unit})`}
-            accessibilityLabel={`Air temperature in degrees ${unitSystem === 'imperial' ? 'Fahrenheit' : 'Celsius'}`}
+            accessibilityLabel={`Air temperature in ${temperatureUnitName(units)}`}
             value={field.state.value}
             onChangeText={field.handleChange}
             error={errors.airTempText}
@@ -278,14 +278,14 @@ export function DiveFormSections({
   form,
   self,
   rules,
-  unitSystem,
+  units,
   previewSac,
   errors = [],
 }: {
   form: DiveForm;
   self?: Dive;
   rules: DiveBasicsRules;
-  unitSystem: UnitSystem;
+  units: Units;
   /** SAC as the core would compute it from these values, 0 for none. */
   previewSac: (values: DiveFormValues) => number;
   /** Failures of the screen's own actions, shown with the form's. */
@@ -323,7 +323,7 @@ export function DiveFormSections({
         }}
       </form.Subscribe>
 
-      <BasicsSection form={form} self={self} rules={rules} unitSystem={unitSystem} />
+      <BasicsSection form={form} self={self} rules={rules} units={units} />
 
       <FormSection title="Place">
         <form.Field name="siteUuid">
@@ -355,7 +355,7 @@ export function DiveFormSections({
       {previous ? (
         <PreviousDiveCard
           previous={previous}
-          unitSystem={unitSystem}
+          units={units}
           onCopySite={() => form.setFieldValue('siteUuid', previous.siteUuid)}
           onCopyBuddies={() =>
             form.setFieldValue('buddy', (buddy) => mergeNames(buddy, previous.buddy))
@@ -366,18 +366,18 @@ export function DiveFormSections({
           onCopySuit={() => form.setFieldValue('suit', previous.suit.trim())}
           onCopyCylinders={() =>
             form.setFieldValue('cylinders', (cylinders) =>
-              copyCylinderSetup(cylinders, previous.cylinders, unitSystem)
+              copyCylinderSetup(cylinders, previous.cylinders, units)
             )
           }
           onCopyWeights={() =>
             form.setFieldValue('weights', (weights) =>
-              copyWeights(weights, previous.weightsystems, unitSystem)
+              copyWeights(weights, previous.weightsystems, units)
             )
           }
         />
       ) : null}
 
-      <DetailsSection form={form} self={self} rules={rules} unitSystem={unitSystem} />
+      <DetailsSection form={form} self={self} rules={rules} units={units} />
 
       <FormSection title="People" footer="Separate names with commas.">
         <form.Field name="buddy">
@@ -435,9 +435,9 @@ export function DiveFormSections({
         {(field) => (
           <CylinderEditor
             drafts={field.state.value}
-            errors={validateCylinderDrafts(field.state.value, unitSystem)}
+            errors={validateCylinderDrafts(field.state.value, units)}
             descriptions={knownCylinders}
-            unitSystem={unitSystem}
+            units={units}
             onChange={field.handleChange}
           />
         )}
@@ -447,9 +447,9 @@ export function DiveFormSections({
         {(field) => (
           <WeightEditor
             drafts={field.state.value}
-            errors={validateWeightDrafts(field.state.value, unitSystem)}
+            errors={validateWeightDrafts(field.state.value, units)}
             descriptions={knownWeights}
-            unitSystem={unitSystem}
+            units={units}
             onChange={field.handleChange}
           />
         )}
@@ -465,7 +465,7 @@ export function DiveFormSections({
               <View style={styles.valueRow}>
                 <Text style={[styles.valueLabel, { color: theme.text }]}>SAC</Text>
                 <Text style={[styles.sacValue, { color: theme.text }]}>
-                  {sac > 0 ? formatSac(sac, unitSystem) : 'Not enough data'}
+                  {sac > 0 ? formatSac(sac, units) : 'Not enough data'}
                 </Text>
               </View>
             );

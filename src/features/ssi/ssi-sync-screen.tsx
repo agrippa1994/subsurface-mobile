@@ -58,7 +58,7 @@ import {
 export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const theme = useTheme();
   const router = useRouter();
-  const { unitSystem } = useSettings();
+  const { units } = useSettings();
 
   const diveQuery = useDive(diveId);
   const profileQuery = useProfile(diveId);
@@ -189,7 +189,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
     );
   }
 
-  const row = toDiveRow(dive, unitSystem);
+  const row = toDiveRow(dive, units);
 
   return (
     <form.Field name="site">
@@ -203,7 +203,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
           <View style={styles.header}>
             <FormSection title="Dive">
               <Row label="Date" value={`${row.dateText} ${row.timeText}`} />
-              <Row label="Max depth" value={formatDepth(dive.maxDepthMm, unitSystem)} />
+              <Row label="Max depth" value={formatDepth(dive.maxDepthMm, units)} />
               <Row label="Duration" value={formatDuration(dive.durationSec)} />
               <Row label="Site in this logbook" value={dive.siteName || '-'} />
             </FormSection>

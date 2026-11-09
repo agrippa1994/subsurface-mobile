@@ -14,7 +14,7 @@
 // Dive site uuids are persisted and stable, but they live under the same root
 // for the simple reason that a reload replaces those objects too.
 
-import type { GradientFactors, StatsFilter } from '@/models';
+import type { GradientFactors, StatsFilter, Units } from '@/models';
 
 export const queryKeys = {
   /** The loaded logbook itself: { path, lastLoad }. */
@@ -37,9 +37,9 @@ export const queryKeys = {
   /** Every profile of one dive, whichever dive computer it came from. */
   diveProfiles: (id: number) => ['log', 'data', 'profile', id] as const,
   statistics: (filter?: StatsFilter) => ['log', 'data', 'statistics', filter ?? null] as const,
-  /** One chart of the configurable statistics; the unit system picks its binners. */
-  statsChart: (config: unknown, filter: StatsFilter | undefined, imperial: boolean) =>
-    ['log', 'data', 'stats-chart', config, filter ?? null, imperial] as const,
+  /** One chart of the configurable statistics; the units pick its binners. */
+  statsChart: (config: unknown, filter: StatsFilter | undefined, units: Units) =>
+    ['log', 'data', 'stats-chart', config, filter ?? null, units] as const,
 
   /** Preferences: a file of its own, untouched by loading a logbook. */
   settings: () => ['settings'] as const,

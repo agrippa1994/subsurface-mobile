@@ -32,7 +32,7 @@ const WATER_OPTIONS: { value: Water; label: string }[] = [
 export default function NitroxScreen() {
   const screen = useNitroxScreen();
   const theme = useTheme();
-  const { input, plan, unitSystem } = screen;
+  const { input, plan, units } = screen;
   const depthLabel = `${screen.depth} ${screen.depthUnit}`;
   const mix = mixName(input.o2Percent);
   const warning = plan ? nitroxWarning(input, plan) : null;
@@ -76,13 +76,13 @@ export default function NitroxScreen() {
         <>
           <FormSection
             title="Depth limits"
-            footer={`Rounded down to the whole ${unitSystem === 'imperial' ? 'foot' : 'metre'}. The best mix is the richest one the max pO2 allows at the planned depth.`}
+            footer={`Rounded down to the whole ${units.depth === 'ft' ? 'foot' : 'metre'}. The best mix is the richest one the max pO2 allows at the planned depth.`}
           >
             <Row
               label={`MOD at ${formatPo2(input.maxPo2Mbar)}`}
-              value={formatMod(plan.modMm, unitSystem)}
+              value={formatMod(plan.modMm, units)}
             />
-            <Row label="MOD at 1.60 bar" value={formatMod(plan.contingencyModMm, unitSystem)} />
+            <Row label="MOD at 1.60 bar" value={formatMod(plan.contingencyModMm, units)} />
             <Row label={`pO2 at ${depthLabel}`} value={formatPo2(plan.po2Mbar)} />
             <Row
               label={`Best mix for ${depthLabel}`}

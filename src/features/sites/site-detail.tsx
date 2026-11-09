@@ -21,12 +21,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { sortDivesNewestFirst, toSiteDiveRow } from '@/models/dive-list';
 import { toSiteRow } from '@/models/site-edit';
 import { useDives, useSites } from '@/queries/logbook';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 export function SiteDetail({ uuid }: { uuid: number }) {
   const router = useRouter();
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const sitesQuery = useSites();
   const sites = useMemo(() => sitesQuery.data ?? [], [sitesQuery.data]);
   const { data: allDives = [] } = useDives();
@@ -86,7 +86,7 @@ export function SiteDetail({ uuid }: { uuid: number }) {
                   <View style={[styles.separator, { backgroundColor: theme.separator }]} />
                 ) : null}
                 <DiveRowView
-                  row={toSiteDiveRow(dive, unitSystem)}
+                  row={toSiteDiveRow(dive, units)}
                   onPress={() => router.push(`/sites/dive/${dive.id}`)}
                 />
               </View>

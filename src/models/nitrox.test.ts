@@ -13,6 +13,7 @@ import {
   nitroxWarning,
   planInput,
 } from './nitrox';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 const PLAN: NitroxPlan = {
   modMm: 33273,
@@ -41,18 +42,18 @@ describe('nitrox inputs', () => {
   });
 
   it('round-trips the depth through the displayed unit and clamps it', () => {
-    expect(depthValue(depthFromValue(18, 'metric'), 'metric')).toBe(18);
-    expect(depthValue(depthFromValue(60, 'imperial'), 'imperial')).toBe(60);
-    expect(depthValue(18000, 'imperial')).toBe(60);
-    expect(depthFromValue(1, 'metric')).toBe(3000);
-    expect(depthFromValue(500, 'imperial')).toBe(depthFromValue(320, 'imperial'));
+    expect(depthValue(depthFromValue(18, METRIC_UNITS), METRIC_UNITS)).toBe(18);
+    expect(depthValue(depthFromValue(60, IMPERIAL_UNITS), IMPERIAL_UNITS)).toBe(60);
+    expect(depthValue(18000, IMPERIAL_UNITS)).toBe(60);
+    expect(depthFromValue(1, METRIC_UNITS)).toBe(3000);
+    expect(depthFromValue(500, IMPERIAL_UNITS)).toBe(depthFromValue(320, IMPERIAL_UNITS));
   });
 });
 
 describe('nitrox presentation', () => {
   it('rounds the MOD down, never up', () => {
-    expect(formatMod(33999, 'metric')).toBe('33 m');
-    expect(formatMod(33273, 'imperial')).toBe('109 ft');
+    expect(formatMod(33999, METRIC_UNITS)).toBe('33 m');
+    expect(formatMod(33273, IMPERIAL_UNITS)).toBe('109 ft');
   });
 
   it('names the mix and the open-ended NDL', () => {

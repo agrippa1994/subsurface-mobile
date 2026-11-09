@@ -12,12 +12,9 @@ import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
 import { GF_RANGE } from '@/models/settings';
-import type { UnitSystem } from '@/models';
+import type { Units } from '@/models';
+import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
-const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
-  { value: 'metric', label: 'Metric' },
-  { value: 'imperial', label: 'Imperial' },
-];
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
@@ -28,8 +25,30 @@ export default function SettingsScreen() {
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <FormSection title="Units">
-        <OptionField options={UNIT_OPTIONS} value={screen.unitSystem} onChange={screen.setUnitSystem} />
+      <FormSection
+        title="Units"
+        footer={
+          screen.showUnitRows
+            ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
+            : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`
+        }>
+        <OptionField
+          options={UNIT_PRESET_OPTIONS}
+          value={screen.unitPreset}
+          onChange={screen.setUnitPreset}
+        />
+        {screen.showUnitRows
+          ? UNIT_ROWS.map((row) => (
+              <View key={row.key} style={styles.unitRow} accessibilityLabel={row.label}>
+                <Text style={{ color: theme.textSecondary }}>{row.label}</Text>
+                <OptionField
+                  options={row.options}
+                  value={screen.units[row.key]}
+                  onChange={(value) => screen.setUnit(row.key, value as Units[typeof row.key])}
+                />
+              </View>
+            ))
+          : null}
       </FormSection>
 
       <FormSection
@@ -220,6 +239,9 @@ function StepperRow({
 }
 
 const styles = StyleSheet.create({
+  unitRow: {
+    gap: Spacing.one,
+  },
   content: {
     padding: Spacing.three,
     gap: Spacing.four,

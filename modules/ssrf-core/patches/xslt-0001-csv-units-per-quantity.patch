@@ -1,0 +1,217 @@
+Let the CSV stylesheets take a unit per quantity.
+
+xml2detailscsv.xslt and xml2summarycsv.xslt read one parameter, `units`, and
+write every column metric (0) or imperial (1). The app lets the diver choose
+depth, pressure, volume, temperature and weight on their own, as desktop's
+preferences do, and the export has to match what the screens show.
+
+Adds `unitsDepth`, `unitsPressure`, `unitsVolume`, `unitsTemperature` and
+`unitsWeight`, each defaulting to `$units`, and tests the matching one where a
+value or a column header is converted. A caller that passes only `units` gets
+byte for byte what it got before (checked with xsltproc on
+dives/abitofeverything.ssrf, both stylesheets, units 0 and 1).
+
+Applied by scripts/vendor-core.mjs to the copies in resources/xslt, with
+`patch -p1` inside that directory. The submodule is not touched.
+
+--- a/xml2detailscsv.xslt	2026-11-09 18:51:56
++++ b/xml2detailscsv.xslt	2026-11-09 18:52:06
+@@ -3,19 +3,28 @@
+   <xsl:include href="commonTemplates.xsl"/>
+   <xsl:strip-space elements="*"/>
+   <xsl:param name="units" select="units"/>
++  <!-- AI-generated (Claude): one switch per quantity, each defaulting to $units,
++       so a caller passing only "units" gets exactly what it got before. -->
++  <xsl:param name="unitsDepth" select="$units"/>
++  <xsl:param name="unitsPressure" select="$units"/>
++  <xsl:param name="unitsVolume" select="$units"/>
++  <xsl:param name="unitsTemperature" select="$units"/>
++  <xsl:param name="unitsWeight" select="$units"/>
+   <xsl:output method="text" encoding="utf-8"/>
+ 
+   <xsl:variable name="fs" select="','"/>
+ 
+   <xsl:template match="/divelog/dives">
+-    <xsl:choose>
+-      <xsl:when test="$units = 1">
+-        <xsl:value-of select="concat($quote, 'dive number', $quote, $fs, $quote, 'date', $quote, $fs, $quote, 'time', $quote, $fs, $quote, 'sample time (min)', $quote, $fs, $quote, 'sample depth (ft)', $quote, $fs, $quote, 'sample temperature (F)', $quote, $fs, $quote, 'sample pressure (psi)', $quote, $fs, $quote, 'sample heartrate', $quote)"/>
+-      </xsl:when>
+-      <xsl:otherwise>
+-        <xsl:value-of select="concat($quote, 'dive number', $quote, $fs, $quote, 'date', $quote, $fs, $quote, 'time', $quote, $fs, $quote, 'sample time (min)', $quote, $fs, $quote, 'sample depth (m)', $quote, $fs, $quote, 'sample temperature (C)', $quote, $fs, $quote, 'sample pressure (bar)', $quote, $fs, $quote, 'sample heartrate', $quote)"/>
+-      </xsl:otherwise>
+-    </xsl:choose>
++    <xsl:variable name="depthName">
++      <xsl:choose><xsl:when test="$unitsDepth = 1">ft</xsl:when><xsl:otherwise>m</xsl:otherwise></xsl:choose>
++    </xsl:variable>
++    <xsl:variable name="temperatureName">
++      <xsl:choose><xsl:when test="$unitsTemperature = 1">F</xsl:when><xsl:otherwise>C</xsl:otherwise></xsl:choose>
++    </xsl:variable>
++    <xsl:variable name="pressureName">
++      <xsl:choose><xsl:when test="$unitsPressure = 1">psi</xsl:when><xsl:otherwise>bar</xsl:otherwise></xsl:choose>
++    </xsl:variable>
++    <xsl:value-of select="concat($quote, 'dive number', $quote, $fs, $quote, 'date', $quote, $fs, $quote, 'time', $quote, $fs, $quote, 'sample time (min)', $quote, $fs, $quote, 'sample depth (', $depthName, ')', $quote, $fs, $quote, 'sample temperature (', $temperatureName, ')', $quote, $fs, $quote, 'sample pressure (', $pressureName, ')', $quote, $fs, $quote, 'sample heartrate', $quote)"/>
+     <xsl:text>
+ </xsl:text>
+     <xsl:apply-templates select="dive|trip/dive"/>
+@@ -43,7 +52,7 @@
+       <xsl:value-of select="concat($quote, substring-before(@time, ' '), $quote)"/>
+       <xsl:value-of select="$fs"/>
+       <xsl:choose>
+-        <xsl:when test="$units = 1">
++        <xsl:when test="$unitsDepth = 1">
+           <xsl:value-of select="concat($quote, format-number(substring-before(@depth, ' ') div 0.3048, '#.###'), $quote)"/>
+         </xsl:when>
+         <xsl:otherwise>
+@@ -54,7 +63,7 @@
+       <xsl:value-of select="$fs"/>
+       <xsl:if test="@temp != ''">
+         <xsl:choose>
+-          <xsl:when test="$units = 1">
++          <xsl:when test="$unitsTemperature = 1">
+             <xsl:value-of select="concat($quote, format-number((substring-before(@temp, ' ') * 1.8) + 32, '#.#'), $quote)"/>
+           </xsl:when>
+           <xsl:otherwise>
+@@ -75,7 +84,7 @@
+       <xsl:variable name="pressure" select="@*[$sensor != '' and name() = concat('pressure', $sensor)] | @pressure[$sensor = 0]"/>
+       <xsl:if test="$pressure != ''">
+         <xsl:choose>
+-          <xsl:when test="$units = 1">
++          <xsl:when test="$unitsPressure = 1">
+             <xsl:value-of select="concat($quote, format-number((substring-before($pressure, ' ') * 14.5037738007), '#'), $quote)"/>
+           </xsl:when>
+           <xsl:otherwise>
+--- a/xml2summarycsv.xslt	2026-11-09 18:51:56
++++ b/xml2summarycsv.xslt	2026-11-09 18:52:06
+@@ -5,6 +5,13 @@
+   <xsl:include href="commonTemplates.xsl"/>
+   <xsl:strip-space elements="*"/>
+   <xsl:param name="units" select="units"/>
++  <!-- AI-generated (Claude): one switch per quantity, each defaulting to $units,
++       so a caller passing only "units" gets exactly what it got before. -->
++  <xsl:param name="unitsDepth" select="$units"/>
++  <xsl:param name="unitsPressure" select="$units"/>
++  <xsl:param name="unitsVolume" select="$units"/>
++  <xsl:param name="unitsTemperature" select="$units"/>
++  <xsl:param name="unitsWeight" select="$units"/>
+   <xsl:output method="text" encoding="utf-8"/>
+ 
+   <xsl:variable name="fs" select="','"/>
+@@ -66,28 +73,24 @@
+       </xsl:for-each>
+     </xsl:variable>
+ 
+-    <xsl:choose>
+-      <xsl:when test="$units = 1">
+-        <xsl:call-template name="printHeaders">
+-          <xsl:with-param name="cylinders" select="$cylinders"/>
+-          <xsl:with-param name="volumeUnits" select="'cuft'"/>
+-          <xsl:with-param name="distanceUnits" select="'ft'"/>
+-          <xsl:with-param name="temperatureUnits" select="'F'"/>
+-          <xsl:with-param name="pressureUnits" select="'psi'"/>
+-          <xsl:with-param name="massUnits" select="'lbs'"/>
+-        </xsl:call-template>
+-      </xsl:when>
+-      <xsl:otherwise>
+-        <xsl:call-template name="printHeaders">
+-          <xsl:with-param name="cylinders" select="$cylinders"/>
+-          <xsl:with-param name="volumeUnits" select="'l'"/>
+-          <xsl:with-param name="distanceUnits" select="'m'"/>
+-          <xsl:with-param name="temperatureUnits" select="'C'"/>
+-          <xsl:with-param name="pressureUnits" select="'bar'"/>
+-          <xsl:with-param name="massUnits" select="'kg'"/>
+-        </xsl:call-template>
+-      </xsl:otherwise>
+-    </xsl:choose>
++    <xsl:call-template name="printHeaders">
++      <xsl:with-param name="cylinders" select="$cylinders"/>
++      <xsl:with-param name="volumeUnits">
++        <xsl:choose><xsl:when test="$unitsVolume = 1">cuft</xsl:when><xsl:otherwise>l</xsl:otherwise></xsl:choose>
++      </xsl:with-param>
++      <xsl:with-param name="distanceUnits">
++        <xsl:choose><xsl:when test="$unitsDepth = 1">ft</xsl:when><xsl:otherwise>m</xsl:otherwise></xsl:choose>
++      </xsl:with-param>
++      <xsl:with-param name="temperatureUnits">
++        <xsl:choose><xsl:when test="$unitsTemperature = 1">F</xsl:when><xsl:otherwise>C</xsl:otherwise></xsl:choose>
++      </xsl:with-param>
++      <xsl:with-param name="pressureUnits">
++        <xsl:choose><xsl:when test="$unitsPressure = 1">psi</xsl:when><xsl:otherwise>bar</xsl:otherwise></xsl:choose>
++      </xsl:with-param>
++      <xsl:with-param name="massUnits">
++        <xsl:choose><xsl:when test="$unitsWeight = 1">lbs</xsl:when><xsl:otherwise>kg</xsl:otherwise></xsl:choose>
++      </xsl:with-param>
++    </xsl:call-template>
+ 
+     <xsl:apply-templates select="dive|trip/dive">
+       <xsl:with-param name="cylinders" select="$cylinders"/>
+@@ -119,7 +122,7 @@
+     <xsl:call-template name="CsvEscape">
+       <xsl:with-param name="value">
+         <xsl:choose>
+-          <xsl:when test="$units = 1">
++          <xsl:when test="$unitsVolume = 1">
+             <xsl:value-of select="format-number(substring-before(@sac, ' ') * 0.035315, '#.##')"/>
+           </xsl:when>
+           <xsl:otherwise>
+@@ -182,7 +185,7 @@
+       <xsl:call-template name="CsvEscape">
+         <xsl:with-param name="value">
+           <xsl:choose>
+-            <xsl:when test="$units = 1">
++            <xsl:when test="$unitsVolume = 1">
+               <xsl:value-of select="concat(format-number((substring-before(@size, ' ') div 14.7 * 3000) * 0.035315, '#.#'), '')"/>
+             </xsl:when>
+             <xsl:otherwise>
+@@ -282,7 +285,7 @@
+               <xsl:variable name="uuid" select="@divesiteid"/>
+               <xsl:value-of select="//divesites/site[@uuid = $uuid]/@name"/>
+             </xsl:if>
+-          </xsl:with-param>
++      </xsl:with-param>
+         </xsl:call-template>
+         <xsl:value-of select="$fs"/>
+         <xsl:call-template name="CsvEscape">
+@@ -291,7 +294,7 @@
+               <xsl:variable name="uuid" select="@divesiteid"/>
+               <xsl:value-of select="//divesites/site[@uuid = $uuid]/@gps"/>
+             </xsl:if>
+-          </xsl:with-param>
++      </xsl:with-param>
+         </xsl:call-template>
+       </xsl:otherwise>
+     </xsl:choose>
+@@ -332,7 +335,7 @@
+       <xsl:call-template name="CsvEscape">
+         <xsl:with-param name="value">
+           <xsl:choose>
+-            <xsl:when test="$units = 1">
++            <xsl:when test="$unitsWeight = 1">
+               <xsl:value-of select="concat(format-number((sum(xt:node-set($trimmedweightlist)/node()) div 0.453592), '#.##'), '')"/>
+             </xsl:when>
+             <xsl:otherwise>
+@@ -354,7 +357,7 @@
+   <xsl:template name="ConvertPressure">
+     <xsl:param name="pressureBar"/>
+     <xsl:choose>
+-      <xsl:when test="$units = 1">
++      <xsl:when test="$unitsPressure = 1">
+         <xsl:value-of select="concat(format-number((substring-before($pressureBar, ' ') * 14.5037738007), '#'), '')"/>
+       </xsl:when>
+       <xsl:otherwise>
+@@ -367,7 +370,7 @@
+   <xsl:template name="ConvertDistance">
+     <xsl:param name="distanceM"/>
+     <xsl:choose>
+-      <xsl:when test="$units = 1">
++      <xsl:when test="$unitsDepth = 1">
+         <xsl:value-of select="concat(format-number((substring-before($distanceM, ' ') div 0.3048), '#.##'), '')"/>
+       </xsl:when>
+       <xsl:otherwise>
+@@ -541,7 +544,7 @@
+     <xsl:call-template name="CsvEscape">
+       <xsl:with-param name="value">
+         <xsl:choose>
+-          <xsl:when test="$units = 1">
++          <xsl:when test="$unitsTemperature = 1">
+             <xsl:if test="substring-before($temp, ' ') > 0">
+               <xsl:value-of select="concat(format-number((substring-before($temp, ' ') * 1.8) + 32, '0.0'), '')"/>
+             </xsl:if>

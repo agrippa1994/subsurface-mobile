@@ -36,6 +36,7 @@ import {
 } from '../src/models/planner';
 import { DEFAULT_PLANNER_SETTINGS, type PlannerSettings } from '../src/models/planner-settings';
 import { SsrfHost } from './harness/ssrf-host';
+import { IMPERIAL_UNITS, METRIC_UNITS, type Units } from '../src/models/units';
 
 let host: SsrfHost;
 
@@ -50,18 +51,18 @@ afterAll(async () => {
 const gf = { gfLow: 30, gfHigh: 75 };
 const WHEN = 1800000000;
 
-const run = (draft: PlanDraft, settings: PlannerSettings = DEFAULT_PLANNER_SETTINGS, system: 'metric' | 'imperial' = 'metric') =>
-  host.planDive(planInput(draft, settings, system, gf));
+const run = (draft: PlanDraft, settings: PlannerSettings = DEFAULT_PLANNER_SETTINGS, units: Units = METRIC_UNITS) =>
+  host.planDive(planInput(draft, settings, units, gf));
 
 /** A deco dive, on a cylinder big enough to take the core's gas warnings out of it. */
 const deep = (): PlanDraft => {
-  const draft = defaultPlanDraft('metric', WHEN);
+  const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
   return patchSegment(draft, draft.segments[0].key, { depthMm: 40000, minutes: 30 });
 };
 
 describe('the default plan', () => {
   it('plans in both unit systems with nothing else asked for', async () => {
-    for (const system of ['metric', 'imperial'] as const) {
+    for (const system of [METRIC_UNITS, IMPERIAL_UNITS]) {
       const result = await run(defaultPlanDraft(system, WHEN), DEFAULT_PLANNER_SETTINGS, system);
       expect(result.error).toBe('ok');
       expect(planWarnings(result, system, WHEN, [])).toEqual([]);
@@ -70,7 +71,7 @@ describe('the default plan', () => {
   });
 
   it('sends 21% as the core\'s air', () => {
-    const input = planInput(defaultPlanDraft('metric', WHEN), DEFAULT_PLANNER_SETTINGS, 'metric', gf);
+    const input = planInput(defaultPlanDraft(METRIC_UNITS, WHEN), DEFAULT_PLANNER_SETTINGS, METRIC_UNITS, gf);
     expect(input.cylinders[0].o2Permille).toBe(0);
     expect(input.cylinders[0].description).toBe('12L 200 bar');
   });
@@ -106,7 +107,7 @@ describe('the reply', () => {
   });
 
   it('says no stops on a dive with none', async () => {
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     const shallow = patchSegment(draft, draft.segments[0].key, { depthMm: 10000, minutes: 20 });
     const result = await run(shallow);
     expect(planStops(result)).toEqual([]);
@@ -114,7 +115,7 @@ describe('the reply', () => {
   });
 
   it('shows a recreational plan with a safety stop as what it is', async () => {
-    const result = await run(defaultPlanDraft('metric', WHEN), {
+    const result = await run(defaultPlanDraft(METRIC_UNITS, WHEN), {
       ...DEFAULT_PLANNER_SETTINGS,
       decoMode: PlanDecoMode.Recreational,
     });
@@ -128,7 +129,7 @@ describe('the reply', () => {
   });
 
   it('merges the stop pieces back gas breaks do not split', async () => {
-    const draft = addCylinder(deep(), { ...newCylinderDraft('metric'), o2Percent: 100, tank: '3L 232 bar', sizeMl: 3000 });
+    const draft = addCylinder(deep(), { ...newCylinderDraft(METRIC_UNITS), o2Percent: 100, tank: '3L 232 bar', sizeMl: 3000 });
     const breaks = await run(draft, { ...DEFAULT_PLANNER_SETTINGS, o2Breaks: true });
     const stops = planStops(breaks);
     expect(stops.some((stop) => stop.gas === 'Oxygen')).toBe(true);
@@ -138,7 +139,7 @@ describe('the reply', () => {
   });
 
   it('sets the gas used against the gas carried', async () => {
-    const [row] = planGasRows(await run(defaultPlanDraft('metric', WHEN)), 'metric');
+    const [row] = planGasRows(await run(defaultPlanDraft(METRIC_UNITS, WHEN)), METRIC_UNITS);
     expect(row.name).toBe('Air');
     expect(row.usedFraction).toBeGreaterThan(0);
     expect(row.usedFraction).toBeLessThan(1);
@@ -151,28 +152,28 @@ describe('the reply', () => {
     const draft = deep();
     const small = patchCylinder(draft, draft.cylinders[0].key, { sizeMl: 3000 });
     const result = await run(small);
-    const [row] = planGasRows(result, 'metric');
+    const [row] = planGasRows(result, METRIC_UNITS);
     expect(row.level).toBe('danger');
     expect(row.usedFraction).toBeGreaterThan(1);
     // The core's cylinder reads negative; nobody should read that.
     expect(row.endText).toMatch(/^Ends at 0 bar/);
-    expect(planWarnings(result, 'metric', WHEN, []).map((w) => w.text).join()).toContain('more gas than available');
+    expect(planWarnings(result, METRIC_UNITS, WHEN, []).map((w) => w.text).join()).toContain('more gas than available');
   });
 
   it('warns below minimum gas, which the notes only colour', async () => {
     // Fine on gas in plain terms, but short of what the core's defaults want kept back.
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     const result = await run(patchSegment(draft, draft.segments[0].key, { depthMm: 18000, minutes: 30 }));
     const [cylinder] = result.cylinders;
     expect(cylinder.minimumGasMbar).toBeGreaterThan(cylinder.ascentStartMbar);
-    expect(planWarnings(result, 'metric', WHEN, []).map((w) => w.text).join()).toContain('Below minimum gas');
-    expect(planGasRows(result, 'metric')[0].level).toBe('caution');
+    expect(planWarnings(result, METRIC_UNITS, WHEN, []).map((w) => w.text).join()).toContain('Below minimum gas');
+    expect(planGasRows(result, METRIC_UNITS)[0].level).toBe('caution');
   });
 
   it('surfaces a high pO2 from the notes', async () => {
     const draft = deep();
     const rich = patchCylinder(draft, draft.cylinders[0].key, { o2Percent: 50 });
-    const warnings = planWarnings(await run(rich), 'metric', WHEN, []);
+    const warnings = planWarnings(await run(rich), METRIC_UNITS, WHEN, []);
     expect(warnings.map((w) => w.text).join()).toContain('High pO₂');
     expect(warnings[0].level).toBe('danger');
   });
@@ -183,13 +184,13 @@ describe('the reply', () => {
     const key = up.segments[1].key;
     const result = await run(patchSegment(up, key, { depthMm: 3000, minutes: 1 }));
     expect(result.waypointAboveCeiling).toBe(true);
-    expect(planWarnings(result, 'metric', WHEN, [])[0].text).toContain('deco ceiling');
+    expect(planWarnings(result, METRIC_UNITS, WHEN, [])[0].text).toContain('deco ceiling');
   });
 
   it('warns about a dive in the log the core does not look at', async () => {
-    const result = await run(defaultPlanDraft('metric', WHEN));
+    const result = await run(defaultPlanDraft(METRIC_UNITS, WHEN));
     const warned = (when: number) =>
-      planWarnings(result, 'metric', WHEN, [{ when, durationSec: 600 }]).map((w) => w.text).join();
+      planWarnings(result, METRIC_UNITS, WHEN, [{ when, durationSec: 600 }]).map((w) => w.text).join();
     // At the same moment, as a plan just saved is, and starting during the plan.
     expect(warned(WHEN)).toContain('overlaps a dive');
     expect(warned(WHEN + 300)).toContain('overlaps a dive');
@@ -203,7 +204,7 @@ describe('the reply', () => {
     expect(result.error).toBe('recreationalExceedsNdl');
     expect(planHasResult(result)).toBe(true);
     expect(planCanBeSaved(result)).toBe(false);
-    expect(planWarnings(result, 'metric', WHEN, [])[0].text).toContain('no-decompression limit');
+    expect(planWarnings(result, METRIC_UNITS, WHEN, [])[0].text).toContain('no-decompression limit');
   });
 
   it('shows the core\'s reason when there is no plan at all', async () => {
@@ -216,14 +217,14 @@ describe('the reply', () => {
   });
 
   it('prints imperial plans in imperial', async () => {
-    const result = await run(defaultPlanDraft('imperial', WHEN), DEFAULT_PLANNER_SETTINGS, 'imperial');
-    const [row] = planGasRows(result, 'imperial');
+    const result = await run(defaultPlanDraft(IMPERIAL_UNITS, WHEN), DEFAULT_PLANNER_SETTINGS, IMPERIAL_UNITS);
+    const [row] = planGasRows(result, IMPERIAL_UNITS);
     expect(row.usedText).toContain('cuft');
     expect(row.endText).toContain('psi');
   });
 
   it('mentions the previous dive only when the core counted one', async () => {
-    const result = await run(defaultPlanDraft('metric', WHEN));
+    const result = await run(defaultPlanDraft(METRIC_UNITS, WHEN));
     expect(surfaceIntervalText(result)).toBeNull();
     expect(surfaceIntervalText({ ...result, surfaceIntervalSec: 5400 })).toContain('1:30 h');
     expect(surfaceIntervalText({ ...result, surfaceIntervalSec: -60 })).toBeNull();
@@ -232,42 +233,42 @@ describe('the reply', () => {
 
 describe('editing the draft', () => {
   it('finds a first level shorter than its descent before the bindings refuse it', () => {
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     const short = patchSegment(draft, draft.segments[0].key, { depthMm: 60000, minutes: 2 });
     // 60 m at 18 m/min takes 200 s.
-    expect(draftProblem(short, DEFAULT_PLANNER_SETTINGS, 'metric')).toContain('4 min descent');
-    expect(draftProblem(draft, DEFAULT_PLANNER_SETTINGS, 'metric')).toBeNull();
-    expect(draftProblem(short, { ...DEFAULT_PLANNER_SETTINGS, dropStone: false }, 'metric')).toBeNull();
+    expect(draftProblem(short, DEFAULT_PLANNER_SETTINGS, METRIC_UNITS)).toContain('4 min descent');
+    expect(draftProblem(draft, DEFAULT_PLANNER_SETTINGS, METRIC_UNITS)).toBeNull();
+    expect(draftProblem(short, { ...DEFAULT_PLANNER_SETTINGS, dropStone: false }, METRIC_UNITS)).toBeNull();
   });
 
   it('never leaves no level or a level with no gas', () => {
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     expect(removeSegment(draft, draft.segments[0].key).segments).toHaveLength(1);
-    const two = addCylinder(draft, newCylinderDraft('metric'));
+    const two = addCylinder(draft, newCylinderDraft(METRIC_UNITS));
     expect(cylinderInUse(two, draft.cylinders[0].key)).toBe(true);
     expect(removeCylinder(two, draft.cylinders[0].key).cylinders).toHaveLength(2);
     expect(removeCylinder(two, two.cylinders[1].key).cylinders).toHaveLength(1);
   });
 
   it('starts a new level where the last one ended', () => {
-    const draft = addSegment(defaultPlanDraft('metric', WHEN));
+    const draft = addSegment(defaultPlanDraft(METRIC_UNITS, WHEN));
     expect(draft.segments[1].depthMm).toBe(draft.segments[0].depthMm);
     expect(draft.segments[1].key).not.toBe(draft.segments[0].key);
   });
 
   it('keeps a level on its gas when a cylinder before it goes', () => {
-    const draft = defaultPlanDraft('metric', WHEN);
-    const spare = newCylinderDraft('metric');
-    const nitrox = { ...newCylinderDraft('metric'), o2Percent: 32 };
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
+    const spare = newCylinderDraft(METRIC_UNITS);
+    const nitrox = { ...newCylinderDraft(METRIC_UNITS), o2Percent: 32 };
     let edited: PlanDraft = { ...draft, cylinders: [spare, draft.cylinders[0], nitrox] };
     edited = patchSegment(edited, edited.segments[0].key, { cylinderKey: nitrox.key });
-    expect(planInput(edited, DEFAULT_PLANNER_SETTINGS, 'metric', gf).segments[0].cylinder).toBe(2);
+    expect(planInput(edited, DEFAULT_PLANNER_SETTINGS, METRIC_UNITS, gf).segments[0].cylinder).toBe(2);
     edited = removeCylinder(edited, spare.key);
-    expect(planInput(edited, DEFAULT_PLANNER_SETTINGS, 'metric', gf).segments[0].cylinder).toBe(1);
+    expect(planInput(edited, DEFAULT_PLANNER_SETTINGS, METRIC_UNITS, gf).segments[0].cylinder).toBe(1);
   });
 
   it('keeps a mix a mix, giving way on the other gas', () => {
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     const key = draft.cylinders[0].key;
     const rich = patchCylinder(patchCylinder(draft, key, { hePercent: 80 }), key, { o2Percent: 50 });
     expect(rich.cylinders[0]).toMatchObject({ o2Percent: 50, hePercent: 50 });
@@ -284,7 +285,7 @@ describe('editing the draft', () => {
   });
 
   it('gives a closed loop plan a diluent and takes it back', () => {
-    const draft = defaultPlanDraft('metric', WHEN);
+    const draft = defaultPlanDraft(METRIC_UNITS, WHEN);
     const ccr = setDiveMode(draft, PlanDiveMode.Ccr);
     expect(ccr.cylinders[0].use).toBe(CylinderUse.Diluent);
     expect(setDiveMode(ccr, PlanDiveMode.OpenCircuit).cylinders[0].use).toBe(CylinderUse.OcGas);
@@ -307,10 +308,10 @@ describe('editing the draft', () => {
   });
 
   it('snaps depth to the stepper and keeps the fill exact, in both unit systems', () => {
-    expect(depthValue(18000, 'imperial')).toBe(60);
-    expect(depthFromValue(depthValue(depthFromValue(60, 'imperial'), 'imperial'), 'imperial')).toBe(18288);
-    expect(fillValue(200000, 'metric')).toBe(200);
-    expect(fillValue(232000, 'metric')).toBe(232);
-    expect(fillValue(fillFromValue(3000, 'imperial'), 'imperial')).toBe(3000);
+    expect(depthValue(18000, IMPERIAL_UNITS)).toBe(60);
+    expect(depthFromValue(depthValue(depthFromValue(60, IMPERIAL_UNITS), IMPERIAL_UNITS), IMPERIAL_UNITS)).toBe(18288);
+    expect(fillValue(200000, METRIC_UNITS)).toBe(200);
+    expect(fillValue(232000, METRIC_UNITS)).toBe(232);
+    expect(fillValue(fillFromValue(3000, IMPERIAL_UNITS), IMPERIAL_UNITS)).toBe(3000);
   });
 });

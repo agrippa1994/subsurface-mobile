@@ -12,7 +12,7 @@
 
 import { parseNumberInput } from './cylinder-edit';
 import type { Dive, WeightSystem, WeightSystemPatch } from './index';
-import { gramsToKg, gramsToLbs, kgToGrams, lbsToGrams, type UnitSystem } from './units';
+import { gramsToKg, gramsToLbs, kgToGrams, lbsToGrams, type Units } from './units';
 
 /**
  * One row of the weights editor.
@@ -46,38 +46,38 @@ function makeKey(): string {
  * dive weight is never known finer, and the same rounding `formatWeight` uses
  * for display keeps the editor and the detail screen agreeing.
  */
-export function formatWeightInput(grams: number, system: UnitSystem): string {
+export function formatWeightInput(grams: number, units: Units): string {
   if (grams === 0) {
     return '';
   }
-  const value = system === 'imperial' ? gramsToLbs(grams) : gramsToKg(grams);
+  const value = units.weight === 'lbs' ? gramsToLbs(grams) : gramsToKg(grams);
   return String(Number(value.toFixed(1)));
 }
 
 /** Grams for a weight field. `undefined` for empty, null for unreadable. */
-export function parseWeightInput(text: string, system: UnitSystem): number | null | undefined {
+export function parseWeightInput(text: string, units: Units): number | null | undefined {
   const value = parseNumberInput(text);
   if (value === null || value === undefined) {
     return value;
   }
-  return system === 'imperial' ? lbsToGrams(value) : kgToGrams(value);
+  return units.weight === 'lbs' ? lbsToGrams(value) : kgToGrams(value);
 }
 
 export function weightDraftFrom(
   weight: WeightSystem,
   sourceIndex: number,
-  system: UnitSystem
+  units: Units
 ): WeightDraft {
   return {
     key: makeKey(),
     sourceIndex,
     description: weight.description,
-    weightText: formatWeightInput(weight.weightGrams, system),
+    weightText: formatWeightInput(weight.weightGrams, units),
   };
 }
 
-export function weightDraftsFrom(dive: Dive, system: UnitSystem): WeightDraft[] {
-  return dive.weightsystems.map((weight, index) => weightDraftFrom(weight, index, system));
+export function weightDraftsFrom(dive: Dive, units: Units): WeightDraft[] {
+  return dive.weightsystems.map((weight, index) => weightDraftFrom(weight, index, units));
 }
 
 /** A new, blank weight row. */
@@ -95,10 +95,10 @@ export function newWeightDraft(): WeightDraft {
  * `previewDive` round trip, because `dive::total_weight()` is exactly this sum -
  * unlike the SAC rate, there is no core physics to disagree with.
  */
-export function totalWeightGrams(drafts: readonly WeightDraft[], system: UnitSystem): number {
+export function totalWeightGrams(drafts: readonly WeightDraft[], units: Units): number {
   let total = 0;
   for (const draft of drafts) {
-    total += parseWeightInput(draft.weightText, system) ?? 0;
+    total += parseWeightInput(draft.weightText, units) ?? 0;
   }
   return total;
 }
@@ -116,11 +116,11 @@ export type WeightErrors = Record<string, string>;
  */
 export function validateWeightDrafts(
   drafts: readonly WeightDraft[],
-  system: UnitSystem
+  units: Units
 ): WeightErrors {
   const errors: WeightErrors = {};
   for (const draft of drafts) {
-    if (parseWeightInput(draft.weightText, system) === null) {
+    if (parseWeightInput(draft.weightText, units) === null) {
       errors[draft.key] = 'Weight is not a number.';
     }
   }
@@ -148,7 +148,7 @@ export function validateWeightDrafts(
 export function buildWeightPatches(
   dive: Pick<Dive, 'weightsystems'>,
   drafts: readonly WeightDraft[],
-  system: UnitSystem
+  units: Units
 ): WeightSystemPatch[] | null {
   const entries: WeightSystemPatch[] = [];
   let changed = drafts.length !== dive.weightsystems.length;
@@ -161,7 +161,7 @@ export function buildWeightPatches(
     const seed =
       original === undefined
         ? undefined
-        : weightDraftFrom(original, draft.sourceIndex as number, system);
+        : weightDraftFrom(original, draft.sourceIndex as number, units);
 
     if (draft.sourceIndex !== null) {
       entry.sourceIndex = draft.sourceIndex;
@@ -170,7 +170,7 @@ export function buildWeightPatches(
       entry.description = draft.description.trim();
     }
     if (!seed || seed.weightText !== draft.weightText) {
-      entry.weightGrams = parseWeightInput(draft.weightText, system) ?? 0;
+      entry.weightGrams = parseWeightInput(draft.weightText, units) ?? 0;
     }
 
     // `sourceIndex` alone is "keep this one as it is".

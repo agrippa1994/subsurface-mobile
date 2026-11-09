@@ -5,7 +5,7 @@
 // last week is not what opening the planner should show.
 import { useSyncExternalStore } from 'react';
 
-import type { DiveSummary, UnitSystem } from '@/models';
+import type { DiveSummary, Units } from '@/models';
 import { defaultPlanDraft, defaultPlanWhen, type PlanDraft } from '@/models/planner';
 
 let draft: PlanDraft | null = null;
@@ -16,19 +16,19 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-function freshDraft(system: UnitSystem, dives: readonly DiveSummary[]): PlanDraft {
+function freshDraft(units: Units, dives: readonly DiveSummary[]): PlanDraft {
   const now = Date.now();
-  return defaultPlanDraft(system, defaultPlanWhen(now, new Date(now).getTimezoneOffset(), dives));
+  return defaultPlanDraft(units, defaultPlanWhen(now, new Date(now).getTimezoneOffset(), dives));
 }
 
 /** Made the first time a screen asks: the default depends on the units and the log. */
-function currentDraft(system: UnitSystem, dives: readonly DiveSummary[]): PlanDraft {
-  draft ??= freshDraft(system, dives);
+function currentDraft(units: Units, dives: readonly DiveSummary[]): PlanDraft {
+  draft ??= freshDraft(units, dives);
   return draft;
 }
 
-export function usePlanDraft(system: UnitSystem, dives: readonly DiveSummary[]): PlanDraft {
-  return useSyncExternalStore(subscribe, () => currentDraft(system, dives));
+export function usePlanDraft(units: Units, dives: readonly DiveSummary[]): PlanDraft {
+  return useSyncExternalStore(subscribe, () => currentDraft(units, dives));
 }
 
 export function updatePlanDraft(change: (current: PlanDraft) => PlanDraft): void {
@@ -39,7 +39,7 @@ export function updatePlanDraft(change: (current: PlanDraft) => PlanDraft): void
   listeners.forEach((listener) => listener());
 }
 
-export function resetPlanDraft(system: UnitSystem, dives: readonly DiveSummary[]): void {
-  draft = freshDraft(system, dives);
+export function resetPlanDraft(units: Units, dives: readonly DiveSummary[]): void {
+  draft = freshDraft(units, dives);
   listeners.forEach((listener) => listener());
 }

@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
 import { useCallback, useMemo } from 'react';
 
-import type { GradientFactors, UnitSystem } from '@/models';
+import type { GradientFactors, Units } from '@/models';
 import { rememberComputer, type RememberedComputer } from '@/models/dive-computer';
 import {
   clampGradientFactors,
@@ -63,15 +63,17 @@ export function useSettings(): Settings {
 }
 
 /**
- * Convenience selector: the unit system every formatter takes. Selected, so that a
+ * Convenience selector: the units every formatter takes. Selected, so that a
  * preference nothing here reads (the last chart, say) does not re-render a whole list.
+ * The object keeps its identity until a unit changes (structural sharing), so it
+ * is safe in a dependency list or a query key.
  */
-export function useUnitSystem(): UnitSystem {
+export function useUnits(): Units {
   const { data } = useQuery({
     queryKey: queryKeys.settings(),
     queryFn: readSettings,
     initialData: readSettings,
-    select: (settings) => settings.unitSystem,
+    select: (settings) => settings.units,
   });
   return data;
 }
@@ -148,9 +150,17 @@ export function useForgetComputers(): () => void {
   return useCallback(() => mutate({ diveComputers: [] }), [mutate]);
 }
 
-export function useSetUnitSystem(): (unitSystem: UnitSystem) => void {
-  const update = useUpdateSettings();
-  return useCallback((unitSystem: UnitSystem) => update.mutate({ unitSystem }), [update]);
+/** Sets some of the units; a preset is all five at once. */
+export function useSetUnits(): (patch: Partial<Units>) => void {
+  const client = useQueryClient();
+  const { mutate } = useUpdateSettings();
+  return useCallback(
+    (patch: Partial<Units>) => {
+      const current = client.getQueryData<Settings>(queryKeys.settings()) ?? readSettings();
+      mutate({ units: { ...current.units, ...patch } });
+    },
+    [client, mutate],
+  );
 }
 
 /** Sets both gradient factors at once, in range and in order. */

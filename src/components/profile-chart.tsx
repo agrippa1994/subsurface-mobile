@@ -30,7 +30,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { ChartColors } from '@/constants/chart-theme';
 import { Spacing } from '@/constants/theme';
-import type { PlotInfo, UnitSystem } from '@/models';
+import type { PlotInfo, Units } from '@/models';
 import { formatDuration, mmToFeet, mmToMeters } from '@/models';
 import {
   depthTicks,
@@ -68,7 +68,7 @@ export type ProfileChartProps = {
   plot: ProfilePlot;
   /** The same plot_info the plot was built from; the scrubber reads it. */
   pi: PlotInfo;
-  unitSystem: UnitSystem;
+  units: Units;
   height?: number;
   /** Gradient factor of the leading tissue at depth. Off by default. */
   showGfNow?: boolean;
@@ -126,7 +126,7 @@ function buildArea(
 export function ProfileChart({
   plot,
   pi,
-  unitSystem,
+  units,
   height = 260,
   showGfNow = false,
   showGfSurface = false,
@@ -145,16 +145,16 @@ export function ProfileChart({
           key: 'pressure',
           band: PRESSURE_BAND,
           color: colors.pressure,
-          labels: pressureAxis(plot, unitSystem),
+          labels: pressureAxis(plot, units),
         },
         {
           key: 'temperature',
           band: TEMPERATURE_BAND,
           color: colors.temperature,
-          labels: temperatureAxis(plot, unitSystem),
+          labels: temperatureAxis(plot, units),
         },
       ].flatMap(({ labels, ...axis }) => labels.map((label) => ({ ...label, ...axis }))),
-    [colors.pressure, colors.temperature, plot, unitSystem]
+    [colors.pressure, colors.temperature, plot, units]
   );
   const padRight = rightAxis.length > 0 ? PAD_RIGHT.axis : PAD_RIGHT.plain;
 
@@ -164,10 +164,10 @@ export function ProfileChart({
   // The depth axis is rounded out to the next gridline so the deepest point is
   // not glued to the bottom edge.
   const depthAxisMax = useMemo(() => {
-    const ticks = depthTicks(plot.maxDepthMm, unitSystem);
+    const ticks = depthTicks(plot.maxDepthMm, units);
     const step = ticks.length > 1 ? ticks[1].value - ticks[0].value : plot.maxDepthMm || 1;
     return Math.max(step, Math.ceil((plot.maxDepthMm || 1) / step) * step);
-  }, [plot.maxDepthMm, unitSystem]);
+  }, [plot.maxDepthMm, units]);
 
   const span = Math.max(1, view.to - view.from);
   const x = useCallback(
@@ -201,8 +201,8 @@ export function ProfileChart({
     const ceilingPoints = windowPoints(plot.ceiling, view.from, view.to, MAX_POINTS);
     const temperaturePoints = windowPoints(plot.temperature, view.from, view.to, MAX_POINTS);
 
-    const tempMin = temperatureValue(plot.temperatureRange.min, unitSystem);
-    const tempMax = temperatureValue(plot.temperatureRange.max, unitSystem);
+    const tempMin = temperatureValue(plot.temperatureRange.min, units);
+    const tempMax = temperatureValue(plot.temperatureRange.max, units);
 
     const gfLine = (points: Point[], enabled: boolean): SkPath | null => {
       if (!enabled) {
@@ -229,7 +229,7 @@ export function ProfileChart({
       temperature:
         temperaturePoints.length > 1
           ? buildLine(temperaturePoints, x, (mkelvin) =>
-              bandY(temperatureValue(mkelvin, unitSystem), tempMin, tempMax, TEMPERATURE_BAND)
+              bandY(temperatureValue(mkelvin, units), tempMin, tempMax, TEMPERATURE_BAND)
             )
           : null,
       pressures: plot.pressures
@@ -251,7 +251,7 @@ export function ProfileChart({
     plot,
     showGfNow,
     showGfSurface,
-    unitSystem,
+    units,
     view.from,
     view.to,
     x,
@@ -260,7 +260,7 @@ export function ProfileChart({
 
   const grid = useMemo(() => {
     const path = Skia.PathBuilder.Make();
-    for (const tick of depthTicks(depthAxisMax, unitSystem)) {
+    for (const tick of depthTicks(depthAxisMax, units)) {
       const y = yDepth(tick.value);
       path.moveTo(PAD.left, y);
       path.lineTo(PAD.left + chartWidth, y);
@@ -273,14 +273,14 @@ export function ProfileChart({
       path.lineTo(x(tick.value), PAD.top + chartHeight);
     }
     return path.detach();
-  }, [chartHeight, chartWidth, depthAxisMax, plot.maxSec, unitSystem, view, x, yDepth]);
+  }, [chartHeight, chartWidth, depthAxisMax, plot.maxSec, units, view, x, yDepth]);
 
   const visibleEvents = useMemo(
     () => plot.events.filter((event) => event.sec >= view.from && event.sec <= view.to),
     [plot.events, view.from, view.to]
   );
 
-  const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, unitSystem);
+  const readout = scrubSec === null ? null : readoutAt(pi, scrubSec, units);
 
   // One view per field rather than one joined line: the row wraps, so a dive
   // carrying temperature, several cylinders, both gradient factors and a ceiling
@@ -289,8 +289,8 @@ export function ProfileChart({
   // out even before scrubbing starts (invisibly, under the hint) - so neither
   // the readout nor the chart below it moves while the finger does.
   const readoutSlots = useMemo(
-    () => readoutLayout(pi, unitSystem, { showGfNow, showGfSurface }),
-    [pi, showGfNow, showGfSurface, unitSystem]
+    () => readoutLayout(pi, units, { showGfNow, showGfSurface }),
+    [pi, showGfNow, showGfSurface, units]
   );
 
   // --- Gestures ------------------------------------------------------------
@@ -367,7 +367,7 @@ export function ProfileChart({
   // --- Labels --------------------------------------------------------------
 
   const depthLabel = (mm: number) =>
-    unitSystem === 'imperial' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
+    units.depth === 'ft' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
 
   const zoomed = view.to - view.from < plot.maxSec - 1;
 
@@ -418,7 +418,7 @@ export function ProfileChart({
           // curve nor the scrubber gesture is reachable without a pointer.
           accessible
           accessibilityRole="image"
-          accessibilityLabel={profileSummary(plot, unitSystem, { showGfNow, showGfSurface })}>
+          accessibilityLabel={profileSummary(plot, units, { showGfNow, showGfSurface })}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 
@@ -522,7 +522,7 @@ export function ProfileChart({
             ) : null}
           </Canvas>
 
-          {depthTicks(depthAxisMax, unitSystem).map((tick) => (
+          {depthTicks(depthAxisMax, units).map((tick) => (
             <Text
               key={`depth-${tick.value}`}
               style={[
@@ -570,20 +570,20 @@ export function ProfileChart({
         <LegendItem
           color={colors.depth}
           textColor={colors.label}
-          label={`Depth (${unitSystem === 'imperial' ? 'ft' : 'm'})`}
+          label={`Depth (${units.depth === 'ft' ? 'ft' : 'm'})`}
         />
         {plot.temperature.length > 1 ? (
           <LegendItem
             color={colors.temperature}
             textColor={colors.label}
-            label={`Temperature (${unitSystem === 'imperial' ? 'F' : 'C'})`}
+            label={`Temperature (${units.temperature === 'F' ? 'F' : 'C'})`}
           />
         ) : null}
         {plot.pressures.length > 0 ? (
           <LegendItem
             color={colors.pressure}
             textColor={colors.label}
-            label={`Tank pressure (${unitSystem === 'imperial' ? 'psi' : 'bar'})`}
+            label={`Tank pressure (${units.pressure === 'psi' ? 'psi' : 'bar'})`}
           />
         ) : null}
         {plot.ceiling.length > 0 ? (

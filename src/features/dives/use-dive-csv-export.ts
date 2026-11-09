@@ -13,8 +13,9 @@ import { toNativePath } from '@/lib/logbook-file';
 import type { CsvFormat, DiveSummary } from '@/models';
 import { describeError } from '@/models/errors';
 import { csvFileName } from '@/models/transfer';
+import { coreUnits } from '@/models/units';
 import { useExportDiveCSV } from '@/queries/logbook-mutations';
-import { useGradientFactors, useUnitSystem } from '@/queries/settings';
+import { useGradientFactors, useUnits } from '@/queries/settings';
 
 export type DiveCsvExport = {
   /** True while a file is being written and shared. */
@@ -25,9 +26,9 @@ export type DiveCsvExport = {
 
 export function useDiveCsvExport(dive: Pick<DiveSummary, 'id' | 'number' | 'when'>): DiveCsvExport {
   const exportCsv = useExportDiveCSV();
-  // The stylesheets write in the unit system the app shows; the computed
-  // profile follows the gradient factors the diagram is drawn with.
-  const imperial = useUnitSystem() === 'imperial';
+  // The stylesheets write in the units the app shows, one per quantity; the
+  // computed profile follows the gradient factors the diagram is drawn with.
+  const units = useUnits();
   const gf = useGradientFactors();
 
   const share = useCallback(
@@ -41,7 +42,7 @@ export function useDiveCsvExport(dive: Pick<DiveSummary, 'id' | 'number' | 'when
           await exportCsv.mutateAsync({
             id: dive.id,
             path: toNativePath(target.uri),
-            options: { format, imperial, gf },
+            options: { format, units: coreUnits(units), gf },
           });
           if (!(await Sharing.isAvailableAsync())) {
             Alert.alert('Export saved', target.uri);
@@ -59,7 +60,7 @@ export function useDiveCsvExport(dive: Pick<DiveSummary, 'id' | 'number' | 'when
         }
       })();
     },
-    [dive, exportCsv, gf, imperial],
+    [dive, exportCsv, gf, units],
   );
 
   return { busy: exportCsv.isPending, share };

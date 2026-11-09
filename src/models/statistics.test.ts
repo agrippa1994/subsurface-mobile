@@ -21,6 +21,7 @@ import {
   summaryTiles,
   toStatsFilter,
 } from './statistics';
+import { IMPERIAL_UNITS , METRIC_UNITS } from './units';
 
 function stats(partial: Partial<Stats> = {}): Stats {
   return {
@@ -97,7 +98,7 @@ describe('summaryTiles', () => {
   });
 
   it('renders the headline numbers', () => {
-    const tiles = summaryTiles(filled);
+    const tiles = summaryTiles(filled, METRIC_UNITS);
     expect(tiles.map((tile) => [tile.label, tile.value])).toEqual([
       ['Dives', '4'],
       ['Total time', '3 h 25 min'],
@@ -112,20 +113,20 @@ describe('summaryTiles', () => {
   });
 
   it('converts to imperial', () => {
-    const tiles = summaryTiles(filled, 'imperial');
+    const tiles = summaryTiles(filled, IMPERIAL_UNITS);
     expect(tiles[2].value).toBe('139 ft');
     expect(tiles[3].value).toBe('0.54 cuft/min');
     expect(tiles[4].detail).toBe('41 F to 80.6 F');
   });
 
   it('stays readable with no dives at all', () => {
-    const tiles = summaryTiles(summary());
+    const tiles = summaryTiles(summary(), METRIC_UNITS);
     expect(tiles.map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
     expect(tiles.every((tile) => tile.detail === '')).toBe(true);
   });
 
   it('names the matched count when invalid dives were dropped', () => {
-    const tiles = summaryTiles(summary({ total: stats({ selectionSize: 4 }), matched: 5 }));
+    const tiles = summaryTiles(summary({ total: stats({ selectionSize: 4 }), matched: 5 }), METRIC_UNITS);
     expect(tiles[0].detail).toBe('5 matched');
   });
 });
@@ -193,7 +194,7 @@ describe('sacOverTime', () => {
         timeline: [month(2023, 11, 2), month(2024, 1, 1), month(2024, 3, 4)],
         monthly: [sac(11, 16000), sac(1, 0), sac(3, 14500)],
       })
-    );
+    , METRIC_UNITS);
     expect(bars.map((bar) => [bar.label, bar.value])).toEqual([
       ['2023', 16],
       ['2024', 14.5],
@@ -207,7 +208,7 @@ describe('sacOverTime', () => {
         timeline: [month(2024, 1, 1), month(2024, 2, 1)],
         monthly: [sac(1, 15000), sac(2, 15000)],
       })
-    );
+    , METRIC_UNITS);
     expect(bars.map((bar) => bar.label)).toEqual(['2024', 'Feb']);
   });
 
@@ -216,15 +217,15 @@ describe('sacOverTime', () => {
       timeline: [month(2019, 1, 1), month(2024, 1, 1)],
       yearly: [sac(2019, 20000), sac(2024, 14158)],
     });
-    const bars = sacOverTime(long, 'imperial');
+    const bars = sacOverTime(long, IMPERIAL_UNITS);
     expect(bars.map((bar) => bar.label)).toEqual(['2019', '2024']);
     expect(bars[1].value).toBeCloseTo(0.5, 3);
     expect(bars[1].caption).toBe('2024: 0.5 cuft/min average');
-    expect(sacAxisUnit('imperial')).toBe('cuft/min');
+    expect(sacAxisUnit(IMPERIAL_UNITS)).toBe('cuft/min');
   });
 
   it('is empty when no dive has a SAC', () => {
-    expect(sacOverTime(summary())).toEqual([]);
+    expect(sacOverTime(summary(), METRIC_UNITS)).toEqual([]);
   });
 });
 
@@ -243,14 +244,14 @@ describe('histograms', () => {
   });
 
   it('drops the combined bucket and trims the trailing empty ones', () => {
-    const bars = depthHistogram(buckets);
+    const bars = depthHistogram(buckets, METRIC_UNITS);
     expect(bars.map((bar) => bar.value)).toEqual([2, 0, 4]);
     expect(bars.map((bar) => bar.label)).toEqual(['10', '20', '30']);
     expect(bars[2].caption).toBe('20 to 30: 4 dives');
   });
 
   it('converts the depth bounds without moving the cuts', () => {
-    expect(depthHistogram(buckets, 'imperial').map((bar) => bar.label)).toEqual(['33', '66', '98']);
+    expect(depthHistogram(buckets, IMPERIAL_UNITS).map((bar) => bar.label)).toEqual(['33', '66', '98']);
   });
 
   it('labels the open-ended duration bucket', () => {

@@ -30,7 +30,7 @@ import { formatDepth } from '@/models/units';
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
   const theme = useTheme();
-  const { draft, system, outcome, view, result, planner } = screen;
+  const { draft, units, outcome, view, result, planner } = screen;
   const levelColor = (level: 'ok' | 'caution' | 'danger') =>
     level === 'danger' ? theme.danger : level === 'caution' ? theme.warning : theme.accent;
 
@@ -133,7 +133,7 @@ export default function PlannerScreen() {
           <FormButtonRow
             key={cylinder.key}
             label={gasName(cylinder.o2Percent, cylinder.hePercent)}
-            value={cylinderSummary(cylinder, system)}
+            value={cylinderSummary(cylinder, units)}
             onPress={() => screen.openCylinder(cylinder.key)}
           />
         ))}
@@ -192,10 +192,10 @@ export default function PlannerScreen() {
                 key={`${stop.depthMm}-${stop.endSec}`}
                 style={styles.row}
                 accessible
-                accessibilityLabel={`${formatDepth(stop.depthMm, system)} on ${stop.gas}, ${formatMinutes(stop.durationSec)}`}
+                accessibilityLabel={`${formatDepth(stop.depthMm, units)} on ${stop.gas}, ${formatMinutes(stop.durationSec)}`}
               >
                 <Text style={{ color: theme.text }}>
-                  {`${formatDepth(stop.depthMm, system)} on ${stop.gas}`}
+                  {`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
                 </Text>
                 <Text style={[styles.tabular, { color: theme.textSecondary }]}>
                   {formatMinutes(stop.durationSec)}
@@ -249,7 +249,7 @@ export default function PlannerScreen() {
         </FormSection>
         {view.plot && result.profile ? (
           <FormSection title="Profile" footer={view.interval ?? undefined}>
-            <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
+            <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} height={200} />
           </FormSection>
         ) : null}
         <FormSection>

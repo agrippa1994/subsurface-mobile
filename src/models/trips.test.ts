@@ -19,6 +19,7 @@ import {
   tripSummaryRows,
   tripTitle,
 } from './trips';
+import { METRIC_UNITS } from './units';
 
 const DAY = 86400;
 const LOCALE = 'en-GB';
@@ -225,7 +226,7 @@ describe('tripSummaryRows and tripSummaryFooter', () => {
     ({ matched, total }) as unknown as StatsSummary;
 
   it('shows dates and count before the statistics are in', () => {
-    expect(tripSummaryRows(t, undefined, 'metric', LOCALE)).toEqual([
+    expect(tripSummaryRows(t, undefined, METRIC_UNITS, LOCALE)).toEqual([
       { label: 'Dates', value: '12 Mar 2024' },
       { label: 'Dives', value: '3' },
     ]);
@@ -235,7 +236,7 @@ describe('tripSummaryRows and tripSummaryFooter', () => {
     const rows = tripSummaryRows(
       t,
       stats({ totalTimeSec: 7500, maxDepthMm: 30000, avgDepthMm: 15000, minTempMkelvin: 293150 }),
-      'metric',
+      METRIC_UNITS,
       LOCALE,
     );
     expect(rows.slice(2)).toEqual([
@@ -247,7 +248,7 @@ describe('tripSummaryRows and tripSummaryFooter', () => {
   });
 
   it('leaves out what the dives do not carry', () => {
-    const rows = tripSummaryRows(t, stats({ totalTimeSec: 0, maxDepthMm: 0, avgDepthMm: 0, minTempMkelvin: 0 }));
+    const rows = tripSummaryRows(t, stats({ totalTimeSec: 0, maxDepthMm: 0, avgDepthMm: 0, minTempMkelvin: 0 }), METRIC_UNITS);
     expect(rows).toHaveLength(2);
   });
 

@@ -12,12 +12,12 @@ import { StatusView } from '@/components/status-view';
 import { useStatisticsContext } from '@/features/statistics/statistics-context';
 import { sortDivesNewestFirst } from '@/models/dive-list';
 import { useDives } from '@/queries/logbook';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 export default function DivesBehindChartScreen() {
   const { behind } = useStatisticsContext();
   const router = useRouter();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const { data } = useDives();
   const dives = useMemo(() => {
     const ids = new Set(behind?.ids ?? []);
@@ -37,7 +37,7 @@ export default function DivesBehindChartScreen() {
       ) : (
         <DiveIdList
           dives={dives}
-          unitSystem={unitSystem}
+          units={units}
           onSelect={(id) => router.push(`/statistics/dive/${id}`)}
         />
       )}

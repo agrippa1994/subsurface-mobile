@@ -26,7 +26,7 @@ import {
   ssiWaterTemperatureBars,
 } from '@/models/ssi/site-insights';
 import { useSsiSiteLookups } from '@/queries/ssi';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 const MONTH_HINT = 'Tap a month for its average';
 
@@ -78,7 +78,7 @@ function WildlifeRow({
 }
 
 export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
-  const system = useUnitSystem();
+  const units = useUnits();
   const { data: lookups } = useSsiSiteLookups();
   const insights = useMemo(() => parseSsiSiteInsights(detail), [detail]);
   const { months } = insights;
@@ -95,7 +95,7 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
 
   const facts: [string, string][] = [];
   if (insights.avgDepthM !== null)
-    facts.push(['Average maximum depth', formatSsiDepth(insights.avgDepthM, system)]);
+    facts.push(['Average maximum depth', formatSsiDepth(insights.avgDepthM, units)]);
   if (insights.avgMinutes !== null) facts.push(['Average dive time', `${insights.avgMinutes} min`]);
   if (insights.water) facts.push(['Water', insights.water]);
   if (environment.length) facts.push(['Environment', environment.join(', ')]);
@@ -111,24 +111,24 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
     facts.push(['Logged dives', insights.totalDives.toLocaleString()]);
   if (insights.divers !== null) facts.push(['Divers', insights.divers.toLocaleString()]);
 
-  const temperatureUnit = ssiTemperatureUnit(system);
+  const temperatureUnit = ssiTemperatureUnit(units);
   const charts = [
     {
       title: 'Water temperature',
-      bars: ssiWaterTemperatureBars(months, system),
+      bars: ssiWaterTemperatureBars(months, units),
       axisUnit: temperatureUnit,
       hint: MONTH_HINT,
     },
     {
       title: 'Air temperature',
-      bars: ssiAirTemperatureBars(months, system),
+      bars: ssiAirTemperatureBars(months, units),
       axisUnit: temperatureUnit,
       hint: MONTH_HINT,
     },
     {
       title: 'Visibility',
-      bars: ssiVisibilityBars(months, system),
-      axisUnit: ssiLengthUnit(system),
+      bars: ssiVisibilityBars(months, units),
+      axisUnit: ssiLengthUnit(units),
       hint: MONTH_HINT,
     },
     {

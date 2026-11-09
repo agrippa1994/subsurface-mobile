@@ -134,13 +134,14 @@ export function saveToXML(path: string): SaveResult {
 export function exportDiveCSV(
   id: number,
   path: string,
-  { format, imperial = false, gf }: CsvExportOptions,
+  { format, imperial = false, units, gf }: CsvExportOptions,
 ): CsvExportResult {
   return call<CsvExportResult>('exportDiveCSV', {
     id,
     path,
     format,
     units: imperial ? 1 : 0,
+    ...(units ? { unitPrefs: units } : {}),
     ...gf,
   });
 }

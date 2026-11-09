@@ -9,10 +9,43 @@ import {
   serializeSettings,
 } from './settings';
 import { DEFAULT_PLANNER_SETTINGS } from './planner-settings';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 describe('parseSettings', () => {
-  it('reads a stored unit system', () => {
-    expect(parseSettings('{"unitSystem":"imperial"}').unitSystem).toBe('imperial');
+  it('migrates a file that knew only the unit system to its preset', () => {
+    expect(parseSettings('{"unitSystem":"imperial"}').units).toEqual(IMPERIAL_UNITS);
+    expect(parseSettings('{"unitSystem":"metric"}').units).toEqual(METRIC_UNITS);
+  });
+
+  it('reads units chosen one by one', () => {
+    expect(
+      parseSettings('{"units":{"depth":"ft","pressure":"bar","volume":"l","temperature":"F","weight":"kg"}}').units
+    ).toEqual({ depth: 'ft', pressure: 'bar', volume: 'l', temperature: 'F', weight: 'kg' });
+  });
+
+  it('lets per-unit entries win over the old unit system, quantity by quantity', () => {
+    // An imperial file a later build added one metric choice to.
+    expect(parseSettings('{"unitSystem":"imperial","units":{"pressure":"bar"}}').units).toEqual({
+      ...IMPERIAL_UNITS,
+      pressure: 'bar',
+    });
+  });
+
+  it('drops an unknown unit to the preset rather than resetting the rest', () => {
+    expect(parseSettings('{"units":{"depth":"furlongs","temperature":"F"}}').units).toEqual({
+      ...METRIC_UNITS,
+      temperature: 'F',
+    });
+  });
+
+  it('still writes the unit system an older build reads', () => {
+    const write = (units: typeof METRIC_UNITS) =>
+      JSON.parse(serializeSettings({ ...DEFAULT_SETTINGS, units })).unitSystem;
+    expect(write(IMPERIAL_UNITS)).toBe('imperial');
+    expect(write(METRIC_UNITS)).toBe('metric');
+    // Personalized reads as the system of its depth.
+    expect(write({ ...METRIC_UNITS, depth: 'ft' })).toBe('imperial');
+    expect(write({ ...IMPERIAL_UNITS, depth: 'm' })).toBe('metric');
   });
 
   it('falls back to the default for junk, nulls and unknown values', () => {
@@ -29,7 +62,7 @@ describe('parseSettings', () => {
   it('keeps the defaults for a file written before gradient factors existed', () => {
     expect(parseSettings('{"unitSystem":"imperial"}')).toEqual({
       ...DEFAULT_SETTINGS,
-      unitSystem: 'imperial',
+      units: IMPERIAL_UNITS,
     });
   });
 
@@ -74,7 +107,7 @@ describe('parseSettings', () => {
 
   it('round-trips', () => {
     const settings = {
-      unitSystem: 'imperial' as const,
+      units: { ...IMPERIAL_UNITS, temperature: 'C' as const },
       gfLow: 35,
       gfHigh: 80,
       showGfNow: false,

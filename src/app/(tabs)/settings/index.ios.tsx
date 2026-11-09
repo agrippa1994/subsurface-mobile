@@ -18,7 +18,13 @@ import { Fragment } from 'react';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
 import { GF_RANGE } from '@/models/settings';
-import type { UnitSystem } from '@/models';
+import type { Units } from '@/models';
+import {
+  UNIT_PRESET_OPTIONS,
+  UNIT_ROWS,
+  unitsSummary,
+  type UnitPresetChoice,
+} from '@/models/units';
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
@@ -26,15 +32,44 @@ export default function SettingsScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Units">
+        <Section
+          title="Units"
+          footer={
+            <Text>
+              {screen.showUnitRows
+                ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
+                : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`}
+            </Text>
+          }>
           <Picker
             label="Measurements"
-            selection={screen.unitSystem}
-            onSelectionChange={(value: string) => screen.setUnitSystem(value as UnitSystem)}
+            selection={screen.unitPreset}
+            onSelectionChange={(value: string) => screen.setUnitPreset(value as UnitPresetChoice)}
             modifiers={[pickerStyle('segmented')]}>
-            <Text modifiers={[tag('metric')]}>Metric</Text>
-            <Text modifiers={[tag('imperial')]}>Imperial</Text>
+            {UNIT_PRESET_OPTIONS.map((option) => (
+              <Text key={option.value} modifiers={[tag(option.value)]}>
+                {option.label}
+              </Text>
+            ))}
           </Picker>
+          {screen.showUnitRows
+            ? UNIT_ROWS.map((row) => (
+                <Picker
+                  key={row.key}
+                  label={row.label}
+                  selection={screen.units[row.key]}
+                  onSelectionChange={(value: string) =>
+                    screen.setUnit(row.key, value as Units[typeof row.key])
+                  }
+                  modifiers={[pickerStyle('menu')]}>
+                  {row.options.map((option) => (
+                    <Text key={option.value} modifiers={[tag(option.value)]}>
+                      {option.label}
+                    </Text>
+                  ))}
+                </Picker>
+              ))
+            : null}
         </Section>
 
         <Section

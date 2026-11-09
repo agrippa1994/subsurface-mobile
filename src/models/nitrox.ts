@@ -7,7 +7,7 @@
 // holds the inputs, turns them into the call's arguments, and labels the reply.
 
 import type { GradientFactors, NitroxPlan, NitroxPlanInput } from './index';
-import { feetToMm, mmToFeet, type UnitSystem } from './units';
+import { feetToMm, mmToFeet, type Units } from './units';
 
 export type Water = 'salt' | 'fresh';
 
@@ -33,25 +33,25 @@ export const O2_RANGE = { min: 21, max: 100, step: 1 } as const;
 export const PO2_RANGE = { min: 1200, max: 1600, step: 100 } as const;
 
 /** The bindings refuse anything shallower than 3 m (the core computes no NDL there) or deeper than 100 m. */
-export function depthRange(system: UnitSystem): { min: number; max: number; step: number } {
-  return system === 'imperial' ? { min: 10, max: 320, step: 5 } : { min: 3, max: 100, step: 1 };
+export function depthRange(units: Units): { min: number; max: number; step: number } {
+  return units.depth === 'ft' ? { min: 10, max: 320, step: 5 } : { min: 3, max: 100, step: 1 };
 }
 
 /**
  * The depth as the stepper shows it, snapped to the stepper's step - so after a
  * unit switch 18 m reads 60 ft rather than 59, and stepping stays on round values.
  */
-export function depthValue(depthMm: number, system: UnitSystem): number {
-  const { step } = depthRange(system);
-  const value = system === 'imperial' ? mmToFeet(depthMm) : depthMm / 1000;
+export function depthValue(depthMm: number, units: Units): number {
+  const { step } = depthRange(units);
+  const value = units.depth === 'ft' ? mmToFeet(depthMm) : depthMm / 1000;
   return Math.round(value / step) * step;
 }
 
 /** The inverse of `depthValue`, clamped to the range the bindings accept. */
-export function depthFromValue(value: number, system: UnitSystem): number {
-  const range = depthRange(system);
+export function depthFromValue(value: number, units: Units): number {
+  const range = depthRange(units);
   const clamped = Math.min(range.max, Math.max(range.min, value));
-  return system === 'imperial' ? feetToMm(clamped) : clamped * 1000;
+  return units.depth === 'ft' ? feetToMm(clamped) : clamped * 1000;
 }
 
 /** Salinity in the core's unit, g/10l (SEAWATER_SALINITY / FRESHWATER_SALINITY in core/units.h). */
@@ -72,8 +72,8 @@ export function planInput(input: NitroxInput, gf: GradientFactors): NitroxPlanIn
  * A MOD rounded down to the whole metre or foot: a limit shown rounded up would
  * be a depth the gas is not good for.
  */
-export function formatMod(mm: number, system: UnitSystem): string {
-  return system === 'imperial' ? `${Math.floor(mmToFeet(mm))} ft` : `${Math.floor(mm / 1000)} m`;
+export function formatMod(mm: number, units: Units): string {
+  return units.depth === 'ft' ? `${Math.floor(mmToFeet(mm))} ft` : `${Math.floor(mm / 1000)} m`;
 }
 
 export function formatPo2(mbar: number): string {

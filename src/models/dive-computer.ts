@@ -14,7 +14,7 @@ import type {
   DownloadStatus,
   ImportResult,
 } from '../../modules/ssrf-core/src/SsrfCore.types';
-import { formatDepth, formatDuration, type UnitSystem } from './units';
+import { formatDepth, formatDuration, type Units } from './units';
 
 export type RememberedComputer = DiveComputerIdentity & {
   /** The BLE address. On iOS it only means something on this phone. */
@@ -153,7 +153,7 @@ export type DownloadedDiveRow = {
 /** Newest first, as the dive list. `when` is wall-clock as if UTC, see dive-list.ts. */
 export function downloadedDiveRows(
   dives: readonly DownloadedDive[],
-  system: UnitSystem = 'metric',
+  units: Units,
   locale?: string,
 ): DownloadedDiveRow[] {
   return [...dives]
@@ -169,7 +169,7 @@ export function downloadedDiveRows(
         timeZone: 'UTC',
       }),
       detailText: [
-        dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, system) : '',
+        dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '',
         dive.durationSec > 0 ? formatDuration(dive.durationSec) : '',
       ]
         .filter((text) => text !== '')

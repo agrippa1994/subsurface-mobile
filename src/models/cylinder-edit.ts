@@ -29,7 +29,7 @@ import {
   mlToCuft,
   mlToLiters,
   psiToMbar,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 /**
@@ -100,30 +100,30 @@ function formatNumber(value: number, digits: number): string {
 export function cylinderDraftFrom(
   cylinder: Cylinder,
   sourceIndex: number,
-  system: UnitSystem
+  units: Units
 ): CylinderDraft {
-  const imperial = system === 'imperial';
+  const cuft = units.volume === 'cuft';
   return {
     key: makeKey(),
     sourceIndex,
     description: cylinder.description,
-    sizeText: imperial
+    sizeText: cuft
       ? formatNumber(mlToCuft(cylinder.sizeMl), 1)
       : formatNumber(mlToLiters(cylinder.sizeMl), 1),
-    workingPressureText: formatPressureInput(cylinder.workingPressureMbar, system),
+    workingPressureText: formatPressureInput(cylinder.workingPressureMbar, units),
     // The raw permille is shown, sentinel and all: a cylinder the file spells
     // as air must stay air, not become a literal 20.9% nitrox on the next save.
     o2Text: formatNumber(cylinder.gasmix.o2Permille / 10, 1),
     heText: formatNumber(cylinder.gasmix.hePermille / 10, 1),
-    startText: formatPressureInput(cylinder.startMbar || cylinder.sampleStartMbar, system),
-    endText: formatPressureInput(cylinder.endMbar || cylinder.sampleEndMbar, system),
+    startText: formatPressureInput(cylinder.startMbar || cylinder.sampleStartMbar, units),
+    endText: formatPressureInput(cylinder.endMbar || cylinder.sampleEndMbar, units),
     use: cylinder.use,
     used: cylinder.used,
   };
 }
 
-export function cylinderDraftsFrom(dive: Dive, system: UnitSystem): CylinderDraft[] {
-  return dive.cylinders.map((cylinder, index) => cylinderDraftFrom(cylinder, index, system));
+export function cylinderDraftsFrom(dive: Dive, units: Units): CylinderDraft[] {
+  return dive.cylinders.map((cylinder, index) => cylinderDraftFrom(cylinder, index, units));
 }
 
 /**
@@ -148,11 +148,11 @@ export function newCylinderDraft(): CylinderDraft {
 }
 
 /** What a pressure field is seeded with, so editing round-trips. */
-export function formatPressureInput(mbar: number, system: UnitSystem): string {
+export function formatPressureInput(mbar: number, units: Units): string {
   if (mbar === 0) {
     return '';
   }
-  return system === 'imperial'
+  return units.pressure === 'psi'
     ? String(Math.round(mbarToPsi(mbar)))
     : String(Math.round(mbarToBar(mbar)));
 }
@@ -160,22 +160,22 @@ export function formatPressureInput(mbar: number, system: UnitSystem): string {
 /** Millibar for a pressure field. `undefined` for empty, null for unreadable. */
 export function parsePressureInput(
   text: string,
-  system: UnitSystem
+  units: Units
 ): number | null | undefined {
   const value = parseNumberInput(text);
   if (value === null || value === undefined) {
     return value;
   }
-  return system === 'imperial' ? psiToMbar(value) : barToMbar(value);
+  return units.pressure === 'psi' ? psiToMbar(value) : barToMbar(value);
 }
 
 /** Millilitres for a size field. */
-export function parseSizeInput(text: string, system: UnitSystem): number | null | undefined {
+export function parseSizeInput(text: string, units: Units): number | null | undefined {
   const value = parseNumberInput(text);
   if (value === null || value === undefined) {
     return value;
   }
-  return system === 'imperial' ? cuftToMl(value) : litersToMl(value);
+  return units.volume === 'cuft' ? cuftToMl(value) : litersToMl(value);
 }
 
 /** Permille for a gas-fraction field, which is entered in whole percent. */
@@ -200,11 +200,11 @@ export type CylinderErrors = Record<string, string>;
  */
 export function validateCylinderDrafts(
   drafts: readonly CylinderDraft[],
-  system: UnitSystem
+  units: Units
 ): CylinderErrors {
   const errors: CylinderErrors = {};
   for (const draft of drafts) {
-    const message = validateCylinderDraft(draft, system);
+    const message = validateCylinderDraft(draft, units);
     if (message !== null) {
       errors[draft.key] = message;
     }
@@ -212,20 +212,20 @@ export function validateCylinderDrafts(
   return errors;
 }
 
-function validateCylinderDraft(draft: CylinderDraft, system: UnitSystem): string | null {
-  const size = parseSizeInput(draft.sizeText, system);
+function validateCylinderDraft(draft: CylinderDraft, units: Units): string | null {
+  const size = parseSizeInput(draft.sizeText, units);
   if (size === null) {
     return 'Size is not a number.';
   }
-  const working = parsePressureInput(draft.workingPressureText, system);
+  const working = parsePressureInput(draft.workingPressureText, units);
   if (working === null) {
     return 'Working pressure is not a number.';
   }
-  const start = parsePressureInput(draft.startText, system);
+  const start = parsePressureInput(draft.startText, units);
   if (start === null) {
     return 'Start pressure is not a number.';
   }
-  const end = parsePressureInput(draft.endText, system);
+  const end = parsePressureInput(draft.endText, units);
   if (end === null) {
     return 'End pressure is not a number.';
   }
@@ -269,7 +269,7 @@ function validateCylinderDraft(draft: CylinderDraft, system: UnitSystem): string
 export function buildCylinderPatches(
   dive: Pick<Dive, 'cylinders'>,
   drafts: readonly CylinderDraft[],
-  system: UnitSystem
+  units: Units
 ): CylinderPatch[] | null {
   const entries: CylinderPatch[] = [];
   let changed = drafts.length !== dive.cylinders.length;
@@ -282,7 +282,7 @@ export function buildCylinderPatches(
     const seed =
       original === undefined
         ? undefined
-        : cylinderDraftFrom(original, draft.sourceIndex as number, system);
+        : cylinderDraftFrom(original, draft.sourceIndex as number, units);
 
     if (draft.sourceIndex !== null) {
       entry.sourceIndex = draft.sourceIndex;
@@ -291,10 +291,10 @@ export function buildCylinderPatches(
       entry.description = draft.description.trim();
     }
     if (!seed || seed.sizeText !== draft.sizeText) {
-      entry.sizeMl = parseSizeInput(draft.sizeText, system) ?? 0;
+      entry.sizeMl = parseSizeInput(draft.sizeText, units) ?? 0;
     }
     if (!seed || seed.workingPressureText !== draft.workingPressureText) {
-      entry.workingPressureMbar = parsePressureInput(draft.workingPressureText, system) ?? 0;
+      entry.workingPressureMbar = parsePressureInput(draft.workingPressureText, units) ?? 0;
     }
     if (!seed || seed.o2Text !== draft.o2Text) {
       entry.o2Permille = parseFractionInput(draft.o2Text) ?? 0;
@@ -303,10 +303,10 @@ export function buildCylinderPatches(
       entry.hePermille = parseFractionInput(draft.heText) ?? 0;
     }
     if (!seed || seed.startText !== draft.startText) {
-      entry.startMbar = parsePressureInput(draft.startText, system) ?? 0;
+      entry.startMbar = parsePressureInput(draft.startText, units) ?? 0;
     }
     if (!seed || seed.endText !== draft.endText) {
-      entry.endMbar = parsePressureInput(draft.endText, system) ?? 0;
+      entry.endMbar = parsePressureInput(draft.endText, units) ?? 0;
     }
     if (!seed || seed.use !== draft.use) {
       entry.use = draft.use;

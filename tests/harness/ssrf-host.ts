@@ -152,13 +152,14 @@ export class SsrfHost {
   exportDiveCSV(
     id: number,
     path: string,
-    { format, imperial = false, gf }: CsvExportOptions,
+    { format, imperial = false, units, gf }: CsvExportOptions,
   ): Promise<CsvExportResult> {
     return this.call<CsvExportResult>('exportDiveCSV', {
       id,
       path,
       format,
       units: imperial ? 1 : 0,
+      ...(units ? { unitPrefs: units } : {}),
       ...gf,
     });
   }

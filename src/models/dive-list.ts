@@ -7,7 +7,7 @@
 // suite can check without a device.
 
 import type { DiveSummary } from './index';
-import { formatDepth, formatDuration, type UnitSystem } from './units';
+import { formatDepth, formatDuration, type Units } from './units';
 
 /** Section label used for dives that belong to no trip. */
 export const NO_TRIP_LABEL = 'Not in a trip';
@@ -160,10 +160,10 @@ export function diveRowTitle(dive: DiveSummary): string {
 
 export function toDiveRow(
   dive: DiveSummary,
-  system: UnitSystem = 'metric',
+  units: Units,
   locale?: string
 ): DiveRow {
-  const depthText = dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, system) : '';
+  const depthText = dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '';
   const durationText = dive.durationSec > 0 ? formatDuration(dive.durationSec) : '';
 
   const title = diveRowTitle(dive);
@@ -213,10 +213,10 @@ export function toDiveRow(
  */
 export function toSiteDiveRow(
   dive: DiveSummary,
-  system: UnitSystem = 'metric',
+  units: Units,
   locale?: string
 ): DiveRow {
-  const row = toDiveRow(dive, system, locale);
+  const row = toDiveRow(dive, units, locale);
   return { ...row, title: row.subtitle, subtitle: dive.tripLocation.trim() };
 }
 

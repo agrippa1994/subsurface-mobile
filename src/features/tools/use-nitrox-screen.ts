@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react';
 
-import type { NitroxPlan, UnitSystem } from '@/models';
+import type { NitroxPlan, Units } from '@/models';
 import { describeError } from '@/models/errors';
 import {
   depthFromValue,
@@ -19,13 +19,13 @@ import {
   type NitroxInput,
   type Water,
 } from '@/models/nitrox';
-import { useGradientFactors, useUnitSystem } from '@/queries/settings';
+import { useGradientFactors, useUnits } from '@/queries/settings';
 
 import { nitroxPlan } from '../../../modules/ssrf-core/src';
 
 export type NitroxScreen = {
   input: NitroxInput;
-  unitSystem: UnitSystem;
+  units: Units;
   gfLow: number;
   gfHigh: number;
   /** The depth in the unit the stepper shows, and the stepper's bounds. */
@@ -42,7 +42,7 @@ export type NitroxScreen = {
 
 export function useNitroxScreen(): NitroxScreen {
   const [input, setInput] = useState<NitroxInput>(NITROX_DEFAULTS);
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const gf = useGradientFactors();
 
   const result = useMemo(() => {
@@ -55,17 +55,17 @@ export function useNitroxScreen(): NitroxScreen {
 
   return {
     input,
-    unitSystem,
+    units,
     gfLow: gf.gfLow,
     gfHigh: gf.gfHigh,
-    depth: depthValue(input.depthMm, unitSystem),
-    depthUnit: unitSystem === 'imperial' ? 'ft' : 'm',
-    depthRange: depthRange(unitSystem),
+    depth: depthValue(input.depthMm, units),
+    depthUnit: units.depth === 'ft' ? 'ft' : 'm',
+    depthRange: depthRange(units),
     plan: result.plan,
     error: result.error,
     setO2Percent: (o2Percent) => setInput((prev) => ({ ...prev, o2Percent })),
     setDepth: (value) =>
-      setInput((prev) => ({ ...prev, depthMm: depthFromValue(value, unitSystem) })),
+      setInput((prev) => ({ ...prev, depthMm: depthFromValue(value, units) })),
     setMaxPo2Mbar: (maxPo2Mbar) => setInput((prev) => ({ ...prev, maxPo2Mbar })),
     setWater: (water) => setInput((prev) => ({ ...prev, water })),
   };

@@ -25,7 +25,7 @@ import {
   formatDuration,
   formatPressure,
   formatTemperature,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 export type Point = { sec: number; value: number };
@@ -229,13 +229,13 @@ function pickStep(span: number, steps: number[], max: number): number {
  * Depth gridlines, in millimetres, at round depths in the *displayed* unit -
  * 10 m or 30 ft, not 10 m converted to a ragged number of feet.
  */
-export function depthTicks(maxDepthMm: number, system: UnitSystem, max = 6): Tick<number>[] {
+export function depthTicks(maxDepthMm: number, units: Units, max = 6): Tick<number>[] {
   if (maxDepthMm <= 0) {
     return [];
   }
-  const perUnitMm = system === 'imperial' ? 304.8 : 1000;
-  const span = system === 'imperial' ? mmToFeet(maxDepthMm) : mmToMeters(maxDepthMm);
-  const steps = system === 'imperial' ? [10, 20, 30, 50, 100, 200] : [5, 10, 20, 30, 50, 100];
+  const perUnitMm = units.depth === 'ft' ? 304.8 : 1000;
+  const span = units.depth === 'ft' ? mmToFeet(maxDepthMm) : mmToMeters(maxDepthMm);
+  const steps = units.depth === 'ft' ? [10, 20, 30, 50, 100, 200] : [5, 10, 20, 30, 50, 100];
   const step = pickStep(span, steps, max);
 
   const ticks: Tick<number>[] = [];
@@ -369,7 +369,7 @@ export function nearestSampleIndex(pi: PlotInfo, sec: number): number {
 export function readoutAt(
   pi: PlotInfo,
   sec: number,
-  system: UnitSystem = 'metric'
+  units: Units
 ): ProfileReadout | null {
   const index = nearestSampleIndex(pi, sec);
   if (index < 0) {
@@ -380,18 +380,18 @@ export function readoutAt(
   const pressures: ProfileReadout['pressures'] = [];
   for (let cylinder = 0; cylinder < pi.nrCylinders; cylinder++) {
     const mbar = plotPressureAt(pi, index, cylinder);
-    pressures.push({ cylinder, text: mbar > 0 ? formatPressure(mbar, system) : null });
+    pressures.push({ cylinder, text: mbar > 0 ? formatPressure(mbar, units) : null });
   }
 
   return {
     sec: entry.sec,
     timeText: formatDuration(entry.sec),
-    depthText: formatDepth(entry.depthMm, system),
+    depthText: formatDepth(entry.depthMm, units),
     temperatureText:
-      entry.temperatureMkelvin > 0 ? formatTemperature(entry.temperatureMkelvin, system) : null,
+      entry.temperatureMkelvin > 0 ? formatTemperature(entry.temperatureMkelvin, units) : null,
     pressures,
     inDeco: entry.inDeco,
-    ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, system) : null,
+    ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, units) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
     gfNowText: entry.currentGf > 0 ? `${Math.round(gfNowPercent(entry))}%` : null,
     gfSurfaceText: entry.surfaceGf > 0 ? `${Math.round(entry.surfaceGf)}%` : null,
@@ -399,8 +399,8 @@ export function readoutAt(
 }
 
 /** Temperature in the displayed unit, for scaling the temperature series. */
-export function temperatureValue(mkelvin: number, system: UnitSystem): number {
-  return system === 'imperial' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin);
+export function temperatureValue(mkelvin: number, units: Units): number {
+  return units.temperature === 'F' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin);
 }
 
 // --- Readout layout --------------------------------------------------------
@@ -431,10 +431,10 @@ type Read = (readout: ProfileReadout) => string | null;
  */
 export function readoutLayout(
   pi: PlotInfo,
-  system: UnitSystem = 'metric',
+  units: Units,
   options: { showGfNow?: boolean; showGfSurface?: boolean } = {}
 ): ReadoutSlot[] {
-  const samples = pi.entry.flatMap((entry) => readoutAt(pi, entry.sec, system) ?? []);
+  const samples = pi.entry.flatMap((entry) => readoutAt(pi, entry.sec, units) ?? []);
 
   // A slot with several readers (NDL or ceiling) shows the first that has a
   // value, and reserves the width of the longest of each kind.
@@ -502,23 +502,23 @@ function bandLabels(min: number, max: number): BandLabel[] {
 }
 
 /** Axis labels for the temperature band, or none when the dive has no temperature. */
-export function temperatureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[] {
+export function temperatureAxis(plot: ProfilePlot, units: Units): BandLabel[] {
   if (plot.temperature.length < 2) {
     return [];
   }
   return bandLabels(
-    temperatureValue(plot.temperatureRange.min, system),
-    temperatureValue(plot.temperatureRange.max, system)
+    temperatureValue(plot.temperatureRange.min, units),
+    temperatureValue(plot.temperatureRange.max, units)
   );
 }
 
 /** Axis labels for the tank pressure band, or none when no cylinder has readings. */
-export function pressureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[] {
+export function pressureAxis(plot: ProfilePlot, units: Units): BandLabel[] {
   if (plot.pressures.length === 0) {
     return [];
   }
   const displayed = (mbar: number) =>
-    Math.round(system === 'imperial' ? mbarToPsi(mbar) : mbarToBar(mbar));
+    Math.round(units.pressure === 'psi' ? mbarToPsi(mbar) : mbarToBar(mbar));
   return bandLabels(displayed(plot.pressureRange.min), displayed(plot.pressureRange.max));
 }
 
@@ -532,7 +532,7 @@ export function pressureAxis(plot: ProfilePlot, system: UnitSystem): BandLabel[]
  */
 export function profileSummary(
   plot: ProfilePlot,
-  system: UnitSystem = 'metric',
+  units: Units,
   // A curve that is drawn but never spoken does not exist to VoiceOver, so the
   // shown series decide what the summary mentions. Their peak is the number
   // that matters: it is the worst the dive got.
@@ -544,7 +544,7 @@ export function profileSummary(
 
   const deepest = plot.depth.reduce((best, point) => (point.value > best.value ? point : best));
   const parts = [
-    `maximum depth ${formatDepth(plot.maxDepthMm, system)} at ${formatDuration(deepest.sec)}`,
+    `maximum depth ${formatDepth(plot.maxDepthMm, units)} at ${formatDuration(deepest.sec)}`,
     `total time ${formatDuration(plot.maxSec)}`,
   ];
 
@@ -552,15 +552,15 @@ export function profileSummary(
     const { min, max } = plot.temperatureRange;
     parts.push(
       min === max
-        ? `water temperature ${formatTemperature(min, system)}`
-        : `water temperature ${formatTemperature(min, system)} to ${formatTemperature(max, system)}`
+        ? `water temperature ${formatTemperature(min, units)}`
+        : `water temperature ${formatTemperature(min, units)} to ${formatTemperature(max, units)}`
     );
   }
   if (plot.pressures.length > 0) {
     parts.push(
-      `tank pressure from ${formatPressure(plot.pressureRange.max, system)} to ${formatPressure(
+      `tank pressure from ${formatPressure(plot.pressureRange.max, units)} to ${formatPressure(
         plot.pressureRange.min,
-        system
+        units
       )}`
     );
   }

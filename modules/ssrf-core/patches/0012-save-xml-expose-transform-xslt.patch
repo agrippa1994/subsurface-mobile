@@ -1,0 +1,20 @@
+Let the bindings run an export stylesheet with parameters of their own.
+
+export_dives_xslt() passes the stylesheets exactly one parameter, `units`, so a
+CSV export can only be all metric or all imperial. The app chooses each unit on
+its own (see patches/xslt-0001-csv-units-per-quantity.patch), and the bindings
+need to hand the per-quantity parameters to the same transform. Removes
+`static` from transform_xslt(), and changes nothing else. Applies on top of
+0011, which touches the same file.
+
+--- a/core/save-xml.cpp
++++ b/core/save-xml.cpp
+@@ -777,7 +777,7 @@
+ // This is executed in a separate thread with QtConcurrent::run
+ // so we don't have access to NotificationWidget
+ 
+-static std::pair<int, std::string> transform_xslt(const char *filename, struct membuffer &buf,
++std::pair<int, std::string> transform_xslt(const char *filename, struct membuffer &buf,
+ 		struct xml_params *params, const char *export_xslt)
+ {
+ 	FILE *f;

@@ -8,7 +8,7 @@
 // times the screen allows (docs/tasks/15-dive-planner.md has the measurements).
 import { useCallback, useMemo } from 'react';
 
-import type { DiveSummary, PlanInput, PlanResult, UnitSystem } from '@/models';
+import type { DiveSummary, PlanInput, PlanResult, Units } from '@/models';
 import { describeError } from '@/models/errors';
 import {
   draftProblem,
@@ -37,19 +37,19 @@ const NO_DIVES: readonly DiveSummary[] = [];
 
 export function usePlanner() {
   const settings = useSettings();
-  const system: UnitSystem = settings.unitSystem;
+  const units: Units = settings.units;
   const planner: PlannerSettings = settings.planner;
   const gf = useGradientFactors();
   const dives = useDives().data ?? NO_DIVES;
-  const draft = usePlanDraft(system, dives);
+  const draft = usePlanDraft(units, dives);
 
   const input: PlanInput = useMemo(
-    () => planInput(draft, planner, system, gf),
-    [draft, planner, system, gf],
+    () => planInput(draft, planner, units, gf),
+    [draft, planner, units, gf],
   );
 
   const outcome: PlanOutcome = useMemo(() => {
-    const problem = draftProblem(draft, planner, system);
+    const problem = draftProblem(draft, planner, units);
     if (problem !== null) {
       return { kind: 'problem', message: problem };
     }
@@ -64,7 +64,7 @@ export function usePlanner() {
     // The dives are not read here, but the core reads them: a dive added or removed
     // in the logbook changes the tissues this plan starts from.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, planner, system, input, dives]);
+  }, [draft, planner, units, input, dives]);
 
   const update = useUpdateSettings();
   const setPlanner = useCallback(
@@ -79,14 +79,14 @@ export function usePlanner() {
 
   return {
     draft,
-    system,
+    units,
     planner,
     gf,
     input,
     outcome,
     dives,
     setDraft: updatePlanDraft as (change: (current: PlanDraft) => PlanDraft) => void,
-    resetDraft: () => resetPlanDraft(system, dives),
+    resetDraft: () => resetPlanDraft(units, dives),
     setPlanner,
     restorePlanner,
   };

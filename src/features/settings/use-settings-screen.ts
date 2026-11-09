@@ -17,7 +17,8 @@ import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
-import type { UnitSystem } from '@/models';
+import type { Units } from '@/models';
+import { unitPreset, unitsForSystem, type UnitPresetChoice } from '@/models/units';
 import { useDives, useSites, useTrips } from '@/queries/logbook';
 import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
@@ -29,8 +30,8 @@ import {
   useRememberedComputers,
   useSetGfSeries,
   useSetGradientFactors,
-  useSetUnitSystem,
-  useUnitSystem,
+  useSetUnits,
+  useUnits,
 } from '@/queries/settings';
 
 export type SettingsScreen = {
@@ -38,8 +39,17 @@ export type SettingsScreen = {
   transfer: Transfer;
   /** The download screen, and the dive computers it remembers. */
   diveComputers: { remembered: number; open: () => void; forget: () => void };
-  unitSystem: UnitSystem;
-  setUnitSystem: (system: UnitSystem) => void;
+  units: Units;
+  /**
+   * Metric, imperial or custom. Custom stays chosen while the screen is open even
+   * when the five happen to match a preset again, so its rows do not vanish
+   * under the finger.
+   */
+  unitPreset: UnitPresetChoice;
+  setUnitPreset: (preset: UnitPresetChoice) => void;
+  /** Whether the five per-quantity rows are shown. */
+  showUnitRows: boolean;
+  setUnit: <K extends keyof Units>(key: K, value: Units[K]) => void;
   /** Buehlmann gradient factors, in percent, the profile ceiling is computed with. */
   gfLow: number;
   gfHigh: number;
@@ -122,8 +132,30 @@ function aboutInfo(): AboutInfo {
 
 export function useSettingsScreen(): SettingsScreen {
   const transfer = useTransfer();
-  const unitSystem = useUnitSystem();
-  const setUnitSystem = useSetUnitSystem();
+  const units = useUnits();
+  const setUnits = useSetUnits();
+  const storedPreset = unitPreset(units);
+  const [customChosen, setCustomChosen] = useState(storedPreset === 'personalized');
+  const shownPreset: UnitPresetChoice = customChosen ? 'personalized' : storedPreset;
+  const setUnitPreset = useCallback(
+    (preset: UnitPresetChoice) => {
+      if (preset === 'personalized') {
+        // The current units are where a custom choice starts from.
+        setCustomChosen(true);
+        return;
+      }
+      setCustomChosen(false);
+      setUnits(unitsForSystem(preset));
+    },
+    [setUnits],
+  );
+  const setUnit = useCallback(
+    <K extends keyof Units>(key: K, value: Units[K]) => {
+      setCustomChosen(true);
+      setUnits({ [key]: value } as Partial<Units>);
+    },
+    [setUnits],
+  );
   const { gfLow, gfHigh } = useGradientFactors();
   const setGradientFactors = useSetGradientFactors();
 
@@ -302,8 +334,11 @@ export function useSettingsScreen(): SettingsScreen {
   return {
     transfer,
     diveComputers,
-    unitSystem,
-    setUnitSystem,
+    units,
+    unitPreset: shownPreset,
+    setUnitPreset,
+    showUnitRows: shownPreset === 'personalized',
+    setUnit,
     gfLow,
     gfHigh,
     setGfLow,

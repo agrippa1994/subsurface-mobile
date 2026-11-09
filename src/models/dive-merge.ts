@@ -8,7 +8,7 @@
 
 import { diveRowTitle, toDiveRow, tripTitle } from './dive-list';
 import type { DiveSummary, MergePair, MergePreview, Trip } from './index';
-import { formatDepth, formatDuration, type UnitSystem } from './units';
+import { formatDepth, formatDuration, type Units } from './units';
 
 export type MergeAction = {
   kind: 'next' | 'previous';
@@ -84,8 +84,8 @@ export function mergeActionsFor(
 }
 
 /** "Dive 12: Shark Reef, 12 Mar 2024, 09:14", with no number if it has none. */
-function nameDive(dive: DiveSummary, system: UnitSystem, locale?: string): string {
-  const row = toDiveRow(dive, system, locale);
+function nameDive(dive: DiveSummary, units: Units, locale?: string): string {
+  const row = toDiveRow(dive, units, locale);
   const name = `${row.title}, ${row.subtitle}`;
   return dive.number > 0 ? `Dive ${dive.number}: ${name}` : name;
 }
@@ -102,14 +102,14 @@ export function mergeConfirmation(
   dives: readonly DiveSummary[],
   preview: MergePreview,
   trips: readonly Trip[],
-  system: UnitSystem = 'metric',
+  units: Units,
   locale?: string,
 ): MergeConfirmation {
   const merged = preview.dive;
   const ordered = [...dives].sort((a, b) => a.when - b.when || a.id - b.id);
-  const lines = [ordered.map((dive) => nameDive(dive, system, locale)).join('\n')];
+  const lines = [ordered.map((dive) => nameDive(dive, units, locale)).join('\n')];
 
-  const figures = `${formatDepth(merged.maxDepthMm, system)} deep, ${formatDuration(merged.durationSec)} long`;
+  const figures = `${formatDepth(merged.maxDepthMm, units)} deep, ${formatDuration(merged.durationSec)} long`;
   if (merged.dcs.length > 1) {
     lines.push(
       `They become one dive, ${figures}, keeping the recordings of ` +

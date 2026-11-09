@@ -8,7 +8,7 @@
 
 import type { PlanSettingsInput } from './index';
 import { PlanDecoMode } from './index';
-import { feetToMm, mlToCuft, mmToFeet, cuftToMl, mbarToPsi, psiToMbar, type UnitSystem } from './units';
+import { feetToMm, mlToCuft, mmToFeet, cuftToMl, mbarToPsi, psiToMbar, coreUnits, type Units } from './units';
 
 export type PlannerSettings = {
   decoMode: PlanDecoMode;
@@ -95,14 +95,14 @@ export const DEFAULT_PLANNER_SETTINGS: PlannerSettings = {
 /** The planner's arguments the settings hold. Gradient factors resolved by the caller. */
 export function plannerSettingsInput(
   settings: PlannerSettings,
-  system: UnitSystem,
+  units: Units,
   gf: { gfLow: number; gfHigh: number },
 ): PlanSettingsInput {
   const { gfLow, gfHigh, surfacePressureMbar: _pressure, ...rest } = settings;
   const low = gfLow ?? gf.gfLow;
   return {
     ...rest,
-    imperial: system === 'imperial',
+    units: coreUnits(units),
     gfLow: low,
     // A low above a high means nothing to the model; the bindings refuse it.
     gfHigh: Math.max(low, gfHigh ?? gf.gfHigh),
@@ -112,16 +112,16 @@ export function plannerSettingsInput(
 // --- Rates -------------------------------------------------------------------
 
 /** unit_factor() in the Qt model: mm/s per m/min or ft/min. */
-function rateFactor(system: UnitSystem): number {
-  return system === 'imperial' ? 304.8 / 60 : 1000 / 60;
+function rateFactor(units: Units): number {
+  return units.depth === 'ft' ? 304.8 / 60 : 1000 / 60;
 }
 
-export function rateValue(mmPerSec: number, system: UnitSystem): number {
-  return Math.round(mmPerSec / rateFactor(system));
+export function rateValue(mmPerSec: number, units: Units): number {
+  return Math.round(mmPerSec / rateFactor(units));
 }
 
-export function rateFromValue(value: number, system: UnitSystem): number {
-  return Math.round(value * rateFactor(system));
+export function rateFromValue(value: number, units: Units): number {
+  return Math.round(value * rateFactor(units));
 }
 
 // --- The table the screens draw --------------------------------------------
@@ -131,10 +131,10 @@ export type StepperSetting = {
   key: string;
   label: string;
   /** The value in the unit shown, which is what the stepper moves. */
-  value: (settings: PlannerSettings, system: UnitSystem, gf: { gfLow: number; gfHigh: number }) => number;
-  format: (value: number, system: UnitSystem) => string;
-  range: (system: UnitSystem) => { min: number; max: number; step: number };
-  patch: (value: number, system: UnitSystem) => Partial<PlannerSettings>;
+  value: (settings: PlannerSettings, units: Units, gf: { gfLow: number; gfHigh: number }) => number;
+  format: (value: number, units: Units) => string;
+  range: (units: Units) => { min: number; max: number; step: number };
+  patch: (value: number, units: Units) => Partial<PlannerSettings>;
   visible?: (settings: PlannerSettings) => boolean;
 };
 
@@ -163,10 +163,10 @@ function rate(key: NumericKey, label: string, visible?: StepperSetting['visible'
     key,
     label,
     visible,
-    value: (s, system) => rateValue(s[key] as number, system),
-    format: (value, system) => `${value} ${system === 'imperial' ? 'ft/min' : 'm/min'}`,
-    range: (system) => (system === 'imperial' ? { min: 1, max: 99, step: 5 } : { min: 1, max: 99, step: 1 }),
-    patch: (value, system) => ({ [key]: rateFromValue(value, system) }),
+    value: (s, units) => rateValue(s[key] as number, units),
+    format: (value, units) => `${value} ${units.depth === 'ft' ? 'ft/min' : 'm/min'}`,
+    range: (units) => (units.depth === 'ft' ? { min: 1, max: 99, step: 5 } : { min: 1, max: 99, step: 1 }),
+    patch: (value, units) => ({ [key]: rateFromValue(value, units) }),
   };
 }
 
@@ -195,16 +195,16 @@ function sac(key: NumericKey, label: string): StepperSetting {
     kind: 'stepper',
     key,
     label,
-    value: (s, system) =>
-      system === 'imperial'
+    value: (s, units) =>
+      units.volume === 'cuft'
         ? Math.round(mlToCuft(s[key] as number) * 20) / 20
         : Math.round((s[key] as number) / 1000),
-    format: (value, system) =>
-      system === 'imperial' ? `${value.toFixed(2)} cuft/min` : `${value} l/min`,
-    range: (system) =>
-      system === 'imperial' ? { min: 0.1, max: 3, step: 0.05 } : { min: 1, max: 85, step: 1 },
-    patch: (value, system) => ({
-      [key]: system === 'imperial' ? cuftToMl(value) : Math.round(value * 1000),
+    format: (value, units) =>
+      units.volume === 'cuft' ? `${value.toFixed(2)} cuft/min` : `${value} l/min`,
+    range: (units) =>
+      units.volume === 'cuft' ? { min: 0.1, max: 3, step: 0.05 } : { min: 1, max: 85, step: 1 },
+    patch: (value, units) => ({
+      [key]: units.volume === 'cuft' ? cuftToMl(value) : Math.round(value * 1000),
     }),
   };
 }
@@ -265,15 +265,15 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
         key: 'reserveGasMbar',
         label: 'Reserve gas',
         visible: isRecreational,
-        value: (s, system) =>
-          system === 'imperial'
+        value: (s, units) =>
+          units.pressure === 'psi'
             ? Math.round(mbarToPsi(s.reserveGasMbar) / 50) * 50
             : Math.round(s.reserveGasMbar / 1000),
-        format: (value, system) => `${value} ${system === 'imperial' ? 'psi' : 'bar'}`,
-        range: (system) =>
-          system === 'imperial' ? { min: 50, max: 1500, step: 50 } : { min: 1, max: 99, step: 1 },
-        patch: (value, system) => ({
-          reserveGasMbar: system === 'imperial' ? psiToMbar(value) : value * 1000,
+        format: (value, units) => `${value} ${units.pressure === 'psi' ? 'psi' : 'bar'}`,
+        range: (units) =>
+          units.pressure === 'psi' ? { min: 50, max: 1500, step: 50 } : { min: 1, max: 99, step: 1 },
+        patch: (value, units) => ({
+          reserveGasMbar: units.pressure === 'psi' ? psiToMbar(value) : value * 1000,
         }),
       },
       { kind: 'toggle', key: 'safetyStop', label: 'Safety stop', visible: isRecreational },
@@ -329,13 +329,13 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
         kind: 'stepper',
         key: 'bestMixEndMm',
         label: 'Best mix END',
-        value: (s, system) =>
-          system === 'imperial' ? Math.round(mmToFeet(s.bestMixEndMm) / 5) * 5 : Math.round(s.bestMixEndMm / 1000),
-        format: (value, system) => `${value} ${system === 'imperial' ? 'ft' : 'm'}`,
-        range: (system) =>
-          system === 'imperial' ? { min: 10, max: 300, step: 5 } : { min: 3, max: 99, step: 1 },
-        patch: (value, system) => ({
-          bestMixEndMm: system === 'imperial' ? feetToMm(value) : value * 1000,
+        value: (s, units) =>
+          units.depth === 'ft' ? Math.round(mmToFeet(s.bestMixEndMm) / 5) * 5 : Math.round(s.bestMixEndMm / 1000),
+        format: (value, units) => `${value} ${units.depth === 'ft' ? 'ft' : 'm'}`,
+        range: (units) =>
+          units.depth === 'ft' ? { min: 10, max: 300, step: 5 } : { min: 3, max: 99, step: 1 },
+        patch: (value, units) => ({
+          bestMixEndMm: units.depth === 'ft' ? feetToMm(value) : value * 1000,
         }),
       },
       { kind: 'toggle', key: 'o2Narcotic', label: 'Oxygen is narcotic' },
