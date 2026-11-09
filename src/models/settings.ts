@@ -12,6 +12,11 @@ import {
 } from './planner-settings';
 import { DEFAULT_PROFILE_SERIES } from './profile-plot';
 import { parseStatsConfig } from './stats-chart';
+import {
+  DEFAULT_SURFACE_GF_SETTINGS,
+  parseSurfaceGfSettings,
+  type SurfaceGfSettings,
+} from './surface-gf';
 import type { StatsChartConfig } from './index';
 import { METRIC_UNITS, parseUnits, unitPreset, unitsForSystem, type Units } from './units';
 
@@ -48,6 +53,8 @@ export type Settings = {
    * or "" for none - the core's `default_cylinder` (core/pref.h).
    */
   defaultCylinder: string;
+  /** The live surface GF: where the ambient pressure comes from, and the planned next entry. */
+  surfaceGf: SurfaceGfSettings;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -71,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   statsChart: null,
   // None, as in the core's default_prefs: a guessed tank would change the SAC.
   defaultCylinder: '',
+  surfaceGf: DEFAULT_SURFACE_GF_SETTINGS,
 };
 
 /**
@@ -153,6 +161,7 @@ export function parseSettings(json: string): Settings {
       planner: parsePlannerSettings(raw?.planner),
       statsChart: parseStatsConfig(raw?.statsChart),
       defaultCylinder: typeof raw?.defaultCylinder === 'string' ? raw.defaultCylinder.trim() : '',
+      surfaceGf: parseSurfaceGfSettings(raw?.surfaceGf),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -177,6 +186,7 @@ export function serializeSettings(settings: Settings): string {
     planner: settings.planner,
     statsChart: settings.statsChart,
     defaultCylinder: settings.defaultCylinder,
+    surfaceGf: settings.surfaceGf,
   });
 }
 
