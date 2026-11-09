@@ -1446,3 +1446,39 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   first moved to the top with the selection on it and the same profile shown; the undo
   toast and Undo put Aeris A300CS back first; the row under Dive computer did the same for
   the OSTC 3, and the CSV footer named it. Android was not run.
+
+
+- 2026-11-09 - **iOS widgets**: four home screen and Lock Screen widgets through
+  `expo-widgets` (layouts in `@expo/ui` SwiftUI, `src/widgets/`):
+
+  | Widget | Families | Shows |
+  | --- | --- | --- |
+  | Last Dive | small, medium, large, Lock Screen circular / rectangular / inline | site, number, date, max depth, duration, water temperature; medium and large add the profile (Swift Charts area), large adds buddy and rating |
+  | Surface Interval | small, Lock Screen circular / rectangular / inline | live-updating time since the last dive ended (a SwiftUI relative date, no timeline needed) |
+  | Logbook Totals | small, medium, large, Lock Screen circular / rectangular / inline | dives, hours underwater, deepest, longest, average depth, sites; configurable period (all dives, this year, last 12 months); circular and large show a gauge to the next multiple of 50 dives |
+  | Dive Activity | small, medium, large | dives per month over the last 12 months as bars, this year against last year, busiest month |
+
+  Data: `src/models/widgets.ts` turns the dive list (and the newest dive's profile,
+  thinned to 48 points keeping the deepest sample) into formatted props. Planned and
+  invalid dives are not counted. `src/features/widgets/use-widget-sync.ios.ts`,
+  mounted in the root layout, pushes them on every dive list re-read, unit change and
+  return to foreground, sending each widget only when its props changed (WidgetKit
+  reload budget). The surface interval reads the stored wall clock in the phone's
+  current zone, since the core keeps no zone; a result in the future is held at now.
+
+  Taps open the dive via `/dives/at/<start time>` (new route), not by id: ids are
+  process-local and a widget outlives the process.
+
+  Variants: `plugins/with-ios-variants.js` now gives the Debug build its own widget
+  extension id (`codes.mani.subsurface-react.dev.ExpoWidgetsTarget`) and app group
+  (`group.codes.mani.subsurface-react.dev`) through an `APP_GROUP_IDENTIFIER` build
+  setting, so debug widgets never show the production logbook. `expo-widgets` is
+  listed after it in `app.config.ts` so its mods run first. Android excludes
+  `expo-widgets` from autolinking; the hook is a no-op there.
+
+  Verified: vitest (`src/models/widgets.test.ts`, 16 tests incl. the sample logbook
+  through the host bindings), full suite, typecheck, lint. `expo prebuild` output
+  checked for both configurations, and a Debug simulator build succeeds with the
+  extension embedded and its group expanded. Not yet run: the widgets on a simulator
+  or device (gallery, rendering of each family, tap-through). The app group must be
+  registered for both bundle ids on first signed build (automatic signing does this).

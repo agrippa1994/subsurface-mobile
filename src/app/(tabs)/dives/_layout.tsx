@@ -62,6 +62,8 @@ function DivesStack({ split }: { split: boolean }) {
       }}>
       <Stack.Screen name="index" options={{ title: 'Dives' }} />
       <Stack.Screen name="[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
+      {/* Where a widget's link lands; it hands over to [id] once the dive is found. */}
+      <Stack.Screen name="at/[when]" options={{ title: 'Dive', headerLargeTitle: false }} />
       <Stack.Screen name="edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
       <Stack.Screen name="ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
       <Stack.Screen
