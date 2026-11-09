@@ -7,7 +7,13 @@
 // suite can check without a device.
 
 import type { DiveSummary } from './index';
-import { formatDepth, formatDuration, type UnitSystem } from './units';
+import {
+  formatDiveDate,
+  formatDiveDateNumeric,
+  formatDiveMonthLong,
+  formatDiveTime,
+} from './date-format';
+import { formatDepth, formatDuration, type Units } from './units';
 
 /** Section label used for dives that belong to no trip. */
 export const NO_TRIP_LABEL = 'Not in a trip';
@@ -132,21 +138,8 @@ export type DiveRow = {
  * it in the phone's zone would shift every dive by the phone's offset, so it is
  * formatted in UTC: a dive at 15:25 in Egypt reads 15:25 wherever the phone is.
  */
-export function formatDate(when: number, locale?: string): string {
-  return new Date(when * 1000).toLocaleDateString(locale, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
-function formatTime(when: number, locale?: string): string {
-  return new Date(when * 1000).toLocaleTimeString(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  });
+export function formatDate(when: number): string {
+  return formatDiveDate(when);
 }
 
 export function diveRowTitle(dive: DiveSummary): string {
@@ -160,15 +153,13 @@ export function diveRowTitle(dive: DiveSummary): string {
 
 export function toDiveRow(
   dive: DiveSummary,
-  system: UnitSystem = 'metric',
-  locale?: string
-): DiveRow {
-  const depthText = dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, system) : '';
+  units: Units): DiveRow {
+  const depthText = dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '';
   const durationText = dive.durationSec > 0 ? formatDuration(dive.durationSec) : '';
 
   const title = diveRowTitle(dive);
-  const dateText = formatDate(dive.when, locale);
-  const timeText = formatTime(dive.when, locale);
+  const dateText = formatDiveDate(dive.when);
+  const timeText = formatDiveTime(dive.when);
 
   const spoken: string[] = [title, `${dateText} at ${timeText}`];
   if (dive.number > 0) {
@@ -213,10 +204,8 @@ export function toDiveRow(
  */
 export function toSiteDiveRow(
   dive: DiveSummary,
-  system: UnitSystem = 'metric',
-  locale?: string
-): DiveRow {
-  const row = toDiveRow(dive, system, locale);
+  units: Units): DiveRow {
+  const row = toDiveRow(dive, units);
   return { ...row, title: row.subtitle, subtitle: dive.tripLocation.trim() };
 }
 
@@ -234,10 +223,10 @@ function spokenDuration(seconds: number): string {
 }
 
 /** "3 dives - 12 Mar 2024" or, for a range, "... - 12-15 Mar 2024". */
-export function sectionSubtitle(section: DiveTripSection, locale?: string): string {
+export function sectionSubtitle(section: DiveTripSection): string {
   const count = `${section.dives.length} ${section.dives.length === 1 ? 'dive' : 'dives'}`;
-  const newest = formatDate(section.newestWhen, locale);
-  const oldest = formatDate(section.oldestWhen, locale);
+  const newest = formatDiveDate(section.newestWhen);
+  const oldest = formatDiveDate(section.oldestWhen);
   return newest === oldest ? `${count} - ${newest}` : `${count} - ${oldest} to ${newest}`;
 }
 
@@ -256,9 +245,7 @@ export type DiveSearchEntry = {
  * this once per dive list keeps a keystroke from re-formatting every date.
  */
 export function buildDiveSearchIndex(
-  dives: readonly DiveSummary[],
-  locale?: string
-): DiveSearchEntry[] {
+  dives: readonly DiveSummary[]): DiveSearchEntry[] {
   return dives.map((dive) => {
     const date = new Date(dive.when * 1000);
     const fields = [
@@ -267,10 +254,10 @@ export function buildDiveSearchIndex(
       dive.buddy,
       dive.diveguide,
       dive.number > 0 ? `#${dive.number}` : '',
-      formatDate(dive.when, locale),
-      date.toLocaleDateString(locale, { month: 'long', timeZone: 'UTC' }),
+      formatDiveDate(dive.when),
+      formatDiveMonthLong(dive.when),
       date.toISOString().slice(0, 10),
-      date.toLocaleDateString(locale, { timeZone: 'UTC' }),
+      formatDiveDateNumeric(dive.when),
     ];
     return { dive, text: fields.join('\n').toLowerCase() };
   });

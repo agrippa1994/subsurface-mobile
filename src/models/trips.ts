@@ -9,7 +9,7 @@
 
 import { formatDate, sortDivesNewestFirst, tripTitle } from './dive-list';
 import type { DiveSummary, StatsSummary, Trip, TripPatch } from './index';
-import { formatDepth, formatTemperature, type UnitSystem } from './units';
+import { formatDepth, formatTemperature, type Units } from './units';
 import { formatTotalTime } from './statistics';
 
 export { tripTitle };
@@ -19,15 +19,15 @@ export function diveCountText(count: number): string {
 }
 
 /** "12 Mar 2024", or "12 Mar 2024 to 15 Mar 2024" for a trip over several days. */
-export function tripDateText(trip: Trip, locale?: string): string {
-  const first = formatDate(trip.when, locale);
-  const last = formatDate(trip.lastDiveWhen, locale);
+export function tripDateText(trip: Trip): string {
+  const first = formatDate(trip.when);
+  const last = formatDate(trip.lastDiveWhen);
   return first === last ? first : `${first} to ${last}`;
 }
 
 /** "3 dives - 12 Mar 2024", the same line a section header of the list has. */
-export function tripSubtitle(trip: Trip, locale?: string): string {
-  return `${diveCountText(trip.diveCount)} - ${tripDateText(trip, locale)}`;
+export function tripSubtitle(trip: Trip): string {
+  return `${diveCountText(trip.diveCount)} - ${tripDateText(trip)}`;
 }
 
 // --- Ordering and search ---------------------------------------------------
@@ -63,10 +63,10 @@ export function nearestTrips(trips: readonly Trip[], dives: readonly DiveSummary
 }
 
 /** Every word has to appear in the trip's location or its dates. */
-export function searchTrips(trips: readonly Trip[], query: string, locale?: string): Trip[] {
+export function searchTrips(trips: readonly Trip[], query: string): Trip[] {
   const words = query.toLowerCase().split(/\s+/).filter((word) => word !== '');
   return trips.filter((trip) => {
-    const text = `${trip.location}\n${tripDateText(trip, locale)}`.toLowerCase();
+    const text = `${trip.location}\n${tripDateText(trip)}`.toLowerCase();
     return words.every((word) => text.includes(word));
   });
 }
@@ -173,11 +173,10 @@ export type TripSummaryRow = { label: string; value: string };
 export function tripSummaryRows(
   trip: Trip,
   stats: StatsSummary | undefined,
-  system: UnitSystem = 'metric',
-  locale?: string,
+  units: Units,
 ): TripSummaryRow[] {
   const rows: TripSummaryRow[] = [
-    { label: 'Dates', value: tripDateText(trip, locale) },
+    { label: 'Dates', value: tripDateText(trip) },
     { label: 'Dives', value: String(trip.diveCount) },
   ];
   const total = stats?.total;
@@ -188,13 +187,13 @@ export function tripSummaryRows(
     rows.push({ label: 'Total time', value: formatTotalTime(total.totalTimeSec) });
   }
   if (total.maxDepthMm > 0) {
-    rows.push({ label: 'Deepest', value: formatDepth(total.maxDepthMm, system) });
+    rows.push({ label: 'Deepest', value: formatDepth(total.maxDepthMm, units) });
   }
   if (total.avgDepthMm > 0) {
-    rows.push({ label: 'Average depth', value: formatDepth(total.avgDepthMm, system) });
+    rows.push({ label: 'Average depth', value: formatDepth(total.avgDepthMm, units) });
   }
   if (total.minTempMkelvin > 0) {
-    rows.push({ label: 'Coldest water', value: formatTemperature(total.minTempMkelvin, system) });
+    rows.push({ label: 'Coldest water', value: formatTemperature(total.minTempMkelvin, units) });
   }
   return rows;
 }

@@ -25,8 +25,8 @@ import {
 } from './dive-list';
 import { SsrfHost } from '../../tests/harness/ssrf-host';
 import { REPO_ROOT } from '../../tests/harness/fixtures';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
-const LOCALE = 'en-GB';
 
 function summary(overrides: Partial<DiveSummary> & { id: number }): DiveSummary {
   return {
@@ -156,7 +156,7 @@ describe('searchDives', () => {
     summary({ id: 2, number: 42, when: 1710257100, siteName: 'House Reef', tripLocation: 'Dahab' }),
     summary({ id: 3, when: 1710257100, siteName: 'Canyon', diveguide: 'Anna' }),
   ];
-  const index = buildDiveSearchIndex(dives, LOCALE);
+  const index = buildDiveSearchIndex(dives);
   const ids = (query: string) => searchDives(index, query).map((d) => d.id);
 
   it('returns every dive for a blank query', () => {
@@ -210,17 +210,17 @@ describe('toDiveRow', () => {
   });
 
   it('renders depth and duration in metric', () => {
-    const row = toDiveRow(dive, 'metric', LOCALE);
+    const row = toDiveRow(dive, METRIC_UNITS);
     expect(row.depthText).toBe('20.1 m');
     expect(row.durationText).toBe('42:15');
   });
 
   it('renders depth in feet when the setting is imperial', () => {
-    expect(toDiveRow(dive, 'imperial', LOCALE).depthText).toBe('66 ft');
+    expect(toDiveRow(dive, IMPERIAL_UNITS).depthText).toBe('66 ft');
   });
 
   it('renders date, time and dive number', () => {
-    const row = toDiveRow(dive, 'metric', LOCALE);
+    const row = toDiveRow(dive, METRIC_UNITS);
     // TZ is pinned to UTC for the test run (see vitest.config.ts).
     expect(row.dateText).toBe('13 Dec 2011');
     expect(row.timeText).toBe('06:35');
@@ -236,7 +236,7 @@ describe('toDiveRow', () => {
     const zone = process.env.TZ;
     process.env.TZ = 'Europe/Vienna';
     try {
-      const row = toDiveRow(dive, 'metric', LOCALE);
+      const row = toDiveRow(dive, METRIC_UNITS);
       expect(row.dateText).toBe('13 Dec 2011');
       expect(row.timeText).toBe('06:35');
     } finally {
@@ -245,40 +245,40 @@ describe('toDiveRow', () => {
   });
 
   it('falls back from site name to trip location to a placeholder', () => {
-    expect(toDiveRow(summary({ id: 1, tripLocation: 'Austria' })).title).toBe('Austria');
-    expect(toDiveRow(summary({ id: 1 })).title).toBe('Unnamed dive');
+    expect(toDiveRow(summary({ id: 1, tripLocation: 'Austria' }), METRIC_UNITS).title).toBe('Austria');
+    expect(toDiveRow(summary({ id: 1 }), METRIC_UNITS).title).toBe('Unnamed dive');
   });
 
   it('omits missing depth and duration instead of printing zeroes', () => {
-    const empty = toDiveRow(summary({ id: 1, maxDepthMm: 0, durationSec: 0 }));
+    const empty = toDiveRow(summary({ id: 1, maxDepthMm: 0, durationSec: 0 }), METRIC_UNITS);
     expect(empty.depthText).toBe('');
     expect(empty.durationText).toBe('');
-    const depthOnly = toDiveRow(summary({ id: 1, maxDepthMm: 12000, durationSec: 0 }));
+    const depthOnly = toDiveRow(summary({ id: 1, maxDepthMm: 12000, durationSec: 0 }), METRIC_UNITS);
     expect(depthOnly.depthText).toBe('12 m');
     expect(depthOnly.durationText).toBe('');
   });
 
   it('leaves the dive number blank when there is none', () => {
-    expect(toDiveRow(summary({ id: 1, number: 0 })).numberText).toBe('');
+    expect(toDiveRow(summary({ id: 1, number: 0 }), METRIC_UNITS).numberText).toBe('');
   });
 
   it('still fills the list badge for an unnumbered dive', () => {
-    expect(toDiveRow(summary({ id: 1, number: 0 })).badgeText).toBe('-');
+    expect(toDiveRow(summary({ id: 1, number: 0 }), METRIC_UNITS).badgeText).toBe('-');
   });
 
   it('puts date and time under the title', () => {
-    expect(toDiveRow(dive, 'metric', LOCALE).subtitle).toBe('13 Dec 2011, 06:35');
+    expect(toDiveRow(dive, METRIC_UNITS).subtitle).toBe('13 Dec 2011, 06:35');
   });
 
   it('leads with the date inside a site, where the site name would repeat', () => {
-    const row = toSiteDiveRow(dive, 'metric', LOCALE);
+    const row = toSiteDiveRow(dive, METRIC_UNITS);
     expect(row.title).toBe('13 Dec 2011, 06:35');
     expect(row.subtitle).toBe('Austria');
-    expect(toSiteDiveRow({ ...dive, tripLocation: '' }, 'metric', LOCALE).subtitle).toBe('');
+    expect(toSiteDiveRow({ ...dive, tripLocation: '' }, METRIC_UNITS).subtitle).toBe('');
   });
 
   it('spells the row out for VoiceOver instead of leaving it shorthand', () => {
-    expect(toDiveRow(dive, 'metric', LOCALE).accessibilityLabel).toBe(
+    expect(toDiveRow(dive, METRIC_UNITS).accessibilityLabel).toBe(
       'Tauchsee, 13 Dec 2011 at 06:35, dive number 12, maximum depth 20.1 m, ' +
         'duration 42 minutes, rated 4 of 5'
     );
@@ -286,25 +286,25 @@ describe('toDiveRow', () => {
 
   it('speaks a long dive in hours and minutes, not as a clock time', () => {
     const long = summary({ id: 1, when: 1323758100, durationSec: 3600 + 5 * 60 });
-    expect(toDiveRow(long, 'metric', LOCALE).accessibilityLabel).toContain(
+    expect(toDiveRow(long, METRIC_UNITS).accessibilityLabel).toContain(
       'duration 1 hour 5 minutes'
     );
   });
 
   it('says a dive is invalid, which the row only marks with a word in the corner', () => {
-    const label = toDiveRow(summary({ id: 1, invalid: true }), 'metric', LOCALE).accessibilityLabel;
+    const label = toDiveRow(summary({ id: 1, invalid: true }), METRIC_UNITS).accessibilityLabel;
     expect(label).toContain('marked invalid');
   });
 
   it('marks a planned dive, and says so', () => {
-    const row = toDiveRow(summary({ id: 1, planned: true }), 'metric', LOCALE);
+    const row = toDiveRow(summary({ id: 1, planned: true }), METRIC_UNITS);
     expect(row.planned).toBe(true);
     expect(row.accessibilityLabel).toContain('planned, not logged');
-    expect(toDiveRow(summary({ id: 1 }), 'metric', LOCALE).planned).toBe(false);
+    expect(toDiveRow(summary({ id: 1 }), METRIC_UNITS).planned).toBe(false);
   });
 
   it('leaves out what the dive does not have', () => {
-    const label = toDiveRow(summary({ id: 1, when: 1323758100 }), 'metric', LOCALE)
+    const label = toDiveRow(summary({ id: 1, when: 1323758100 }), METRIC_UNITS)
       .accessibilityLabel;
     expect(label).toBe('Unnamed dive, 13 Dec 2011 at 06:35');
   });
@@ -315,7 +315,7 @@ describe('sectionSubtitle', () => {
     const [section] = groupDivesByTrip([
       summary({ id: 1, when: 1323758100, tripLocation: 'Austria' }),
     ]);
-    expect(sectionSubtitle(section, LOCALE)).toBe('1 dive - 13 Dec 2011');
+    expect(sectionSubtitle(section)).toBe('1 dive - 13 Dec 2011');
   });
 
   it('shows a range for a multi-day section', () => {
@@ -323,7 +323,7 @@ describe('sectionSubtitle', () => {
       summary({ id: 1, when: 1323758100, tripLocation: 'Austria' }),
       summary({ id: 2, when: 1323758100 + 2 * DAY, tripLocation: 'Austria' }),
     ]);
-    expect(sectionSubtitle(sections[0], LOCALE)).toBe('2 dives - 13 Dec 2011 to 15 Dec 2011');
+    expect(sectionSubtitle(sections[0])).toBe('2 dives - 13 Dec 2011 to 15 Dec 2011');
   });
 });
 
@@ -376,7 +376,7 @@ describe('the bundled sample logbook', () => {
 
   it('renders every dive as a row with a title and a date', () => {
     for (const dive of dives) {
-      const row = toDiveRow(dive, 'metric', LOCALE);
+      const row = toDiveRow(dive, METRIC_UNITS);
       expect(row.title).not.toBe('');
       expect(row.dateText).toMatch(/\d{4}$/);
       expect(row.timeText).toMatch(/^\d{2}:\d{2}$/);

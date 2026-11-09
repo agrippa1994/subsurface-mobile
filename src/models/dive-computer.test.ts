@@ -15,6 +15,7 @@ import {
   rememberComputer,
   type RememberedComputer,
 } from './dive-computer';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 function computer(address: string, product = 'Perdix'): RememberedComputer {
   return { vendor: 'Shearwater', product, address, name: `${product} ${address}` };
@@ -143,21 +144,21 @@ describe('the review list', () => {
     const rows = downloadedDiveRows([
       { ...DIVE, index: 0, when: DIVE.when - 86400 },
       { ...DIVE, index: 1 },
-    ]);
+    ], METRIC_UNITS);
     expect(rows.map((r) => r.index)).toEqual([1, 0]);
   });
 
   it('reads in the unit system, and in the time the dive computer showed', () => {
-    const [metric] = downloadedDiveRows([DIVE], 'metric', 'en-GB');
+    const [metric] = downloadedDiveRows([DIVE], METRIC_UNITS);
     expect(metric.dateText).toContain('2 Jan 2026');
     expect(metric.dateText).toContain('10:00');
     expect(metric.detailText).toBe('25 m / 30:00');
-    const [imperial] = downloadedDiveRows([DIVE], 'imperial');
+    const [imperial] = downloadedDiveRows([DIVE], IMPERIAL_UNITS);
     expect(imperial.detailText).toContain('ft');
   });
 
   it('leaves out what is missing', () => {
-    const [row] = downloadedDiveRows([{ ...DIVE, maxDepthMm: 0 }]);
+    const [row] = downloadedDiveRows([{ ...DIVE, maxDepthMm: 0 }], METRIC_UNITS);
     expect(row.detailText).toBe('30:00');
   });
 });

@@ -13,7 +13,15 @@ import { useMemo } from 'react';
 
 import type { DiveSite, StatsSummary } from '@/models';
 import { describeError, formatErrorLine } from '@/models/errors';
-import { filterYears, isFiltered, NO_FILTER, type StatsFilterInput } from '@/models/statistics';
+import {
+  filterYears,
+  isFiltered,
+  NO_FILTER,
+  withRecentPeriod,
+  withYear,
+  type RecentPeriod,
+  type StatsFilterInput,
+} from '@/models/statistics';
 import { useDives, useSites, useStatistics } from '@/queries/logbook';
 
 import { useStatisticsContext } from './statistics-context';
@@ -31,6 +39,8 @@ export type StatisticsScreen = {
   /** Sites with at least one dive, most-dived first. */
   sites: DiveSite[];
   setYear: (year: number | null) => void;
+  /** The legacy summary's periods; clears the year, as a year clears it. */
+  setRecentPeriod: (months: RecentPeriod | null) => void;
   setSite: (uuid: number | null) => void;
   /** Planned dives in the log. They count, as on desktop, unless left out. */
   plannedDives: number;
@@ -70,7 +80,8 @@ export function useStatisticsScreen(): StatisticsScreen {
     filtered: active,
     years,
     sites: sitesWithDives,
-    setYear: (year) => setFilter((current) => ({ ...current, year })),
+    setYear: (year) => setFilter((current) => withYear(current, year)),
+    setRecentPeriod: (months) => setFilter((current) => withRecentPeriod(current, months)),
     setSite: (siteUuid) => setFilter((current) => ({ ...current, siteUuid })),
     plannedDives: dives.filter((dive) => dive.planned).length,
     setExcludePlanned: (excludePlanned) => setFilter((current) => ({ ...current, excludePlanned })),

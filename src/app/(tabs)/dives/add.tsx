@@ -20,8 +20,8 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import { previewNewDive } from '../../../../modules/ssrf-core/src';
-import type { NewDiveInput, UnitSystem } from '@/models';
-import { buildCylinderPatches, validateCylinderDrafts } from '@/models/cylinder-edit';
+import type { NewDiveInput, Units } from '@/models';
+import { buildCylinderPatches, newCylinderDraft, validateCylinderDrafts } from '@/models/cylinder-edit';
 import {
   buildNewDiveBasics,
   localNowWhen,
@@ -32,21 +32,21 @@ import {
 import { BLANK_DIVE_DRAFT, buildDivePatch } from '@/models/dive-edit';
 import { buildWeightPatches } from '@/models/weight-edit';
 import { useAddDive } from '@/queries/logbook-mutations';
-import { useUnitSystem } from '@/queries/settings';
+import { useDefaultCylinder, useUnits } from '@/queries/settings';
 
 /** What the cylinder and weight patches compare against: a dive with neither. */
 const NOTHING_YET = { cylinders: [], weightsystems: [] };
 
-function newDiveInput(values: DiveFormValues, unitSystem: UnitSystem): NewDiveInput {
+function newDiveInput(values: DiveFormValues, units: Units): NewDiveInput {
   const input: NewDiveInput = {
     ...buildDivePatch(BLANK_DIVE_DRAFT, values),
-    ...buildNewDiveBasics(values, unitSystem),
+    ...buildNewDiveBasics(values, units),
   };
-  const cylinders = buildCylinderPatches(NOTHING_YET, values.cylinders, unitSystem);
+  const cylinders = buildCylinderPatches(NOTHING_YET, values.cylinders, units);
   if (cylinders !== null) {
     input.cylinders = cylinders;
   }
-  const weights = buildWeightPatches(NOTHING_YET, values.weights, unitSystem);
+  const weights = buildWeightPatches(NOTHING_YET, values.weights, units);
   if (weights !== null) {
     input.weightsystems = weights;
   }
@@ -57,7 +57,8 @@ export default function AddDiveScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
+  const template = useDefaultCylinder();
   const addDive = useAddDive();
   const scroll = useRef<ScrollViewInstance>(null);
   // Where the top of the form is. Not 0: the content starts under the header, by an
@@ -82,14 +83,15 @@ export default function AddDiveScreen() {
       ...BLANK_DIVE_DRAFT,
       ...newDiveBasicsDraft(now),
       tagText: '',
-      cylinders: [],
+      // The default cylinder from Settings, as the core's own new dive has it.
+      cylinders: template ? [newCylinderDraft(template, units)] : [],
       weights: [],
     },
     rules,
-    unitSystem,
+    units,
     onSave: async (values) => {
       try {
-        const dive = await addDive.mutateAsync(newDiveInput(values, unitSystem));
+        const dive = await addDive.mutateAsync(newDiveInput(values, units));
         operationSucceeded();
         setSavedId(dive.id);
       } catch {
@@ -134,13 +136,13 @@ export default function AddDiveScreen() {
   const previewSac = (values: DiveFormValues): number => {
     if (
       values.cylinders.length === 0 ||
-      Object.keys(validateDiveBasics(values, unitSystem, rules)).length > 0 ||
-      Object.keys(validateCylinderDrafts(values.cylinders, unitSystem)).length > 0
+      Object.keys(validateDiveBasics(values, units, rules)).length > 0 ||
+      Object.keys(validateCylinderDrafts(values.cylinders, units)).length > 0
     ) {
       return 0;
     }
     try {
-      return previewNewDive(newDiveInput(values, unitSystem)).sac;
+      return previewNewDive(newDiveInput(values, units)).sac;
     } catch {
       // A preview is a convenience, as in the editor.
       return 0;
@@ -170,7 +172,7 @@ export default function AddDiveScreen() {
       <DiveFormSections
         form={form}
         rules={rules}
-        unitSystem={unitSystem}
+        units={units}
         previewSac={previewSac}
         errors={[addDive.error]}
       />

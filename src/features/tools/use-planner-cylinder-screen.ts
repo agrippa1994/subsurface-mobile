@@ -37,7 +37,7 @@ export const USE_OPTIONS: readonly { value: CylinderUse; label: string }[] = [
 export function usePlannerCylinderScreen() {
   const { key } = useLocalSearchParams<{ key: string }>();
   const router = useRouter();
-  const { draft, setDraft, system, planner } = usePlanner();
+  const { draft, setDraft, units, planner } = usePlanner();
   const cylinder = draft.cylinders.find((candidate) => candidate.key === key) ?? null;
 
   const maxDepthMm = plannedMaxDepthMm(draft);
@@ -72,17 +72,17 @@ export function usePlannerCylinderScreen() {
 
   return {
     cylinder,
-    system,
+    units,
     tanks: tankList,
     presets: GAS_PRESETS,
-    fillRange: fillRange(system),
-    fill: cylinder ? fillValue(cylinder.fillMbar, system) : 0,
-    fillUnit: system === 'imperial' ? 'psi' : 'bar',
+    fillRange: fillRange(units),
+    fill: cylinder ? fillValue(cylinder.fillMbar, units) : 0,
+    fillUnit: units.pressure === 'psi' ? 'psi' : 'bar',
     showUse: draft.diveMode === PlanDiveMode.Ccr,
     canRemove: draft.cylinders.length > 1 && !cylinderInUse(draft, key),
     inUse: cylinderInUse(draft, key),
     bestLabel: best
-      ? `Best mix for ${formatDepth(maxDepthMm, system)}: ${gasName(Math.round(best.o2Permille / 10), Math.round(best.hePermille / 10))}`
+      ? `Best mix for ${formatDepth(maxDepthMm, units)}: ${gasName(Math.round(best.o2Permille / 10), Math.round(best.hePermille / 10))}`
       : null,
     applyBest: () => {
       if (best) {
@@ -106,7 +106,7 @@ export function usePlannerCylinderScreen() {
     },
     setO2: (o2Percent: number) => patch({ o2Percent }),
     setHe: (hePercent: number) => patch({ hePercent }),
-    setFill: (value: number) => patch({ fillMbar: fillFromValue(value, system) }),
+    setFill: (value: number) => patch({ fillMbar: fillFromValue(value, units) }),
     setUse: (use: CylinderUse) => patch({ use }),
     remove: () => {
       setDraft((d) => removeCylinder(d, key));

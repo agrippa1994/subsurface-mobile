@@ -15,7 +15,7 @@ import { FormField, FormSection } from '@/components/form';
 import { SuggestField } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatWeight, type UnitSystem } from '@/models';
+import { formatWeight, type Units } from '@/models';
 import {
   newWeightDraft,
   totalWeightGrams,
@@ -27,14 +27,14 @@ export function WeightEditor({
   drafts,
   errors,
   descriptions,
-  unitSystem,
+  units,
   onChange,
 }: {
   drafts: readonly WeightDraft[];
   errors: WeightErrors;
   /** Weight descriptions to complete against. */
   descriptions: readonly string[];
-  unitSystem: UnitSystem;
+  units: Units;
   onChange: (drafts: WeightDraft[]) => void;
 }) {
   const theme = useTheme();
@@ -57,11 +57,11 @@ export function WeightEditor({
           />
 
           <FormField
-            label={unitSystem === 'imperial' ? 'Weight (lbs)' : 'Weight (kg)'}
+            label={units.weight === 'lbs' ? 'Weight (lbs)' : 'Weight (kg)'}
             value={draft.weightText}
             onChangeText={(weightText) => patchRow(draft.key, { weightText })}
             keyboardType="decimal-pad"
-            placeholder={unitSystem === 'imperial' ? '12' : '6'}
+            placeholder={units.weight === 'lbs' ? '12' : '6'}
           />
 
           {errors[draft.key] ? (
@@ -82,7 +82,7 @@ export function WeightEditor({
           <View style={styles.totalRow}>
             <Text style={[styles.totalLabel, { color: theme.text }]}>Total weight</Text>
             <Text style={[styles.totalValue, { color: theme.text }]}>
-              {formatWeight(totalWeightGrams(drafts, unitSystem), unitSystem)}
+              {formatWeight(totalWeightGrams(drafts, units), units)}
             </Text>
           </View>
         </FormSection>

@@ -75,19 +75,20 @@ rendered metric or imperial.
 | `clear` | `{}` | `{}` |
 | `importSuunto` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
 | `importFile` | `{ path }` or `{ base64 }` | `{ added, merged, failed, dives, sites }` |
-| `configure` | `{ xsltDir?, dataDir? }` | `{ xsltDir, dataDir }` |
+| `configure` | `{ xsltDir?, dataDir?, monthNames?, defaultCylinder? }` | `{ xsltDir, dataDir }` |
+| `defaultCylinder` | `{}` | `Cylinder` or `null` |
 | `listDives` | `{}` | `DiveSummary[]` |
 | `getDive` | `{ id }` | `Dive` |
 | `getProfile` | `{ id, dcIndex?, gfLow?, gfHigh? }` | `PlotInfo` |
 | `getStatistics` | `{ filter? }` | `StatsSummary` |
-| `statsChart` | `{ config?, change?, filter?, imperial?, plot? }` | `{ config, options, dives, chart? }` |
+| `statsChart` | `{ config?, change?, filter?, units?, imperial?, plot? }` | `{ config, options, dives, chart? }` |
 | `nitroxPlan` | `{ depthMm, o2Permille, maxPo2Mbar?, salinity?, gfLow?, gfHigh? }` | `NitroxPlan` |
 | `planDive` | `PlanInput` | `PlanResult` |
 | `savePlan` | `PlanInput` | `{ id, dives }` |
 | `gasInfo` | `{ o2Permille, hePermille?, o2Narcotic?, salinity?, surfacePressureMbar?, bestMix? }` | `GasInfo` |
 | `plannerOptions` | none | `{ tanks }` |
 | `plannerSurface` | `{ altitudeMm }` or `{ surfacePressureMbar }` | `{ surfacePressureMbar, altitudeMm }` |
-| `exportDiveCSV` | `{ id, path, format, units?, gfLow?, gfHigh? }` | `{ path, format }` |
+| `exportDiveCSV` | `{ id, path, format, units?, unitPrefs?, gfLow?, gfHigh? }` | `{ path, format }` |
 | `listDiveSites` | `{}` | `DiveSite[]` |
 | `upsertDiveSite` | `DiveSiteInput` | `{ uuid }` |
 | `deleteDiveSite` | `{ uuid }` | `{ sites }` |
@@ -181,7 +182,9 @@ directly and avoids the copy.
   profile, `xml2summarycsv.xslt`) or `"profile"` (computed profile panel data,
   `save_profiledata()`). Those writers only export "the selected dives", so the
   selection is set to exactly this dive first. `units` is the stylesheets'
-  `0` metric / `1` imperial (default metric); `"profile"` ignores it and writes
+  `0` metric / `1` imperial (default metric); `unitPrefs`, a units object (see
+  "Units for core-written text" below), picks each column's unit on its own
+  through the patched stylesheets and wins over `units`; `"profile"` ignores both and writes
   raw core units, and takes `gfLow`/`gfHigh` exactly as `getProfile` does. The
   file is written in place, not atomically - it is an export, not the logbook.
 - **`nitroxPlan`** reads no logbook state. For one nitrox mix and one depth it
@@ -203,8 +206,8 @@ directly and avoids the copy.
   `init_decompression()` reads the dives before `when`, so a repetitive plan starts
   from the tissues they left, and `surfaceIntervalSec` goes negative on an overlap.
   Every setting is an argument: the call starts from `default_prefs`, applies
-  them, and restores `prefs` on the way out. `imperial` also picks the stop table
-  and the units of the notes. With `dropStone`, the first segment's descent at
+  them, and restores `prefs` on the way out. `units` (or the older `imperial`)
+  picks the stop table, 3 m or 10 ft from the depth unit, and the units of the notes. With `dropStone`, the first segment's descent at
   `descrate` is carved out of its time, and a segment shorter than that descent is
   refused. `o2Permille` is taken as given, and 0 is the core's air. A first segment
   on another cylinder moves that cylinder to the front; `inputIndex` says which is
@@ -233,7 +236,7 @@ directly and avoids the copy.
   to persist; it replays to itself. `options` is `getUIState()`: only what these choices
   allow. `chart` is the data half of `StatsView::plot*()`: `family` (`bar`, `pie`, `box`,
   `scatter`, or `empty` when nothing is left to draw), axes, and items with the ids of their
-  dives, in the unit `imperial` asks for, which also picks the binners. `filter` is
+  dives, in the units `units` (or the older `imperial`) asks for, which also pick the binners. `filter` is
   `getStatistics`' and selects dives the same way; `excludePlanned` applies to both. The
   regression is `linear_regression()` and is null when upstream draws none, because the fit
   is not significant. See `cpp/bindings/stats-chart.cpp`.
@@ -254,6 +257,16 @@ directly and avoids the copy.
     with `toMin: null` on the last, open-ended bucket at 180 min. 10 minutes is
     desktop's default duration binner (`stats/statsvariables.cpp`).
   - `siteCount`: distinct dive sites among the matched dives, counted by uuid.
+  - `firstWhen`, `lastWhen`, `nitroxDives` (a cylinder richer than 21% O2) and
+    `deepDives` (deeper than 39 m): the legacy dive summary's other rows
+    (`qt-models/divesummarymodel.cpp`, `calculateDive`), over the same selection.
+
+  The filter's `recentMonths` is the legacy summary's period: the dives strictly
+  after "now less that many calendar months", now being the wall clock dives are
+  logged in (`time(nullptr) + gettimezoneoffset()`, or `nowWhen` for a test), the
+  day clamped to the shorter month as `QDateTime::addMonths` does
+  (`months_before()` in `api.cpp`). `periodStartWhen` on the reply is that start,
+  0 without a period. It combines with every other filter field.
 - **`addDive`** is upstream's `Command::AddDive` without the undo stack and with
   autogrouping off, on a dive built like `dive_table::default_dive()`: a dive
   computer called "manually added dive" (`make_manually_added_dive_dc`), and six
@@ -485,3 +498,42 @@ call becomes an entry in the history, so a new mutation has undo with no code he
   would mean they could not be put back, and every id has to be treated as new.
 - Any method may be given `historyKind`, a string filing the entry under that `kind`.
 - At most 50 entries are kept, and 64 MB of states, always at least one entry.
+
+## Units for core-written text
+
+Everything the bindings return is in raw core units, but three outputs are text the
+core writes itself: the planner's notes, the configurable statistics (binner names,
+labels, axis titles) and the CSV stylesheets. Those calls take `units`, one unit per
+quantity, the app's `Units` (src/models/units.ts):
+
+```json
+{ "depth": "m" | "ft", "pressure": "bar" | "psi", "volume": "l" | "cuft",
+  "temperature": "C" | "F", "weight": "kg" | "lbs" }
+```
+
+It sets `prefs.units` for that call only (`units_from_json`, marshal.cpp), and
+`prefs.unit_system` to METRIC, IMPERIAL or PERSONALIZE as desktop derives it. A
+quantity left out keeps the preset (`imperial`, else metric); any other value is an
+error. The older `imperial: true` remains and means every unit imperial.
+
+## Month names
+
+`configure({ monthNames })` takes the device region's twelve short month names,
+January first. The core spells a month in two places the app shows - the
+configurable statistics' monthly binner and a trip's title, both through
+`monthname()` - and the gettext shim (cpp/shim/gettext.cpp) maps the English
+"Jan".."Dec" to these. An empty name keeps the English one. Every other date the
+app shows is formatted in TypeScript (src/models/date-format.ts).
+
+## Default cylinder
+
+`configure({ defaultCylinder })` sets the core's `prefs.default_cylinder` to a cylinder
+type's name from the tank table (`plannerOptions().tanks`), or `""` for none, the
+core's default. A name the table lacks is refused and leaves the previous one; the
+table is rebuilt first (`reset_tank_info_table`) in case no log has been loaded yet.
+The core reads it where desktop does: `fill_default_cylinder()` for a downloaded
+dive's cylinder that the computer named without a size. `defaultCylinder` returns
+`create_new_cylinder()` on a scratch dive - the type's size and working pressure,
+filled to it, air - which the app starts a new dive's cylinder and the planner's
+cylinders from; `null` when none is set.
+

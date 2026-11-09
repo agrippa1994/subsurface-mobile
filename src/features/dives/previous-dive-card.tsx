@@ -19,7 +19,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { selectionChanged } from '@/lib/haptics';
-import { formatGasMix, formatWeight, type Dive, type UnitSystem } from '@/models';
+import { formatGasMix, formatWeight, type Dive, type Units } from '@/models';
 import { formatNameList, parseNameList } from '@/models/dive-edit';
 import { toDiveRow } from '@/models/dive-list';
 
@@ -35,7 +35,7 @@ type CopyAction = {
 
 export function PreviousDiveCard({
   previous,
-  unitSystem,
+  units,
   onCopySite,
   onCopyBuddies,
   onCopyDiveguide,
@@ -44,7 +44,7 @@ export function PreviousDiveCard({
   onCopyWeights,
 }: {
   previous: Dive;
-  unitSystem: UnitSystem;
+  units: Units;
   onCopySite: () => void;
   onCopyBuddies: () => void;
   onCopyDiveguide: () => void;
@@ -107,7 +107,7 @@ export function PreviousDiveCard({
           previous.weightsystems.length > 0
             ? formatWeight(
                 previous.weightsystems.reduce((sum, weight) => sum + weight.weightGrams, 0),
-                unitSystem,
+                units,
               )
             : '',
         symbol: 'scalemass.fill',
@@ -126,7 +126,7 @@ export function PreviousDiveCard({
     setCopied((done) => new Set([...done, ...selected.map((action) => action.kind)]));
   };
 
-  const row = toDiveRow(previous, unitSystem);
+  const row = toDiveRow(previous, units);
   const allCopied = actions.every((action) => copied.has(action.kind));
 
   return (

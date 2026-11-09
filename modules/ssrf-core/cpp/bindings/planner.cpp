@@ -110,12 +110,14 @@ struct prefs_scope {
 // Every setting the legacy planner's setup page has, in the core's units.
 void apply_planner_prefs(const json &args)
 {
-	if (bool_arg(args, "imperial", false)) {
-		// The notes print through get_depth_units() and friends, and plan() picks its
-		// stop table (3 m or 10 ft steps) from the length unit.
-		prefs.unit_system = IMPERIAL;
+	// The notes print through get_depth_units() and friends, and plan() picks its
+	// stop table (3 m or 10 ft steps) from the length unit. `units` names each
+	// quantity on its own; `imperial` is the older all-or-nothing switch.
+	if (bool_arg(args, "imperial", false))
 		prefs.units = IMPERIAL_units;
-	}
+	if (args.contains("units"))
+		prefs.units = units_from_json(args.at("units"), prefs.units);
+	prefs.unit_system = static_cast<unit_system_values>(unit_system_of(prefs.units));
 
 	int deco_mode_arg = int_arg(args, "decoMode", BUEHLMANN, BUEHLMANN, VPMB);
 	prefs.planner_deco_mode = static_cast<deco_mode>(deco_mode_arg);

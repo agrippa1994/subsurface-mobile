@@ -8,6 +8,7 @@
 // only decides labels, bucket trimming and axis scales, which is what the
 // vitest suite can check without a device.
 
+import { formatDiveDate, formatMonthYear, shortMonthName } from './date-format';
 import type { StatsFilter, StatsSummary } from './index';
 import {
   formatDepth,
@@ -18,7 +19,7 @@ import {
   mlToLiters,
   mmToFeet,
   mmToMeters,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 /** Depth bucket width in `StatsSummary.byDepth`. `STATS_DEPTH_BUCKET` in core/statistics.h. */
@@ -51,7 +52,7 @@ export type ChartGranularity = 'month' | 'year';
  * distinct sites they were spread over. `matched` is the filter's own count, and equals
  * `total.selectionSize` except that the latter drops dives flagged invalid.
  */
-export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric'): StatTile[] {
+export function summaryTiles(summary: StatsSummary, units: Units): StatTile[] {
   const { total } = summary;
   const dives = total.selectionSize;
 
@@ -60,7 +61,7 @@ export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric
       key: 'dives',
       label: 'Dives',
       value: String(dives),
-      detail: summary.matched === dives ? '' : `${summary.matched} matched`,
+      detail: diveCountDetail(summary, units),
     },
     {
       key: 'time',
@@ -71,29 +72,57 @@ export function summaryTiles(summary: StatsSummary, system: UnitSystem = 'metric
     {
       key: 'depth',
       label: 'Max depth',
-      value: dives > 0 ? formatDepth(total.maxDepthMm, system) : '-',
-      detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, system)}` : '',
+      value: dives > 0 ? formatDepth(total.maxDepthMm, units) : '-',
+      detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, units)}` : '',
     },
     {
       key: 'sac',
       label: 'Avg SAC',
-      value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, system) : '-',
-      detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, system),
+      value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, units) : '-',
+      detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, units),
     },
     {
       key: 'sites',
       label: 'Dive sites',
       value: String(summary.siteCount),
-      detail: temperatureRange(summary, system),
+      detail: temperatureRange(summary, units),
+    },
+    {
+      key: 'last',
+      label: 'Last dive',
+      value: summary.lastWhen > 0 ? formatDiveDate(summary.lastWhen) : '-',
+      detail: summary.firstWhen > 0 ? `first ${formatDiveDate(summary.firstWhen)}` : '',
     },
   ];
 }
 
-function sacRange(minMlPerMin: number, maxMlPerMin: number, system: UnitSystem): string {
+/** Depth past which the legacy summary counts a dive as deep (divesummarymodel.cpp). */
+export const DEEP_DIVE_MM = 39000;
+
+/**
+ * Under the dive count: what the legacy summary counted beside it - dives on
+ * nitrox and dives past 39 m - and how many the filter matched where the core
+ * dropped some as invalid.
+ */
+function diveCountDetail(summary: StatsSummary, units: Units): string {
+  const parts: string[] = [];
+  if (summary.matched !== summary.total.selectionSize) {
+    parts.push(`${summary.matched} matched`);
+  }
+  if (summary.nitroxDives > 0) {
+    parts.push(`${summary.nitroxDives} on nitrox`);
+  }
+  if (summary.deepDives > 0) {
+    parts.push(`${summary.deepDives} past ${formatDepth(DEEP_DIVE_MM, units)}`);
+  }
+  return parts.join(', ');
+}
+
+function sacRange(minMlPerMin: number, maxMlPerMin: number, units: Units): string {
   if (minMlPerMin <= 0 || maxMlPerMin <= 0) {
     return '';
   }
-  return `${formatSac(minMlPerMin, system)} to ${formatSac(maxMlPerMin, system)}`;
+  return `${formatSac(minMlPerMin, units)} to ${formatSac(maxMlPerMin, units)}`;
 }
 
 /** Bottom time is hours-and-minutes, not the `h:mm:ss` a single dive gets. */
@@ -104,12 +133,12 @@ export function formatTotalTime(seconds: number): string {
   return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
 }
 
-function temperatureRange(summary: StatsSummary, system: UnitSystem): string {
+function temperatureRange(summary: StatsSummary, units: Units): string {
   const { minTempMkelvin, maxTempMkelvin } = summary.total;
   if (minTempMkelvin <= 0 || maxTempMkelvin <= 0) {
     return '';
   }
-  return `${formatTemperature(minTempMkelvin, system)} to ${formatTemperature(maxTempMkelvin, system)}`;
+  return `${formatTemperature(minTempMkelvin, units)} to ${formatTemperature(maxTempMkelvin, units)}`;
 }
 
 // --- Dives over time -------------------------------------------------------
@@ -134,20 +163,6 @@ function spanInMonths(summary: StatsSummary): number {
   return (last.year - first.year) * 12 + (last.month - first.month) + 1;
 }
 
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 export function divesOverTime(
   summary: StatsSummary,
@@ -177,12 +192,12 @@ export function divesOverTime(
   const bars: StatBar[] = [];
   for (let y = first.year, m = first.month; y < last.year || (y === last.year && m <= last.month); ) {
     const key = `${y}-${m}`;
-    const label = m === 1 ? String(y) : MONTH_NAMES[m - 1];
+    const label = m === 1 ? String(y) : shortMonthName(m);
     bars.push({
       key,
       label,
       value: counts.get(key) ?? 0,
-      caption: `${MONTH_NAMES[m - 1]} ${y}: ${diveCount(counts.get(key) ?? 0)}`,
+      caption: `${formatMonthYear(y, m)}: ${diveCount(counts.get(key) ?? 0)}`,
     });
     m += 1;
     if (m > 12) {
@@ -207,7 +222,7 @@ export function divesOverTime(
  */
 export function sacOverTime(
   summary: StatsSummary,
-  system: UnitSystem = 'metric',
+  units: Units,
   granularity: ChartGranularity = pickGranularity(summary)
 ): StatBar[] {
   const bars: StatBar[] = [];
@@ -216,7 +231,7 @@ export function sacOverTime(
     for (const year of summary.yearly) {
       if (year.avgSacMlPerMin > 0) {
         const name = String(year.period);
-        bars.push(sacBar(name, name, name, year.avgSacMlPerMin, system));
+        bars.push(sacBar(name, name, name, year.avgSacMlPerMin, units));
       }
     }
     return bars;
@@ -228,12 +243,12 @@ export function sacOverTime(
     if (!entry || month.avgSacMlPerMin <= 0) {
       return;
     }
-    const name = MONTH_NAMES[entry.month - 1];
+    const name = shortMonthName(entry.month);
     // The year goes on the first bar of each year, since months may be missing.
     const label = entry.year !== previousYear ? String(entry.year) : name;
     previousYear = entry.year;
     const key = `${entry.year}-${entry.month}`;
-    bars.push(sacBar(key, label, `${name} ${entry.year}`, month.avgSacMlPerMin, system));
+    bars.push(sacBar(key, label, formatMonthYear(entry.year, entry.month), month.avgSacMlPerMin, units));
   });
   return bars;
 }
@@ -243,18 +258,18 @@ function sacBar(
   label: string,
   period: string,
   mlPerMin: number,
-  system: UnitSystem
+  units: Units
 ): StatBar {
   return {
     key: `sac-${key}`,
     label,
-    value: system === 'imperial' ? mlToCuft(mlPerMin) : mlToLiters(mlPerMin),
-    caption: `${period}: ${formatSac(mlPerMin, system)} average`,
+    value: units.volume === 'cuft' ? mlToCuft(mlPerMin) : mlToLiters(mlPerMin),
+    caption: `${period}: ${formatSac(mlPerMin, units)} average`,
   };
 }
 
-export function sacAxisUnit(system: UnitSystem = 'metric'): string {
-  return system === 'imperial' ? 'cuft/min' : 'l/min';
+export function sacAxisUnit(units: Units): string {
+  return units.volume === 'cuft' ? 'cuft/min' : 'l/min';
 }
 
 // --- Distributions ---------------------------------------------------------
@@ -265,29 +280,29 @@ export function sacAxisUnit(system: UnitSystem = 'metric'): string {
  * drawn against a 300 m axis. Bucket bounds stay metric even in imperial mode,
  * because that is how the core cut them - the labels convert, the cuts cannot.
  */
-export function depthHistogram(summary: StatsSummary, system: UnitSystem = 'metric'): StatBar[] {
+export function depthHistogram(summary: StatsSummary, units: Units): StatBar[] {
   const buckets = trimTrailingEmpty(summary.byDepth.slice(1), (b) => b.selectionSize);
   return buckets.map((bucket, index) => {
     const from = index * DEPTH_BUCKET_M;
     const to = from + DEPTH_BUCKET_M;
-    const label = depthBoundLabel(to, system);
+    const label = depthBoundLabel(to, units);
     return {
       key: `depth-${from}`,
       label,
       value: bucket.selectionSize,
-      caption: `${depthBoundLabel(from, system)} to ${label}: ${diveCount(bucket.selectionSize)}`,
+      caption: `${depthBoundLabel(from, units)} to ${label}: ${diveCount(bucket.selectionSize)}`,
     };
   });
 }
 
-function depthBoundLabel(meters: number, system: UnitSystem): string {
+function depthBoundLabel(meters: number, units: Units): string {
   const mm = meters * 1000;
-  return system === 'imperial' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
+  return units.depth === 'ft' ? `${Math.round(mmToFeet(mm))}` : `${Math.round(mmToMeters(mm))}`;
 }
 
 /** Unit shown once on the depth axis, since the bounds themselves are bare. */
-export function depthAxisUnit(system: UnitSystem = 'metric'): string {
-  return system === 'imperial' ? 'ft' : 'm';
+export function depthAxisUnit(units: Units): string {
+  return units.depth === 'ft' ? 'ft' : 'm';
 }
 
 /**
@@ -359,16 +374,51 @@ export function countAxis(
 
 // --- Filters ---------------------------------------------------------------
 
+/** The legacy dive summary's periods, in calendar months back from now. */
+export type RecentPeriod = 1 | 3 | 6 | 12;
+
+export const RECENT_PERIODS: readonly { months: RecentPeriod; label: string; spoken: string }[] = [
+  { months: 1, label: 'Last month', spoken: 'the last month' },
+  { months: 3, label: '3 months', spoken: 'the last 3 months' },
+  { months: 6, label: '6 months', spoken: 'the last 6 months' },
+  { months: 12, label: '12 months', spoken: 'the last 12 months' },
+];
+
 export type StatsFilterInput = {
-  /** Calendar year, or null for every year. */
+  /**
+   * Calendar year, or null for every year. A year and a recent period are one
+   * choice - when the dives are from - so setting either clears the other.
+   */
   year: number | null;
+  /** Only the dives of the last so many months, or null. */
+  recentMonths?: RecentPeriod | null;
   /** Dive site uuid, or null for every site. Uuids are stable across loads. */
   siteUuid: number | null;
   /** Leaves out planned dives. Off by default: desktop Subsurface counts them. */
   excludePlanned?: boolean;
 };
 
-export const NO_FILTER: StatsFilterInput = { year: null, siteUuid: null, excludePlanned: false };
+export const NO_FILTER: StatsFilterInput = {
+  year: null,
+  recentMonths: null,
+  siteUuid: null,
+  excludePlanned: false,
+};
+
+/** Picks a calendar year, or every year; a recent period goes. */
+export function withYear(filter: StatsFilterInput, year: number | null): StatsFilterInput {
+  return { ...filter, year, recentMonths: null };
+}
+
+/** Picks a recent period, or none; a calendar year goes. */
+export function withRecentPeriod(filter: StatsFilterInput, months: RecentPeriod | null): StatsFilterInput {
+  return { ...filter, recentMonths: months, year: null };
+}
+
+/** "Dives after 9 Aug 2026", for a recent period; null otherwise. */
+export function periodNote(summary: StatsSummary): string | null {
+  return summary.periodStartWhen > 0 ? `Dives after ${formatDiveDate(summary.periodStartWhen)}` : null;
+}
 
 /**
  * Turns the screen's filter state into the module's `StatsFilter`. The module
@@ -381,6 +431,11 @@ export function toStatsFilter(input: StatsFilterInput): StatsFilter | undefined 
     // Dive timestamps are UTC seconds, so the year bounds are UTC too.
     filter.fromWhen = Date.UTC(input.year, 0, 1) / 1000;
     filter.toWhen = Date.UTC(input.year + 1, 0, 1) / 1000 - 1;
+  }
+  if (input.recentMonths) {
+    // The core works out where the period starts (api.cpp, months_before), on the
+    // wall clock the dives are logged in, as the legacy summary did.
+    filter.recentMonths = input.recentMonths;
   }
   if (input.siteUuid !== null) {
     filter.siteUuid = input.siteUuid;
@@ -404,5 +459,10 @@ export function filterYears(summary: StatsSummary): number[] {
 }
 
 export function isFiltered(input: StatsFilterInput): boolean {
-  return input.year !== null || input.siteUuid !== null || Boolean(input.excludePlanned);
+  return (
+    input.year !== null ||
+    Boolean(input.recentMonths) ||
+    input.siteUuid !== null ||
+    Boolean(input.excludePlanned)
+  );
 }

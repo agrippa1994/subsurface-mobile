@@ -11,7 +11,7 @@ import type { DiveIdListProps } from './dive-id-list';
 
 export type { DiveIdListProps };
 
-export function DiveIdList({ dives, unitSystem, onSelect }: DiveIdListProps) {
+export function DiveIdList({ dives, units, onSelect }: DiveIdListProps) {
   const palette = useMaterialColors();
   return (
     <Host style={{ flex: 1, backgroundColor: palette.surface }}>
@@ -21,7 +21,7 @@ export function DiveIdList({ dives, unitSystem, onSelect }: DiveIdListProps) {
           keyExtractor={(dive) => String(dive.id)}
           estimatedItemSize={72}>
           {({ item }) => (
-            <M3DiveRow row={toDiveRow(item, unitSystem)} onPress={() => onSelect(item.id)} />
+            <M3DiveRow row={toDiveRow(item, units)} onPress={() => onSelect(item.id)} />
           )}
         </LazyColumn.Items>
       </LazyColumn>

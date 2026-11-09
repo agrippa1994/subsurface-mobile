@@ -21,7 +21,7 @@ import { recordProblem } from '@/lib/diagnostics';
 import type { PlotEntry } from '@/models';
 import { buildWidgetSnapshot, latestDive, type WidgetSnapshot } from '@/models/widgets';
 import { useDives } from '@/queries/logbook';
-import { useGradientFactors, useUnitSystem } from '@/queries/settings';
+import { useGradientFactors, useUnits } from '@/queries/settings';
 import DiveActivity from '@/widgets/dive-activity';
 import LastDive from '@/widgets/last-dive';
 import LogbookTotals from '@/widgets/logbook-totals';
@@ -63,7 +63,7 @@ function push(next: WidgetSnapshot, sent: Map<string, string>): void {
 
 export function useWidgetSync(): void {
   const { data: dives } = useDives();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const gf = useGradientFactors();
   const sent = useRef(new Map<string, string>());
   // Bumped when the app returns to the foreground, so the calendar-relative
@@ -98,12 +98,12 @@ export function useWidgetSync(): void {
       buildWidgetSnapshot({
         dives,
         lastProfile,
-        unitSystem,
+        units,
         now,
         timezoneOffsetMinutes: new Date(now).getTimezoneOffset(),
         links: { url: appUrl },
       }),
       sent.current,
     );
-  }, [dives, unitSystem, gf, wake]);
+  }, [dives, units, gf, wake]);
 }

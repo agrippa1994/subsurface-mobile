@@ -34,7 +34,7 @@ import { usePlanner } from './use-planner';
 
 export function usePlannerScreen() {
   const planner = usePlanner();
-  const { draft, system, outcome, setDraft, input } = planner;
+  const { draft, units, outcome, setDraft, input } = planner;
   const router = useRouter();
   const save = useSavePlan();
   const { width, height } = useWindowDimensions();
@@ -46,18 +46,18 @@ export function usePlannerScreen() {
     if (result === null) {
       return null;
     }
-    const gasRows = planGasRows(result, system);
+    const gasRows = planGasRows(result, units);
     return {
       headline: planHeadline(result),
       stops: planStops(result),
       gasRows,
       tightestGas: tightestGasRow(gasRows),
-      warnings: planWarnings(result, system, draft.when, planner.dives),
+      warnings: planWarnings(result, units, draft.when, planner.dives),
       plot: result.profile ? buildProfilePlot(result.profile, result.dive?.dcs[0]?.events ?? []) : null,
       interval: surfaceIntervalText(result),
       canSave: planCanBeSaved(result),
     };
-  }, [result, system, draft.when, planner.dives]);
+  }, [result, units, draft.when, planner.dives]);
 
   // Asks nothing: the diver has just pressed the button for it, and it undoes.
   const savePlan = () => {
@@ -84,12 +84,12 @@ export function usePlannerScreen() {
      * the pane less the Form's margins (16 each side) and the row's insets (20 each).
      */
     chartWidth: (twoPanes ? width / 2 : width) - 72,
-    depthRange: depthRange(system),
-    depthUnit: depthUnit(system),
-    depthOf: (segment: PlanSegmentDraft) => depthValue(segment.depthMm, system),
+    depthRange: depthRange(units),
+    depthUnit: depthUnit(units),
+    depthOf: (segment: PlanSegmentDraft) => depthValue(segment.depthMm, units),
     summaryBar: {
       runtime: view?.headline.runtime ?? null,
-      depth: result ? formatDepth(result.maxDepthMm, system) : '',
+      depth: result ? formatDepth(result.maxDepthMm, units) : '',
       decoLine: view?.headline.decoLine ?? '',
       gas: view?.tightestGas ?? null,
       warnings: view?.warnings ?? [],
@@ -99,7 +99,7 @@ export function usePlannerScreen() {
     isCcr: draft.diveMode === PlanDiveMode.Ccr,
     isPscr: draft.diveMode === PlanDiveMode.Pscr,
     setDepth: (key: string, value: number) =>
-      setDraft((d) => patchSegment(d, key, { depthMm: depthFromValue(value, system) })),
+      setDraft((d) => patchSegment(d, key, { depthMm: depthFromValue(value, units) })),
     setMinutes: (key: string, minutes: number) =>
       setDraft((d) => patchSegment(d, key, { minutes })),
     setSegmentGas: (key: string, cylinderKey: string) =>
@@ -113,7 +113,7 @@ export function usePlannerScreen() {
     openCylinder: (key: string) =>
       router.push({ pathname: '/tools/planner-cylinder', params: { key } }),
     addCylinderAndOpen: () => {
-      const cylinder = newCylinderDraft(system);
+      const cylinder = newCylinderDraft(units, planner.defaultTank);
       setDraft((d) => addCylinder(d, cylinder));
       router.push({ pathname: '/tools/planner-cylinder', params: { key: cylinder.key } });
     },

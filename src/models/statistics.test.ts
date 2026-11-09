@@ -20,7 +20,13 @@ import {
   sacOverTime,
   summaryTiles,
   toStatsFilter,
+  NO_FILTER,
+  periodNote,
+  RECENT_PERIODS,
+  withRecentPeriod,
+  withYear,
 } from './statistics';
+import { IMPERIAL_UNITS , METRIC_UNITS } from './units';
 
 function stats(partial: Partial<Stats> = {}): Stats {
   return {
@@ -71,6 +77,11 @@ function summary(partial: Partial<StatsSummary> = {}): StatsSummary {
     timeline: [],
     byDuration: durationBins([0]),
     siteCount: 0,
+    firstWhen: 0,
+    lastWhen: 0,
+    nitroxDives: 0,
+    deepDives: 0,
+    periodStartWhen: 0,
     ...partial,
   };
 }
@@ -97,13 +108,14 @@ describe('summaryTiles', () => {
   });
 
   it('renders the headline numbers', () => {
-    const tiles = summaryTiles(filled);
+    const tiles = summaryTiles(filled, METRIC_UNITS);
     expect(tiles.map((tile) => [tile.label, tile.value])).toEqual([
       ['Dives', '4'],
       ['Total time', '3 h 25 min'],
       ['Max depth', '42.5 m'],
       ['Avg SAC', '15.4 l/min'],
       ['Dive sites', '3'],
+      ['Last dive', '-'],
     ]);
     expect(tiles[1].detail).toBe('avg 51:15');
     expect(tiles[2].detail).toBe('avg 18 m');
@@ -112,20 +124,32 @@ describe('summaryTiles', () => {
   });
 
   it('converts to imperial', () => {
-    const tiles = summaryTiles(filled, 'imperial');
+    const tiles = summaryTiles(filled, IMPERIAL_UNITS);
     expect(tiles[2].value).toBe('139 ft');
     expect(tiles[3].value).toBe('0.54 cuft/min');
     expect(tiles[4].detail).toBe('41 F to 80.6 F');
   });
 
   it('stays readable with no dives at all', () => {
-    const tiles = summaryTiles(summary());
-    expect(tiles.map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
+    const tiles = summaryTiles(summary(), METRIC_UNITS);
+    expect(tiles.map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0', '-']);
     expect(tiles.every((tile) => tile.detail === '')).toBe(true);
   });
 
+  it('names the first and last dive, as the legacy summary did', () => {
+    // 13 Dec 2011 and 2 Mar 2014, wall clock.
+    const tiles = summaryTiles(summary({ firstWhen: 1323758100, lastWhen: 1393761600 }), METRIC_UNITS);
+    expect(tiles[5]).toMatchObject({ label: 'Last dive', value: '2 Mar 2014', detail: 'first 13 Dec 2011' });
+  });
+
+  it('counts nitrox and deep dives under the dive count, past 39 m in the depth unit', () => {
+    const counted = summary({ total: stats({ selectionSize: 4 }), matched: 4, nitroxDives: 2, deepDives: 1 });
+    expect(summaryTiles(counted, METRIC_UNITS)[0].detail).toBe('2 on nitrox, 1 past 39 m');
+    expect(summaryTiles(counted, IMPERIAL_UNITS)[0].detail).toBe('2 on nitrox, 1 past 128 ft');
+  });
+
   it('names the matched count when invalid dives were dropped', () => {
-    const tiles = summaryTiles(summary({ total: stats({ selectionSize: 4 }), matched: 5 }));
+    const tiles = summaryTiles(summary({ total: stats({ selectionSize: 4 }), matched: 5 }), METRIC_UNITS);
     expect(tiles[0].detail).toBe('5 matched');
   });
 });
@@ -193,7 +217,7 @@ describe('sacOverTime', () => {
         timeline: [month(2023, 11, 2), month(2024, 1, 1), month(2024, 3, 4)],
         monthly: [sac(11, 16000), sac(1, 0), sac(3, 14500)],
       })
-    );
+    , METRIC_UNITS);
     expect(bars.map((bar) => [bar.label, bar.value])).toEqual([
       ['2023', 16],
       ['2024', 14.5],
@@ -207,7 +231,7 @@ describe('sacOverTime', () => {
         timeline: [month(2024, 1, 1), month(2024, 2, 1)],
         monthly: [sac(1, 15000), sac(2, 15000)],
       })
-    );
+    , METRIC_UNITS);
     expect(bars.map((bar) => bar.label)).toEqual(['2024', 'Feb']);
   });
 
@@ -216,15 +240,15 @@ describe('sacOverTime', () => {
       timeline: [month(2019, 1, 1), month(2024, 1, 1)],
       yearly: [sac(2019, 20000), sac(2024, 14158)],
     });
-    const bars = sacOverTime(long, 'imperial');
+    const bars = sacOverTime(long, IMPERIAL_UNITS);
     expect(bars.map((bar) => bar.label)).toEqual(['2019', '2024']);
     expect(bars[1].value).toBeCloseTo(0.5, 3);
     expect(bars[1].caption).toBe('2024: 0.5 cuft/min average');
-    expect(sacAxisUnit('imperial')).toBe('cuft/min');
+    expect(sacAxisUnit(IMPERIAL_UNITS)).toBe('cuft/min');
   });
 
   it('is empty when no dive has a SAC', () => {
-    expect(sacOverTime(summary())).toEqual([]);
+    expect(sacOverTime(summary(), METRIC_UNITS)).toEqual([]);
   });
 });
 
@@ -243,14 +267,14 @@ describe('histograms', () => {
   });
 
   it('drops the combined bucket and trims the trailing empty ones', () => {
-    const bars = depthHistogram(buckets);
+    const bars = depthHistogram(buckets, METRIC_UNITS);
     expect(bars.map((bar) => bar.value)).toEqual([2, 0, 4]);
     expect(bars.map((bar) => bar.label)).toEqual(['10', '20', '30']);
     expect(bars[2].caption).toBe('20 to 30: 4 dives');
   });
 
   it('converts the depth bounds without moving the cuts', () => {
-    expect(depthHistogram(buckets, 'imperial').map((bar) => bar.label)).toEqual(['33', '66', '98']);
+    expect(depthHistogram(buckets, IMPERIAL_UNITS).map((bar) => bar.label)).toEqual(['33', '66', '98']);
   });
 
   it('labels the open-ended duration bucket', () => {
@@ -319,3 +343,28 @@ describe('filters', () => {
     expect(years).toEqual([2024, 2019]);
   });
 });
+
+describe('recent periods', () => {
+  it('are one choice with the calendar year', () => {
+    const year = withYear(NO_FILTER, 2024);
+    const recent = withRecentPeriod(year, 3);
+    expect(recent).toMatchObject({ year: null, recentMonths: 3 });
+    expect(withYear(recent, 2023)).toMatchObject({ year: 2023, recentMonths: null });
+  });
+
+  it('reach the module as recentMonths, for the core to place', () => {
+    expect(toStatsFilter(withRecentPeriod(NO_FILTER, 6))).toEqual({ recentMonths: 6 });
+    expect(toStatsFilter(withRecentPeriod(NO_FILTER, null))).toBeUndefined();
+    expect(isFiltered(withRecentPeriod(NO_FILTER, 1))).toBe(true);
+  });
+
+  it('say where the period starts, once the core has worked it out', () => {
+    expect(periodNote(summary({ periodStartWhen: 1323758100 }))).toBe('Dives after 13 Dec 2011');
+    expect(periodNote(summary())).toBeNull();
+  });
+
+  it('offer the legacy summary periods', () => {
+    expect(RECENT_PERIODS.map((period) => period.months)).toEqual([1, 3, 6, 12]);
+  });
+});
+

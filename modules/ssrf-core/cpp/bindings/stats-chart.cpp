@@ -19,6 +19,7 @@
 
 #include "core/dive.h"
 #include "core/pref.h"
+#include "marshal.h"
 #include "stats/statsstate.h"
 #include "stats/statsvariables.h"
 
@@ -1104,9 +1105,11 @@ json plot_chart(const StatsState &state, const std::vector<dive *> &dives)
 // the app keeps its unit system in its own settings.
 class units_scope {
 public:
-	explicit units_scope(bool imperial) : saved_(prefs.units)
+	explicit units_scope(const json &args) : saved_(prefs.units)
 	{
-		prefs.units = imperial ? IMPERIAL_units : SI_units;
+		prefs.units = args.value("imperial", false) ? IMPERIAL_units : SI_units;
+		if (args.contains("units"))
+			prefs.units = units_from_json(args.at("units"), prefs.units);
 	}
 	~units_scope() { prefs.units = saved_; }
 
@@ -1118,7 +1121,7 @@ private:
 
 json stats_chart(const json &args, const std::vector<struct dive *> &dives)
 {
-	units_scope units(args.value("imperial", false));
+	units_scope units(args);
 
 	StatsState state = state_from(args.contains("config") ? args.at("config") : json());
 	auto change = args.find("change");

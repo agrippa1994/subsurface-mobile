@@ -14,23 +14,30 @@ import { useMcpSection, type McpSection } from '@/features/mcp/use-mcp-section';
 import { useTransfer, type Transfer } from '@/features/transfer/use-transfer';
 import { clearDiagnostics, readDiagnostics } from '@/lib/diagnostics';
 import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
+import { formatInstant } from '@/models/date-format';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
-import type { UnitSystem } from '@/models';
+import type { ProfileSeries } from '@/models/profile-plot';
+import type { Units } from '@/models';
+import { defaultCylinderOptions, type DefaultCylinderOption } from '@/models/cylinder-edit';
+import { unitPreset, unitsForSystem, type UnitPresetChoice } from '@/models/units';
+import { plannerOptions } from '../../../modules/ssrf-core/src';
 import { useDives, useSites, useTrips } from '@/queries/logbook';
 import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
-  useGfSeries,
   useForgetComputers,
   useGradientFactors,
   useRememberedComputers,
-  useSetGfSeries,
+  useProfileSeries,
+  useSetProfileSeries,
   useSetGradientFactors,
-  useSetUnitSystem,
-  useUnitSystem,
+  useDefaultCylinderName,
+  useSetDefaultCylinder,
+  useSetUnits,
+  useUnits,
 } from '@/queries/settings';
 
 export type SettingsScreen = {
@@ -38,8 +45,26 @@ export type SettingsScreen = {
   transfer: Transfer;
   /** The download screen, and the dive computers it remembers. */
   diveComputers: { remembered: number; open: () => void; forget: () => void };
-  unitSystem: UnitSystem;
-  setUnitSystem: (system: UnitSystem) => void;
+  units: Units;
+  /**
+   * Metric, imperial or custom. Custom stays chosen while the screen is open even
+   * when the five happen to match a preset again, so its rows do not vanish
+   * under the finger.
+   */
+  unitPreset: UnitPresetChoice;
+  setUnitPreset: (preset: UnitPresetChoice) => void;
+  /** Whether the five per-quantity rows are shown. */
+  showUnitRows: boolean;
+  setUnit: <K extends keyof Units>(key: K, value: Units[K]) => void;
+  /** New dives: the cylinder type they start with, from the core's tank table. */
+  defaultCylinder: {
+    value: string;
+    /** "None" first, then the core's types with size and working pressure. */
+    options: DefaultCylinderOption[];
+    /** The chosen option's label. */
+    label: string;
+    set: (name: string) => void;
+  };
   /** Buehlmann gradient factors, in percent, the profile ceiling is computed with. */
   gfLow: number;
   gfHigh: number;
@@ -50,10 +75,13 @@ export type SettingsScreen = {
    * Whether the profile draws the two gradient factor curves. Display only: the
    * core computes both for every plot regardless, so neither costs a recompute.
    */
-  showGfNow: boolean;
-  showGfSurface: boolean;
-  setShowGfNow: (show: boolean) => void;
-  setShowGfSurface: (show: boolean) => void;
+  /**
+   * What the profile draws: the two gradient factor curves, the two ceilings and
+   * the 3 m grid. Display only: the core computes every series for every plot
+   * regardless, so none costs a recompute.
+   */
+  profile: ProfileSeries;
+  setProfile: (patch: Partial<ProfileSeries>) => void;
   diveCount: number;
   siteCount: number;
   /**
@@ -103,10 +131,7 @@ export type SettingsScreen = {
   clearDiagnostics: () => void;
 };
 
-const lastSyncFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+const lastSyncFormatter = { format: (ms: number) => formatInstant(ms) };
 
 function aboutInfo(): AboutInfo {
   const extra = Constants.expoConfig?.extra ?? {};
@@ -122,8 +147,47 @@ function aboutInfo(): AboutInfo {
 
 export function useSettingsScreen(): SettingsScreen {
   const transfer = useTransfer();
-  const unitSystem = useUnitSystem();
-  const setUnitSystem = useSetUnitSystem();
+  const units = useUnits();
+  const setUnits = useSetUnits();
+  const storedPreset = unitPreset(units);
+  const [customChosen, setCustomChosen] = useState(storedPreset === 'personalized');
+  const shownPreset: UnitPresetChoice = customChosen ? 'personalized' : storedPreset;
+  const setUnitPreset = useCallback(
+    (preset: UnitPresetChoice) => {
+      if (preset === 'personalized') {
+        // The current units are where a custom choice starts from.
+        setCustomChosen(true);
+        return;
+      }
+      setCustomChosen(false);
+      setUnits(unitsForSystem(preset));
+    },
+    [setUnits],
+  );
+  const defaultCylinderName = useDefaultCylinderName();
+  const setDefaultCylinder = useSetDefaultCylinder();
+  const defaultCylinder = useMemo(() => {
+    let tanks: { name: string; sizeMl: number; workingPressureMbar: number }[] = [];
+    try {
+      tanks = plannerOptions().tanks;
+    } catch {
+      // No native module (web): only None.
+    }
+    const options = defaultCylinderOptions(tanks, units);
+    return {
+      value: defaultCylinderName,
+      options,
+      label: options.find((option) => option.value === defaultCylinderName)?.label ?? defaultCylinderName,
+      set: setDefaultCylinder,
+    };
+  }, [defaultCylinderName, setDefaultCylinder, units]);
+  const setUnit = useCallback(
+    <K extends keyof Units>(key: K, value: Units[K]) => {
+      setCustomChosen(true);
+      setUnits({ [key]: value } as Partial<Units>);
+    },
+    [setUnits],
+  );
   const { gfLow, gfHigh } = useGradientFactors();
   const setGradientFactors = useSetGradientFactors();
 
@@ -138,18 +202,8 @@ export function useSettingsScreen(): SettingsScreen {
     (percent: number) => setGradientFactors({ gfLow: Math.min(gfLow, percent), gfHigh: percent }),
     [gfLow, setGradientFactors],
   );
-  const { showGfNow, showGfSurface } = useGfSeries();
-  const setGfSeries = useSetGfSeries();
-
-  const setShowGfNow = useCallback(
-    (show: boolean) => setGfSeries({ showGfNow: show }),
-    [setGfSeries],
-  );
-
-  const setShowGfSurface = useCallback(
-    (show: boolean) => setGfSeries({ showGfSurface: show }),
-    [setGfSeries],
-  );
+  const profile = useProfileSeries();
+  const setProfile = useSetProfileSeries();
 
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
@@ -302,16 +356,18 @@ export function useSettingsScreen(): SettingsScreen {
   return {
     transfer,
     diveComputers,
-    unitSystem,
-    setUnitSystem,
+    units,
+    unitPreset: shownPreset,
+    setUnitPreset,
+    showUnitRows: shownPreset === 'personalized',
+    setUnit,
+    defaultCylinder,
     gfLow,
     gfHigh,
     setGfLow,
     setGfHigh,
-    showGfNow,
-    showGfSurface,
-    setShowGfNow,
-    setShowGfSurface,
+    profile,
+    setProfile,
     diveCount: dives.length,
     siteCount: sites.length,
     ungroupDives,

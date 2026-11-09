@@ -19,6 +19,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { PlanNotesView } from '@/components/plan-notes-view';
 import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
+import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { ComputerPicker } from '@/features/dives/computer-picker';
@@ -27,6 +28,7 @@ import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
+import { MAPS_PLATFORM, useOpenInMaps } from '@/features/sites/use-open-in-maps';
 import { IS_TABLET } from '@/hooks/use-adaptive-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { useCurrentDiveId } from '@/lib/merged-dives';
@@ -51,6 +53,8 @@ import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
+import { mapsAppName } from '@/models/maps-link';
+import { toSiteRow } from '@/models/site-edit';
 import { CSV_FORMATS } from '@/models/transfer';
 import {
   adjacentTripsByDive,
@@ -59,8 +63,8 @@ import {
   tripTitle,
   type TripAction,
 } from '@/models/trips';
-import { useDive, useDives, useProfile, useTrips } from '@/queries/logbook';
-import { useGfSeries, useUnitSystem } from '@/queries/settings';
+import { useDive, useDives, useProfile, useSites, useTrips } from '@/queries/logbook';
+import { useProfileSeries, useUnits } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
 type SymbolName = SymbolViewProps['name'];
@@ -75,10 +79,10 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const { id } = useLocalSearchParams<{ id: string }>();
   const diveId = Number(id);
   const currentId = useCurrentDiveId(diveId);
-  const unitSystem = useUnitSystem();
-  // Which gradient factor curves the profile draws. A display preference only -
-  // both series are in every plot_info, so toggling one costs no recomputation.
-  const { showGfNow, showGfSurface } = useGfSeries();
+  const units = useUnits();
+  // Which series the profile draws (gradient factors, ceilings, grid). A display
+  // preference only - all are in every plot_info, so a toggle costs no recomputation.
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -91,6 +95,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   // Whether the SSI row offers an upload or points at Settings. A network
   // query, unlike everything else on this screen - see src/queries/ssi.ts.
   const ssiAccount = useSsiAccount();
+  const { data: sites = [] } = useSites();
   const dive = diveQuery.data;
   const profile = profileQuery.data;
 
@@ -132,14 +137,16 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
     return <StatusView kind="loading" title="Opening dive" />;
   }
 
-  const row = toDiveRow(dive, unitSystem);
+  const row = toDiveRow(dive, units);
   const dc = dive.dcs[computer.index];
   const severalComputers = dive.dcs.length > 1;
   const manualComputer = dc?.model === MANUAL_DC_MODEL;
   const synced = isSyncedToSsi(dive);
   const notes = dive.notes.trim();
+  // A site with a position gets a section of its own, with the map.
+  const siteOnMap = sites.some((site) => site.uuid === dive.siteUuid && site.hasGps);
   const hasPeopleOrPlace =
-    dive.siteName !== '' ||
+    (dive.siteName !== '' && !siteOnMap) ||
     dive.buddy !== '' ||
     dive.diveguide !== '' ||
     dive.suit !== '' ||
@@ -208,9 +215,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             key={computer.index}
             plot={plot}
             pi={profile}
-            unitSystem={unitSystem}
-            showGfNow={showGfNow}
-            showGfSurface={showGfSurface}
+            units={units}
+            series={profileSeries}
           />
         ) : (
           <Text style={[styles.placeholder, { color: theme.textSecondary }]}>
@@ -239,25 +245,24 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           }
           plot={plot}
           pi={profile}
-          unitSystem={unitSystem}
-          showGfNow={showGfNow}
-          showGfSurface={showGfSurface}
+          units={units}
+          series={profileSeries}
         />
       ) : null}
 
       <Section title="Details">
         {dive.meanDepthMm > 0 ? (
-          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, unitSystem)} />
+          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, units)} />
         ) : null}
         {/* The summary's mode is the first computer's. With several, each states its own. */}
         {severalComputers ? null : (
           <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
         )}
         {dive.airTempMkelvin > 0 ? (
-          <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, unitSystem)} />
+          <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, units)} />
         ) : null}
         {dive.sac > 0 ? (
-          <Row label="SAC" value={`${formatVolume(dive.sac, unitSystem)}/min`} />
+          <Row label="SAC" value={`${formatVolume(dive.sac, units)}/min`} />
         ) : null}
         {dive.otu > 0 ? <Row label="OTU" value={String(Math.round(dive.otu))} /> : null}
         {dive.maxcns > 0 ? <Row label="CNS" value={`${Math.round(dive.maxcns)} %`} /> : null}
@@ -265,9 +270,11 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         {dive.visibility > 0 ? <StarRow label="Visibility" value={dive.visibility} /> : null}
       </Section>
 
+      <SiteSection dive={dive} stackPath={stackPath} />
+
       {hasPeopleOrPlace ? (
         <Section title="People and place">
-          {dive.siteName ? <Row label="Dive site" value={dive.siteName} /> : null}
+          {dive.siteName && !siteOnMap ? <Row label="Dive site" value={dive.siteName} /> : null}
           {dive.buddy ? <Row label="Buddy" value={dive.buddy} /> : null}
           {dive.diveguide ? <Row label="Divemaster" value={dive.diveguide} /> : null}
           {dive.suit ? <Row label="Suit" value={dive.suit} /> : null}
@@ -305,7 +312,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             <WeightRow key={index} weight={weight} />
           ))}
           {dive.weightsystems.length > 1 ? (
-            <Row label="Total" value={formatWeight(dive.totalWeightGrams, unitSystem)} emphasized />
+            <Row label="Total" value={formatWeight(dive.totalWeightGrams, units)} emphasized />
           ) : null}
         </Section>
       ) : null}
@@ -328,7 +335,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
           {manualComputer ? null : <Row label="Samples" value={String(dc.sampleCount)} />}
           {severalComputers
-            ? computerFigures(dc, unitSystem).map(({ label, value }) => (
+            ? computerFigures(dc, units).map(({ label, value }) => (
                 <Row key={label} label={label} value={value} />
               ))
             : null}
@@ -376,6 +383,71 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       <CsvExportSection dive={dive} />
     </ScrollView>
+  );
+}
+
+/** Where each stack shows a dive site, so Back from it returns to the dive. */
+const SITE_PATH: Record<DiveStackPath, string> = {
+  '/dives': '/dives/site',
+  '/sites/dive': '/sites',
+  '/statistics/dive': '/statistics/site',
+};
+
+/**
+ * The dive site, when it has a position: a small map of it, the site itself one tap
+ * away - as the Sites tab shows it, with its other dives - and the maps app for
+ * directions. A site without a position stays a line under People and place.
+ */
+function SiteSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath }) {
+  const router = useRouter();
+  const openInMaps = useOpenInMaps();
+  const { data: sites = [] } = useSites();
+  const site = sites.find((candidate) => candidate.uuid === dive.siteUuid);
+  if (!site?.hasGps) {
+    return null;
+  }
+  const row = toSiteRow(site);
+  const openSite = () => router.push(`${SITE_PATH[stackPath]}/${site.uuid}`);
+  return (
+    <Section title="Dive site">
+      {MAPS_AVAILABLE ? (
+        <Pressable
+          key="map"
+          onPress={openSite}
+          accessibilityRole="button"
+          accessibilityLabel={`Map of ${row.title}`}
+          accessibilityHint="Shows the dive site"
+          style={({ pressed }) => [styles.siteMap, pressed ? { opacity: 0.8 } : null]}
+        >
+          {/* A picture of the place, not a map to pan: the tap is the row's. */}
+          <View pointerEvents="none" style={{ flex: 1 }}>
+            <SiteMap
+              latUdeg={site.latUdeg}
+              lonUdeg={site.lonUdeg}
+              title={row.title}
+              height={150}
+              flush
+            />
+          </View>
+        </Pressable>
+      ) : null}
+      <ActionRow
+        key="site"
+        symbol="mappin.and.ellipse"
+        label={row.title}
+        detail={`${row.subtitle} - ${row.countText}`}
+        chevron
+        onPress={openSite}
+        accessibilityHint="Shows the dive site and its dives"
+      />
+      <ActionRow
+        key="maps"
+        symbol="map"
+        label="Open in Maps"
+        detail={`Directions in ${mapsAppName(MAPS_PLATFORM)}`}
+        onPress={() => openInMaps(site)}
+      />
+    </Section>
   );
 }
 
@@ -513,17 +585,17 @@ function Header({
   numberText: string;
 }) {
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const stats: { label: string; value: string; symbol: SymbolName }[] = [
     {
       label: 'Max depth',
-      value: formatDepth(dive.maxDepthMm, unitSystem),
+      value: formatDepth(dive.maxDepthMm, units),
       symbol: 'arrow.down.to.line',
     },
     { label: 'Duration', value: formatDuration(dive.durationSec), symbol: 'clock' },
     {
       label: 'Water',
-      value: dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, unitSystem) : '-',
+      value: dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, units) : '-',
       symbol: 'thermometer.medium',
     },
   ];
@@ -741,7 +813,7 @@ function ActionRow({
 
 function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number }) {
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const gas = formatGasMix(
     cylinder.gasmix.o2EffectivePermille,
     cylinder.gasmix.heEffectivePermille,
@@ -750,10 +822,10 @@ function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number })
   const end = cylinder.endMbar || cylinder.sampleEndMbar;
   const pressure =
     start > 0 && end > 0
-      ? `${formatPressure(start, unitSystem)} to ${formatPressure(end, unitSystem)}`
+      ? `${formatPressure(start, units)} to ${formatPressure(end, units)}`
       : '';
   const name = cylinder.description || `Cylinder ${index + 1}`;
-  const size = cylinder.sizeMl > 0 ? formatVolume(cylinder.sizeMl, unitSystem) : '';
+  const size = cylinder.sizeMl > 0 ? formatVolume(cylinder.sizeMl, units) : '';
   const subtitle = [name, size].filter(Boolean).join(' - ');
 
   return (
@@ -774,11 +846,11 @@ function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number })
 }
 
 function WeightRow({ weight }: { weight: WeightSystem }) {
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   return (
     <Row
       label={weight.description || 'Weight'}
-      value={formatWeight(weight.weightGrams, unitSystem)}
+      value={formatWeight(weight.weightGrams, units)}
     />
   );
 }
@@ -854,6 +926,9 @@ const styles = StyleSheet.create({
   },
   cardInset: {
     padding: Spacing.three,
+  },
+  siteMap: {
+    height: 150,
   },
   separator: {
     height: StyleSheet.hairlineWidth,

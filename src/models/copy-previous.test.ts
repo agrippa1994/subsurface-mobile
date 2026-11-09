@@ -13,6 +13,7 @@ import {
 } from './copy-previous';
 import { buildCylinderPatches, cylinderDraftsFrom } from './cylinder-edit';
 import { buildWeightPatches, weightDraftsFrom } from './weight-edit';
+import { METRIC_UNITS } from './units';
 
 function summary(overrides: Partial<DiveSummary> = {}): DiveSummary {
   return {
@@ -128,7 +129,7 @@ describe('copyCylinderSetup', () => {
     const current = dive({
       cylinders: [cylinder({ sampleStartMbar: 200000, sampleEndMbar: 70000, used: true })],
     });
-    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, 'metric'), [ean32], 'metric');
+    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, METRIC_UNITS), [ean32], METRIC_UNITS);
 
     expect(drafts).toHaveLength(1);
     expect(drafts[0]).toMatchObject({
@@ -144,7 +145,7 @@ describe('copyCylinderSetup', () => {
   });
 
   it('adds missing cylinders without pressures', () => {
-    const drafts = copyCylinderSetup([], [ean32, ean32], 'metric');
+    const drafts = copyCylinderSetup([], [ean32, ean32], METRIC_UNITS);
     expect(drafts).toHaveLength(2);
     expect(drafts.every((draft) => draft.sourceIndex === null)).toBe(true);
     expect(drafts[0].startText).toBe('');
@@ -156,14 +157,14 @@ describe('copyCylinderSetup', () => {
     const current = dive({
       cylinders: [cylinder(), cylinder({ description: 'spare' }), cylinder({ used: true })],
     });
-    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, 'metric'), [ean32], 'metric');
+    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, METRIC_UNITS), [ean32], METRIC_UNITS);
     expect(drafts.map((draft) => draft.sourceIndex)).toEqual([0, 2]);
   });
 
   it('produces a patch the bindings accept', () => {
     const current = dive({ cylinders: [cylinder(), cylinder()] });
-    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, 'metric'), [ean32], 'metric');
-    expect(buildCylinderPatches(current, drafts, 'metric')).toEqual([
+    const drafts = copyCylinderSetup(cylinderDraftsFrom(current, METRIC_UNITS), [ean32], METRIC_UNITS);
+    expect(buildCylinderPatches(current, drafts, METRIC_UNITS)).toEqual([
       {
         sourceIndex: 0,
         description: 'D12 232 bar',
@@ -179,17 +180,17 @@ describe('copyWeights', () => {
   it('replaces the weights, reusing existing rows', () => {
     const current = dive({ weightsystems: [weight({ weightGrams: 4000 }), weight()] });
     const drafts = copyWeights(
-      weightDraftsFrom(current, 'metric'),
+      weightDraftsFrom(current, METRIC_UNITS),
       [weight({ description: 'integrated', weightGrams: 8000 })],
-      'metric'
+      METRIC_UNITS
     );
-    expect(buildWeightPatches(current, drafts, 'metric')).toEqual([
+    expect(buildWeightPatches(current, drafts, METRIC_UNITS)).toEqual([
       { sourceIndex: 0, description: 'integrated', weightGrams: 8000 },
     ]);
   });
 
   it('adds weights to a dive that has none', () => {
-    const drafts = copyWeights([], [weight()], 'metric');
+    const drafts = copyWeights([], [weight()], METRIC_UNITS);
     expect(drafts).toMatchObject([{ sourceIndex: null, description: 'belt', weightText: '6' }]);
   });
 });

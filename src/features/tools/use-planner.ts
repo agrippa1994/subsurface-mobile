@@ -8,18 +8,19 @@
 // times the screen allows (docs/tasks/15-dive-planner.md has the measurements).
 import { useCallback, useMemo } from 'react';
 
-import type { DiveSummary, PlanInput, PlanResult, UnitSystem } from '@/models';
+import type { DiveSummary, PlanInput, PlanResult, Units } from '@/models';
 import { describeError } from '@/models/errors';
 import {
   draftProblem,
   planFailure,
   planHasResult,
   planInput,
+  planTankFrom,
   type PlanDraft,
 } from '@/models/planner';
 import { DEFAULT_PLANNER_SETTINGS, type PlannerSettings } from '@/models/planner-settings';
 import { useDives } from '@/queries/logbook';
-import { useGradientFactors, useSettings, useUpdateSettings } from '@/queries/settings';
+import { useDefaultCylinder, useGradientFactors, useSettings, useUpdateSettings } from '@/queries/settings';
 
 import { planDive } from '../../../modules/ssrf-core/src';
 import { resetPlanDraft, updatePlanDraft, usePlanDraft } from './planner-store';
@@ -37,19 +38,22 @@ const NO_DIVES: readonly DiveSummary[] = [];
 
 export function usePlanner() {
   const settings = useSettings();
-  const system: UnitSystem = settings.unitSystem;
+  const units: Units = settings.units;
   const planner: PlannerSettings = settings.planner;
   const gf = useGradientFactors();
   const dives = useDives().data ?? NO_DIVES;
-  const draft = usePlanDraft(system, dives);
+  // The plan's cylinders start from the default cylinder in Settings, if any.
+  const defaultCylinder = useDefaultCylinder();
+  const defaultTank = useMemo(() => planTankFrom(defaultCylinder), [defaultCylinder]);
+  const draft = usePlanDraft(units, dives, defaultTank);
 
   const input: PlanInput = useMemo(
-    () => planInput(draft, planner, system, gf),
-    [draft, planner, system, gf],
+    () => planInput(draft, planner, units, gf),
+    [draft, planner, units, gf],
   );
 
   const outcome: PlanOutcome = useMemo(() => {
-    const problem = draftProblem(draft, planner, system);
+    const problem = draftProblem(draft, planner, units);
     if (problem !== null) {
       return { kind: 'problem', message: problem };
     }
@@ -64,7 +68,7 @@ export function usePlanner() {
     // The dives are not read here, but the core reads them: a dive added or removed
     // in the logbook changes the tissues this plan starts from.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, planner, system, input, dives]);
+  }, [draft, planner, units, input, dives]);
 
   const update = useUpdateSettings();
   const setPlanner = useCallback(
@@ -79,14 +83,15 @@ export function usePlanner() {
 
   return {
     draft,
-    system,
+    units,
     planner,
     gf,
     input,
     outcome,
     dives,
     setDraft: updatePlanDraft as (change: (current: PlanDraft) => PlanDraft) => void,
-    resetDraft: () => resetPlanDraft(system, dives),
+    resetDraft: () => resetPlanDraft(units, dives, defaultTank),
+    defaultTank,
     setPlanner,
     restorePlanner,
   };

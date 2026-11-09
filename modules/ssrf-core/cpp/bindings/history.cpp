@@ -364,7 +364,7 @@ bool leaves_log_alone(const std::string &method)
 {
 	static const char *const methods[] = {
 		"saveToXML", "listDives", "getDive", "getProfile", "getStatistics", "nitroxPlan", "planDive",
-		"gasInfo", "plannerOptions", "plannerSurface", "exportDiveCSV", "configure", "dcListComputers",
+		"gasInfo", "plannerOptions", "plannerSurface", "exportDiveCSV", "configure", "defaultCylinder", "dcListComputers",
 		"dcDetect", "dcDownloadStart", "dcDownloadStatus", "dcDownloadCancel", "dcDownloadDiscard",
 		"bleScanStart", "bleScanStop", "bleScanStatus", "listDiveSites", "previewDive", "previewNewDive", "listTrips",
 		"listMergePairs", "previewMerge", "getLastError", "statsChart",

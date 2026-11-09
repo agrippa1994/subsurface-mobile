@@ -14,7 +14,7 @@
 import type { SiteDetail } from 'divessi-client';
 
 import type { StatBar } from '../statistics';
-import { celsiusToMkelvin, metersToMm, mkelvinToFahrenheit, mmToFeet, type UnitSystem } from '../units';
+import { celsiusToMkelvin, metersToMm, mkelvinToFahrenheit, mmToFeet, type Units } from '../units';
 
 const MONTHS = [
   'January',
@@ -244,14 +244,14 @@ export function ssiMonthRange(months: readonly number[]): string {
   return `${name(starts[0])} to ${name(last)}`;
 }
 
-export function formatSsiDepth(meters: number, system: UnitSystem): string {
-  return system === 'imperial'
+export function formatSsiDepth(meters: number, units: Units): string {
+  return units.depth === 'ft'
     ? `${Math.round(mmToFeet(metersToMm(meters)))} ft`
     : `${Math.round(meters * 10) / 10} m`;
 }
 
-function temperature(celsius: number, system: UnitSystem): number {
-  return system === 'imperial'
+function temperature(celsius: number, units: Units): number {
+  return units.temperature === 'F'
     ? Math.round(mkelvinToFahrenheit(celsiusToMkelvin(celsius)) * 10) / 10
     : Math.round(celsius * 10) / 10;
 }
@@ -290,30 +290,30 @@ function monthBars(
   });
 }
 
-export function ssiTemperatureUnit(system: UnitSystem): string {
-  return system === 'imperial' ? 'F' : 'C';
+export function ssiTemperatureUnit(units: Units): string {
+  return units.temperature === 'F' ? 'F' : 'C';
 }
 
-export function ssiLengthUnit(system: UnitSystem): string {
-  return system === 'imperial' ? 'ft' : 'm';
+export function ssiLengthUnit(units: Units): string {
+  return units.depth === 'ft' ? 'ft' : 'm';
 }
 
-export function ssiWaterTemperatureBars(months: readonly SsiSiteMonth[], system: UnitSystem) {
-  const unit = ssiTemperatureUnit(system);
-  return monthBars(months, (m) => m.waterC, (c) => temperature(c, system), unit);
+export function ssiWaterTemperatureBars(months: readonly SsiSiteMonth[], units: Units) {
+  const unit = ssiTemperatureUnit(units);
+  return monthBars(months, (m) => m.waterC, (c) => temperature(c, units), unit);
 }
 
-export function ssiAirTemperatureBars(months: readonly SsiSiteMonth[], system: UnitSystem) {
-  const unit = ssiTemperatureUnit(system);
-  return monthBars(months, (m) => m.airC, (c) => temperature(c, system), unit);
+export function ssiAirTemperatureBars(months: readonly SsiSiteMonth[], units: Units) {
+  const unit = ssiTemperatureUnit(units);
+  return monthBars(months, (m) => m.airC, (c) => temperature(c, units), unit);
 }
 
-export function ssiVisibilityBars(months: readonly SsiSiteMonth[], system: UnitSystem) {
+export function ssiVisibilityBars(months: readonly SsiSiteMonth[], units: Units) {
   return monthBars(
     months,
     (m) => m.visibilityM,
-    (meters) => (system === 'imperial' ? Math.round(mmToFeet(metersToMm(meters))) : meters),
-    ssiLengthUnit(system)
+    (meters) => (units.depth === 'ft' ? Math.round(mmToFeet(metersToMm(meters))) : meters),
+    ssiLengthUnit(units)
   );
 }
 

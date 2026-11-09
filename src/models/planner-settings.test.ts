@@ -12,6 +12,7 @@ import {
   snapToStep,
   type StepperSetting,
 } from './planner-settings';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 const gf = { gfLow: 35, gfHigh: 80 };
 const steppers = PLANNER_SETTING_SECTIONS.flatMap((section) => section.settings).filter(
@@ -27,35 +28,35 @@ const stepper = (key: string) => {
 
 describe('plannerSettingsInput', () => {
   it('follows the gradient factors of Settings until the planner has its own', () => {
-    expect(plannerSettingsInput(DEFAULT_PLANNER_SETTINGS, 'metric', gf)).toMatchObject({
+    expect(plannerSettingsInput(DEFAULT_PLANNER_SETTINGS, METRIC_UNITS, gf)).toMatchObject({
       gfLow: 35,
       gfHigh: 80,
     });
     const own = { ...DEFAULT_PLANNER_SETTINGS, gfLow: 50, gfHigh: 70 };
-    expect(plannerSettingsInput(own, 'metric', gf)).toMatchObject({ gfLow: 50, gfHigh: 70 });
+    expect(plannerSettingsInput(own, METRIC_UNITS, gf)).toMatchObject({ gfLow: 50, gfHigh: 70 });
   });
 
   it('never sends a low above a high, which the bindings refuse', () => {
     const own = { ...DEFAULT_PLANNER_SETTINGS, gfLow: 90 };
-    expect(plannerSettingsInput(own, 'metric', gf)).toMatchObject({ gfLow: 90, gfHigh: 90 });
+    expect(plannerSettingsInput(own, METRIC_UNITS, gf)).toMatchObject({ gfLow: 90, gfHigh: 90 });
   });
 
   it('leaves the surface pressure out and says which units the notes are in', () => {
-    const input = plannerSettingsInput(DEFAULT_PLANNER_SETTINGS, 'imperial', gf);
-    expect(input.imperial).toBe(true);
+    const input = plannerSettingsInput(DEFAULT_PLANNER_SETTINGS, IMPERIAL_UNITS, gf);
+    expect(input.units).toEqual(IMPERIAL_UNITS);
     expect(input).not.toHaveProperty('surfacePressureMbar');
   });
 });
 
 describe('rates', () => {
   it('shows the core default of 150 mm/s as 9 m/min and about 30 ft/min', () => {
-    expect(rateValue(150, 'metric')).toBe(9);
-    expect(rateValue(150, 'imperial')).toBe(30);
+    expect(rateValue(150, METRIC_UNITS)).toBe(9);
+    expect(rateValue(150, IMPERIAL_UNITS)).toBe(30);
   });
 
   it('survives the round trip through the unit shown', () => {
-    expect(rateValue(rateFromValue(18, 'metric'), 'metric')).toBe(18);
-    expect(rateValue(rateFromValue(60, 'imperial'), 'imperial')).toBe(60);
+    expect(rateValue(rateFromValue(18, METRIC_UNITS), METRIC_UNITS)).toBe(18);
+    expect(rateValue(rateFromValue(60, IMPERIAL_UNITS), IMPERIAL_UNITS)).toBe(60);
   });
 });
 
@@ -89,22 +90,22 @@ describe('the settings table', () => {
   it('reads and writes the core units through the unit shown', () => {
     const s = DEFAULT_PLANNER_SETTINGS;
     const sac = stepper('bottomSacMl');
-    expect(sac.value(s, 'metric', gf)).toBe(20);
-    expect(sac.patch(15, 'metric')).toEqual({ bottomSacMl: 15000 });
-    expect(sac.value(s, 'imperial', gf)).toBe(0.7);
-    expect(sac.format(0.7, 'imperial')).toBe('0.70 cuft/min');
+    expect(sac.value(s, METRIC_UNITS, gf)).toBe(20);
+    expect(sac.patch(15, METRIC_UNITS)).toEqual({ bottomSacMl: 15000 });
+    expect(sac.value(s, IMPERIAL_UNITS, gf)).toBe(0.7);
+    expect(sac.format(0.7, IMPERIAL_UNITS)).toBe('0.70 cuft/min');
 
     const factor = stepper('sacFactor');
-    expect(factor.value(s, 'metric', gf)).toBe(4);
-    expect(factor.patch(3.5, 'metric')).toEqual({ sacFactor: 350 });
+    expect(factor.value(s, METRIC_UNITS, gf)).toBe(4);
+    expect(factor.patch(3.5, METRIC_UNITS)).toEqual({ sacFactor: 350 });
 
     const minSwitch = stepper('minSwitchSec');
-    expect(minSwitch.value(s, 'metric', gf)).toBe(1);
-    expect(minSwitch.patch(2, 'metric')).toEqual({ minSwitchSec: 120 });
+    expect(minSwitch.value(s, METRIC_UNITS, gf)).toBe(1);
+    expect(minSwitch.patch(2, METRIC_UNITS)).toEqual({ minSwitchSec: 120 });
 
     const po2 = stepper('decoPo2Mbar');
-    expect(po2.format(po2.value(s, 'metric', gf), 'metric')).toBe('1.60 bar');
-    expect(po2.patch(1.45, 'metric')).toEqual({ decoPo2Mbar: 1450 });
+    expect(po2.format(po2.value(s, METRIC_UNITS, gf), METRIC_UNITS)).toBe('1.60 bar');
+    expect(po2.patch(1.45, METRIC_UNITS)).toEqual({ decoPo2Mbar: 1450 });
   });
 });
 

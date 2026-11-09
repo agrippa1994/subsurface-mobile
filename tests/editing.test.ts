@@ -36,6 +36,7 @@ import {
 import { fixture, snapshotLog, tempDir } from './harness/fixtures';
 import { diffSnapshots } from './harness/parity';
 import { SsrfHost } from './harness/ssrf-host';
+import { IMPERIAL_UNITS, METRIC_UNITS } from '../src/models/units';
 
 const SAMPLE = fixture('abitofeverything.ssrf');
 
@@ -209,11 +210,11 @@ describe('cylinder edits', () => {
     // Surfacing with more gas left than the log says: less gas used, so the
     // SAC has to come down. That is the whole point of the recomputation - a
     // pressure edit that left `dive::sac` alone would show the old figure.
-    const drafts = cylinderDraftsFrom(dive, 'metric');
+    const drafts = cylinderDraftsFrom(dive, METRIC_UNITS);
     const raised = Number(drafts[index].endText) + 30;
     drafts[index] = { ...drafts[index], endText: String(raised) };
 
-    const patches = buildCylinderPatches(dive, drafts, 'metric');
+    const patches = buildCylinderPatches(dive, drafts, METRIC_UNITS);
     expect(patches).not.toBeNull();
     expect(patches![index]).toEqual({ sourceIndex: index, endMbar: raised * 1000 });
 
@@ -247,12 +248,12 @@ describe('cylinder edits', () => {
     const used = dive.cylinders.findIndex((cyl) => cyl.used);
     expect(used).toBeGreaterThanOrEqual(0);
 
-    const drafts = cylinderDraftsFrom(dive, 'metric').filter(
+    const drafts = cylinderDraftsFrom(dive, METRIC_UNITS).filter(
       (_draft, at) => at !== used
     );
     await expect(
       opened.host.updateDive(dive.id, {
-        cylinders: buildCylinderPatches(dive, drafts, 'metric')!,
+        cylinders: buildCylinderPatches(dive, drafts, METRIC_UNITS)!,
       })
     ).rejects.toThrow(/cannot be removed/);
 
@@ -278,7 +279,7 @@ describe('cylinder edits', () => {
     const keptCount = dive.cylinders.filter((cyl) => cyl.used).length;
 
     const drafts = [
-      ...cylinderDraftsFrom(dive, 'metric').filter((draft) => draft.used),
+      ...cylinderDraftsFrom(dive, METRIC_UNITS).filter((draft) => draft.used),
       {
         ...newCylinderDraft(),
         description: 'Stage 40',
@@ -291,7 +292,7 @@ describe('cylinder edits', () => {
     ];
 
     await opened.host.updateDive(dive.id, {
-      cylinders: buildCylinderPatches(dive, drafts, 'metric')!,
+      cylinders: buildCylinderPatches(dive, drafts, METRIC_UNITS)!,
     });
     await opened.host.saveToXML(opened.path);
     await opened.host.close();
@@ -329,7 +330,7 @@ describe('cylinder edits', () => {
       }
     }
     expect(sampled).not.toBeNull();
-    expect(buildCylinderPatches(sampled!, cylinderDraftsFrom(sampled!, 'metric'), 'metric')).toBeNull();
+    expect(buildCylinderPatches(sampled!, cylinderDraftsFrom(sampled!, METRIC_UNITS), METRIC_UNITS)).toBeNull();
     await opened.host.close();
   });
 });
@@ -351,10 +352,10 @@ describe('weight edits', () => {
     const dive = await diveWithWeights(opened.host);
     const sacBefore = dive.sac;
 
-    const drafts = weightDraftsFrom(dive, 'metric');
+    const drafts = weightDraftsFrom(dive, METRIC_UNITS);
     drafts[0] = { ...drafts[0], description: 'belt', weightText: '7.5' };
 
-    const patches = buildWeightPatches(dive, drafts, 'metric');
+    const patches = buildWeightPatches(dive, drafts, METRIC_UNITS);
     expect(patches).not.toBeNull();
     expect(patches![0]).toEqual({ sourceIndex: 0, description: 'belt', weightGrams: 7500 });
 
@@ -397,7 +398,7 @@ describe('weight edits', () => {
 
     const drafts = [{ ...newWeightDraft(), description: 'ankle', weightText: '1.5' }];
     await opened.host.updateDive(dive.id, {
-      weightsystems: buildWeightPatches(dive, drafts, 'metric')!,
+      weightsystems: buildWeightPatches(dive, drafts, METRIC_UNITS)!,
     });
     await opened.host.saveToXML(opened.path);
     await opened.host.close();
@@ -417,7 +418,7 @@ describe('weight edits', () => {
     const dive = await diveWithWeights(opened.host);
 
     const updated = await opened.host.updateDive(dive.id, {
-      weightsystems: buildWeightPatches(dive, [], 'metric')!,
+      weightsystems: buildWeightPatches(dive, [], METRIC_UNITS)!,
     });
     expect(updated.weightsystems).toHaveLength(0);
     expect(updated.totalWeightGrams).toBe(0);
@@ -458,8 +459,8 @@ describe('weight edits', () => {
   it('leaves the weights alone when the editor only opens the dive', async () => {
     const opened = await freshLogbook('untouched-weights.ssrf');
     const dive = await diveWithWeights(opened.host);
-    expect(buildWeightPatches(dive, weightDraftsFrom(dive, 'metric'), 'metric')).toBeNull();
-    expect(buildWeightPatches(dive, weightDraftsFrom(dive, 'imperial'), 'imperial')).toBeNull();
+    expect(buildWeightPatches(dive, weightDraftsFrom(dive, METRIC_UNITS), METRIC_UNITS)).toBeNull();
+    expect(buildWeightPatches(dive, weightDraftsFrom(dive, IMPERIAL_UNITS), IMPERIAL_UNITS)).toBeNull();
     await opened.host.close();
   });
 });

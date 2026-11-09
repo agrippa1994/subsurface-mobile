@@ -23,7 +23,7 @@ const PO2_OPTIONS = [1200, 1300, 1400, 1500, 1600] as const;
 export default function NitroxScreen() {
   const screen = useNitroxScreen();
   const theme = useTheme();
-  const { input, plan, unitSystem } = screen;
+  const { input, plan, units } = screen;
   const depthLabel = `${screen.depth} ${screen.depthUnit}`;
   const mix = mixName(input.o2Percent);
   const warning = plan ? nitroxWarning(input, plan) : null;
@@ -82,17 +82,17 @@ export default function NitroxScreen() {
               title="Depth limits"
               footer={
                 <Text>
-                  Rounded down to the whole {unitSystem === 'imperial' ? 'foot' : 'metre'}. The best
+                  Rounded down to the whole {units.depth === 'ft' ? 'foot' : 'metre'}. The best
                   mix is the richest one the max pO2 allows at the planned depth.
                 </Text>
               }
             >
               <LabeledContent label={`MOD at ${formatPo2(input.maxPo2Mbar)}`}>
-                <Text modifiers={[monospacedDigit()]}>{formatMod(plan.modMm, unitSystem)}</Text>
+                <Text modifiers={[monospacedDigit()]}>{formatMod(plan.modMm, units)}</Text>
               </LabeledContent>
               <LabeledContent label="MOD at 1.60 bar">
                 <Text modifiers={[monospacedDigit()]}>
-                  {formatMod(plan.contingencyModMm, unitSystem)}
+                  {formatMod(plan.contingencyModMm, units)}
                 </Text>
               </LabeledContent>
               <LabeledContent label={`pO2 at ${depthLabel}`}>

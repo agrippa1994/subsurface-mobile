@@ -55,13 +55,16 @@ import {
 } from '@/models/planner';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
+import { useProfileSeries } from '@/queries/settings';
 
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
+  // The plan's profile draws what every dive profile does (Settings, Profile).
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
-  const { draft, system, outcome, view, result, planner } = screen;
+  const { draft, units, outcome, view, result, planner } = screen;
 
   const warningSection = (
     <>
@@ -188,7 +191,7 @@ export default function PlannerScreen() {
                   {gasName(cylinder.o2Percent, cylinder.hePercent)}
                 </Text>
                 <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle(theme.textSecondary)]}>
-                  {cylinderSummary(cylinder, system)}
+                  {cylinderSummary(cylinder, units)}
                 </Text>
               </VStack>
               <Spacer />
@@ -266,7 +269,7 @@ export default function PlannerScreen() {
             {view.stops.map((stop) => (
               <LabeledContent
                 key={`${stop.depthMm}-${stop.endSec}`}
-                label={`${formatDepth(stop.depthMm, system)} on ${stop.gas}`}
+                label={`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
               >
                 <Text modifiers={[monospacedDigit()]}>{formatMinutes(stop.durationSec)}</Text>
               </LabeledContent>
@@ -321,9 +324,9 @@ export default function PlannerScreen() {
         {view.plot && result.profile ? (
           <Section title="Profile" footer={view.interval ? <Text>{view.interval}</Text> : undefined}>
             <RNHostView matchContents>
-              <View style={{ width: screen.chartWidth }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, system)}`}>
+              <View style={{ width: screen.chartWidth }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, units)}`}>
                 {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
-                <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} unitSystem={system} height={200} />
+                <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} series={profileSeries} height={200} />
               </View>
             </RNHostView>
           </Section>

@@ -33,7 +33,7 @@ import { gasInfo } from '../../../modules/ssrf-core/src';
 
 export function useGasCalculatorScreen() {
   const settings = useSettings();
-  const system = settings.unitSystem;
+  const units = settings.units;
   const { planner } = settings;
   const update = useUpdateSettings();
   const [input, setInput] = useState<GasCalculatorInput>(GAS_CALCULATOR_DEFAULTS);
@@ -62,7 +62,7 @@ export function useGasCalculatorScreen() {
 
   return {
     input,
-    system,
+    units,
     mix: gasName(input.o2Percent, input.hePercent),
     o2Range: O2_RANGE,
     heRange: HE_RANGE,
@@ -71,15 +71,15 @@ export function useGasCalculatorScreen() {
     rows: (info?.rows ?? []).map((row) => ({
       key: row.po2Mbar,
       level: gasRowLevel(row),
-      ...rowTexts(row, system),
+      ...rowTexts(row, units),
     })),
     narcoticLabel: narcoticLabel(planner.o2Narcotic),
     o2Narcotic: planner.o2Narcotic,
-    hypoxic: info ? hypoxicLine(info.minDepthMm, system) : null,
+    hypoxic: info ? hypoxicLine(info.minDepthMm, units) : null,
     bestMix: bestO2 !== null && bestHe !== null ? gasName(bestO2, bestHe) : null,
-    bestDepth: depthValue(input.bestMixDepthMm, system),
-    bestDepthRange: depthRange(system),
-    bestDepthLabel: `${depthValue(input.bestMixDepthMm, system)} ${depthUnit(system)}`,
+    bestDepth: depthValue(input.bestMixDepthMm, units),
+    bestDepthRange: depthRange(units),
+    bestDepthLabel: `${depthValue(input.bestMixDepthMm, units)} ${depthUnit(units)}`,
     bottomPo2Text: `${(planner.bottomPo2Mbar / 1000).toFixed(2)} bar`,
     setO2: (o2Percent: number) => setInput((prev) => withO2(prev, o2Percent)),
     setHe: (hePercent: number) => setInput((prev) => withHe(prev, hePercent)),
@@ -91,7 +91,7 @@ export function useGasCalculatorScreen() {
     },
     setWater: (water: Water) => setInput((prev) => ({ ...prev, water })),
     setBestDepth: (value: number) =>
-      setInput((prev) => ({ ...prev, bestMixDepthMm: depthFromValue(value, system) })),
+      setInput((prev) => ({ ...prev, bestMixDepthMm: depthFromValue(value, units) })),
     setO2Narcotic: (o2Narcotic: boolean) =>
       update.mutate({ planner: { ...planner, o2Narcotic } }),
   };

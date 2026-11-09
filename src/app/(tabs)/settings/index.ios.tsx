@@ -17,8 +17,14 @@ import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
-import type { UnitSystem } from '@/models';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
+import type { Units } from '@/models';
+import {
+  UNIT_PRESET_OPTIONS,
+  UNIT_ROWS,
+  unitsSummary,
+  type UnitPresetChoice,
+} from '@/models/units';
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
@@ -26,27 +32,47 @@ export default function SettingsScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Units">
-          <Picker
-            label="Measurements"
-            selection={screen.unitSystem}
-            onSelectionChange={(value: string) => screen.setUnitSystem(value as UnitSystem)}
-            modifiers={[pickerStyle('segmented')]}>
-            <Text modifiers={[tag('metric')]}>Metric</Text>
-            <Text modifiers={[tag('imperial')]}>Imperial</Text>
-          </Picker>
-        </Section>
-
         <Section
-          title="Decompression"
+          title="Units"
           footer={
             <Text>
-              Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
-              profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75. The two
-              curves show tissue loading against the limit: GF at depth for the moment itself,
-              surface GF for what the diver would carry on surfacing right then.
+              {screen.showUnitRows
+                ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
+                : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`}
             </Text>
           }>
+          <Picker
+            label="Measurements"
+            selection={screen.unitPreset}
+            onSelectionChange={(value: string) => screen.setUnitPreset(value as UnitPresetChoice)}
+            modifiers={[pickerStyle('segmented')]}>
+            {UNIT_PRESET_OPTIONS.map((option) => (
+              <Text key={option.value} modifiers={[tag(option.value)]}>
+                {option.label}
+              </Text>
+            ))}
+          </Picker>
+          {screen.showUnitRows
+            ? UNIT_ROWS.map((row) => (
+                <Picker
+                  key={row.key}
+                  label={row.label}
+                  selection={screen.units[row.key]}
+                  onSelectionChange={(value: string) =>
+                    screen.setUnit(row.key, value as Units[typeof row.key])
+                  }
+                  modifiers={[pickerStyle('menu')]}>
+                  {row.options.map((option) => (
+                    <Text key={option.value} modifiers={[tag(option.value)]}>
+                      {option.label}
+                    </Text>
+                  ))}
+                </Picker>
+              ))
+            : null}
+        </Section>
+
+        <Section title="Decompression" footer={<Text>{SETTINGS_FOOTERS.decompression}</Text>}>
           <Stepper
             label={`GF low  ${screen.gfLow}%`}
             value={screen.gfLow}
@@ -63,16 +89,31 @@ export default function SettingsScreen() {
             step={1}
             onValueChange={screen.setGfHigh}
           />
-          <Toggle
-            label="Show GF at depth"
-            isOn={screen.showGfNow}
-            onIsOnChange={screen.setShowGfNow}
-          />
-          <Toggle
-            label="Show surface GF"
-            isOn={screen.showGfSurface}
-            onIsOnChange={screen.setShowGfSurface}
-          />
+        </Section>
+
+        <Section title="Profile" footer={<Text>{SETTINGS_FOOTERS.profile}</Text>}>
+          {PROFILE_TOGGLES.map((toggle) => (
+            <Toggle
+              key={toggle.key}
+              label={toggle.label}
+              isOn={screen.profile[toggle.key]}
+              onIsOnChange={(on: boolean) => screen.setProfile({ [toggle.key]: on })}
+            />
+          ))}
+        </Section>
+
+        <Section title="New dives" footer={<Text>{SETTINGS_FOOTERS.newDives}</Text>}>
+          <Picker
+            label="Default cylinder"
+            selection={screen.defaultCylinder.value}
+            onSelectionChange={(value: string) => screen.defaultCylinder.set(value)}
+            modifiers={[pickerStyle('menu')]}>
+            {screen.defaultCylinder.options.map((option) => (
+              <Text key={option.value || 'none'} modifiers={[tag(option.value)]}>
+                {option.label}
+              </Text>
+            ))}
+          </Picker>
         </Section>
 
         <Section title="Logbook">

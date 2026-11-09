@@ -31,28 +31,28 @@ import {
   type StatTile,
 } from '@/models/statistics';
 import { chartHeadline } from '@/models/stats-chart';
-import { useSettings, useUnitSystem } from '@/queries/settings';
+import { useSettings, useUnits } from '@/queries/settings';
 
 export default function StatisticsScreen() {
   const screen = useStatisticsScreen();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const theme = useTheme();
 
   const summary = screen.summary;
 
   const tiles = useMemo(
-    () => (summary ? summaryTiles(summary, unitSystem) : []),
-    [summary, unitSystem]
+    () => (summary ? summaryTiles(summary, units) : []),
+    [summary, units]
   );
   const overTime = useMemo(() => (summary ? divesOverTime(summary) : []), [summary]);
   const depths = useMemo(
-    () => (summary ? depthHistogram(summary, unitSystem) : []),
-    [summary, unitSystem]
+    () => (summary ? depthHistogram(summary, units) : []),
+    [summary, units]
   );
   const durations = useMemo(() => (summary ? durationHistogram(summary) : []), [summary]);
   const sacs = useMemo(
-    () => (summary ? sacOverTime(summary, unitSystem) : []),
-    [summary, unitSystem]
+    () => (summary ? sacOverTime(summary, units) : []),
+    [summary, units]
   );
 
   if (screen.loading) {
@@ -109,13 +109,13 @@ export default function StatisticsScreen() {
       <BarChart
         title="Dives by maximum depth"
         bars={depths}
-        axisUnit={depthAxisUnit(unitSystem)}
+        axisUnit={depthAxisUnit(units)}
       />
       <BarChart title="Dives by duration" bars={durations} axisUnit="min" />
       <BarChart
         title={perYear ? 'Average SAC per year' : 'Average SAC per month'}
         bars={sacs}
-        axisUnit={sacAxisUnit(unitSystem)}
+        axisUnit={sacAxisUnit(units)}
         integer={false}
         hint="Tap a bar for its average"
         emptyText="No dives with a known SAC. It needs cylinder sizes and pressures."

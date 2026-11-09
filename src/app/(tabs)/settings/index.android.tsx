@@ -6,6 +6,7 @@ import { Fragment } from 'react';
 
 import {
   M3ActionRow,
+  M3MenuRow,
   M3Screen,
   M3Section,
   M3SegmentedRow,
@@ -15,30 +16,42 @@ import {
 } from '@/components/material/list';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
-import type { UnitSystem } from '@/models';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
+import type { Units } from '@/models';
+import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
-const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
-  { value: 'metric', label: 'Metric' },
-  { value: 'imperial', label: 'Imperial' },
-];
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
 
   return (
     <M3Screen>
-      <M3Section title="Units">
+      <M3Section
+        title="Units"
+        footer={
+          screen.showUnitRows
+            ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
+            : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`
+        }>
         <M3SegmentedRow
-          options={UNIT_OPTIONS}
-          value={screen.unitSystem}
-          onChange={screen.setUnitSystem}
+          options={UNIT_PRESET_OPTIONS}
+          value={screen.unitPreset}
+          onChange={screen.setUnitPreset}
         />
+        {screen.showUnitRows
+          ? UNIT_ROWS.map((row) => (
+              <M3SegmentedRow
+                key={row.key}
+                label={row.label}
+                options={row.options}
+                value={screen.units[row.key]}
+                onChange={(value) => screen.setUnit(row.key, value as Units[typeof row.key])}
+              />
+            ))
+          : null}
       </M3Section>
 
-      <M3Section
-        title="Decompression"
-        footer="Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive profile - lower is more conservative. Subsurface's defaults are 30 and 75. The two curves show tissue loading against the limit: GF at depth for the moment itself, surface GF for what the diver would carry on surfacing right then.">
+      <M3Section title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
         <M3StepperRow
           label={`GF low  ${screen.gfLow}%`}
           value={screen.gfLow}
@@ -55,11 +68,26 @@ export default function SettingsScreen() {
           step={1}
           onChange={screen.setGfHigh}
         />
-        <M3SwitchRow label="Show GF at depth" value={screen.showGfNow} onChange={screen.setShowGfNow} />
-        <M3SwitchRow
-          label="Show surface GF"
-          value={screen.showGfSurface}
-          onChange={screen.setShowGfSurface}
+      </M3Section>
+
+      <M3Section title="Profile" footer={SETTINGS_FOOTERS.profile}>
+        {PROFILE_TOGGLES.map((toggle) => (
+          <M3SwitchRow
+            key={toggle.key}
+            label={toggle.label}
+            value={screen.profile[toggle.key]}
+            onChange={(on) => screen.setProfile({ [toggle.key]: on })}
+          />
+        ))}
+      </M3Section>
+
+      <M3Section title="New dives" footer={SETTINGS_FOOTERS.newDives}>
+        <M3MenuRow
+          label="Default cylinder"
+          value={screen.defaultCylinder.value}
+          shown={screen.defaultCylinder.label}
+          options={screen.defaultCylinder.options}
+          onChange={screen.defaultCylinder.set}
         />
       </M3Section>
 

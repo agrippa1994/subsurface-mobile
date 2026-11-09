@@ -28,6 +28,7 @@ import {
 	LIBDC_SOURCE_EXCLUDES,
 	PATCHES,
 	XSLT_DIR,
+	XSLT_PATCHES,
 } from '../core-subset.mjs';
 
 const moduleRoot = path.resolve(fileURLToPath(import.meta.url), '../..');
@@ -178,7 +179,7 @@ function inputFingerprint(pinned) {
 		parts.push(`${path.relative(moduleRoot, file)}:${s.size}:${s.mtimeMs}`);
 	};
 	stat(path.join(moduleRoot, 'core-subset.mjs'));
-	for (const patch of PATCHES) stat(path.join(moduleRoot, 'patches', patch));
+	for (const patch of [...PATCHES, ...XSLT_PATCHES]) stat(path.join(moduleRoot, 'patches', patch));
 	const walk = (dir) => {
 		if (!fs.existsSync(dir)) return;
 		for (const name of fs.readdirSync(dir).sort()) {
@@ -284,6 +285,22 @@ const stylesheets = fs
 if (stylesheets.length === 0) fail(`no stylesheets in subsurface/${XSLT_DIR}`);
 for (const name of stylesheets)
 	copyFile(path.join(submodule, XSLT_DIR, name), path.join(xsltStaging, name));
+for (const patch of XSLT_PATCHES) {
+	const file = path.join(moduleRoot, 'patches', patch);
+	if (!fs.existsSync(file)) fail(`missing patch: patches/${patch}`);
+	try {
+		execFileSync('patch', ['-p1', '--no-backup-if-mismatch', '-i', file], {
+			cwd: xsltStaging,
+			stdio: 'pipe',
+		});
+	} catch (error) {
+		fail(
+			`patch failed: patches/${patch}\n` +
+				`${error.stdout ?? ''}${error.stderr ?? ''}\n` +
+				'The submodule pin probably moved - refresh the patch against the new stylesheets.'
+		);
+	}
+}
 fs.rmSync(xsltOut, { recursive: true, force: true });
 fs.renameSync(xsltStaging, xsltOut);
 
@@ -295,6 +312,7 @@ fs.renameSync(staging, generated);
 
 console.log(
 	`[vendor-core] ${CORE_SOURCES.length} sources, ${libdcSources.length} libdivecomputer files, ${headers.length} headers, ` +
-		`${PATCHES.length} patches, ${overlaid} overrides, ${stylesheets.length} stylesheets; ` +
+		`${PATCHES.length} patches, ${overlaid} overrides, ${stylesheets.length} stylesheets ` +
+		`(${XSLT_PATCHES.length} patched); ` +
 		`core ${pinned.slice(0, 9)} (${coreVersion}), libdivecomputer ${libdcVersion}`
 );

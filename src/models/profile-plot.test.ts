@@ -11,6 +11,8 @@ import { join } from 'node:path';
 import type { Dive, PlotInfo } from './index';
 import {
   buildProfilePlot,
+  dcCeilingMm,
+  DEFAULT_PROFILE_SERIES,
   depthTicks,
   EMPTY_PROFILE_PLOT,
   nearestSampleIndex,
@@ -26,27 +28,28 @@ import {
 } from './profile-plot';
 import { SsrfHost } from '../../tests/harness/ssrf-host';
 import { fixture, REPO_ROOT } from '../../tests/harness/fixtures';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 describe('depthTicks', () => {
   it('places metric gridlines at round metres', () => {
     // 45 m deep: a 10 m step keeps the count at or under six.
-    expect(depthTicks(45000, 'metric').map((t) => t.label)).toEqual(['10', '20', '30', '40']);
+    expect(depthTicks(45000, METRIC_UNITS).map((t) => t.label)).toEqual(['10', '20', '30', '40']);
   });
 
   it('places imperial gridlines at round feet', () => {
-    const ticks = depthTicks(45000, 'imperial');
+    const ticks = depthTicks(45000, IMPERIAL_UNITS);
     expect(ticks.map((t) => t.label)).toEqual(['30', '60', '90', '120']);
     // The tick value stays in millimetres - 30 ft is 9144 mm.
     expect(ticks[0].value).toBeCloseTo(9144, 0);
   });
 
   it('widens the step rather than crowd the axis', () => {
-    expect(depthTicks(120000, 'metric').length).toBeLessThanOrEqual(6);
-    expect(depthTicks(6000, 'metric').map((t) => t.label)).toEqual(['5']);
+    expect(depthTicks(120000, METRIC_UNITS).length).toBeLessThanOrEqual(6);
+    expect(depthTicks(6000, METRIC_UNITS).map((t) => t.label)).toEqual(['5']);
   });
 
   it('returns nothing for a dive with no depth', () => {
-    expect(depthTicks(0, 'metric')).toEqual([]);
+    expect(depthTicks(0, METRIC_UNITS)).toEqual([]);
   });
 });
 
@@ -129,7 +132,7 @@ describe('profileSummary', () => {
   };
 
   it('describes the shape of the dive, not the drawing', () => {
-    expect(profileSummary(plot, 'metric')).toBe(
+    expect(profileSummary(plot, METRIC_UNITS)).toBe(
       'Dive profile. maximum depth 20.1 m at 10:00, total time 42:15, ' +
         'water temperature 10 C to 16 C, no decompression obligation.'
     );
@@ -137,16 +140,16 @@ describe('profileSummary', () => {
 
   it('says when the dive went into deco', () => {
     const deco = { ...plot, ceiling: [{ sec: 900, value: 3000 }] };
-    expect(profileSummary(deco)).toContain('the dive went into decompression');
+    expect(profileSummary(deco, METRIC_UNITS)).toContain('the dive went into decompression');
   });
 
   it('says so rather than describing an empty chart', () => {
-    expect(profileSummary(EMPTY_PROFILE_PLOT)).toBe(
+    expect(profileSummary(EMPTY_PROFILE_PLOT, METRIC_UNITS)).toBe(
       'Dive profile. This dive has no profile samples.'
     );
     // Even with both curves asked for: there is nothing to speak.
     const gf = { showGfNow: true, showGfSurface: true };
-    expect(profileSummary(EMPTY_PROFILE_PLOT, 'metric', gf)).toBe(
+    expect(profileSummary(EMPTY_PROFILE_PLOT, METRIC_UNITS, gf)).toBe(
       'Dive profile. This dive has no profile samples.'
     );
   });
@@ -181,34 +184,34 @@ describe('band axes', () => {
   };
 
   it('labels the band edges with the series extremes in the displayed unit', () => {
-    expect(temperatureAxis(plot, 'metric')).toEqual([
+    expect(temperatureAxis(plot, METRIC_UNITS)).toEqual([
       { position: 0, label: '10' },
       { position: 1, label: '16' },
     ]);
-    expect(pressureAxis(plot, 'metric')).toEqual([
+    expect(pressureAxis(plot, METRIC_UNITS)).toEqual([
       { position: 0, label: '60' },
       { position: 1, label: '200' },
     ]);
-    expect(pressureAxis(plot, 'imperial')[1].label).toBe('2901');
+    expect(pressureAxis(plot, IMPERIAL_UNITS)[1].label).toBe('2901');
   });
 
   it('keeps a decimal for a narrow range and labels a flat one once', () => {
     const narrow = { ...plot, temperatureRange: { min: 283150, max: 284150 } };
-    expect(temperatureAxis(narrow, 'metric').map((l) => l.label)).toEqual(['10.0', '11.0']);
+    expect(temperatureAxis(narrow, METRIC_UNITS).map((l) => l.label)).toEqual(['10.0', '11.0']);
     const flat = { ...plot, temperatureRange: { min: 283150, max: 283150 } };
-    expect(temperatureAxis(flat, 'metric')).toEqual([{ position: 0, label: '10.0' }]);
+    expect(temperatureAxis(flat, METRIC_UNITS)).toEqual([{ position: 0, label: '10.0' }]);
   });
 
   it('has no labels for a series the dive does not carry', () => {
-    expect(temperatureAxis(EMPTY_PROFILE_PLOT, 'metric')).toEqual([]);
-    expect(pressureAxis(EMPTY_PROFILE_PLOT, 'metric')).toEqual([]);
+    expect(temperatureAxis(EMPTY_PROFILE_PLOT, METRIC_UNITS)).toEqual([]);
+    expect(pressureAxis(EMPTY_PROFILE_PLOT, METRIC_UNITS)).toEqual([]);
   });
 });
 
 describe('temperatureValue', () => {
   it('converts to the displayed unit', () => {
-    expect(temperatureValue(293150, 'metric')).toBeCloseTo(20, 6);
-    expect(temperatureValue(293150, 'imperial')).toBeCloseTo(68, 6);
+    expect(temperatureValue(293150, METRIC_UNITS)).toBeCloseTo(20, 6);
+    expect(temperatureValue(293150, IMPERIAL_UNITS)).toBeCloseTo(68, 6);
   });
 });
 
@@ -258,14 +261,14 @@ describe('a Suunto-imported dive', () => {
   });
 
   it('reads a sample back out for the scrubber', () => {
-    const readout = readoutAt(profile, Math.round(profile.maxtimeSec / 2), 'metric');
+    const readout = readoutAt(profile, Math.round(profile.maxtimeSec / 2), METRIC_UNITS);
     expect(readout).not.toBeNull();
     expect(readout!.depthText).toMatch(/ m$/);
     expect(readout!.timeText).toMatch(/^\d+:\d{2}/);
   });
 
   it('answers the scrubber in imperial too', () => {
-    const readout = readoutAt(profile, 60, 'imperial');
+    const readout = readoutAt(profile, 60, IMPERIAL_UNITS);
     expect(readout!.depthText).toMatch(/ ft$/);
   });
 });
@@ -332,7 +335,7 @@ describe('a logbook with temperature, pressure and deco', () => {
   it('reserves enough width for every scrubber readout value', async () => {
     const options = { showGfNow: true, showGfSurface: true };
     const seen = new Set<string>();
-    for (const system of ['metric', 'imperial'] as const) {
+    for (const system of [METRIC_UNITS, IMPERIAL_UNITS]) {
       for (const summary of await host.listDives()) {
         const profile = await host.getProfile(summary.id);
         const slots = readoutLayout(profile, system, options);
@@ -408,7 +411,7 @@ describe('a logbook with temperature, pressure and deco', () => {
         continue;
       }
       const entry = profile.entry[index];
-      const readout = readoutAt(profile, entry.sec, 'metric');
+      const readout = readoutAt(profile, entry.sec, METRIC_UNITS);
       expect(readout!.gfSurfaceText).toBe(`${Math.round(entry.surfaceGf)}%`);
       expect(readout!.gfNowText).toBe(
         entry.currentGf > 0 ? `${Math.round(entry.currentGf * 100)}%` : null
@@ -424,11 +427,11 @@ describe('a logbook with temperature, pressure and deco', () => {
     const profile = await host.getProfile(summary.id);
     const plot = buildProfilePlot(profile, dive.dcs[0]?.events ?? []);
 
-    expect(profileSummary(plot, 'metric')).not.toMatch(/gradient factor/);
-    expect(profileSummary(plot, 'metric', { showGfSurface: true })).toMatch(
+    expect(profileSummary(plot, METRIC_UNITS)).not.toMatch(/gradient factor/);
+    expect(profileSummary(plot, METRIC_UNITS, { showGfSurface: true })).toMatch(
       /highest surface gradient factor \d+ percent/
     );
-    expect(profileSummary(plot, 'metric', { showGfNow: true })).toMatch(
+    expect(profileSummary(plot, METRIC_UNITS, { showGfNow: true })).toMatch(
       /highest gradient factor at depth \d+ percent/
     );
   });
@@ -449,5 +452,90 @@ describe('a logbook with temperature, pressure and deco', () => {
         expect(Math.abs(profile.entry[neighbour].sec - target)).toBeGreaterThanOrEqual(distance);
       }
     }
+  });
+});
+
+describe('the two ceilings and the 3 m grid', () => {
+  /** A synthetic plot: in deco from 600 s to 1200 s, the computer's stop at 6 m. */
+  function decoPlot(): PlotInfo {
+    const entry = [0, 300, 600, 900, 1200, 1500].map((sec) => ({
+      sec,
+      depthMm: sec === 0 || sec === 1500 ? 0 : 30000,
+      temperatureMkelvin: 0,
+      // The core's ceiling, deeper than the computer's stop near the end.
+      ceilingMm: sec >= 600 && sec <= 1200 ? 4500 : 0,
+      inDeco: sec >= 600 && sec <= 1200,
+      stopdepthMm: sec >= 600 && sec <= 1200 ? 6000 : 0,
+      ndlSec: sec < 600 ? 600 - sec : 0,
+      currentGf: 0,
+      surfaceGf: 0,
+    }));
+    // A stop reported deeper than the diver is drawn at the diver.
+    entry[4] = { ...entry[4], depthMm: 5000 };
+    return {
+      nrCylinders: 0,
+      maxtimeSec: 1500,
+      maxDepthMm: 30000,
+      entry,
+      pressures: { sensor: [], interpolated: [] },
+    } as unknown as PlotInfo;
+  }
+
+  it("keeps the computer's ceiling apart from the core's", () => {
+    const plot = buildProfilePlot(decoPlot());
+    expect(plot.ceiling.map((p) => p.value)).toEqual([4500, 4500, 4500]);
+    // One point per sample, 0 out of deco, never below the diver (5 m at 1200 s).
+    expect(plot.dcCeiling.map((p) => p.value)).toEqual([0, 0, 6000, 6000, 5000, 0]);
+    expect(dcCeilingMm(decoPlot().entry[2])).toBe(6000);
+  });
+
+  it('has no computer ceiling for a dive the computer never put in deco', () => {
+    const pi = decoPlot();
+    const quiet = { ...pi, entry: pi.entry.map((e) => ({ ...e, inDeco: false })) } as PlotInfo;
+    expect(buildProfilePlot(quiet).dcCeiling).toEqual([]);
+  });
+
+  it('names each ceiling in the readout, and only the ones shown', () => {
+    const pi = decoPlot();
+    const read = (series: Parameters<typeof readoutLayout>[2], sec: number) => {
+      const readout = readoutAt(pi, sec, METRIC_UNITS);
+      return readoutLayout(pi, METRIC_UNITS, series).map((slot) => slot.read(readout!));
+    };
+    expect(read({ showDcCeiling: true, showCalcCeiling: true }, 900)).toEqual(
+      expect.arrayContaining(['DC ceiling 6 m', 'Calc ceiling 4.5 m']),
+    );
+    expect(read({ showDcCeiling: true, showCalcCeiling: false }, 900).join(' ')).not.toContain('Calc');
+    expect(read({ showDcCeiling: false, showCalcCeiling: true }, 900).join(' ')).not.toContain('DC ceiling');
+    // Out of deco the computer's slot says the NDL.
+    expect(read(DEFAULT_PROFILE_SERIES, 300)).toContain('NDL 5:00');
+  });
+
+  it('says both ceilings to VoiceOver when they are drawn', () => {
+    const plot = buildProfilePlot(decoPlot());
+    const spoken = profileSummary(plot, METRIC_UNITS, { showDcCeiling: true, showCalcCeiling: true });
+    expect(spoken).toContain('deepest dive computer ceiling 6 m');
+    expect(spoken).toContain('deepest calculated ceiling 4.5 m');
+    expect(profileSummary(plot, METRIC_UNITS)).not.toContain('ceiling');
+  });
+
+  it('matches the core defaults', () => {
+    expect(DEFAULT_PROFILE_SERIES).toEqual({
+      showGfNow: false,
+      showGfSurface: false,
+      showDcCeiling: true,
+      showCalcCeiling: false,
+      threeMeterGrid: false,
+    });
+  });
+
+  it('puts a 3 m grid on multiples of three, in metres', () => {
+    expect(depthTicks(16000, METRIC_UNITS, 6, true).map((t) => t.label)).toEqual(['3', '6', '9', '12', '15']);
+    expect(depthTicks(45000, METRIC_UNITS, 6, true).map((t) => t.label)).toEqual(['15', '30', '45']);
+  });
+
+  it('quantizes in feet the way desktop does, not 3 m converted', () => {
+    const ticks = depthTicks(45000, IMPERIAL_UNITS, 6, true);
+    expect(ticks.map((t) => t.label)).toEqual(['30', '60', '90', '120']);
+    expect(ticks[0].value).toBeCloseTo(9144, 0);
   });
 });

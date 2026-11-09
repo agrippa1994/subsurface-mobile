@@ -10,6 +10,34 @@
 // formatting happens in C++, so the same numbers can be rendered metric or
 // imperial. The key mapping is documented in cpp/API.md.
 
+/**
+ * The core's `prefs.units` for one call, one unit per quantity (core/units.h,
+ * `struct units`). Only the calls whose output the core formats itself take
+ * it: planner notes, statistics chart labels and the CSV stylesheets.
+ */
+export type CoreUnitsInput = {
+  depth: 'm' | 'ft';
+  pressure: 'bar' | 'psi';
+  volume: 'l' | 'cuft';
+  temperature: 'C' | 'F';
+  weight: 'kg' | 'lbs';
+};
+
+/**
+ * App preferences the core reads itself, set with `configurePreferences`. Each is
+ * applied when present and left as it was when absent.
+ */
+export type CorePreferences = {
+  /** The device region's twelve short month names, January first. */
+  monthNames?: string[];
+  /**
+   * The core's `default_cylinder`: a cylinder type's name from the tank table
+   * (`plannerOptions().tanks`), or "" for none. New dives, the planner's
+   * cylinders and downloaded dives whose computer gave no size start from it.
+   */
+  defaultCylinder?: string;
+};
+
 // Native surface exposed by the Swift/Kotlin module definition.
 export type SsrfCoreNativeModule = {
   // The whole core API. Returns the JSON envelope described in cpp/api.h.
@@ -482,6 +510,15 @@ export type StatsSummary = {
   byDuration: StatsDurationBin[];
   /** Distinct dive sites among the matched dives. Bindings, not the core. */
   siteCount: number;
+  /** The earliest and latest matched dive's `when`; 0 when nothing matched. */
+  firstWhen: number;
+  lastWhen: number;
+  /** Matched dives with a cylinder richer than air (legacy summary's "EAN dives"). */
+  nitroxDives: number;
+  /** Matched dives deeper than 39 m (legacy summary's "Deep dives"). */
+  deepDives: number;
+  /** With `recentMonths`, the `when` the period starts after; 0 otherwise. */
+  periodStartWhen: number;
 };
 
 export type StatsFilter = {
@@ -501,6 +538,13 @@ export type StatsFilter = {
   includeInvalid?: boolean;
   /** Leaves out dives that were planned rather than dived. Desktop counts them. */
   excludePlanned?: boolean;
+  /**
+   * The legacy dive summary's periods: only dives after this many calendar months
+   * before now, on the wall clock dives are logged in (DiveSummaryModel::calc).
+   */
+  recentMonths?: number;
+  /** "Now" for `recentMonths`, as a wall-clock `when`. The device's time when absent; for tests. */
+  nowWhen?: number;
 };
 
 // --- Dive planner -------------------------------------------------------------
@@ -537,6 +581,9 @@ export type PlanSegmentInput = {
 
 /** The core's planner preferences. Anything left out is the core's default. See cpp/API.md. */
 export type PlanSettingsInput = {
+  /** Units the notes are written in and the stop table steps by (3 m or 10 ft). */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   decoMode?: PlanDecoMode;
   gfLow?: number;
@@ -724,7 +771,9 @@ export type CsvFormat = 'details' | 'summary' | 'profile';
 
 export type CsvExportOptions = {
   format: CsvFormat;
-  /** Unit system of `details` and `summary`; `profile` has none. Metric by default. */
+  /** Units of `details` and `summary`, one per quantity; `profile` has none. Metric by default. */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   /** Gradient factors `profile` computes the ceiling with, as for getProfile. */
   gf?: GradientFactors;
@@ -1145,6 +1194,9 @@ export type StatsChartRequest = {
   config?: StatsChartConfigInput;
   change?: StatsChartChange;
   filter?: StatsFilter;
+  /** Units the binners cut and label in. Metric by default. */
+  units?: CoreUnitsInput;
+  /** Shorthand for every unit imperial; `units` wins over it. */
   imperial?: boolean;
   /** False when only the configuration and its options are of interest. */
   plot?: boolean;

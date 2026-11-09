@@ -17,13 +17,13 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { sortDivesNewestFirst } from '@/models/dive-list';
 import { tripSummaryFooter, tripSummaryRows, tripTitle } from '@/models/trips';
 import { useDives, useTrips, useTripStatistics } from '@/queries/logbook';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const tripId = Number(id);
   const router = useRouter();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const tripsQuery = useTrips();
   const divesQuery = useDives();
   const statsQuery = useTripStatistics(tripId);
@@ -73,12 +73,12 @@ export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?:
       <Stack.Screen options={{ title: tripTitle(trip.location) }} />
       <HeaderAction history label="Edit" onPress={openEditor} />
       <TripDetailView
-        summary={tripSummaryRows(trip, statsQuery.data, unitSystem)}
+        summary={tripSummaryRows(trip, statsQuery.data, units)}
         summaryFooter={tripSummaryFooter(trip, statsQuery.data)}
         location={trip.location}
         notes={trip.notes}
         dives={dives}
-        unitSystem={unitSystem}
+        units={units}
         onEdit={openEditor}
         onSelectDive={(diveId) => router.push(`${stackPath}/${diveId}`)}
         onRemoveDive={(dive) =>

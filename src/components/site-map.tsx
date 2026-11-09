@@ -23,6 +23,8 @@ export type SiteMapProps = {
   onPick?: (latUdeg: number, lonUdeg: number) => void;
   height?: number;
   title?: string;
+  /** Edge to edge inside a card that already has the corners and the border. */
+  flush?: boolean;
 };
 
 export function SiteMap({
@@ -32,6 +34,7 @@ export function SiteMap({
   onPick,
   height = 220,
   title,
+  flush = false,
 }: SiteMapProps) {
   const theme = useTheme();
   const hasPosition = latUdeg !== null && lonUdeg !== null;
@@ -57,7 +60,8 @@ export function SiteMap({
   }
 
   return (
-    <View style={[styles.mapFrame, { height, borderColor: theme.separator }]}>
+    <View
+      style={[styles.mapFrame, { height, borderColor: theme.separator }, flush ? styles.flush : null]}>
       <PlatformMap
         style={StyleSheet.absoluteFill}
         // The camera is only the *initial* position, so it must not be rebuilt
@@ -89,6 +93,10 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+  flush: {
+    borderRadius: 0,
+    borderWidth: 0,
   },
   fallback: {
     alignItems: 'center',

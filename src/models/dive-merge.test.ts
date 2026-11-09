@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { mergeActionsFor, mergeConfirmation, mergeNeighbours } from './dive-merge';
 import type { Dive, DiveSummary, MergePreview, Trip } from './index';
+import { METRIC_UNITS } from './units';
 
 function summary(id: number, overrides: Partial<DiveSummary> = {}): DiveSummary {
   return {
@@ -93,8 +94,7 @@ describe('mergeConfirmation', () => {
       [summary(13), summary(12)],
       preview({}),
       [],
-      'metric',
-      'en-GB',
+      METRIC_UNITS,
     );
     expect(title).toBe('Merge these dives?');
     expect(confirmLabel).toBe('Merge');
@@ -110,8 +110,7 @@ describe('mergeConfirmation', () => {
       [summary(1, { number: 0 }), summary(2, { number: 0 })],
       preview({}),
       [],
-      'metric',
-      'en-GB',
+      METRIC_UNITS,
     );
     expect(message.startsWith('Shark Reef, ')).toBe(true);
   });
@@ -119,22 +118,22 @@ describe('mergeConfirmation', () => {
   it('mentions the surface interval only when one profile holds it', () => {
     const dives = [summary(1), summary(2)];
     expect(
-      mergeConfirmation(dives, preview({}, { surfaceIntervalSec: 280 }), []).message,
+      mergeConfirmation(dives, preview({}, { surfaceIntervalSec: 280 }), [], METRIC_UNITS).message,
     ).toContain('Its profile keeps the 5 min on the surface between them.');
     const two = mergeConfirmation(
       dives,
       preview({ dcs: [{}, {}] } as Partial<Dive>, { surfaceIntervalSec: 280 }),
       [],
-    ).message;
+     METRIC_UNITS).message;
     expect(two).toContain('keeping the recordings of 2 dive computers');
     expect(two).not.toContain('on the surface');
   });
 
   it('says which site is kept when the dives have two', () => {
     const dives = [summary(1), summary(2, { siteUuid: 2, siteName: 'South Wall' })];
-    const { message } = mergeConfirmation(dives, preview({}), []);
+    const { message } = mergeConfirmation(dives, preview({}), [], METRIC_UNITS);
     expect(message).toContain('It stays at Shark Reef. South Wall stays in your sites without it.');
-    expect(mergeConfirmation([summary(1), summary(2)], preview({}), []).message).not.toContain(
+    expect(mergeConfirmation([summary(1), summary(2)], preview({}), [], METRIC_UNITS).message).not.toContain(
       'stays in your sites',
     );
   });
@@ -148,7 +147,7 @@ describe('mergeConfirmation', () => {
       dives,
       preview({ tripId: 7, tripLocation: 'Red Sea' }),
       [trip(7, 'Red Sea', 4), trip(8, 'Dahab', 1)],
-    );
+     METRIC_UNITS);
     expect(message).toContain('It goes in the trip Red Sea.');
     expect(message).toContain('The trip Dahab ends, with its location and notes.');
   });
@@ -162,18 +161,18 @@ describe('mergeConfirmation', () => {
       dives,
       preview({ tripId: 7, tripLocation: 'Red Sea' }),
       [trip(7, 'Red Sea', 2)],
-    );
+     METRIC_UNITS);
     expect(message).not.toContain('trip');
   });
 
   it('counts the dives that get a new number', () => {
     const dives = [summary(1), summary(2)];
     expect(
-      mergeConfirmation(dives, preview({}, { renumberedDives: 1 }), []).message,
+      mergeConfirmation(dives, preview({}, { renumberedDives: 1 }), [], METRIC_UNITS).message,
     ).toContain('1 later dive gets a new number.');
     expect(
-      mergeConfirmation(dives, preview({}, { renumberedDives: 3 }), []).message,
+      mergeConfirmation(dives, preview({}, { renumberedDives: 3 }), [], METRIC_UNITS).message,
     ).toContain('3 later dives get a new number.');
-    expect(mergeConfirmation(dives, preview({}), []).message).not.toContain('new number');
+    expect(mergeConfirmation(dives, preview({}), [], METRIC_UNITS).message).not.toContain('new number');
   });
 });

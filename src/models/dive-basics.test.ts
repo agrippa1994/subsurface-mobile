@@ -22,7 +22,7 @@ import {
   validateDiveBasics,
   type DiveBasicsDraft,
 } from './dive-basics';
-import { celsiusToMkelvin } from './units';
+import { celsiusToMkelvin , IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
 const NOW = 1772359200;
 
@@ -101,47 +101,47 @@ describe('parseDurationInput', () => {
 
 describe('depth and temperature text', () => {
   it('is in the diver\'s units', () => {
-    expect(formatDepthInput(24380, 'metric')).toBe('24.4');
-    expect(formatDepthInput(24380, 'imperial')).toBe('80');
-    expect(parseDepthInput('24,5', 'metric')).toBe(24500);
-    expect(parseDepthInput('80', 'imperial')).toBeCloseTo(24384, -1);
-    expect(parseDepthInput('', 'metric')).toBeUndefined();
-    expect(parseDepthInput('deep', 'metric')).toBeNull();
+    expect(formatDepthInput(24380, METRIC_UNITS)).toBe('24.4');
+    expect(formatDepthInput(24380, IMPERIAL_UNITS)).toBe('80');
+    expect(parseDepthInput('24,5', METRIC_UNITS)).toBe(24500);
+    expect(parseDepthInput('80', IMPERIAL_UNITS)).toBeCloseTo(24384, -1);
+    expect(parseDepthInput('', METRIC_UNITS)).toBeUndefined();
+    expect(parseDepthInput('deep', METRIC_UNITS)).toBeNull();
 
-    expect(formatTemperatureInput(celsiusToMkelvin(18), 'metric')).toBe('18');
-    expect(formatTemperatureInput(celsiusToMkelvin(18), 'imperial')).toBe('64.4');
-    expect(parseTemperatureInput('18', 'metric')).toBe(291150);
-    expect(parseTemperatureInput('64.4', 'imperial')).toBe(291150);
-    expect(parseTemperatureInput('', 'metric')).toBeUndefined();
-    expect(parseTemperatureInput('warm', 'metric')).toBeNull();
+    expect(formatTemperatureInput(celsiusToMkelvin(18), METRIC_UNITS)).toBe('18');
+    expect(formatTemperatureInput(celsiusToMkelvin(18), IMPERIAL_UNITS)).toBe('64.4');
+    expect(parseTemperatureInput('18', METRIC_UNITS)).toBe(291150);
+    expect(parseTemperatureInput('64.4', IMPERIAL_UNITS)).toBe(291150);
+    expect(parseTemperatureInput('', METRIC_UNITS)).toBeUndefined();
+    expect(parseTemperatureInput('warm', METRIC_UNITS)).toBeNull();
   });
 
   it('takes a temperature below zero', () => {
-    expect(parseTemperatureInput('-2', 'metric')).toBe(271150);
-    expect(parseTemperatureInput('−2', 'metric')).toBe(271150);
-    expect(parseTemperatureInput('0', 'metric')).toBe(273150);
-    expect(formatTemperatureInput(273150, 'metric')).toBe('0');
+    expect(parseTemperatureInput('-2', METRIC_UNITS)).toBe(271150);
+    expect(parseTemperatureInput('−2', METRIC_UNITS)).toBe(271150);
+    expect(parseTemperatureInput('0', METRIC_UNITS)).toBe(273150);
+    expect(formatTemperatureInput(273150, METRIC_UNITS)).toBe('0');
   });
 
   it('keeps 0 C apart from no temperature', () => {
-    expect(formatTemperatureInput(0, 'metric')).toBe('');
+    expect(formatTemperatureInput(0, METRIC_UNITS)).toBe('');
   });
 });
 
 describe('validateDiveBasics', () => {
   it('passes a plain dive', () => {
-    expect(validateDiveBasics(draft(), 'metric', NEW)).toEqual({});
+    expect(validateDiveBasics(draft(), METRIC_UNITS, NEW)).toEqual({});
   });
 
   it('wants a duration and a depth, and says which', () => {
-    const errors = validateDiveBasics(newDiveBasicsDraft(NOW), 'metric', NEW);
+    const errors = validateDiveBasics(newDiveBasicsDraft(NOW), METRIC_UNITS, NEW);
     expect(errors.durationText).toMatch(/how long/);
     expect(errors.maxDepthText).toMatch(/how deep/);
   });
 
   it('refuses what the bindings would', () => {
     const check = (over: Partial<DiveBasicsDraft>) =>
-      validateDiveBasics(draft(over), 'metric', NEW);
+      validateDiveBasics(draft(over), METRIC_UNITS, NEW);
     expect(check({ durationText: 'long' }).durationText).toBeDefined();
     expect(check({ durationText: '0' }).durationText).toBeDefined();
     expect(check({ durationText: '1441' }).durationText).toMatch(/24 hours/);
@@ -156,36 +156,36 @@ describe('validateDiveBasics', () => {
   });
 
   it('gives its limits in the diver\'s units', () => {
-    const errors = validateDiveBasics(draft({ maxDepthText: '2000' }), 'imperial', NEW);
+    const errors = validateDiveBasics(draft({ maxDepthText: '2000' }), IMPERIAL_UNITS, NEW);
     expect(errors.maxDepthText).toMatch(/3 to 1640 ft/);
   });
 
   it('refuses the future, with a day of slack, except on a plan', () => {
-    expect(validateDiveBasics(draft({ when: NOW + 3600 }), 'metric', NEW).when).toBeUndefined();
-    expect(validateDiveBasics(draft({ when: NOW + 90000 }), 'metric', NEW).when).toMatch(/future/);
+    expect(validateDiveBasics(draft({ when: NOW + 3600 }), METRIC_UNITS, NEW).when).toBeUndefined();
+    expect(validateDiveBasics(draft({ when: NOW + 90000 }), METRIC_UNITS, NEW).when).toMatch(/future/);
     expect(
-      validateDiveBasics(draft({ when: NOW + 90000 }), 'metric', { ...NEW, allowFuture: true }).when,
+      validateDiveBasics(draft({ when: NOW + 90000 }), METRIC_UNITS, { ...NEW, allowFuture: true }).when,
     ).toBeUndefined();
   });
 
   it('refuses temperatures nobody dives in', () => {
     const errors = validateDiveBasics(
       draft({ airTempText: '90', waterTempText: 'cold' }),
-      'metric',
+      METRIC_UNITS,
       NEW,
     );
     expect(errors.airTempText).toMatch(/-70 to 70 C/);
     expect(errors.waterTempText).toBeDefined();
-    expect(validateDiveBasics(draft({ waterTempText: '-2' }), 'metric', NEW)).toEqual({});
+    expect(validateDiveBasics(draft({ waterTempText: '-2' }), METRIC_UNITS, NEW)).toEqual({});
   });
 
   it('refuses a number that is not one', () => {
-    expect(validateDiveBasics(draft({ numberText: '4.5' }), 'metric', NEW).numberText).toBeDefined();
-    expect(validateDiveBasics(draft({ numberText: '' }), 'metric', NEW)).toEqual({});
+    expect(validateDiveBasics(draft({ numberText: '4.5' }), METRIC_UNITS, NEW).numberText).toBeDefined();
+    expect(validateDiveBasics(draft({ numberText: '' }), METRIC_UNITS, NEW)).toEqual({});
   });
 
   it('asks nothing of a downloaded dive\'s depth and duration', () => {
-    const errors = validateDiveBasics(newDiveBasicsDraft(NOW), 'metric', {
+    const errors = validateDiveBasics(newDiveBasicsDraft(NOW), METRIC_UNITS, {
       ...NEW,
       profileEditable: false,
     });
@@ -194,16 +194,16 @@ describe('validateDiveBasics', () => {
 
   it('holds nothing against a dive for what it already had', () => {
     const old = dive({ when: NOW + 90000, airTempMkelvin: celsiusToMkelvin(95) });
-    const seed = diveBasicsDraftFrom(old, 'metric');
+    const seed = diveBasicsDraftFrom(old, METRIC_UNITS);
     expect(
-      validateDiveBasics(seed, 'metric', { ...NEW, profileEditable: false, seed }),
+      validateDiveBasics(seed, METRIC_UNITS, { ...NEW, profileEditable: false, seed }),
     ).toEqual({});
   });
 });
 
 describe('buildDiveBasicsPatch', () => {
   it('is empty when nothing was touched, in either unit system', () => {
-    for (const system of ['metric', 'imperial'] as const) {
+    for (const system of [METRIC_UNITS, IMPERIAL_UNITS]) {
       for (const dcModel of ['Suunto D5', MANUAL_DC_MODEL]) {
         const it = dive({ dcModel });
         expect(buildDiveBasicsPatch(it, diveBasicsDraftFrom(it, system), system)).toEqual({});
@@ -216,13 +216,13 @@ describe('buildDiveBasicsPatch', () => {
     const patch = buildDiveBasicsPatch(
       it,
       {
-        ...diveBasicsDraftFrom(it, 'metric'),
+        ...diveBasicsDraftFrom(it, METRIC_UNITS),
         when: NOW,
         airTempText: '30',
         waterTempText: '',
         numberText: '12',
       },
-      'metric',
+      METRIC_UNITS,
     );
     expect(patch).toEqual({
       when: NOW,
@@ -238,34 +238,34 @@ describe('buildDiveBasicsPatch', () => {
     expect(
       buildDiveBasicsPatch(
         downloaded,
-        { ...diveBasicsDraftFrom(downloaded, 'metric'), ...changes },
-        'metric',
+        { ...diveBasicsDraftFrom(downloaded, METRIC_UNITS), ...changes },
+        METRIC_UNITS,
       ),
     ).toEqual({});
     const manual = dive({ dcModel: MANUAL_DC_MODEL });
     expect(
-      buildDiveBasicsPatch(manual, { ...diveBasicsDraftFrom(manual, 'metric'), ...changes }, 'metric'),
+      buildDiveBasicsPatch(manual, { ...diveBasicsDraftFrom(manual, METRIC_UNITS), ...changes }, METRIC_UNITS),
     ).toEqual({ durationSec: 3000, maxDepthMm: 30000, meanDepthMm: 12000 });
   });
 
   it('leaves the average to the core when only the maximum changed', () => {
     const manual = dive({ dcModel: MANUAL_DC_MODEL });
     expect(
-      buildDiveBasicsPatch(manual, { ...diveBasicsDraftFrom(manual, 'metric'), maxDepthText: '30' }, 'metric'),
+      buildDiveBasicsPatch(manual, { ...diveBasicsDraftFrom(manual, METRIC_UNITS), maxDepthText: '30' }, METRIC_UNITS),
     ).toEqual({ maxDepthMm: 30000 });
   });
 
   it('clears a number', () => {
     const it = dive();
     expect(
-      buildDiveBasicsPatch(it, { ...diveBasicsDraftFrom(it, 'metric'), numberText: '' }, 'metric'),
+      buildDiveBasicsPatch(it, { ...diveBasicsDraftFrom(it, METRIC_UNITS), numberText: '' }, METRIC_UNITS),
     ).toEqual({ number: 0 });
   });
 });
 
 describe('buildNewDiveBasics', () => {
   it('sends only what was filled in', () => {
-    expect(buildNewDiveBasics(draft(), 'metric')).toEqual({
+    expect(buildNewDiveBasics(draft(), METRIC_UNITS)).toEqual({
       when: NOW,
       durationSec: 2700,
       maxDepthMm: 24000,
@@ -275,7 +275,7 @@ describe('buildNewDiveBasics', () => {
   it('converts from the diver\'s units', () => {
     const input = buildNewDiveBasics(
       draft({ maxDepthText: '100', meanDepthText: '50', airTempText: '77', waterTempText: '59' }),
-      'imperial',
+      IMPERIAL_UNITS,
     );
     expect(input.maxDepthMm).toBe(30480);
     expect(input.meanDepthMm).toBe(15240);
@@ -284,7 +284,7 @@ describe('buildNewDiveBasics', () => {
   });
 
   it('takes a temperature of zero', () => {
-    expect(buildNewDiveBasics(draft({ waterTempText: '0' }), 'metric').waterTempMkelvin).toBe(273150);
+    expect(buildNewDiveBasics(draft({ waterTempText: '0' }), METRIC_UNITS).waterTempMkelvin).toBe(273150);
   });
 });
 

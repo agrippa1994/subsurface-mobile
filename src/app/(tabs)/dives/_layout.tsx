@@ -66,6 +66,7 @@ function DivesStack({ split }: { split: boolean }) {
       <Stack.Screen name="at/[when]" options={{ title: 'Dive', headerLargeTitle: false }} />
       <Stack.Screen name="edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
       <Stack.Screen name="ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
+      <Stack.Screen name="site/[uuid]" options={{ title: 'Dive site', headerLargeTitle: false }} />
       <Stack.Screen
         name="add"
         // Spelled out: above the placeholder this is the second screen, which the options

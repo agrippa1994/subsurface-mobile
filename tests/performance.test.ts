@@ -17,6 +17,7 @@ import { groupDivesByTrip, sortDivesNewestFirst, toDiveRow } from '../src/models
 import { buildProfilePlot, windowPoints } from '../src/models/profile-plot';
 import { depthHistogram, divesOverTime, summaryTiles } from '../src/models/statistics';
 import type { DiveSummary } from '../src/models';
+import { METRIC_UNITS } from '../src/models/units';
 
 const LARGE = 600;
 
@@ -72,7 +73,7 @@ describe('a large logbook', () => {
       const started = performance.now();
       for (const section of grouped) {
         for (const dive of section.dives) {
-          toDiveRow(dive, 'metric');
+          toDiveRow(dive, METRIC_UNITS);
         }
       }
       fastest = Math.min(fastest, performance.now() - started);
@@ -104,9 +105,9 @@ describe('a large logbook', () => {
     expect(stats.ms).toBeLessThan(2000);
 
     const started = performance.now();
-    summaryTiles(stats.value);
+    summaryTiles(stats.value, METRIC_UNITS);
     divesOverTime(stats.value);
-    depthHistogram(stats.value);
+    depthHistogram(stats.value, METRIC_UNITS);
     expect(performance.now() - started).toBeLessThan(50);
   });
 });

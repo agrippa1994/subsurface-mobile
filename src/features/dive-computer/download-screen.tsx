@@ -20,7 +20,7 @@ import {
   connectionLabel,
   downloadedDiveRows,
 } from '@/models/dive-computer';
-import { useUnitSystem } from '@/queries/settings';
+import { useUnits } from '@/queries/settings';
 
 import { ChoicePicker, type Choice } from './choice-picker';
 import { useDiveComputer, type DiveComputerScreen } from './use-dive-computer';
@@ -228,10 +228,10 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
 
 function Review({ screen }: { screen: DiveComputerScreen }) {
   const theme = useTheme();
-  const unitSystem = useUnitSystem();
+  const units = useUnits();
   const rows = useMemo(
-    () => downloadedDiveRows(screen.status.dives, unitSystem),
-    [screen.status.dives, unitSystem],
+    () => downloadedDiveRows(screen.status.dives, units),
+    [screen.status.dives, units],
   );
   const count = screen.selected.size;
 

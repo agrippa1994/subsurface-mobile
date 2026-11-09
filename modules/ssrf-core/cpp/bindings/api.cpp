@@ -21,6 +21,7 @@
 #include "core/equipment.h"
 #include "core/errorhelper.h"
 #include "core/gas.h"
+#include "core/membuffer.h"
 #include "core/parse.h"
 #include "core/pref.h"
 #include "core/profile.h"
@@ -56,6 +57,16 @@
 // repeated rather than the guard weakened.
 extern int suunto_json_import(const std::string &buffer, const std::string &fit_buffer, struct divelog *log);
 extern void set_data_directory(const std::string &path);
+// cpp/shim/gettext.cpp: the region's short month names for the core's own labels.
+extern void set_month_names(const std::vector<std::string> &names);
+// core/equipment.cpp defines it, but no header declares it (desktop reaches it
+// through the Qt models); what the core's "add cylinder" starts from.
+extern cylinder_t create_new_cylinder(const struct dive *d);
+// Made non-static by patches/0011 and 0012: the CSV export runs the stylesheet
+// itself when the units are chosen one by one.
+extern void save_dives_buffer(struct membuffer *b, bool select_only, bool anonymize);
+extern std::pair<int, std::string> transform_xslt(const char *filename, struct membuffer &buf,
+						  struct xml_params *params, const char *export_xslt);
 
 std::recursive_mutex &ssrf_core_mutex()
 {
@@ -1241,11 +1252,44 @@ json preview_dive(const json &args)
 	return dive_to_json(copy);
 }
 
+// The start of the legacy dive summary's periods (DiveSummaryModel::calc in
+// qt-models/divesummarymodel.cpp): now, on the wall clock dives are stored in,
+// less `months` calendar months - QDateTime::addMonths(), which keeps the day
+// of the month and clamps it to the target month's length. `now` is that wall
+// clock in core seconds; 0 means the device's current time.
+timestamp_t months_before(int months, timestamp_t now)
+{
+	if (!now)
+		now = time(nullptr) + gettimezoneoffset();
+	struct tm tm;
+	utc_mkdate(now, &tm);
+	int month = tm.tm_mon - months;
+	int year = tm.tm_year;
+	while (month < 0) {
+		month += 12;
+		--year;
+	}
+	static const int days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+	int last_day = days[month] + (month == 1 && leap ? 1 : 0);
+	tm.tm_year = year;
+	tm.tm_mon = month;
+	tm.tm_mday = std::min(tm.tm_mday, last_day);
+	return utc_mktime(&tm);
+}
+
 // Marks the dives matching `filter` as selected, since that is the input the
 // core's statistics code takes (it reads dive->selected). An absent or empty
 // filter selects every valid dive.
+//
+// `recentMonths` (1, 3, 6 or 12 in the app) is the legacy summary's period:
+// the dives after months_before(recentMonths, nowWhen), strictly, as there.
 int apply_stats_filter(const json &filter)
 {
+	int recent_months = static_cast<int>(get_int(filter, "recentMonths", 0));
+	if (recent_months < 0 || recent_months > 1200)
+		fail("argument 'recentMonths' must be between 0 and 1200");
+	timestamp_t recent_start = recent_months ? months_before(recent_months, get_int(filter, "nowWhen", 0)) : 0;
 	int64_t from = get_int(filter, "fromWhen", 0);
 	int64_t to = get_int(filter, "toWhen", 0);
 	uint32_t site = static_cast<uint32_t>(get_int(filter, "siteUuid", 0));
@@ -1266,6 +1310,8 @@ int apply_stats_filter(const json &filter)
 		if (excludePlanned && d.is_planned())
 			match = false;
 		if (from && d.when < from)
+			match = false;
+		if (recent_months && d.when <= recent_start)
 			match = false;
 		if (to && d.when > to)
 			match = false;
@@ -1321,10 +1367,27 @@ json extra_statistics()
 
 	std::vector<uint32_t> sites;
 
+	// The legacy summary's other rows (divesummarymodel.cpp, calculateDive):
+	// first and last dive, dives on a mix richer than air, and dives deeper than
+	// 39 m. Planned dives count here as they do in the core's statistics; the
+	// filter leaves them out on request.
+	timestamp_t first_when = 0, last_when = 0;
+	int nitrox_dives = 0, deep_dives = 0;
+
 	for (const auto &dp : divelog.dives) {
 		const struct dive &d = *dp;
 		if (!d.selected || d.invalid)
 			continue;
+
+		if (!first_when || d.when < first_when)
+			first_when = d.when;
+		if (d.when > last_when)
+			last_when = d.when;
+		if (std::any_of(d.cylinders.begin(), d.cylinders.end(),
+				[](const cylinder_t &cyl) { return cyl.gasmix.o2.permille > 210; }))
+			nitrox_dives++;
+		if (d.maxdepth.mm > 39000)
+			deep_dives++;
 
 		int idx = d.duration.seconds / 60 / STATS_DURATION_BUCKET_MIN;
 		idx = std::clamp(idx, 0, nr_buckets - 1);
@@ -1368,6 +1431,11 @@ json extra_statistics()
 		{ "timeline", timeline },
 		{ "byDuration", by_duration },
 		{ "siteCount", static_cast<int>(sites.size()) },
+		{ "firstWhen", first_when },
+		{ "lastWhen", last_when },
+		{ "nitroxDives", nitrox_dives },
+		{ "deepDives", deep_dives },
+		{ "periodStartWhen", 0 },
 	};
 }
 
@@ -1387,6 +1455,10 @@ json get_statistics(const json &args)
 	out["total"] = stats_to_json(calculate_stats_selected());
 	out["matched"] = selected;
 	out.update(extra_statistics());
+	// Where a recent period starts, so the screen can say "since 9 Aug 2026".
+	int recent_months = static_cast<int>(get_int(filter, "recentMonths", 0));
+	if (recent_months)
+		out["periodStartWhen"] = months_before(recent_months, get_int(filter, "nowWhen", 0));
 	return out;
 }
 
@@ -1538,7 +1610,27 @@ json export_dive_csv(const json &args)
 			fail("failed to write " + path);
 	} else if (format == "details" || format == "summary") {
 		const char *stylesheet = format == "details" ? "xml2detailscsv.xslt" : "xml2summarycsv.xslt";
-		auto [error, message] = export_dives_xslt(path.c_str(), true, units, stylesheet, false);
+		// `unitPrefs` names each quantity's unit, as the screens show them; the
+		// patched stylesheets take one switch per quantity, each defaulting to
+		// `units` (patches/xslt-0001). Without it this is export_dives_xslt().
+		std::pair<int, std::string> result;
+		auto prefs_arg = args.find("unitPrefs");
+		if (prefs_arg != args.end() && !prefs_arg->is_null()) {
+			struct units chosen = units_from_json(*prefs_arg, units ? IMPERIAL_units : SI_units);
+			membuffer buf;
+			xml_params params;
+			save_dives_buffer(&buf, true, false);
+			xml_params_add_int(&params, "units", units);
+			xml_params_add_int(&params, "unitsDepth", chosen.length == units::FEET);
+			xml_params_add_int(&params, "unitsPressure", chosen.pressure == units::PSI);
+			xml_params_add_int(&params, "unitsVolume", chosen.volume == units::CUFT);
+			xml_params_add_int(&params, "unitsTemperature", chosen.temperature == units::FAHRENHEIT);
+			xml_params_add_int(&params, "unitsWeight", chosen.weight == units::LBS);
+			result = transform_xslt(path.c_str(), buf, &params, stylesheet);
+		} else {
+			result = export_dives_xslt(path.c_str(), true, units, stylesheet, false);
+		}
+		auto [error, message] = result;
 		if (error)
 			fail(message.empty() ? "failed to write " + path : message);
 	} else {
@@ -1764,12 +1856,68 @@ json import_file(const json &args)
 // Paths the core needs from the app: the directory holding the XSLT
 // stylesheets, which is how every non-SSRF XML format is read (the desktop app
 // gets them from Qt resources - see cpp/shim/qthelper.cpp).
+// The core's default cylinder (`prefs.default_cylinder`), by its name in the
+// tank table. fill_default_cylinder() looks it up in `tank_info_table`, which
+// holds the built-in types plus the log's own once a log has been loaded; a name
+// not there yet means the table has not been built, so it is built.
+void set_default_cylinder(const std::string &name)
+{
+	auto known = [&name] {
+		return std::any_of(tank_info_table.begin(), tank_info_table.end(),
+				   [&name](const tank_info &info) { return info.name == name; });
+	};
+	if (!name.empty() && !known()) {
+		reset_tank_info_table(tank_info_table);
+		if (!known())
+			fail("unknown cylinder type '" + name + "'");
+	}
+	prefs.default_cylinder = name;
+}
+
+// What a new cylinder starts as with the default cylinder set:
+// create_new_cylinder(), as desktop's "add cylinder" and the core's default
+// dive use it - the type's size and working pressure, filled to it, air. Null
+// when no default is set.
+json default_cylinder_json()
+{
+	if (prefs.default_cylinder.empty())
+		return nullptr;
+	struct dive d;
+	return new_cylinder_to_json(create_new_cylinder(&d));
+}
+
+//
+// And the app's preferences the core reads itself: `monthNames`, the twelve short
+// month names of the device's region, January first, for the month labels the
+// core writes (statistics binners, trip titles); `defaultCylinder`, the name of
+// the cylinder type new dives, downloaded dives without a size and the planner
+// start from ("" for none, the core's default).
 json configure(const json &args)
 {
 	std::string xslt = get_string(args, "xsltDir");
 	std::string data = get_string(args, "dataDir");
-	if (xslt.empty() && data.empty())
-		fail("missing required argument 'xsltDir' or 'dataDir'");
+	auto months = args.find("monthNames");
+	bool has_months = months != args.end() && !months->is_null();
+	auto cylinder = args.find("defaultCylinder");
+	bool has_cylinder = cylinder != args.end() && !cylinder->is_null();
+	if (xslt.empty() && data.empty() && !has_months && !has_cylinder)
+		fail("missing required argument 'xsltDir', 'dataDir', 'monthNames' or 'defaultCylinder'");
+	if (has_cylinder) {
+		if (!cylinder->is_string())
+			fail("argument 'defaultCylinder' must be a string");
+		set_default_cylinder(cylinder->get<std::string>());
+	}
+	if (has_months) {
+		if (!months->is_array() || months->size() != 12)
+			fail("argument 'monthNames' must be an array of 12 strings");
+		std::vector<std::string> names;
+		for (const json &name : *months) {
+			if (!name.is_string())
+				fail("argument 'monthNames' must be an array of 12 strings");
+			names.push_back(name.get<std::string>());
+		}
+		set_month_names(names);
+	}
 	if (!xslt.empty())
 		set_xslt_directory(xslt);
 	if (!data.empty()) {
@@ -1816,6 +1964,8 @@ json dispatch(const std::string &method, const json &args)
 		return import_file(args);
 	if (method == "configure")
 		return configure(args);
+	if (method == "defaultCylinder")
+		return default_cylinder_json();
 	if (method == "dcListComputers")
 		return dc_list_computers();
 	if (method == "dcDetect")

@@ -17,6 +17,7 @@ export default defineConfig({
     env: { TZ: 'UTC' },
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     globalSetup: ['tests/global-setup.ts'],
+    setupFiles: ['tests/setup-device-clock.ts'],
     // One process per file keeps each test file's divelog isolated, and the
     // golden files are large enough that the parse dominates anyway.
     fileParallelism: true,

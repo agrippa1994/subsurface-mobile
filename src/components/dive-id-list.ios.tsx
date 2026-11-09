@@ -10,12 +10,12 @@ import type { DiveIdListProps } from './dive-id-list';
 
 export type { DiveIdListProps };
 
-export function DiveIdList({ dives, unitSystem, onSelect }: DiveIdListProps) {
+export function DiveIdList({ dives, units, onSelect }: DiveIdListProps) {
   return (
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('plain')]}>
         {dives.map((dive) => {
-          const row = toDiveRow(dive, unitSystem);
+          const row = toDiveRow(dive, units);
           return (
             <Button
               key={dive.id}

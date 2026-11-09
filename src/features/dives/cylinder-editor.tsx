@@ -17,7 +17,7 @@ import { FormField, FormSection, OptionField } from '@/components/form';
 import { SuggestField } from '@/components/suggest-field';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CylinderUse, formatGasMix, type UnitSystem } from '@/models';
+import { CylinderUse, formatGasMix, type Cylinder, type Units } from '@/models';
 import {
   newCylinderDraft,
   parseFractionInput,
@@ -36,15 +36,18 @@ export function CylinderEditor({
   drafts,
   errors,
   descriptions,
-  unitSystem,
+  units,
   onChange,
+  template = null,
 }: {
   drafts: readonly CylinderDraft[];
   errors: CylinderErrors;
   /** Cylinder descriptions the log already knows, for autocomplete. */
   descriptions: readonly string[];
-  unitSystem: UnitSystem;
+  units: Units;
   onChange: (drafts: CylinderDraft[]) => void;
+  /** What Add Cylinder starts from: the default cylinder, or null for a blank row. */
+  template?: Cylinder | null;
 }) {
   const theme = useTheme();
 
@@ -67,7 +70,7 @@ export function CylinderEditor({
 
           <View style={styles.pair}>
             <FormField
-              label={unitSystem === 'imperial' ? 'Size (cuft)' : 'Size (l)'}
+              label={units.volume === 'cuft' ? 'Size (cuft)' : 'Size (l)'}
               value={draft.sizeText}
               onChangeText={(sizeText) => patchRow(draft.key, { sizeText })}
               keyboardType="decimal-pad"
@@ -75,7 +78,7 @@ export function CylinderEditor({
               style={styles.half}
             />
             <FormField
-              label={unitSystem === 'imperial' ? 'Working (psi)' : 'Working (bar)'}
+              label={units.pressure === 'psi' ? 'Working (psi)' : 'Working (bar)'}
               value={draft.workingPressureText}
               onChangeText={(workingPressureText) =>
                 patchRow(draft.key, { workingPressureText })
@@ -110,7 +113,7 @@ export function CylinderEditor({
 
           <View style={styles.pair}>
             <FormField
-              label={unitSystem === 'imperial' ? 'Start (psi)' : 'Start (bar)'}
+              label={units.pressure === 'psi' ? 'Start (psi)' : 'Start (bar)'}
               value={draft.startText}
               onChangeText={(startText) => patchRow(draft.key, { startText })}
               keyboardType="decimal-pad"
@@ -118,7 +121,7 @@ export function CylinderEditor({
               style={styles.half}
             />
             <FormField
-              label={unitSystem === 'imperial' ? 'End (psi)' : 'End (bar)'}
+              label={units.pressure === 'psi' ? 'End (psi)' : 'End (bar)'}
               value={draft.endText}
               onChangeText={(endText) => patchRow(draft.key, { endText })}
               keyboardType="decimal-pad"
@@ -154,7 +157,7 @@ export function CylinderEditor({
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => onChange([...drafts, newCylinderDraft()])}
+        onPress={() => onChange([...drafts, newCylinderDraft(template, units)])}
         style={({ pressed }) => [
           styles.add,
           {

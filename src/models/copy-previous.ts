@@ -15,7 +15,7 @@
 import { cylinderDraftFrom, newCylinderDraft, type CylinderDraft } from './cylinder-edit';
 import { formatNameList, parseNameList } from './dive-edit';
 import type { Cylinder, DiveSummary, WeightSystem } from './index';
-import type { UnitSystem } from './units';
+import type { Units } from './units';
 import { newWeightDraft, weightDraftFrom, type WeightDraft } from './weight-edit';
 
 /**
@@ -54,11 +54,11 @@ export function findPreviousDive(
 export function copyCylinderSetup(
   current: readonly CylinderDraft[],
   previous: readonly Cylinder[],
-  system: UnitSystem
+  units: Units
 ): CylinderDraft[] {
   const rows: CylinderDraft[] = [];
   previous.forEach((cylinder, index) => {
-    const source = cylinderDraftFrom(cylinder, index, system);
+    const source = cylinderDraftFrom(cylinder, index, units);
     const setup = {
       description: source.description,
       sizeText: source.sizeText,
@@ -87,10 +87,10 @@ export function copyCylinderSetup(
 export function copyWeights(
   current: readonly WeightDraft[],
   previous: readonly WeightSystem[],
-  system: UnitSystem
+  units: Units
 ): WeightDraft[] {
   return previous.map((weight, index) => {
-    const source = weightDraftFrom(weight, index, system);
+    const source = weightDraftFrom(weight, index, units);
     const values = { description: source.description, weightText: source.weightText };
     const existing = current[index];
     return existing ? { ...existing, ...values } : { ...newWeightDraft(), ...values };

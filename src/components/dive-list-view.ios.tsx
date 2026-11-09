@@ -82,7 +82,7 @@ function SectionHeader({
 
 export function DiveListView({
   sections,
-  unitSystem,
+  units,
   onSelectDive,
   onDeleteDive,
   resultsText,
@@ -135,7 +135,7 @@ export function DiveListView({
               )
             }>
             {section.dives.map((dive) => {
-              const row = toDiveRow(dive, unitSystem);
+              const row = toDiveRow(dive, units);
               if (selectedIds) {
                 const selected = selectedIds.has(dive.id);
                 return (

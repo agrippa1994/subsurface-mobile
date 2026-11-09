@@ -11,6 +11,7 @@ import {
   selectedComputerIndex,
 } from './dive-computers';
 import { DiveMode, type DiveComputer } from './index';
+import { METRIC_UNITS } from './units';
 
 function computer(fields: Partial<DiveComputer> = {}): DiveComputer {
   return {
@@ -96,7 +97,7 @@ describe('computerPositionText', () => {
 
 describe('computerFigures', () => {
   it('leaves out what the computer did not record, but always states the mode', () => {
-    expect(computerFigures(computer({ divemode: DiveMode.CCR }), 'metric')).toEqual([
+    expect(computerFigures(computer({ divemode: DiveMode.CCR }), METRIC_UNITS)).toEqual([
       { label: 'Mode', value: 'CCR' },
     ]);
   });
@@ -110,7 +111,7 @@ describe('computerFigures', () => {
         waterTempMkelvin: 303050,
         airTempMkelvin: 293150,
       }),
-      'metric',
+      METRIC_UNITS,
     );
     expect(figures.map((figure) => figure.label)).toEqual([
       'Mode',

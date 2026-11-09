@@ -22,7 +22,7 @@ export function TripDetailView({
   location,
   notes,
   dives,
-  unitSystem,
+  units,
   onEdit,
   onSelectDive,
   onRemoveDive,
@@ -48,7 +48,7 @@ export function TripDetailView({
             {dives.map((dive) => (
               <M3DiveRow
                 key={dive.id}
-                row={toDiveRow(dive, unitSystem)}
+                row={toDiveRow(dive, units)}
                 onPress={() => onSelectDive(dive.id)}
                 onLongPress={() => setPressed(dive)}
               />

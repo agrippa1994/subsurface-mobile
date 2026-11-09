@@ -119,6 +119,7 @@ is a stub returning `DC_STATUS_UNSUPPORTED` in `ble-stream.cpp`: no download ask
 
 | `0010-planner-wait-until-relative-to-the-stop` | `planner.cpp` | Not a Qt patch. `wait_until()`'s two-day limit is on the dive's clock rather than the stop's, so past 48 hours of runtime it returns a time before the clock, `plan()` turns that into a negative leap, and the recursion never ends: a stack overflow, on a 300 m VPM-B trimix plan. Measures from the start of the stop. Dives under two days plan the same (`tests/planner.test.ts` holds `testplan.cpp`'s runtimes). Report upstream. |
 | `0011-save-xml-expose-save-dives-buffer` | `save-xml.cpp` | Not a Qt patch. Removes `static` from `save_dives_buffer()` so that the undo history (`bindings/history.cpp`) can serialize the log to memory. A temporary file per edit would be disk writes for nothing, and a way for an edit to fail on a full disk. |
+| `0012-save-xml-expose-transform-xslt` | `save-xml.cpp` | Not a Qt patch. Removes `static` from `transform_xslt()`, so `exportDiveCSV` can hand the CSV stylesheets one unit per quantity (see `xslt-0001` below). `export_dives_xslt()` passes only `units`. Applies after 0011. |
 
 A patch that stops applying fails the build. That is intended: it is the signal
 that the submodule pin moved under a hand-written assumption.
@@ -170,7 +171,7 @@ arriving transitively through a Qt header.
 
 | File | Provides | Divergence from upstream worth knowing |
 | --- | --- | --- |
-| `gettext.cpp` | `trGettext` | Identity. Localization is deferred to the TypeScript layer. |
+| `gettext.cpp` | `trGettext`, `set_month_names` | Identity, except the twelve short month names, which map to the device region's once `configure({ monthNames })` has set them (statistics binners, trip titles). Other localization is deferred to the TypeScript layer. |
 | `format.cpp` | the `std::string` formatters | Formats in the **C locale**. Upstream routes through `QString::arg()` and formats per `QLocale`. Every consumer in the subset writes XML or a log line, where a localized decimal separator would be a bug. |
 | `string-format.cpp` | `printGPSCoordsC`, `get_dive_date_c_string` | `get_dive_date_c_string` renders fixed `YYYY-MM-DD HH:MM` in UTC instead of `prefs.date_format_short` via QLocale. |
 | `qthelper.cpp` | the qthelper corner above, and `subsurface_mkdir` | `string_to_*` match upstream except that the **localized** unit suffixes ("kg"/"lbs"/"m"/"ft"/…) are only recognized in English. `get_current_date` maps the common `prefs.date_format_short` patterns onto `strftime`. `get_stylesheet` reads from the directory set by `set_xslt_directory()` instead of Qt resources. |
@@ -260,6 +261,13 @@ packages the same directory as APK assets (`assets/xslt`), and
 before pointing the core there - libxslt cannot read out of the APK. The core loads a stylesheet by name
 at runtime for every non-SSRF XML format it reads (`get_stylesheet()` in
 `cpp/shim/qthelper.cpp`); upstream serves them out of Qt resources.
+
+The copies are patched (`XSLT_PATCHES` in `core-subset.mjs`, applied with `patch -p1`
+inside `resources/xslt/`):
+
+| Patch | Stylesheets | Why |
+|-------|-------------|-----|
+| `xslt-0001-csv-units-per-quantity` | `xml2detailscsv.xslt`, `xml2summarycsv.xslt` | Adds `unitsDepth`, `unitsPressure`, `unitsVolume`, `unitsTemperature`, `unitsWeight`, each defaulting to `$units`, so a CSV can carry feet with bar. With only `units` passed the output is byte for byte upstream's (checked with xsltproc, both stylesheets, both values). The vitest harness reads this patched copy too. |
 
 ## Smoke units
 

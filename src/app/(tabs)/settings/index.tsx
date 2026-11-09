@@ -11,13 +11,10 @@ import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE } from '@/models/settings';
-import type { UnitSystem } from '@/models';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
+import type { Units } from '@/models';
+import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
-const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
-  { value: 'metric', label: 'Metric' },
-  { value: 'imperial', label: 'Imperial' },
-];
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
@@ -28,22 +25,54 @@ export default function SettingsScreen() {
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <FormSection title="Units">
-        <OptionField options={UNIT_OPTIONS} value={screen.unitSystem} onChange={screen.setUnitSystem} />
+      <FormSection
+        title="Units"
+        footer={
+          screen.showUnitRows
+            ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
+            : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`
+        }>
+        <OptionField
+          options={UNIT_PRESET_OPTIONS}
+          value={screen.unitPreset}
+          onChange={screen.setUnitPreset}
+        />
+        {screen.showUnitRows
+          ? UNIT_ROWS.map((row) => (
+              <View key={row.key} style={styles.unitRow} accessibilityLabel={row.label}>
+                <Text style={{ color: theme.textSecondary }}>{row.label}</Text>
+                <OptionField
+                  options={row.options}
+                  value={screen.units[row.key]}
+                  onChange={(value) => screen.setUnit(row.key, value as Units[typeof row.key])}
+                />
+              </View>
+            ))
+          : null}
       </FormSection>
 
-      <FormSection
-        title="Decompression"
-        footer={
-          "Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive profile - lower is more conservative. Subsurface's defaults are 30 and 75. The two curves show tissue loading against the limit: GF at depth for the moment itself, surface GF for what the diver would carry on surfacing right then."
-        }>
+      <FormSection title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
         <StepperRow label="GF low" value={screen.gfLow} onChange={screen.setGfLow} />
         <StepperRow label="GF high" value={screen.gfHigh} onChange={screen.setGfHigh} />
-        <SwitchRow label="Show GF at depth" value={screen.showGfNow} onChange={screen.setShowGfNow} />
-        <SwitchRow
-          label="Show surface GF"
-          value={screen.showGfSurface}
-          onChange={screen.setShowGfSurface}
+      </FormSection>
+
+      <FormSection title="Profile" footer={SETTINGS_FOOTERS.profile}>
+        {PROFILE_TOGGLES.map((toggle) => (
+          <SwitchRow
+            key={toggle.key}
+            label={toggle.label}
+            value={screen.profile[toggle.key]}
+            onChange={(on) => screen.setProfile({ [toggle.key]: on })}
+          />
+        ))}
+      </FormSection>
+
+      <FormSection title="New dives" footer={SETTINGS_FOOTERS.newDives}>
+        <Text style={{ color: theme.textSecondary }}>Default cylinder</Text>
+        <OptionField
+          options={screen.defaultCylinder.options}
+          value={screen.defaultCylinder.value}
+          onChange={screen.defaultCylinder.set}
         />
       </FormSection>
 
@@ -220,6 +249,9 @@ function StepperRow({
 }
 
 const styles = StyleSheet.create({
+  unitRow: {
+    gap: Spacing.one,
+  },
   content: {
     padding: Spacing.three,
     gap: Spacing.four,

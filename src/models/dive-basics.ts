@@ -21,7 +21,7 @@ import {
   mkelvinToFahrenheit,
   mmToFeet,
   mmToMeters,
-  type UnitSystem,
+  type Units,
 } from './units';
 
 /** `manual_dc_name` in core/divecomputer.cpp, which is how the core recognizes one. */
@@ -97,45 +97,45 @@ export function formatDurationInput(seconds: number): string {
 
 // --- Depth and temperature ---------------------------------------------------
 
-export function depthUnit(system: UnitSystem): string {
-  return system === 'imperial' ? 'ft' : 'm';
+export function depthUnit(units: Units): string {
+  return units.depth === 'ft' ? 'ft' : 'm';
 }
 
-export function temperatureUnit(system: UnitSystem): string {
-  return system === 'imperial' ? 'F' : 'C';
+export function temperatureUnit(units: Units): string {
+  return units.temperature === 'F' ? 'F' : 'C';
 }
 
 function trimmed(value: number, digits: number): string {
   return String(Number(value.toFixed(digits)));
 }
 
-export function formatDepthInput(mm: number, system: UnitSystem): string {
+export function formatDepthInput(mm: number, units: Units): string {
   if (mm <= 0) {
     return '';
   }
-  return system === 'imperial' ? trimmed(mmToFeet(mm), 0) : trimmed(mmToMeters(mm), 1);
+  return units.depth === 'ft' ? trimmed(mmToFeet(mm), 0) : trimmed(mmToMeters(mm), 1);
 }
 
-export function parseDepthInput(text: string, system: UnitSystem): number | null | undefined {
+export function parseDepthInput(text: string, units: Units): number | null | undefined {
   const value = parseNumberInput(text);
   if (value === null || value === undefined) {
     return value;
   }
-  return system === 'imperial' ? feetToMm(value) : metersToMm(value);
+  return units.depth === 'ft' ? feetToMm(value) : metersToMm(value);
 }
 
-export function formatTemperatureInput(mkelvin: number, system: UnitSystem): string {
+export function formatTemperatureInput(mkelvin: number, units: Units): string {
   if (mkelvin <= 0) {
     return '';
   }
   return trimmed(
-    system === 'imperial' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin),
+    units.temperature === 'F' ? mkelvinToFahrenheit(mkelvin) : mkelvinToCelsius(mkelvin),
     1,
   );
 }
 
 /** Unlike the other fields a temperature can be below zero. */
-export function parseTemperatureInput(text: string, system: UnitSystem): number | null | undefined {
+export function parseTemperatureInput(text: string, units: Units): number | null | undefined {
   const raw = text.trim().replace(',', '.').replace(/^−/, '-');
   if (raw === '') {
     return undefined;
@@ -144,7 +144,7 @@ export function parseTemperatureInput(text: string, system: UnitSystem): number 
   if (!Number.isFinite(value)) {
     return null;
   }
-  return celsiusToMkelvin(system === 'imperial' ? ((value - 32) * 5) / 9 : value);
+  return celsiusToMkelvin(units.temperature === 'F' ? ((value - 32) * 5) / 9 : value);
 }
 
 // --- The draft ---------------------------------------------------------------
@@ -159,14 +159,14 @@ export type DiveBasicsDraft = {
   numberText: string;
 };
 
-export function diveBasicsDraftFrom(dive: Dive, system: UnitSystem): DiveBasicsDraft {
+export function diveBasicsDraftFrom(dive: Dive, units: Units): DiveBasicsDraft {
   return {
     when: dive.when,
     durationText: formatDurationInput(dive.durationSec),
-    maxDepthText: formatDepthInput(dive.maxDepthMm, system),
-    meanDepthText: formatDepthInput(dive.meanDepthMm, system),
-    airTempText: formatTemperatureInput(dive.airTempMkelvin, system),
-    waterTempText: formatTemperatureInput(dive.waterTempMkelvin, system),
+    maxDepthText: formatDepthInput(dive.maxDepthMm, units),
+    meanDepthText: formatDepthInput(dive.meanDepthMm, units),
+    airTempText: formatTemperatureInput(dive.airTempMkelvin, units),
+    waterTempText: formatTemperatureInput(dive.waterTempMkelvin, units),
     numberText: dive.number > 0 ? String(dive.number) : '',
   };
 }
@@ -198,11 +198,11 @@ export type DiveBasicsRules = {
 
 function temperatureError(
   text: string,
-  system: UnitSystem,
+  units: Units,
   min: number,
   max: number,
 ): string | undefined {
-  const mkelvin = parseTemperatureInput(text, system);
+  const mkelvin = parseTemperatureInput(text, units);
   if (mkelvin === undefined) {
     return undefined;
   }
@@ -210,14 +210,14 @@ function temperatureError(
     return 'Enter a temperature, such as 18.';
   }
   return mkelvin < min || mkelvin > max
-    ? `Enter a temperature from ${formatTemperatureInput(min, system)} to ${formatTemperatureInput(max, system)} ${temperatureUnit(system)}.`
+    ? `Enter a temperature from ${formatTemperatureInput(min, units)} to ${formatTemperatureInput(max, units)} ${temperatureUnit(units)}.`
     : undefined;
 }
 
 /** What is wrong, per field. Empty when the draft can be saved. */
 export function validateDiveBasics(
   draft: DiveBasicsDraft,
-  system: UnitSystem,
+  units: Units,
   rules: DiveBasicsRules,
 ): DiveBasicsErrors {
   const errors: DiveBasicsErrors = {};
@@ -245,8 +245,8 @@ export function validateDiveBasics(
       errors.durationText = 'A dive cannot last more than 24 hours.';
     }
 
-    const depth = parseDepthInput(draft.maxDepthText, system);
-    const range = `from ${formatDepthInput(MIN_DEPTH_MM, system)} to ${formatDepthInput(MAX_DEPTH_MM, system)} ${depthUnit(system)}`;
+    const depth = parseDepthInput(draft.maxDepthText, units);
+    const range = `from ${formatDepthInput(MIN_DEPTH_MM, units)} to ${formatDepthInput(MAX_DEPTH_MM, units)} ${depthUnit(units)}`;
     if (depth === undefined) {
       errors.maxDepthText = 'Enter how deep the dive went.';
     } else if (depth === null) {
@@ -255,7 +255,7 @@ export function validateDiveBasics(
       errors.maxDepthText = `Enter a depth ${range}.`;
     }
 
-    const mean = parseDepthInput(draft.meanDepthText, system);
+    const mean = parseDepthInput(draft.meanDepthText, units);
     if (mean === null) {
       errors.meanDepthText = 'Enter a depth, or leave this empty.';
     } else if (
@@ -275,13 +275,13 @@ export function validateDiveBasics(
 
   errors.airTempText = temperatureError(
     draft.airTempText,
-    system,
+    units,
     MIN_AIR_TEMP_MKELVIN,
     MAX_AIR_TEMP_MKELVIN,
   );
   errors.waterTempText = temperatureError(
     draft.waterTempText,
-    system,
+    units,
     MIN_WATER_TEMP_MKELVIN,
     MAX_WATER_TEMP_MKELVIN,
   );
@@ -312,19 +312,19 @@ export function validateDiveBasics(
 export function buildDiveBasicsPatch(
   dive: Dive,
   draft: DiveBasicsDraft,
-  system: UnitSystem,
+  units: Units,
 ): DivePatch {
-  const seed = diveBasicsDraftFrom(dive, system);
+  const seed = diveBasicsDraftFrom(dive, units);
   const patch: DivePatch = {};
 
   if (draft.when !== seed.when) {
     patch.when = draft.when;
   }
   if (draft.airTempText.trim() !== seed.airTempText) {
-    patch.airTempMkelvin = parseTemperatureInput(draft.airTempText, system) ?? 0;
+    patch.airTempMkelvin = parseTemperatureInput(draft.airTempText, units) ?? 0;
   }
   if (draft.waterTempText.trim() !== seed.waterTempText) {
-    patch.waterTempMkelvin = parseTemperatureInput(draft.waterTempText, system) ?? 0;
+    patch.waterTempMkelvin = parseTemperatureInput(draft.waterTempText, units) ?? 0;
   }
   if (draft.numberText.trim() !== seed.numberText) {
     patch.number = Number(draft.numberText.trim() || 0);
@@ -334,31 +334,31 @@ export function buildDiveBasicsPatch(
       patch.durationSec = parseDurationInput(draft.durationText) ?? 0;
     }
     if (draft.maxDepthText.trim() !== seed.maxDepthText) {
-      patch.maxDepthMm = parseDepthInput(draft.maxDepthText, system) ?? 0;
+      patch.maxDepthMm = parseDepthInput(draft.maxDepthText, units) ?? 0;
     }
     if (draft.meanDepthText.trim() !== seed.meanDepthText) {
-      patch.meanDepthMm = parseDepthInput(draft.meanDepthText, system) ?? 0;
+      patch.meanDepthMm = parseDepthInput(draft.meanDepthText, units) ?? 0;
     }
   }
   return patch;
 }
 
 /** The figures of a new dive, once `validateDiveBasics` has passed them. */
-export function buildNewDiveBasics(draft: DiveBasicsDraft, system: UnitSystem): NewDiveInput {
+export function buildNewDiveBasics(draft: DiveBasicsDraft, units: Units): NewDiveInput {
   const input: NewDiveInput = {
     when: draft.when,
     durationSec: parseDurationInput(draft.durationText) ?? 0,
-    maxDepthMm: parseDepthInput(draft.maxDepthText, system) ?? 0,
+    maxDepthMm: parseDepthInput(draft.maxDepthText, units) ?? 0,
   };
-  const mean = parseDepthInput(draft.meanDepthText, system);
+  const mean = parseDepthInput(draft.meanDepthText, units);
   if (typeof mean === 'number' && mean > 0) {
     input.meanDepthMm = mean;
   }
-  const air = parseTemperatureInput(draft.airTempText, system);
+  const air = parseTemperatureInput(draft.airTempText, units);
   if (typeof air === 'number') {
     input.airTempMkelvin = air;
   }
-  const water = parseTemperatureInput(draft.waterTempText, system);
+  const water = parseTemperatureInput(draft.waterTempText, units);
   if (typeof water === 'number') {
     input.waterTempMkelvin = water;
   }

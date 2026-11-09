@@ -10,6 +10,8 @@ import SsrfCoreModule from './SsrfCoreModule';
 import {
   SsrfCoreError,
   type BleScanStatus,
+  type CorePreferences,
+  type Cylinder,
   type CoreEvent,
   type CsvExportOptions,
   type CsvExportResult,
@@ -134,13 +136,14 @@ export function saveToXML(path: string): SaveResult {
 export function exportDiveCSV(
   id: number,
   path: string,
-  { format, imperial = false, gf }: CsvExportOptions,
+  { format, imperial = false, units, gf }: CsvExportOptions,
 ): CsvExportResult {
   return call<CsvExportResult>('exportDiveCSV', {
     id,
     path,
     format,
     units: imperial ? 1 : 0,
+    ...(units ? { unitPrefs: units } : {}),
     ...gf,
   });
 }
@@ -185,6 +188,23 @@ export function importFile(pathOrBuffer: string | ArrayBuffer): ImportResult {
  */
 export function configure(paths: { xsltDir: string }): void {
   call<{ xsltDir: string }>('configure', paths);
+}
+
+/**
+ * Hands the core the app's preferences it reads itself (see CorePreferences).
+ * Kept in the core's global `prefs`, so it lasts until the next call.
+ */
+export function configurePreferences(preferences: CorePreferences): void {
+  call('configure', preferences);
+}
+
+/**
+ * A new cylinder as the core makes one with the default cylinder set
+ * (`create_new_cylinder()`): the type's size and working pressure, filled to it,
+ * air. Null when no default cylinder is set.
+ */
+export function defaultCylinder(): Cylinder | null {
+  return call<Cylinder | null>('defaultCylinder');
 }
 
 // --- Reads -----------------------------------------------------------------

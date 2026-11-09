@@ -11,7 +11,8 @@
 
 import { diveRowTitle, formatDate, sortDivesNewestFirst } from './dive-list';
 import type { DiveSummary, PlotEntry } from './index';
-import { formatDepth, formatTemperature, mmToFeet, mmToMeters, type UnitSystem } from './units';
+import { shortMonthName } from './date-format';
+import { depthInUnit, formatDepth, formatTemperature, type Units } from './units';
 
 /** One point of the miniature profile: minutes in, depth below the surface (negative). */
 export type WidgetProfilePoint = { x: number; y: number };
@@ -113,29 +114,15 @@ export type WidgetSnapshotInput = {
   dives: readonly DiveSummary[];
   /** The newest dive's profile, if it has one. */
   lastProfile?: readonly PlotEntry[] | null;
-  unitSystem: UnitSystem;
+  /** One unit per quantity, as everywhere in the app. */
+  units: Units;
   /** Now, ms since the epoch. */
   now: number;
   /** `Date#getTimezoneOffset()` of the phone now, minutes (positive west of UTC). */
   timezoneOffsetMinutes: number;
   links: WidgetLinks;
-  locale?: string;
 };
 
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 const MAX_PROFILE_POINTS = 48;
 const MILESTONE_STEP = 50;
@@ -193,14 +180,14 @@ export function formatTotalHours(seconds: number): string {
  */
 export function downsampleProfile(
   entries: readonly PlotEntry[],
-  unitSystem: UnitSystem,
+  units: Units,
   maxPoints = MAX_PROFILE_POINTS,
 ): WidgetProfilePoint[] {
   if (entries.length === 0) {
     return [];
   }
   const toDepth = (mm: number) =>
-    unitSystem === 'imperial' ? Math.round(mmToFeet(mm)) : Math.round(mmToMeters(mm) * 10) / 10;
+    units.depth === 'ft' ? Math.round(depthInUnit(mm, units)) : Math.round(depthInUnit(mm, units) * 10) / 10;
   const toPoint = (entry: PlotEntry): WidgetProfilePoint => ({
     x: Math.round((entry.sec / 60) * 10) / 10,
     // Negative, so a chart that fills from zero draws the dive hanging below the surface.
@@ -270,7 +257,7 @@ function emptyLastDive(input: WidgetSnapshotInput): LastDiveWidgetProps {
     rating: 0,
     profile: [],
     profileMaxDepth: 0,
-    depthUnit: input.unitSystem === 'imperial' ? 'ft' : 'm',
+    depthUnit: input.units.depth,
     endedAt: input.now,
     url: input.links.url('/dives'),
   };
@@ -283,21 +270,21 @@ function lastDiveProps(
   if (!dive) {
     return emptyLastDive(input);
   }
-  const profile = input.lastProfile ? downsampleProfile(input.lastProfile, input.unitSystem) : [];
+  const profile = input.lastProfile ? downsampleProfile(input.lastProfile, input.units) : [];
   return {
     hasDive: true,
     numberText: numberText(dive),
     title: diveRowTitle(dive),
-    dateText: formatDate(dive.when, input.locale),
-    depthText: formatDepth(dive.maxDepthMm, input.unitSystem),
+    dateText: formatDate(dive.when),
+    depthText: formatDepth(dive.maxDepthMm, input.units),
     durationText: formatDiveMinutes(dive.durationSec),
     temperatureText:
-      dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, input.unitSystem) : '',
+      dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, input.units) : '',
     buddyText: dive.buddy.trim(),
     rating: Math.max(0, Math.min(5, Math.round(dive.rating))),
     profile,
     profileMaxDepth: profile.reduce((deepest, point) => Math.max(deepest, -point.y), 0),
-    depthUnit: input.unitSystem === 'imperial' ? 'ft' : 'm',
+    depthUnit: input.units.depth,
     endedAt: diveEndInstant(dive, input.timezoneOffsetMinutes, input.now),
     url: diveUrl(dive, input.links),
   };
@@ -306,8 +293,7 @@ function lastDiveProps(
 function totalsFor(
   label: string,
   dives: readonly DiveSummary[],
-  unitSystem: UnitSystem,
-  locale: string | undefined,
+  units: Units,
 ): TotalsPeriod {
   let seconds = 0;
   let depthSum = 0;
@@ -335,10 +321,10 @@ function totalsFor(
     label,
     dives: dives.length,
     hoursText: formatTotalHours(seconds),
-    deepestText: deepest ? formatDepth(deepest.maxDepthMm, unitSystem) : '-',
-    deepestWhere: deepest ? `${diveRowTitle(deepest)}, ${formatDate(deepest.when, locale)}` : '',
+    deepestText: deepest ? formatDepth(deepest.maxDepthMm, units) : '-',
+    deepestWhere: deepest ? `${diveRowTitle(deepest)}, ${formatDate(deepest.when)}` : '',
     longestText: longest ? formatDiveMinutes(longest.durationSec) : '-',
-    averageDepthText: depthCount > 0 ? formatDepth(depthSum / depthCount, unitSystem) : '-',
+    averageDepthText: depthCount > 0 ? formatDepth(depthSum / depthCount, units) : '-',
     sites: sites.size,
   };
 }
@@ -352,9 +338,9 @@ function totalsProps(dives: readonly DiveSummary[], input: WidgetSnapshotInput):
   const previousMilestone = Math.floor(total / MILESTONE_STEP) * MILESTONE_STEP;
   return {
     periods: {
-      all: totalsFor('All dives', dives, input.unitSystem, input.locale),
-      year: totalsFor(String(today.year), thisYear, input.unitSystem, input.locale),
-      last12: totalsFor('Last 12 months', last12, input.unitSystem, input.locale),
+      all: totalsFor('All dives', dives, input.units),
+      year: totalsFor(String(today.year), thisYear, input.units),
+      last12: totalsFor('Last 12 months', last12, input.units),
     },
     totalDives: total,
     previousMilestone,
@@ -389,7 +375,7 @@ function activityProps(
   }
   const months = counts.map((count, index) => {
     const month = (((current - 11 + index) % 12) + 12) % 12;
-    return { label: MONTH_LABELS[month], dives: count };
+    return { label: shortMonthName(month + 1), dives: count };
   });
   const busiest = months.reduce<ActivityMonth | null>(
     (best, month) => (month.dives > 0 && (!best || month.dives >= best.dives) ? month : best),
@@ -426,7 +412,7 @@ function surfaceIntervalProps(
     hasDive: true,
     endedAt: diveEndInstant(dive, input.timezoneOffsetMinutes, input.now),
     title: diveRowTitle(dive),
-    dateText: formatDate(dive.when, input.locale),
+    dateText: formatDate(dive.when),
     numberText: numberText(dive),
     url: diveUrl(dive, input.links),
   };

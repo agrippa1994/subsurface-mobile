@@ -21,8 +21,9 @@ import {
 } from './widgets';
 import { SsrfHost } from '../../tests/harness/ssrf-host';
 import { REPO_ROOT } from '../../tests/harness/fixtures';
+import { IMPERIAL_UNITS, METRIC_UNITS } from './units';
 
-const LOCALE = 'en-GB';
+// Dates read as tests/setup-device-clock.ts sets the device: en-GB, 24-hour.
 const links = { url: (path: string) => `subsurface://${path.replace(/^\//, '')}` };
 
 function summary(overrides: Partial<DiveSummary> & { id: number }): DiveSummary {
@@ -71,11 +72,10 @@ function input(
 ): WidgetSnapshotInput {
   return {
     dives,
-    unitSystem: 'metric',
+    units: METRIC_UNITS,
     now: NOW,
     timezoneOffsetMinutes: 0,
     links,
-    locale: LOCALE,
     ...overrides,
   };
 }
@@ -111,13 +111,13 @@ describe('diveEndInstant', () => {
 
 describe('downsampleProfile', () => {
   it('keeps a short profile as it is, depths negative in the display unit', () => {
-    const points = downsampleProfile([entry(0, 0), entry(60, 10_000), entry(120, 0)], 'metric');
+    const points = downsampleProfile([entry(0, 0), entry(60, 10_000), entry(120, 0)], METRIC_UNITS);
     expect(points).toEqual([
       { x: 0, y: -0 },
       { x: 1, y: -10 },
       { x: 2, y: -0 },
     ]);
-    expect(downsampleProfile([entry(60, 10_000)], 'imperial')[0].y).toBe(-33);
+    expect(downsampleProfile([entry(60, 10_000)], IMPERIAL_UNITS)[0].y).toBe(-33);
   });
 
   it('thins a long profile without losing the deepest point or the ends', () => {
@@ -126,7 +126,7 @@ describe('downsampleProfile', () => {
     );
     entries[0] = entry(0, 0);
     entries[999] = entry(9990, 0);
-    const points = downsampleProfile(entries, 'metric', 48);
+    const points = downsampleProfile(entries, METRIC_UNITS, 48);
     expect(points).toHaveLength(48);
     expect(points[0]).toEqual({ x: 0, y: -0 });
     expect(points[47]).toEqual({ x: 166.5, y: -0 });
@@ -134,7 +134,7 @@ describe('downsampleProfile', () => {
   });
 
   it('is empty for no samples', () => {
-    expect(downsampleProfile([], 'metric')).toEqual([]);
+    expect(downsampleProfile([], METRIC_UNITS)).toEqual([]);
   });
 });
 
@@ -221,6 +221,7 @@ describe('buildWidgetSnapshot', () => {
 
   it('counts dives per month over the last twelve, oldest first', () => {
     const { activity } = buildWidgetSnapshot(input(dives));
+    // The device region's names (date-format.ts): en-GB spells September "Sept".
     expect(activity.months.map((m) => m.label)).toEqual([
       'Dec',
       'Jan',
@@ -231,7 +232,7 @@ describe('buildWidgetSnapshot', () => {
       'Jun',
       'Jul',
       'Aug',
-      'Sep',
+      'Sept',
       'Oct',
       'Nov',
     ]);
@@ -256,7 +257,7 @@ describe('buildWidgetSnapshot', () => {
   });
 
   it('formats in the chosen unit system', () => {
-    const { lastDive, totals } = buildWidgetSnapshot(input(dives, { unitSystem: 'imperial' }));
+    const { lastDive, totals } = buildWidgetSnapshot(input(dives, { units: IMPERIAL_UNITS }));
     expect(lastDive.depthText).toBe('70 ft');
     expect(lastDive.temperatureText).toBe('76.1 F');
     expect(lastDive.depthUnit).toBe('ft');

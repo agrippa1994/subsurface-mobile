@@ -30,8 +30,9 @@ import {
   useSsiSignOut,
   useSsiSiteIndexInfo,
 } from '@/queries/ssi';
+import { formatInstantDate } from '@/models/date-format';
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+const dateFormatter = { format: formatInstantDate };
 
 export function SsiAccountScreen() {
   const theme = useTheme();

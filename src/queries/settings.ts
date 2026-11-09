@@ -12,10 +12,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { File, Paths } from 'expo-file-system';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import type { GradientFactors, UnitSystem } from '@/models';
+import type { Cylinder, GradientFactors, Units } from '@/models';
 import { rememberComputer, type RememberedComputer } from '@/models/dive-computer';
+import type { ProfileSeries } from '@/models/profile-plot';
 import {
   clampGradientFactors,
   DEFAULT_SETTINGS,
@@ -24,6 +25,7 @@ import {
   type Settings,
 } from '@/models/settings';
 import { queryKeys } from '@/lib/query-keys';
+import { configurePreferences, defaultCylinder } from '../../modules/ssrf-core/src';
 
 const SETTINGS_FILENAME = 'settings.json';
 
@@ -63,15 +65,17 @@ export function useSettings(): Settings {
 }
 
 /**
- * Convenience selector: the unit system every formatter takes. Selected, so that a
+ * Convenience selector: the units every formatter takes. Selected, so that a
  * preference nothing here reads (the last chart, say) does not re-render a whole list.
+ * The object keeps its identity until a unit changes (structural sharing), so it
+ * is safe in a dependency list or a query key.
  */
-export function useUnitSystem(): UnitSystem {
+export function useUnits(): Units {
   const { data } = useQuery({
     queryKey: queryKeys.settings(),
     queryFn: readSettings,
     initialData: readSettings,
-    select: (settings) => settings.unitSystem,
+    select: (settings) => settings.units,
   });
   return data;
 }
@@ -86,23 +90,25 @@ export function useGradientFactors(): GradientFactors {
 }
 
 /**
- * Which gradient factor curves the profile draws. Purely a display choice: it
- * is deliberately NOT part of `queryKeys.profile()`, unlike gf low and high,
- * because it changes nothing the core computes - both series are in every
- * plot_info already. Keying on it would recompute the whole plot natively on
- * every tap of the switch.
+ * Which series the profile draws: the two gradient factor curves, the two
+ * ceilings and the 3 m grid. Purely a display choice: it is deliberately NOT
+ * part of `queryKeys.profile()`, unlike gf low and high, because it changes
+ * nothing the core computes - every series is in each plot_info already.
+ * Keying on it would recompute the whole plot natively on every tap of a switch.
+ *
+ * Memoized: it feeds the profile chart's path-building memo.
  */
-export type GfSeries = { showGfNow: boolean; showGfSurface: boolean };
-
-/** Memoized: it feeds the profile chart's path-building memo. */
-export function useGfSeries(): GfSeries {
-  const { showGfNow, showGfSurface } = useSettings();
-  return useMemo(() => ({ showGfNow, showGfSurface }), [showGfNow, showGfSurface]);
+export function useProfileSeries(): ProfileSeries {
+  const { showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid } = useSettings();
+  return useMemo(
+    () => ({ showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid }),
+    [showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid],
+  );
 }
 
-export function useSetGfSeries(): (patch: Partial<GfSeries>) => void {
+export function useSetProfileSeries(): (patch: Partial<ProfileSeries>) => void {
   const update = useUpdateSettings();
-  return useCallback((patch: Partial<GfSeries>) => update.mutate(patch), [update]);
+  return useCallback((patch: Partial<ProfileSeries>) => update.mutate(patch), [update]);
 }
 
 /**
@@ -148,9 +154,17 @@ export function useForgetComputers(): () => void {
   return useCallback(() => mutate({ diveComputers: [] }), [mutate]);
 }
 
-export function useSetUnitSystem(): (unitSystem: UnitSystem) => void {
-  const update = useUpdateSettings();
-  return useCallback((unitSystem: UnitSystem) => update.mutate({ unitSystem }), [update]);
+/** Sets some of the units; a preset is all five at once. */
+export function useSetUnits(): (patch: Partial<Units>) => void {
+  const client = useQueryClient();
+  const { mutate } = useUpdateSettings();
+  return useCallback(
+    (patch: Partial<Units>) => {
+      const current = client.getQueryData<Settings>(queryKeys.settings()) ?? readSettings();
+      mutate({ units: { ...current.units, ...patch } });
+    },
+    [client, mutate],
+  );
 }
 
 /** Sets both gradient factors at once, in range and in order. */
@@ -160,4 +174,61 @@ export function useSetGradientFactors(): (gf: GradientFactors) => void {
     (gf: GradientFactors) => update.mutate(clampGradientFactors(gf.gfLow, gf.gfHigh)),
     [update],
   );
+}
+
+/** The default cylinder's name, "" for none. */
+export function useDefaultCylinderName(): string {
+  return useSettings().defaultCylinder;
+}
+
+export function useSetDefaultCylinder(): (name: string) => void {
+  const { mutate } = useUpdateSettings();
+  return useCallback((name: string) => mutate({ defaultCylinder: name }), [mutate]);
+}
+
+/**
+ * Hands the core the preferences it reads itself and that live in this file, as
+ * they change. Mounted once, at the root: a downloaded dive without a cylinder
+ * size is filled in by the core from `default_cylinder`, wherever the app is.
+ */
+export function useSyncCorePreferences(): void {
+  const name = useDefaultCylinderName();
+  useEffect(() => {
+    applyDefaultCylinder(name);
+  }, [name]);
+}
+
+function applyDefaultCylinder(name: string): void {
+  try {
+    configurePreferences({ defaultCylinder: name });
+  } catch {
+    // A type the core no longer knows (an older table) leaves none set: the
+    // same as choosing none, and new dives start blank rather than failing.
+    try {
+      configurePreferences({ defaultCylinder: '' });
+    } catch {
+      // No native module (web).
+    }
+  }
+}
+
+/**
+ * What a new cylinder starts as: the core's new cylinder of the default type, or
+ * null without one. Read from the core, so size and working pressure are its
+ * tank table's, imperial types converted the core's way.
+ */
+export function useDefaultCylinder(): Cylinder | null {
+  const name = useDefaultCylinderName();
+  return useMemo(() => {
+    if (name === '') {
+      return null;
+    }
+    try {
+      // Set first: this can run before the root's effect has.
+      applyDefaultCylinder(name);
+      return defaultCylinder();
+    } catch {
+      return null;
+    }
+  }, [name]);
 }

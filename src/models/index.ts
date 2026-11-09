@@ -14,6 +14,8 @@
 // or imperial.
 
 export type {
+  CorePreferences,
+  CoreUnitsInput,
   BleAdapterState,
   BleDevice,
   BleScanStatus,

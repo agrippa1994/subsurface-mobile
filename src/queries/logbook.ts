@@ -48,9 +48,10 @@ import type {
   StatsChartResult,
   StatsSummary,
   Trip,
-  UnitSystem,
+  Units,
 } from '@/models';
 import { toStatsFilter, type StatsFilterInput } from '@/models/statistics';
+import { coreUnits } from '@/models/units';
 import { ensureLogbook } from '@/lib/logbook-file';
 import { setPersistTarget } from '@/lib/logbook-persist';
 import { queryKeys } from '@/lib/query-keys';
@@ -188,13 +189,12 @@ export function useTripStatistics(tripId: number): UseQueryResult<StatsSummary> 
 export function useStatsChart(
   config: StatsChartConfigInput,
   input: StatsFilterInput,
-  system: UnitSystem,
+  units: Units,
 ): UseQueryResult<StatsChartResult> {
   const filter = toStatsFilter(input);
-  const imperial = system === 'imperial';
   return useQuery({
-    queryKey: queryKeys.statsChart(config, filter, imperial),
-    queryFn: () => statsChart({ config, filter, imperial }),
+    queryKey: queryKeys.statsChart(config, filter, units),
+    queryFn: () => statsChart({ config, filter, units: coreUnits(units) }),
     enabled: useLogLoaded(),
     placeholderData: keepPreviousData,
   });

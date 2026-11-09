@@ -34,7 +34,7 @@ import {
   previewSsiLogbook,
   type SsiDivePreview,
 } from '@/models/ssi/ssrf-import';
-import { formatDepth, formatDuration, type UnitSystem } from '@/models/units';
+import { formatDepth, formatDuration, type Units } from '@/models/units';
 import { useDives, useSites } from '@/queries/logbook';
 import { useSettings } from '@/queries/settings';
 import {
@@ -50,7 +50,7 @@ function plural(count: number, noun: string): string {
 export function SsiImportScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { unitSystem } = useSettings();
+  const { units } = useSettings();
 
   const download = useSsiDownload();
   const logDives = useDives();
@@ -227,7 +227,7 @@ export function SsiImportScreen() {
         renderItem={({ item }) => (
           <DiveRow
             dive={item}
-            system={unitSystem}
+            units={units}
             selected={selected.has(item.key)}
             onToggle={() => toggle(item.key)}
           />
@@ -286,12 +286,12 @@ function SsiImportSkeleton() {
 
 function DiveRow({
   dive,
-  system,
+  units,
   selected,
   onToggle,
 }: {
   dive: SsiDivePreview;
-  system: UnitSystem;
+  units: Units;
   selected: boolean;
   onToggle: () => void;
 }) {
@@ -299,7 +299,7 @@ function DiveRow({
   const title = dive.siteName || 'No dive site';
   const detail = [
     formatDate(dive.when),
-    dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, system) : '',
+    dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '',
     dive.durationSec > 0 ? formatDuration(dive.durationSec) : '',
   ]
     .filter((part) => part !== '')

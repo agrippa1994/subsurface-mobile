@@ -15,6 +15,8 @@ struct dive_trip;
 struct plot_info;
 struct stats_t;
 struct stats_summary;
+struct units;
+struct cylinder_t;
 
 namespace ssrf {
 
@@ -22,6 +24,9 @@ using json = nlohmann::json;
 
 // Cheap row for the dive list: no cylinders, no samples, no events.
 json dive_summary_to_json(const struct dive &d);
+
+// One cylinder that belongs to no dive yet, as Dive.cylinders holds them.
+json new_cylinder_to_json(const struct cylinder_t &cyl);
 
 // Everything about one dive except the samples (those come from getProfile).
 json dive_to_json(const struct dive &d);
@@ -36,5 +41,15 @@ json trip_to_json(const struct dive_trip &trip);
 
 json stats_to_json(const struct stats_t &s);
 json stats_summary_to_json(const struct stats_summary &s);
+
+// The other direction, for the few calls whose text the core writes itself
+// (planner notes, statistics binners, CSV): `prefs.units` out of the app's
+// per-quantity choice, {"depth":"ft","pressure":"bar",...}. A quantity left
+// out keeps `base`'s unit; a value that is not one of the two throws.
+struct units units_from_json(const json &u, const struct units &base);
+
+// The unit_system a combination amounts to: METRIC, IMPERIAL or PERSONALIZE,
+// as desktop's preferences derive it.
+int unit_system_of(const struct units &u);
 
 } // namespace ssrf

@@ -15,6 +15,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 
 import type {
+  CorePreferences,
+  Cylinder,
   CsvExportOptions,
   CsvExportResult,
   DeleteDiveResult,
@@ -152,13 +154,14 @@ export class SsrfHost {
   exportDiveCSV(
     id: number,
     path: string,
-    { format, imperial = false, gf }: CsvExportOptions,
+    { format, imperial = false, units, gf }: CsvExportOptions,
   ): Promise<CsvExportResult> {
     return this.call<CsvExportResult>('exportDiveCSV', {
       id,
       path,
       format,
       units: imperial ? 1 : 0,
+      ...(units ? { unitPrefs: units } : {}),
       ...gf,
     });
   }
@@ -182,6 +185,14 @@ export class SsrfHost {
    */
   configure(xsltDir: string = XSLT_DIR): Promise<{ xsltDir: string }> {
     return this.call<{ xsltDir: string }>('configure', { xsltDir });
+  }
+
+  configurePreferences(preferences: CorePreferences): Promise<unknown> {
+    return this.call('configure', preferences);
+  }
+
+  defaultCylinder(): Promise<Cylinder | null> {
+    return this.call<Cylinder | null>('defaultCylinder');
   }
 
   listDives(): Promise<DiveSummary[]> {
