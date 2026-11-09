@@ -270,6 +270,14 @@ json plot_info_to_json(const struct plot_info &pi)
 			{ "ttsSec", e.tts },
 			{ "rbtSec", e.rbt },
 			{ "inDeco", e.in_deco },
+			// Subsurface's own Buehlmann/VPM-B figures, as opposed to the
+			// dive computer's above. Zero unless the plot ran with
+			// prefs.calcndltts (getProfile does).
+			{ "ndlCalcSec", e.ndl_calc },
+			{ "ttsCalcSec", e.tts_calc },
+			{ "stoptimeCalcSec", e.stoptime_calc },
+			{ "stopdepthCalcMm", e.stopdepth_calc.mm },
+			{ "inDecoCalc", e.in_deco_calc },
 			{ "cns", e.cns },
 			{ "sac", e.sac },
 			{ "smoothedMm", e.smoothed.mm },

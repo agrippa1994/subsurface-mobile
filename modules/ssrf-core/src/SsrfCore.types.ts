@@ -385,6 +385,17 @@ export type PlotEntry = {
   ttsSec: number;
   rbtSec: number;
   inDeco: boolean;
+  /**
+   * Subsurface's own NDL, TTS and next stop, from the Buehlmann model with the
+   * gradient factors `getProfile` was given, and with the tissues loaded by
+   * the earlier dives in the log. The fields above without `Calc` are what the
+   * dive computer recorded. All zero in a planner profile.
+   */
+  ndlCalcSec: number;
+  ttsCalcSec: number;
+  stoptimeCalcSec: number;
+  stopdepthCalcMm: number;
+  inDecoCalc: boolean;
   cns: number;
   sac: number;
   smoothedMm: number;
@@ -441,6 +452,25 @@ export type PlotInfo = {
    * `plotPressureAt` rather than open-coding the arithmetic.
    */
   pressures: { sensor: number[]; interpolated: number[] };
+  /**
+   * Seconds on the surface since the previous dive that still loads the
+   * tissues at the start of this one; null for a dive with none (a 48h gap,
+   * or the first dive). `getProfile` only.
+   */
+  surfaceIntervalSec?: number | null;
+  /**
+   * The same calculation run as if the dive had started with clean tissues,
+   * one value per `entry`. Null when nothing loaded the tissues, since it would
+   * equal the `*Calc` fields. `getProfile` only.
+   */
+  fresh?: FreshDeco | null;
+};
+
+/** Calculated NDL/TTS for a dive started with no residual nitrogen. */
+export type FreshDeco = {
+  ndlCalcSec: number[];
+  ttsCalcSec: number[];
+  inDecoCalc: boolean[];
 };
 
 export type Stats = {

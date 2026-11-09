@@ -90,6 +90,11 @@ export type ProfilePlot = {
   pressures: PressureSeries[];
   pressureRange: Range;
   events: ProfileEvent[];
+  /**
+   * Surface interval since the previous dive whose nitrogen this one starts
+   * with, in seconds; null for a dive that starts with clean tissues.
+   */
+  surfaceIntervalSec: number | null;
 };
 
 /** Empty plot, for the "no samples" case, so callers need no null checks. */
@@ -107,6 +112,7 @@ export const EMPTY_PROFILE_PLOT: ProfilePlot = {
   pressures: [],
   pressureRange: { min: 0, max: 0 },
   events: [],
+  surfaceIntervalSec: null,
 };
 
 function range(values: number[]): Range {
@@ -256,6 +262,7 @@ export function buildProfilePlot(pi: PlotInfo, events: DiveEvent[] = []): Profil
     pressures,
     pressureRange: range(pressures.flatMap((series) => series.points.map((p) => p.value))),
     events: profileEvents,
+    surfaceIntervalSec: pi.surfaceIntervalSec ?? null,
   };
 }
 
@@ -399,12 +406,56 @@ export type ProfileReadout = {
   calcCeilingText: string | null;
   /** The dive computer's reported ceiling here, or null where it reported none. */
   dcCeilingText: string | null;
+  /** What the dive computer recorded. Null where it recorded nothing. */
   ndlText: string | null;
+  /** The dive computer's own time to surface, where it recorded one. */
+  ttsText: string | null;
+  /**
+   * Subsurface's calculation, with the tissues loaded by the earlier dives of
+   * the log: in deco it carries a TTS, otherwise an NDL. Null where the core
+   * computed neither (above 3m, or a profile from the planner).
+   */
+  decoCalc: DecoCalc | null;
+  /**
+   * The same calculation as if the dive had started with clean tissues. Null
+   * when nothing loaded them, since it would equal `decoCalc`.
+   */
+  decoFresh: DecoCalc | null;
   /** Gradient factor at depth, e.g. "62%". Null where the core reported none. */
   gfNowText: string | null;
   /** Gradient factor on surfacing now, e.g. "78%". */
   gfSurfaceText: string | null;
 };
+
+/** A calculated NDL or TTS, already formatted. */
+export type DecoCalc = { kind: 'ndl' | 'tts'; text: string };
+
+/**
+ * The core caps both searches at two hours (MAX_PROFILE_DECO, profile.cpp:38)
+ * and reports the cap itself, so a value at the cap means "more than that".
+ */
+const MAX_PROFILE_DECO_SEC = 7200;
+
+function calcText(sec: number): string {
+  return sec >= MAX_PROFILE_DECO_SEC ? '>2:00:00' : formatDuration(sec);
+}
+
+/** The NDL or TTS one calculated sample shows, after the core's tooltip (profile.cpp:1355-1375). */
+function decoCalc(inDeco: boolean, ndlSec: number, ttsSec: number): DecoCalc | null {
+  if (inDeco || ttsSec > 0) {
+    return ttsSec > 0 ? { kind: 'tts', text: calcText(ttsSec) } : null;
+  }
+  return ndlSec > 0 ? { kind: 'ndl', text: calcText(ndlSec) } : null;
+}
+
+/** "NDL 12:00" / "TTS 4:00", with an optional prefix such as "fresh". */
+export function decoCalcLabel(calc: DecoCalc | null, prefix = ''): string | null {
+  if (calc === null) {
+    return null;
+  }
+  const name = calc.kind === 'ndl' ? 'NDL' : 'TTS';
+  return `${prefix}${name} ${calc.text}`;
+}
 
 /** Index of the plotted sample nearest `sec`, or -1 when there are none. */
 export function nearestSampleIndex(pi: PlotInfo, sec: number): number {
@@ -441,6 +492,7 @@ export function readoutAt(
     return null;
   }
   const entry = pi.entry[index];
+  const fresh = pi.fresh ?? null;
 
   const pressures: ProfileReadout['pressures'] = [];
   for (let cylinder = 0; cylinder < pi.nrCylinders; cylinder++) {
@@ -459,6 +511,15 @@ export function readoutAt(
     calcCeilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, units) : null,
     dcCeilingText: dcCeilingMm(entry) > 0 ? formatDepth(dcCeilingMm(entry), units) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
+    ttsText: entry.ttsSec > 0 ? formatDuration(entry.ttsSec) : null,
+    decoCalc: decoCalc(entry.inDecoCalc, entry.ndlCalcSec, entry.ttsCalcSec),
+    decoFresh: fresh
+      ? decoCalc(
+          fresh.inDecoCalc[index] ?? false,
+          fresh.ndlCalcSec[index] ?? 0,
+          fresh.ttsCalcSec[index] ?? 0
+        )
+      : null,
     gfNowText: entry.currentGf > 0 ? `${Math.round(gfNowPercent(entry))}%` : null,
     gfSurfaceText: entry.surfaceGf > 0 ? `${Math.round(entry.surfaceGf)}%` : null,
   };
@@ -528,17 +589,23 @@ export function readoutLayout(
       : null,
     // The two ceilings are named apart, as the legend names their curves: the
     // computer's reading against the core's calculation can differ by metres.
-    // The NDL shares the computer's slot, since the two never coincide.
+    // The computer's NDL and TTS share its slot, since they never coincide
+    // with its ceiling; they are marked DC against Subsurface's own below.
     slot(
       'deco',
       ...(options.showDcCeiling
         ? [(r: ProfileReadout) => (r.dcCeilingText ? `DC ceiling ${r.dcCeilingText}` : null)]
         : []),
-      (r) => (!r.inDeco && r.ndlText ? `NDL ${r.ndlText}` : null)
+      (r) => (!r.inDeco && r.ndlText ? `DC NDL ${r.ndlText}` : null),
+      (r) => (r.ttsText ? `DC TTS ${r.ttsText}` : null)
     ),
     options.showCalcCeiling
       ? slot('calc-ceiling', (r) => (r.calcCeilingText ? `Calc ceiling ${r.calcCeilingText}` : null))
       : null,
+    // Subsurface's own NDL or TTS, with the earlier dives' nitrogen...
+    slot('deco-calc', (r) => decoCalcLabel(r.decoCalc)),
+    // ...and as if the diver had started with clean tissues.
+    slot('deco-fresh', (r) => decoCalcLabel(r.decoFresh, 'fresh ')),
   ].filter((candidate): candidate is ReadoutSlot => candidate !== null);
 
   return [
@@ -636,6 +703,11 @@ export function profileSummary(
         plot.pressureRange.min,
         units
       )}`
+    );
+  }
+  if (plot.surfaceIntervalSec !== null) {
+    parts.push(
+      `starts with nitrogen from a dive ${formatDuration(plot.surfaceIntervalSec)} earlier`
     );
   }
   parts.push(

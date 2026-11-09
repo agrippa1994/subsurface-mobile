@@ -745,6 +745,28 @@ void apply_gradient_factors(const json &args)
 	set_gf(static_cast<short>(gfLow), static_cast<short>(gfHigh));
 }
 
+// Turns the core's calculated NDL/TTS on for one plot and back off afterwards.
+// It is a process-global the rest of the module expects to stay false.
+struct calcndltts_scope {
+	bool saved;
+	calcndltts_scope() : saved(prefs.calcndltts) { prefs.calcndltts = true; }
+	~calcndltts_scope() { prefs.calcndltts = saved; }
+	calcndltts_scope(const calcndltts_scope &) = delete;
+	calcndltts_scope &operator=(const calcndltts_scope &) = delete;
+};
+
+// Hides every other dive from init_decompression() for one plot, so the dive
+// is computed as if the diver started it with clean tissues. That function is
+// the only reader of divelog.dives on the plotting path (profile.cpp:1207).
+// The caller holds the core lock, so nothing else sees the empty table.
+struct hidden_dives_scope {
+	std::vector<std::unique_ptr<dive>> stash;
+	hidden_dives_scope() { stash.swap(divelog.dives); }
+	~hidden_dives_scope() { stash.swap(divelog.dives); }
+	hidden_dives_scope(const hidden_dives_scope &) = delete;
+	hidden_dives_scope &operator=(const hidden_dives_scope &) = delete;
+};
+
 json get_profile(const json &args)
 {
 	const struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
@@ -756,8 +778,57 @@ json get_profile(const json &args)
 		fail("dive " + std::to_string(d.id) + " has no divecomputer " + std::to_string(dcIndex));
 
 	apply_gradient_factors(args);
-	plot_info pi = create_plot_info_new(&d, d.get_dc(dcIndex), nullptr);
-	return plot_info_to_json(pi);
+	const struct divecomputer *dc = d.get_dc(dcIndex);
+	plot_info pi = create_plot_info_new(&d, dc, nullptr);
+
+	// The calculated NDL/TTS come from a second pass with calcndltts on, not
+	// from turning it on for the first: with it on, the core also overwrites
+	// the dive computer's own `ndl` with 2h wherever the diver is shallower
+	// than 3m (profile.cpp:789-791), and `ndlSec` has to stay what the
+	// computer recorded. Only the *_calc fields are taken from this pass.
+	calcndltts_scope calc_on;
+	plot_info calc = create_plot_info_new(&d, dc, nullptr);
+	if (calc.entry.size() == pi.entry.size()) {
+		for (size_t i = 0; i < pi.entry.size(); ++i) {
+			pi.entry[i].ndl_calc = calc.entry[i].ndl_calc;
+			pi.entry[i].tts_calc = calc.entry[i].tts_calc;
+			pi.entry[i].stoptime_calc = calc.entry[i].stoptime_calc;
+			pi.entry[i].stopdepth_calc = calc.entry[i].stopdepth_calc;
+			pi.entry[i].in_deco_calc = calc.entry[i].in_deco_calc;
+		}
+	}
+	json out = plot_info_to_json(pi);
+
+	// init_decompression() returns the surface interval before this dive, or
+	// 48h when no earlier dive is close enough to leave nitrogen behind. Only
+	// a dive that starts loaded gets the clean-tissue comparison.
+	struct deco_state probe;
+	int surface_interval = divelog.dives.init_decompression(&probe, &d, false);
+	bool loaded = surface_interval >= 0 && surface_interval < 48 * 60 * 60;
+	out["surfaceIntervalSec"] = loaded ? json(surface_interval) : json(nullptr);
+	if (!loaded) {
+		out["fresh"] = nullptr;
+		return out;
+	}
+
+	plot_info fresh = [&] {
+		hidden_dives_scope hidden;
+		return create_plot_info_new(&d, dc, nullptr);
+	}();
+	if (fresh.entry.size() != pi.entry.size()) {
+		out["fresh"] = nullptr;
+		return out;
+	}
+	json ndl = json::array(), tts = json::array(), in_deco = json::array();
+	for (const struct plot_data &e : fresh.entry) {
+		ndl.push_back(e.ndl_calc);
+		tts.push_back(e.tts_calc);
+		in_deco.push_back(e.in_deco_calc);
+	}
+	out["fresh"] = json{ { "ndlCalcSec", std::move(ndl) },
+			     { "ttsCalcSec", std::move(tts) },
+			     { "inDecoCalc", std::move(in_deco) } };
+	return out;
 }
 
 json list_dive_sites()

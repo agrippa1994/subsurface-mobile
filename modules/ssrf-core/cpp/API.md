@@ -176,6 +176,16 @@ directly and avoids the copy.
   raises `gfHigh` to it. `set_gf()` writes a process-global, so they are passed
   on every call rather than configured once: whatever the last `getProfile` set
   is what any later plot would otherwise use.
+  Each entry also carries Subsurface's own `ndlCalcSec` / `ttsCalcSec` /
+  `stoptimeCalcSec` / `stopdepthCalcMm` / `inDecoCalc`, from a second pass with
+  `prefs.calcndltts` on (restored afterwards). Only the `*_calc` fields come
+  from that pass: with it on, the core overwrites the dive computer's `ndl` with
+  2h shallower than 3m (profile.cpp:789-791), and `ndlSec` stays what the
+  computer recorded. The tissues start loaded by the earlier dives, through
+  `init_decompression()`. `surfaceIntervalSec` is the interval it found (null
+  when no earlier dive within 48h counts), and for such a dive `fresh` holds
+  the calculated NDL/TTS of a third pass with every other dive hidden from it,
+  i.e. as if the diver had started with clean tissues.
 - **`exportDiveCSV`** writes one dive as CSV with the core's own writers, one
   per CSV entry of desktop Subsurface's export dialog: `format` `"details"`
   (samples, `xml2detailscsv.xslt`), `"summary"` (dive information without the
