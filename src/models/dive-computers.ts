@@ -116,3 +116,6 @@ export function plotForComputer<
 function upperFirst(text: string): string {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
+
+/** The action that moves a dive's selected computer to the front. */
+export const MAKE_FIRST_LABEL = 'Make First Computer';

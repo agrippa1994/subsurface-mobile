@@ -6,7 +6,7 @@
 // would truncate the very thing they have to show. Its label is drawn here rather
 // than by a menu-style Picker, which wraps a long name onto a second line that the
 // surrounding Host does not grow to fit.
-import { Host, HStack, Image, Menu, Picker, Spacer, Text } from '@expo/ui/swift-ui';
+import { Button, Divider, Host, HStack, Image, Menu, Picker, Spacer, Text } from '@expo/ui/swift-ui';
 import {
   accessibilityHint,
   accessibilityLabel,
@@ -19,7 +19,7 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 
 import { useTheme } from '@/hooks/use-theme';
-import { computerPositionText } from '@/models/dive-computers';
+import { computerPositionText, MAKE_FIRST_LABEL } from '@/models/dive-computers';
 
 import type { ComputerPickerProps } from './computer-picker';
 
@@ -28,8 +28,10 @@ export function ComputerPicker({
   selectedIndex,
   onSelect,
   compact = false,
+  onMakeFirst,
 }: ComputerPickerProps) {
   const theme = useTheme();
+  const canMakeFirst = onMakeFirst !== undefined && selectedIndex > 0;
   const menu = (
     <Menu
       label={
@@ -63,6 +65,14 @@ export function ComputerPicker({
           </Text>
         ))}
       </Picker>
+      {canMakeFirst ? <Divider /> : null}
+      {canMakeFirst ? (
+        <Button
+          label={MAKE_FIRST_LABEL}
+          systemImage="arrow.up.to.line"
+          onPress={() => onMakeFirst(selectedIndex)}
+        />
+      ) : null}
     </Menu>
   );
 

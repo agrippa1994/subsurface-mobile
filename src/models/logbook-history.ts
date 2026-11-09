@@ -68,6 +68,8 @@ export function changeTitle(entry: HistoryEntry): string {
       return `Delete ${diveName(entry)}`;
     case 'mergeDives':
       return `Merge ${mergedName(entry)}`;
+    case 'makeFirstDiveComputer':
+      return `Change First Computer of ${diveName(entry)}`;
     case SSI_TAG_KIND:
       return `Mark ${diveName(entry)} as Synced to SSI`;
     case 'upsertDiveSite':
@@ -107,6 +109,12 @@ export function changeDone(entry: HistoryEntry): string {
       return `${diveName(entry)} deleted`;
     case 'mergeDives':
       return `${mergedName(entry)} merged`;
+    case 'makeFirstDiveComputer': {
+      const model = entry.computerModel?.trim() ?? '';
+      return model === ''
+        ? `First computer of ${diveName(entry)} changed`
+        : `${model} is now first on ${diveName(entry)}`;
+    }
     case SSI_TAG_KIND:
       return `${diveName(entry)} marked as synced to SSI`;
     case 'upsertDiveSite':

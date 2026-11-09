@@ -473,6 +473,16 @@ export function mergeDives(diveIds: number[]): MergeResult {
   return call<MergeResult>('mergeDives', { diveIds });
 }
 
+/**
+ * Moves dive computer `dcIndex` to the front of the dive, desktop's "Make first dive
+ * computer". The dive keeps its id; what reads the first computer (the summary's mode,
+ * SSI upload, CSV export) reads this one afterwards. Index 0 changes nothing; an index
+ * out of range throws. Undoable. See api.cpp, make_first_dive_computer().
+ */
+export function makeFirstDiveComputer(id: number, dcIndex: number): Dive {
+  return call<Dive>('makeFirstDiveComputer', { id, dcIndex });
+}
+
 // `plotPressureAt` is re-exported from ./SsrfCore.types by the `export *` above:
 // it is pure arithmetic over a reply, so it must stay importable without
 // pulling in the native module (the Node test suite does exactly that).

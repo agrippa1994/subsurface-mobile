@@ -105,6 +105,7 @@ rendered metric or imperial.
 | `listMergePairs` | `{}` | `MergePair[]` |
 | `previewMerge` | `{ diveIds }` | `{ dive, surfaceIntervalSec, renumberedDives }` |
 | `mergeDives` | `{ diveIds }` | `{ id, dives, trips }` |
+| `makeFirstDiveComputer` | `{ id, dcIndex }` | `Dive` |
 | `getLastError` | `{}` | `string` |
 
 `ArrayBuffer` arguments cross as base64 (`base64` key); a `path` is used
@@ -345,6 +346,15 @@ directly and avoids the copy.
   and `previewMerge` returns the dive a merge would make without changing anything.
   A dive whose gas change or sensor mapping names a cylinder it does not have is
   refused: the core's renumbering would read out of bounds on it.
+
+- **`makeFirstDiveComputer`** is desktop's "Make first dive computer"
+  (`MoveDiveComputerToFront` of `commands/command_divelist.cpp`): a copy made by
+  `clone_make_first_dc()` with computer `dcIndex` moved to the front replaces the
+  dive in the table, in the same trip and at the same site. The dive keeps its id.
+  Everything that reads the first computer (the summary's mode, SSI upload, the
+  CSV export, the default profile) then reads this one; the order is saved in the
+  file. `dcIndex` 0 changes nothing and leaves no undo step; an index out of range
+  fails. Undoable like every other mutation.
 
 ### Downloading from a dive computer
 

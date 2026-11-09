@@ -4,6 +4,7 @@ import { Host } from '@/components/material/host';
 import {
   DropdownMenu,
   DropdownMenuItem,
+  HorizontalDivider,
   Row,
   Text,
   TextButton,
@@ -12,6 +13,8 @@ import { useState } from 'react';
 
 import { M3MenuRow } from '@/components/material/list';
 import { M3Icon } from '@/components/material/icon';
+
+import { MAKE_FIRST_LABEL } from '@/models/dive-computers';
 
 import type { ComputerPickerProps } from './computer-picker';
 
@@ -22,8 +25,10 @@ export function ComputerPicker({
   selectedIndex,
   onSelect,
   compact = false,
+  onMakeFirst,
 }: ComputerPickerProps) {
   const [open, setOpen] = useState(false);
+  const canMakeFirst = onMakeFirst !== undefined && selectedIndex > 0;
   if (!compact) {
     return (
       <Host matchContents={{ vertical: true }}>
@@ -67,6 +72,21 @@ export function ComputerPicker({
               ) : null}
             </DropdownMenuItem>
           ))}
+          {canMakeFirst ? <HorizontalDivider /> : null}
+          {canMakeFirst ? (
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(false);
+                onMakeFirst(selectedIndex);
+              }}>
+              <DropdownMenuItem.LeadingIcon>
+                <M3Icon name="arrow_upward" />
+              </DropdownMenuItem.LeadingIcon>
+              <DropdownMenuItem.Text>
+                <Text>{MAKE_FIRST_LABEL}</Text>
+              </DropdownMenuItem.Text>
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenu.Items>
       </DropdownMenu>
     </Host>

@@ -922,6 +922,8 @@ export type HistoryEntry = {
   siteName?: string;
   siteDives?: number;
   tripLocation?: string;
+  /** makeFirstDiveComputer: the model of the computer moved to the front. */
+  computerModel?: string;
 };
 
 export type HistoryAction = 'none' | 'change' | 'undo' | 'redo' | 'clear';
