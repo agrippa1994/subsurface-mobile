@@ -11,20 +11,33 @@ import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DIVE_ROW_SEPARATOR_INSET, DiveRowView } from '@/components/dive-row';
-import { FormSection } from '@/components/form';
+import { FormButtonRow, FormSection } from '@/components/form';
 import { HeaderAction } from '@/components/header-action';
 import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
 import { useTheme } from '@/hooks/use-theme';
+import { mapsAppName } from '@/models/maps-link';
+import { MAPS_PLATFORM, useOpenInMaps } from './use-open-in-maps';
 import { sortDivesNewestFirst, toSiteDiveRow } from '@/models/dive-list';
 import { toSiteRow } from '@/models/site-edit';
 import { useDives, useSites } from '@/queries/logbook';
 import { useUnits } from '@/queries/settings';
 
-export function SiteDetail({ uuid }: { uuid: number }) {
+export function SiteDetail({
+  uuid,
+  divePath = '/sites/dive',
+  editable = true,
+}: {
+  uuid: number;
+  /** Where this stack opens a dive, so a dive tapped here stays in it. */
+  divePath?: '/dives' | '/sites/dive' | '/statistics/dive';
+  /** Offers Edit; the editor lives in the Sites stack. */
+  editable?: boolean;
+}) {
   const router = useRouter();
+  const openInMaps = useOpenInMaps();
   const theme = useTheme();
   const units = useUnits();
   const sitesQuery = useSites();
@@ -59,7 +72,9 @@ export function SiteDetail({ uuid }: { uuid: number }) {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Stack.Screen options={{ title: row.title }} />
-      <HeaderAction history label="Edit" onPress={() => router.push(`/sites/edit/${uuid}`)} />
+      {editable ? (
+        <HeaderAction history label="Edit" onPress={() => router.push(`/sites/edit/${uuid}`)} />
+      ) : null}
 
       <FormSection title="Position">
         {MAPS_AVAILABLE ? (
@@ -71,6 +86,13 @@ export function SiteDetail({ uuid }: { uuid: number }) {
           />
         ) : null}
         <Text style={[styles.coordinates, { color: theme.textSecondary }]}>{row.subtitle}</Text>
+        {site.hasGps ? (
+          <FormButtonRow
+            label="Open in Maps"
+            value={mapsAppName(MAPS_PLATFORM)}
+            onPress={() => openInMaps(site)}
+          />
+        ) : null}
       </FormSection>
 
       <FormSection title={row.countText}>
@@ -87,7 +109,7 @@ export function SiteDetail({ uuid }: { uuid: number }) {
                 ) : null}
                 <DiveRowView
                   row={toSiteDiveRow(dive, units)}
-                  onPress={() => router.push(`/sites/dive/${dive.id}`)}
+                  onPress={() => router.push(`${divePath}/${dive.id}`)}
                 />
               </View>
             ))}

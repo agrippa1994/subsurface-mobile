@@ -29,6 +29,7 @@ export default function StatisticsLayout() {
         <Stack.Screen name="dive/[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
         <Stack.Screen name="dive/edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
         <Stack.Screen name="dive/ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
+        <Stack.Screen name="site/[uuid]" options={{ title: 'Dive site', headerLargeTitle: false }} />
         <Stack.Screen
           name="dive/trip/[id]"
           options={{ title: 'Trip', headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}

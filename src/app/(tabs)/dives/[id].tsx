@@ -19,6 +19,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { PlanNotesView } from '@/components/plan-notes-view';
 import { ProfileChart } from '@/components/profile-chart';
 import { ProfileFullscreen } from '@/components/profile-fullscreen';
+import { MAPS_AVAILABLE, SiteMap } from '@/components/site-map';
 import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { ComputerPicker } from '@/features/dives/computer-picker';
@@ -27,6 +28,7 @@ import { useDiveCsvExport } from '@/features/dives/use-dive-csv-export';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useLeaveWhenGone } from '@/features/history/use-leave-when-gone';
+import { MAPS_PLATFORM, useOpenInMaps } from '@/features/sites/use-open-in-maps';
 import { IS_TABLET } from '@/hooks/use-adaptive-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { useCurrentDiveId } from '@/lib/merged-dives';
@@ -51,6 +53,8 @@ import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
+import { mapsAppName } from '@/models/maps-link';
+import { toSiteRow } from '@/models/site-edit';
 import { CSV_FORMATS } from '@/models/transfer';
 import {
   adjacentTripsByDive,
@@ -59,7 +63,7 @@ import {
   tripTitle,
   type TripAction,
 } from '@/models/trips';
-import { useDive, useDives, useProfile, useTrips } from '@/queries/logbook';
+import { useDive, useDives, useProfile, useSites, useTrips } from '@/queries/logbook';
 import { useGfSeries, useUnits } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
@@ -91,6 +95,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   // Whether the SSI row offers an upload or points at Settings. A network
   // query, unlike everything else on this screen - see src/queries/ssi.ts.
   const ssiAccount = useSsiAccount();
+  const { data: sites = [] } = useSites();
   const dive = diveQuery.data;
   const profile = profileQuery.data;
 
@@ -138,8 +143,10 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const manualComputer = dc?.model === MANUAL_DC_MODEL;
   const synced = isSyncedToSsi(dive);
   const notes = dive.notes.trim();
+  // A site with a position gets a section of its own, with the map.
+  const siteOnMap = sites.some((site) => site.uuid === dive.siteUuid && site.hasGps);
   const hasPeopleOrPlace =
-    dive.siteName !== '' ||
+    (dive.siteName !== '' && !siteOnMap) ||
     dive.buddy !== '' ||
     dive.diveguide !== '' ||
     dive.suit !== '' ||
@@ -265,9 +272,11 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         {dive.visibility > 0 ? <StarRow label="Visibility" value={dive.visibility} /> : null}
       </Section>
 
+      <SiteSection dive={dive} stackPath={stackPath} />
+
       {hasPeopleOrPlace ? (
         <Section title="People and place">
-          {dive.siteName ? <Row label="Dive site" value={dive.siteName} /> : null}
+          {dive.siteName && !siteOnMap ? <Row label="Dive site" value={dive.siteName} /> : null}
           {dive.buddy ? <Row label="Buddy" value={dive.buddy} /> : null}
           {dive.diveguide ? <Row label="Divemaster" value={dive.diveguide} /> : null}
           {dive.suit ? <Row label="Suit" value={dive.suit} /> : null}
@@ -376,6 +385,71 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       <CsvExportSection dive={dive} />
     </ScrollView>
+  );
+}
+
+/** Where each stack shows a dive site, so Back from it returns to the dive. */
+const SITE_PATH: Record<DiveStackPath, string> = {
+  '/dives': '/dives/site',
+  '/sites/dive': '/sites',
+  '/statistics/dive': '/statistics/site',
+};
+
+/**
+ * The dive site, when it has a position: a small map of it, the site itself one tap
+ * away - as the Sites tab shows it, with its other dives - and the maps app for
+ * directions. A site without a position stays a line under People and place.
+ */
+function SiteSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath }) {
+  const router = useRouter();
+  const openInMaps = useOpenInMaps();
+  const { data: sites = [] } = useSites();
+  const site = sites.find((candidate) => candidate.uuid === dive.siteUuid);
+  if (!site?.hasGps) {
+    return null;
+  }
+  const row = toSiteRow(site);
+  const openSite = () => router.push(`${SITE_PATH[stackPath]}/${site.uuid}`);
+  return (
+    <Section title="Dive site">
+      {MAPS_AVAILABLE ? (
+        <Pressable
+          key="map"
+          onPress={openSite}
+          accessibilityRole="button"
+          accessibilityLabel={`Map of ${row.title}`}
+          accessibilityHint="Shows the dive site"
+          style={({ pressed }) => [styles.siteMap, pressed ? { opacity: 0.8 } : null]}
+        >
+          {/* A picture of the place, not a map to pan: the tap is the row's. */}
+          <View pointerEvents="none" style={{ flex: 1 }}>
+            <SiteMap
+              latUdeg={site.latUdeg}
+              lonUdeg={site.lonUdeg}
+              title={row.title}
+              height={150}
+              flush
+            />
+          </View>
+        </Pressable>
+      ) : null}
+      <ActionRow
+        key="site"
+        symbol="mappin.and.ellipse"
+        label={row.title}
+        detail={`${row.subtitle} - ${row.countText}`}
+        chevron
+        onPress={openSite}
+        accessibilityHint="Shows the dive site and its dives"
+      />
+      <ActionRow
+        key="maps"
+        symbol="map"
+        label="Open in Maps"
+        detail={`Directions in ${mapsAppName(MAPS_PLATFORM)}`}
+        onPress={() => openInMaps(site)}
+      />
+    </Section>
   );
 }
 
@@ -854,6 +928,9 @@ const styles = StyleSheet.create({
   },
   cardInset: {
     padding: Spacing.three,
+  },
+  siteMap: {
+    height: 150,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
