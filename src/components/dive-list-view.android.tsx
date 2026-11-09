@@ -37,6 +37,7 @@ export type { DiveListViewProps };
 const END_OF_LIST = 88;
 
 type Item =
+  | { kind: 'header'; key: string }
   | { kind: 'results'; key: string; text: string }
   | { kind: 'section'; key: string; section: DiveTripSection }
   | { kind: 'dive'; key: string; dive: DiveSummary };
@@ -89,19 +90,21 @@ export function DiveListView({
   mergeActions,
   onMergeAction,
   openDiveId,
+  header,
 }: DiveListViewProps) {
   const palette = useMaterialColors();
   const [pressed, setPressed] = useState<DiveSummary | null>(null);
 
   const items = useMemo<Item[]>(
     () => [
+      ...(header && !resultsText ? [{ kind: 'header' as const, key: 'header' }] : []),
       ...(resultsText ? [{ kind: 'results' as const, key: 'results', text: resultsText }] : []),
       ...sections.flatMap<Item>((section) => [
         { kind: 'section', key: `section-${section.key}`, section },
         ...section.dives.map((dive): Item => ({ kind: 'dive', key: `dive-${dive.id}`, dive })),
       ]),
     ],
-    [resultsText, sections],
+    [header, resultsText, sections],
   );
 
   const sheetActions = (dive: DiveSummary): M3SheetAction[] => [
@@ -130,6 +133,8 @@ export function DiveListView({
             estimatedItemSize={72}>
             {({ item }) => {
               switch (item.kind) {
+                case 'header':
+                  return <>{header}</>;
                 case 'results':
                   return (
                     <Text
