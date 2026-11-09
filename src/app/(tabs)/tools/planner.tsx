@@ -26,9 +26,12 @@ import {
 } from '@/models/planner';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
+import { useProfileSeries } from '@/queries/settings';
 
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
+  // The plan's profile draws what every dive profile does (Settings, Profile).
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
   const { draft, units, outcome, view, result, planner } = screen;
   const levelColor = (level: 'ok' | 'caution' | 'danger') =>
@@ -249,7 +252,7 @@ export default function PlannerScreen() {
         </FormSection>
         {view.plot && result.profile ? (
           <FormSection title="Profile" footer={view.interval ?? undefined}>
-            <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} height={200} />
+            <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} series={profileSeries} height={200} />
           </FormSection>
         ) : null}
         <FormSection>

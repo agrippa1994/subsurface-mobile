@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import type { Cylinder, GradientFactors, Units } from '@/models';
 import { rememberComputer, type RememberedComputer } from '@/models/dive-computer';
+import type { ProfileSeries } from '@/models/profile-plot';
 import {
   clampGradientFactors,
   DEFAULT_SETTINGS,
@@ -89,23 +90,25 @@ export function useGradientFactors(): GradientFactors {
 }
 
 /**
- * Which gradient factor curves the profile draws. Purely a display choice: it
- * is deliberately NOT part of `queryKeys.profile()`, unlike gf low and high,
- * because it changes nothing the core computes - both series are in every
- * plot_info already. Keying on it would recompute the whole plot natively on
- * every tap of the switch.
+ * Which series the profile draws: the two gradient factor curves, the two
+ * ceilings and the 3 m grid. Purely a display choice: it is deliberately NOT
+ * part of `queryKeys.profile()`, unlike gf low and high, because it changes
+ * nothing the core computes - every series is in each plot_info already.
+ * Keying on it would recompute the whole plot natively on every tap of a switch.
+ *
+ * Memoized: it feeds the profile chart's path-building memo.
  */
-export type GfSeries = { showGfNow: boolean; showGfSurface: boolean };
-
-/** Memoized: it feeds the profile chart's path-building memo. */
-export function useGfSeries(): GfSeries {
-  const { showGfNow, showGfSurface } = useSettings();
-  return useMemo(() => ({ showGfNow, showGfSurface }), [showGfNow, showGfSurface]);
+export function useProfileSeries(): ProfileSeries {
+  const { showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid } = useSettings();
+  return useMemo(
+    () => ({ showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid }),
+    [showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid],
+  );
 }
 
-export function useSetGfSeries(): (patch: Partial<GfSeries>) => void {
+export function useSetProfileSeries(): (patch: Partial<ProfileSeries>) => void {
   const update = useUpdateSettings();
-  return useCallback((patch: Partial<GfSeries>) => update.mutate(patch), [update]);
+  return useCallback((patch: Partial<ProfileSeries>) => update.mutate(patch), [update]);
 }
 
 /**

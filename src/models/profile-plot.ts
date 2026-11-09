@@ -53,10 +53,20 @@ export type ProfilePlot = {
   /** Depth of every plotted sample, in order. */
   depth: Point[];
   /**
-   * Deco ceiling, in millimetres, for the stretch where the dive was in deco.
-   * Empty for a dive that never was.
+   * The calculated deco ceiling, in millimetres: the core's Buehlmann (or VPM-B)
+   * ceiling at the gradient factors in Settings (`plot_data::ceiling`, desktop's
+   * DiveCalculatedCeiling). Only where it is above zero; empty for a dive that
+   * never had one.
    */
   ceiling: Point[];
+  /**
+   * The ceiling the dive computer reported, in millimetres: its stop depth while
+   * it said the diver was in deco, never below the diver (desktop's
+   * DiveReportedCeiling, `min(stopdepth, depth)` where `in_deco`), 0 elsewhere.
+   * One point per sample so the shape closes against the surface; empty when the
+   * computer never reported one.
+   */
+  dcCeiling: Point[];
   /**
    * Gradient factor of the leading tissue at the depth of the moment, in
    * percent. Empty where the core reported none.
@@ -88,6 +98,7 @@ export const EMPTY_PROFILE_PLOT: ProfilePlot = {
   maxDepthMm: 0,
   depth: [],
   ceiling: [],
+  dcCeiling: [],
   gfNow: [],
   gfSurface: [],
   gfRange: { min: 0, max: 0 },
@@ -140,6 +151,40 @@ function depthAt(plot: Point[], sec: number): number {
 }
 
 /**
+ * The dive computer's ceiling at one sample: what desktop's DiveReportedCeiling
+ * draws (profile-widget/diveprofileitem.cpp) - the stop depth while in deco, but
+ * never deeper than the diver is.
+ */
+export function dcCeilingMm(entry: PlotEntry): number {
+  return entry.inDeco && entry.stopdepthMm > 0 ? Math.min(entry.stopdepthMm, entry.depthMm) : 0;
+}
+
+/**
+ * Which series the profile shows, from Settings. Purely display: every one of
+ * them is in each plot_info already, so none of these is part of a profile's
+ * query key.
+ */
+export type ProfileSeries = {
+  showGfNow: boolean;
+  showGfSurface: boolean;
+  /** The ceiling the dive computer reported (desktop: "dive computer reported ceiling"). */
+  showDcCeiling: boolean;
+  /** The ceiling the core calculates (desktop: "calculated ceiling"). */
+  showCalcCeiling: boolean;
+  /** Depth gridlines at multiples of three in the depth unit (desktop: "3m based grid"). */
+  threeMeterGrid: boolean;
+};
+
+/** The core's defaults (core/pref.cpp: dcceiling on, calcceiling and the 3 m grid off). */
+export const DEFAULT_PROFILE_SERIES: ProfileSeries = {
+  showGfNow: false,
+  showGfSurface: false,
+  showDcCeiling: true,
+  showCalcCeiling: false,
+  threeMeterGrid: false,
+};
+
+/**
  * Builds every series of one profile. `events` come from the dive's
  * divecomputer (`getDive(id).dcs[dcIndex].events`) - `getProfile` does not
  * carry them.
@@ -153,6 +198,8 @@ export function buildProfilePlot(pi: PlotInfo, events: DiveEvent[] = []): Profil
   const ceiling: Point[] = pi.entry
     .filter((entry) => entry.ceilingMm > 0)
     .map((entry) => ({ sec: entry.sec, value: entry.ceilingMm }));
+  const reported = pi.entry.map((entry) => ({ sec: entry.sec, value: dcCeilingMm(entry) }));
+  const dcCeiling = reported.some((point) => point.value > 0) ? reported : [];
   const temperature: Point[] = pi.entry
     .filter((entry) => entry.temperatureMkelvin > 0)
     .map((entry) => ({ sec: entry.sec, value: entry.temperatureMkelvin }));
@@ -197,6 +244,7 @@ export function buildProfilePlot(pi: PlotInfo, events: DiveEvent[] = []): Profil
     maxDepthMm: Math.max(pi.maxDepthMm, ...depth.map((point) => point.value)),
     depth,
     ceiling,
+    dcCeiling,
     gfNow,
     gfSurface,
     gfRange: {
@@ -226,16 +274,30 @@ function pickStep(span: number, steps: number[], max: number): number {
 }
 
 /**
- * Depth gridlines, in millimetres, at round depths in the *displayed* unit -
- * 10 m or 30 ft, not 10 m converted to a ragged number of feet.
+ * Steps of a grid based on three: 1, 3, 6 and 15 times a power of ten, in the
+ * displayed unit - desktop's sensibleInterval() with gridIsMultipleOfThree
+ * (profile-widget/divecartesianaxis.cpp). Desktop quantizes in whatever unit
+ * the axis shows, so in feet the lines fall on 30, 60, 150 ft, not on feet
+ * converted from 3 m.
  */
-export function depthTicks(maxDepthMm: number, units: Units, max = 6): Tick<number>[] {
+const THREE_BASED_STEPS = [3, 6, 15, 30, 60, 150, 300];
+
+/**
+ * Depth gridlines, in millimetres, at round depths in the *displayed* unit -
+ * 10 m or 30 ft, not 10 m converted to a ragged number of feet. `threeBased`
+ * puts them at multiples of three instead, for divers whose stops are 3 m apart.
+ */
+export function depthTicks(maxDepthMm: number, units: Units, max = 6, threeBased = false): Tick<number>[] {
   if (maxDepthMm <= 0) {
     return [];
   }
   const perUnitMm = units.depth === 'ft' ? 304.8 : 1000;
   const span = units.depth === 'ft' ? mmToFeet(maxDepthMm) : mmToMeters(maxDepthMm);
-  const steps = units.depth === 'ft' ? [10, 20, 30, 50, 100, 200] : [5, 10, 20, 30, 50, 100];
+  const steps = threeBased
+    ? THREE_BASED_STEPS
+    : units.depth === 'ft'
+      ? [10, 20, 30, 50, 100, 200]
+      : [5, 10, 20, 30, 50, 100];
   const step = pickStep(span, steps, max);
 
   const ticks: Tick<number>[] = [];
@@ -333,7 +395,10 @@ export type ProfileReadout = {
   /** One entry per cylinder, in cylinder order; null where it has no reading. */
   pressures: { cylinder: number; text: string | null }[];
   inDeco: boolean;
-  ceilingText: string | null;
+  /** The core's calculated ceiling here, or null where there is none. */
+  calcCeilingText: string | null;
+  /** The dive computer's reported ceiling here, or null where it reported none. */
+  dcCeilingText: string | null;
   ndlText: string | null;
   /** Gradient factor at depth, e.g. "62%". Null where the core reported none. */
   gfNowText: string | null;
@@ -391,7 +456,8 @@ export function readoutAt(
       entry.temperatureMkelvin > 0 ? formatTemperature(entry.temperatureMkelvin, units) : null,
     pressures,
     inDeco: entry.inDeco,
-    ceilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, units) : null,
+    calcCeilingText: entry.ceilingMm > 0 ? formatDepth(entry.ceilingMm, units) : null,
+    dcCeilingText: dcCeilingMm(entry) > 0 ? formatDepth(dcCeilingMm(entry), units) : null,
     ndlText: entry.ndlSec > 0 ? formatDuration(entry.ndlSec) : null,
     gfNowText: entry.currentGf > 0 ? `${Math.round(gfNowPercent(entry))}%` : null,
     gfSurfaceText: entry.surfaceGf > 0 ? `${Math.round(entry.surfaceGf)}%` : null,
@@ -432,7 +498,7 @@ type Read = (readout: ProfileReadout) => string | null;
 export function readoutLayout(
   pi: PlotInfo,
   units: Units,
-  options: { showGfNow?: boolean; showGfSurface?: boolean } = {}
+  options: Partial<ProfileSeries> = {}
 ): ReadoutSlot[] {
   const samples = pi.entry.flatMap((entry) => readoutAt(pi, entry.sec, units) ?? []);
 
@@ -460,11 +526,19 @@ export function readoutLayout(
     options.showGfSurface
       ? slot('gf-surface', (r) => (r.gfSurfaceText ? `sGF ${r.gfSurfaceText}` : null))
       : null,
+    // The two ceilings are named apart, as the legend names their curves: the
+    // computer's reading against the core's calculation can differ by metres.
+    // The NDL shares the computer's slot, since the two never coincide.
     slot(
       'deco',
-      (r) => (r.inDeco && r.ceilingText ? `ceiling ${r.ceilingText}` : null),
+      ...(options.showDcCeiling
+        ? [(r: ProfileReadout) => (r.dcCeilingText ? `DC ceiling ${r.dcCeilingText}` : null)]
+        : []),
       (r) => (!r.inDeco && r.ndlText ? `NDL ${r.ndlText}` : null)
     ),
+    options.showCalcCeiling
+      ? slot('calc-ceiling', (r) => (r.calcCeilingText ? `Calc ceiling ${r.calcCeilingText}` : null))
+      : null,
   ].filter((candidate): candidate is ReadoutSlot => candidate !== null);
 
   return [
@@ -536,7 +610,7 @@ export function profileSummary(
   // A curve that is drawn but never spoken does not exist to VoiceOver, so the
   // shown series decide what the summary mentions. Their peak is the number
   // that matters: it is the worst the dive got.
-  gf: { showGfNow?: boolean; showGfSurface?: boolean } = {}
+  gf: Partial<ProfileSeries> = {}
 ): string {
   if (plot.depth.length === 0) {
     return 'Dive profile. This dive has no profile samples.';
@@ -565,8 +639,18 @@ export function profileSummary(
     );
   }
   parts.push(
-    plot.ceiling.length > 0 ? 'the dive went into decompression' : 'no decompression obligation'
+    plot.ceiling.length > 0 || plot.dcCeiling.length > 0
+      ? 'the dive went into decompression'
+      : 'no decompression obligation'
   );
+  if (gf.showDcCeiling && plot.dcCeiling.length > 0) {
+    const deepest = Math.max(...plot.dcCeiling.map((point) => point.value));
+    parts.push(`deepest dive computer ceiling ${formatDepth(deepest, units)}`);
+  }
+  if (gf.showCalcCeiling && plot.ceiling.length > 0) {
+    const deepest = Math.max(...plot.ceiling.map((point) => point.value));
+    parts.push(`deepest calculated ceiling ${formatDepth(deepest, units)}`);
+  }
   if (gf.showGfNow && plot.gfNow.length > 0) {
     const peak = Math.max(...plot.gfNow.map((point) => point.value));
     parts.push(`highest gradient factor at depth ${Math.round(peak)} percent`);

@@ -54,9 +54,19 @@ export type ChartPalette = {
   barSelected: string;
   temperature: string;
   pressure: string;
-  /** Deco ceiling: status "critical". Fixed, never themed. */
+  /**
+   * The ceiling the dive computer reported: status "critical", red as desktop's
+   * DiveReportedCeiling. Fixed, never themed.
+   */
   ceiling: string;
   ceilingFill: string;
+  /**
+   * The ceiling the core calculated: green as desktop's DiveCalculatedCeiling, an
+   * olive kept apart from the tank pressure's teal, and drawn dashed so it is
+   * told from the computer's without the tint.
+   */
+  calcCeiling: string;
+  calcCeilingFill: string;
   /**
    * The two gradient factor curves. One hue for both, because they are one
    * quantity read two ways; the solid/dashed stroke and the legend tell them
@@ -88,6 +98,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
     pressure: '#1baf7a',
     ceiling: '#d03b3b',
     ceilingFill: 'rgba(208, 59, 59, 0.14)',
+    calcCeiling: '#6b8e23',
+    calcCeilingFill: 'rgba(107, 142, 35, 0.16)',
     gfNow: '#6f42c1',
     gfSurface: '#8f5fd8',
     event: '#fab219',
@@ -111,6 +123,8 @@ export const ChartColors: { light: ChartPalette; dark: ChartPalette } = {
     pressure: '#199e70',
     ceiling: '#d03b3b',
     ceilingFill: 'rgba(208, 59, 59, 0.18)',
+    calcCeiling: '#a4c639',
+    calcCeilingFill: 'rgba(164, 198, 57, 0.18)',
     gfNow: '#a98af0',
     gfSurface: '#c2a7f5',
     event: '#fab219',

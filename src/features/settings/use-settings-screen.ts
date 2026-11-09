@@ -18,6 +18,7 @@ import { formatInstant } from '@/models/date-format';
 import { describeError } from '@/models/errors';
 import { diagnosticsSummary } from '@/models/diagnostics';
 import type { AboutInfo } from '@/models/about';
+import type { ProfileSeries } from '@/models/profile-plot';
 import type { Units } from '@/models';
 import { defaultCylinderOptions, type DefaultCylinderOption } from '@/models/cylinder-edit';
 import { unitPreset, unitsForSystem, type UnitPresetChoice } from '@/models/units';
@@ -27,11 +28,11 @@ import { useUngroupDives } from '@/queries/logbook-mutations';
 import { useGitKey, useGitSyncConfig } from '@/queries/git-sync';
 import { useSsiAccount, useSsiSiteIndexInfo } from '@/queries/ssi';
 import {
-  useGfSeries,
   useForgetComputers,
   useGradientFactors,
   useRememberedComputers,
-  useSetGfSeries,
+  useProfileSeries,
+  useSetProfileSeries,
   useSetGradientFactors,
   useDefaultCylinderName,
   useSetDefaultCylinder,
@@ -74,10 +75,13 @@ export type SettingsScreen = {
    * Whether the profile draws the two gradient factor curves. Display only: the
    * core computes both for every plot regardless, so neither costs a recompute.
    */
-  showGfNow: boolean;
-  showGfSurface: boolean;
-  setShowGfNow: (show: boolean) => void;
-  setShowGfSurface: (show: boolean) => void;
+  /**
+   * What the profile draws: the two gradient factor curves, the two ceilings and
+   * the 3 m grid. Display only: the core computes every series for every plot
+   * regardless, so none costs a recompute.
+   */
+  profile: ProfileSeries;
+  setProfile: (patch: Partial<ProfileSeries>) => void;
   diveCount: number;
   siteCount: number;
   /**
@@ -198,18 +202,8 @@ export function useSettingsScreen(): SettingsScreen {
     (percent: number) => setGradientFactors({ gfLow: Math.min(gfLow, percent), gfHigh: percent }),
     [gfLow, setGradientFactors],
   );
-  const { showGfNow, showGfSurface } = useGfSeries();
-  const setGfSeries = useSetGfSeries();
-
-  const setShowGfNow = useCallback(
-    (show: boolean) => setGfSeries({ showGfNow: show }),
-    [setGfSeries],
-  );
-
-  const setShowGfSurface = useCallback(
-    (show: boolean) => setGfSeries({ showGfSurface: show }),
-    [setGfSeries],
-  );
+  const profile = useProfileSeries();
+  const setProfile = useSetProfileSeries();
 
   const { data: dives = [] } = useDives();
   const { data: sites = [] } = useSites();
@@ -372,10 +366,8 @@ export function useSettingsScreen(): SettingsScreen {
     gfHigh,
     setGfLow,
     setGfHigh,
-    showGfNow,
-    showGfSurface,
-    setShowGfNow,
-    setShowGfSurface,
+    profile,
+    setProfile,
     diveCount: dives.length,
     siteCount: sites.length,
     ungroupDives,

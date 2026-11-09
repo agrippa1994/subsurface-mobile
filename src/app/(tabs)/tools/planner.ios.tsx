@@ -55,11 +55,14 @@ import {
 } from '@/models/planner';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
+import { useProfileSeries } from '@/queries/settings';
 
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
+  // The plan's profile draws what every dive profile does (Settings, Profile).
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
   const { draft, units, outcome, view, result, planner } = screen;
 
@@ -323,7 +326,7 @@ export default function PlannerScreen() {
             <RNHostView matchContents>
               <View style={{ width: screen.chartWidth }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, units)}`}>
                 {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
-                <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} height={200} />
+                <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} series={profileSeries} height={200} />
               </View>
             </RNHostView>
           </Section>

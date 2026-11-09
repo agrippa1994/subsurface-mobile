@@ -112,6 +112,9 @@ describe('parseSettings', () => {
       gfHigh: 80,
       showGfNow: false,
       showGfSurface: true,
+      showDcCeiling: false,
+      showCalcCeiling: true,
+      threeMeterGrid: true,
       diveComputers: [{ vendor: 'Shearwater', product: 'Perdix', address: 'a', name: 'Perdix 1' }],
       syncDiveComputerTime: true,
       planner: { ...DEFAULT_PLANNER_SETTINGS, gfLow: 40, verbatim: true },
@@ -119,6 +122,29 @@ describe('parseSettings', () => {
       defaultCylinder: 'AL80',
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
+  });
+});
+
+describe('profile series', () => {
+  it("takes the core's defaults in a file written before they existed", () => {
+    expect(parseSettings('{"showGfNow":true}')).toMatchObject({
+      showGfNow: true,
+      showDcCeiling: true,
+      showCalcCeiling: false,
+      threeMeterGrid: false,
+    });
+  });
+
+  it('reads them, ignoring anything that is not a boolean', () => {
+    expect(parseSettings('{"showDcCeiling":false,"showCalcCeiling":true,"threeMeterGrid":true}')).toMatchObject({
+      showDcCeiling: false,
+      showCalcCeiling: true,
+      threeMeterGrid: true,
+    });
+    expect(parseSettings('{"showDcCeiling":0,"threeMeterGrid":"yes"}')).toMatchObject({
+      showDcCeiling: true,
+      threeMeterGrid: false,
+    });
   });
 });
 

@@ -16,7 +16,7 @@ import {
 } from '@/components/material/list';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
@@ -51,9 +51,7 @@ export default function SettingsScreen() {
           : null}
       </M3Section>
 
-      <M3Section
-        title="Decompression"
-        footer="Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive profile - lower is more conservative. Subsurface's defaults are 30 and 75. The two curves show tissue loading against the limit: GF at depth for the moment itself, surface GF for what the diver would carry on surfacing right then.">
+      <M3Section title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
         <M3StepperRow
           label={`GF low  ${screen.gfLow}%`}
           value={screen.gfLow}
@@ -70,12 +68,17 @@ export default function SettingsScreen() {
           step={1}
           onChange={screen.setGfHigh}
         />
-        <M3SwitchRow label="Show GF at depth" value={screen.showGfNow} onChange={screen.setShowGfNow} />
-        <M3SwitchRow
-          label="Show surface GF"
-          value={screen.showGfSurface}
-          onChange={screen.setShowGfSurface}
-        />
+      </M3Section>
+
+      <M3Section title="Profile" footer={SETTINGS_FOOTERS.profile}>
+        {PROFILE_TOGGLES.map((toggle) => (
+          <M3SwitchRow
+            key={toggle.key}
+            label={toggle.label}
+            value={screen.profile[toggle.key]}
+            onChange={(on) => screen.setProfile({ [toggle.key]: on })}
+          />
+        ))}
       </M3Section>
 
       <M3Section title="New dives" footer={SETTINGS_FOOTERS.newDives}>

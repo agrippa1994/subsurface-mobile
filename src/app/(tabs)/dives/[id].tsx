@@ -64,7 +64,7 @@ import {
   type TripAction,
 } from '@/models/trips';
 import { useDive, useDives, useProfile, useSites, useTrips } from '@/queries/logbook';
-import { useGfSeries, useUnits } from '@/queries/settings';
+import { useProfileSeries, useUnits } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
 
 type SymbolName = SymbolViewProps['name'];
@@ -80,9 +80,9 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   const diveId = Number(id);
   const currentId = useCurrentDiveId(diveId);
   const units = useUnits();
-  // Which gradient factor curves the profile draws. A display preference only -
-  // both series are in every plot_info, so toggling one costs no recomputation.
-  const { showGfNow, showGfSurface } = useGfSeries();
+  // Which series the profile draws (gradient factors, ceilings, grid). A display
+  // preference only - all are in every plot_info, so a toggle costs no recomputation.
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -216,8 +216,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
             plot={plot}
             pi={profile}
             units={units}
-            showGfNow={showGfNow}
-            showGfSurface={showGfSurface}
+            series={profileSeries}
           />
         ) : (
           <Text style={[styles.placeholder, { color: theme.textSecondary }]}>
@@ -247,8 +246,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           plot={plot}
           pi={profile}
           units={units}
-          showGfNow={showGfNow}
-          showGfSurface={showGfSurface}
+          series={profileSeries}
         />
       ) : null}
 

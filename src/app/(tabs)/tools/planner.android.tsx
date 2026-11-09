@@ -46,6 +46,7 @@ import {
 } from '@/models/planner';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
+import { useProfileSeries } from '@/queries/settings';
 
 function WarningRow({ text, color }: { text: string; color: string }) {
   return (
@@ -60,6 +61,8 @@ function WarningRow({ text, color }: { text: string; color: string }) {
 
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
+  // The plan's profile draws what every dive profile does (Settings, Profile).
+  const profileSeries = useProfileSeries();
   const theme = useTheme();
   const palette = useMaterialColors();
   const { draft, units, outcome, view, result, planner } = screen;
@@ -279,6 +282,7 @@ export default function PlannerScreen() {
                     plot={view.plot}
                     pi={result.profile}
                     units={units}
+                    series={profileSeries}
                     height={200}
                   />
                 </View>

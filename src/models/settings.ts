@@ -10,6 +10,7 @@ import {
   parsePlannerSettings,
   type PlannerSettings,
 } from './planner-settings';
+import { DEFAULT_PROFILE_SERIES } from './profile-plot';
 import { parseStatsConfig } from './stats-chart';
 import type { StatsChartConfig } from './index';
 import { METRIC_UNITS, parseUnits, unitPreset, unitsForSystem, type Units } from './units';
@@ -28,6 +29,12 @@ export type Settings = {
   showGfNow: boolean;
   /** Draw the gradient factor the diver would surface with on the profile. */
   showGfSurface: boolean;
+  /** Draw the ceiling the dive computer reported (core: `dcceiling`). */
+  showDcCeiling: boolean;
+  /** Draw the ceiling the core calculates (core: `calcceiling`). */
+  showCalcCeiling: boolean;
+  /** Depth gridlines at multiples of three (core: `three_m_based_grid`). */
+  threeMeterGrid: boolean;
   /** The dive computers downloaded from lately, latest first. */
   diveComputers: RememberedComputer[];
   /** Set the dive computer's clock after a download. */
@@ -52,6 +59,11 @@ export const DEFAULT_SETTINGS: Settings = {
   // for them. Neither costs a recomputation, only a curve.
   showGfNow: false,
   showGfSurface: false,
+  // The core's defaults (core/pref.cpp): the computer's own ceiling on, the
+  // calculated one and the 3 m grid off.
+  showDcCeiling: DEFAULT_PROFILE_SERIES.showDcCeiling,
+  showCalcCeiling: DEFAULT_PROFILE_SERIES.showCalcCeiling,
+  threeMeterGrid: DEFAULT_PROFILE_SERIES.threeMeterGrid,
   diveComputers: [],
   // Off, as in the legacy app: this changes something on the dive computer.
   syncDiveComputerTime: false,
@@ -133,6 +145,9 @@ export function parseSettings(json: string): Settings {
       ),
       showGfNow: flag(raw?.showGfNow, DEFAULT_SETTINGS.showGfNow),
       showGfSurface: flag(raw?.showGfSurface, DEFAULT_SETTINGS.showGfSurface),
+      showDcCeiling: flag(raw?.showDcCeiling, DEFAULT_SETTINGS.showDcCeiling),
+      showCalcCeiling: flag(raw?.showCalcCeiling, DEFAULT_SETTINGS.showCalcCeiling),
+      threeMeterGrid: flag(raw?.threeMeterGrid, DEFAULT_SETTINGS.threeMeterGrid),
       diveComputers: parseRememberedComputers(raw?.diveComputers),
       syncDiveComputerTime: flag(raw?.syncDiveComputerTime, DEFAULT_SETTINGS.syncDiveComputerTime),
       planner: parsePlannerSettings(raw?.planner),
@@ -154,6 +169,9 @@ export function serializeSettings(settings: Settings): string {
     gfHigh: settings.gfHigh,
     showGfNow: settings.showGfNow,
     showGfSurface: settings.showGfSurface,
+    showDcCeiling: settings.showDcCeiling,
+    showCalcCeiling: settings.showCalcCeiling,
+    threeMeterGrid: settings.threeMeterGrid,
     diveComputers: settings.diveComputers,
     syncDiveComputerTime: settings.syncDiveComputerTime,
     planner: settings.planner,
@@ -168,4 +186,25 @@ export const SETTINGS_FOOTERS = {
     'Dives you add start with this cylinder, and so do cylinders added in the editor and the planner. ' +
     'A dive downloaded from a computer that does not report its tank size takes it too. ' +
     'It starts full at its working pressure; set the end pressure on the dive.',
+  decompression:
+    'Buehlmann gradient factors, in percent. They decide the calculated ceiling and the gradient factor ' +
+    "curves - lower is more conservative. Subsurface's defaults are 30 and 75.",
+  profile:
+    'Drawn on every dive profile and in the planner. GF at depth is the leading tissue against its limit at ' +
+    'that moment, surface GF what the diver would carry on surfacing right then.' +
+    ' The dive computer ceiling is the stop depth the computer showed; the calculated ceiling is the one ' +
+    'Subsurface works out from the samples at the gradient factors above, and can differ by metres. The 3 m ' +
+    'grid puts the depth lines at multiples of three, in feet as well.',
 } as const;
+
+/** The profile's switches, in the order Settings lists them. */
+export const PROFILE_TOGGLES: readonly {
+  key: 'showGfNow' | 'showGfSurface' | 'showDcCeiling' | 'showCalcCeiling' | 'threeMeterGrid';
+  label: string;
+}[] = [
+  { key: 'showDcCeiling', label: 'Dive computer ceiling' },
+  { key: 'showCalcCeiling', label: 'Calculated ceiling' },
+  { key: 'showGfNow', label: 'GF at depth' },
+  { key: 'showGfSurface', label: 'Surface GF' },
+  { key: 'threeMeterGrid', label: '3 m depth grid' },
+];

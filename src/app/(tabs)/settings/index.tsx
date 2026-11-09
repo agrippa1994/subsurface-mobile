@@ -11,7 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
 
@@ -51,19 +51,20 @@ export default function SettingsScreen() {
           : null}
       </FormSection>
 
-      <FormSection
-        title="Decompression"
-        footer={
-          "Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive profile - lower is more conservative. Subsurface's defaults are 30 and 75. The two curves show tissue loading against the limit: GF at depth for the moment itself, surface GF for what the diver would carry on surfacing right then."
-        }>
+      <FormSection title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
         <StepperRow label="GF low" value={screen.gfLow} onChange={screen.setGfLow} />
         <StepperRow label="GF high" value={screen.gfHigh} onChange={screen.setGfHigh} />
-        <SwitchRow label="Show GF at depth" value={screen.showGfNow} onChange={screen.setShowGfNow} />
-        <SwitchRow
-          label="Show surface GF"
-          value={screen.showGfSurface}
-          onChange={screen.setShowGfSurface}
-        />
+      </FormSection>
+
+      <FormSection title="Profile" footer={SETTINGS_FOOTERS.profile}>
+        {PROFILE_TOGGLES.map((toggle) => (
+          <SwitchRow
+            key={toggle.key}
+            label={toggle.label}
+            value={screen.profile[toggle.key]}
+            onChange={(on) => screen.setProfile({ [toggle.key]: on })}
+          />
+        ))}
       </FormSection>
 
       <FormSection title="New dives" footer={SETTINGS_FOOTERS.newDives}>

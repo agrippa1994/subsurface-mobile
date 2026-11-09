@@ -17,7 +17,7 @@ import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { GF_RANGE, SETTINGS_FOOTERS } from '@/models/settings';
+import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import {
   UNIT_PRESET_OPTIONS,
@@ -72,16 +72,7 @@ export default function SettingsScreen() {
             : null}
         </Section>
 
-        <Section
-          title="Decompression"
-          footer={
-            <Text>
-              Buehlmann gradient factors, in percent. They decide the deco ceiling drawn on the dive
-              profile - lower is more conservative. Subsurface&apos;s defaults are 30 and 75. The two
-              curves show tissue loading against the limit: GF at depth for the moment itself,
-              surface GF for what the diver would carry on surfacing right then.
-            </Text>
-          }>
+        <Section title="Decompression" footer={<Text>{SETTINGS_FOOTERS.decompression}</Text>}>
           <Stepper
             label={`GF low  ${screen.gfLow}%`}
             value={screen.gfLow}
@@ -98,16 +89,17 @@ export default function SettingsScreen() {
             step={1}
             onValueChange={screen.setGfHigh}
           />
-          <Toggle
-            label="Show GF at depth"
-            isOn={screen.showGfNow}
-            onIsOnChange={screen.setShowGfNow}
-          />
-          <Toggle
-            label="Show surface GF"
-            isOn={screen.showGfSurface}
-            onIsOnChange={screen.setShowGfSurface}
-          />
+        </Section>
+
+        <Section title="Profile" footer={<Text>{SETTINGS_FOOTERS.profile}</Text>}>
+          {PROFILE_TOGGLES.map((toggle) => (
+            <Toggle
+              key={toggle.key}
+              label={toggle.label}
+              isOn={screen.profile[toggle.key]}
+              onIsOnChange={(on: boolean) => screen.setProfile({ [toggle.key]: on })}
+            />
+          ))}
         </Section>
 
         <Section title="New dives" footer={<Text>{SETTINGS_FOOTERS.newDives}</Text>}>

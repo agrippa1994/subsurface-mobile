@@ -11,6 +11,8 @@ import { join } from 'node:path';
 import type { Dive, PlotInfo } from './index';
 import {
   buildProfilePlot,
+  dcCeilingMm,
+  DEFAULT_PROFILE_SERIES,
   depthTicks,
   EMPTY_PROFILE_PLOT,
   nearestSampleIndex,
@@ -450,5 +452,90 @@ describe('a logbook with temperature, pressure and deco', () => {
         expect(Math.abs(profile.entry[neighbour].sec - target)).toBeGreaterThanOrEqual(distance);
       }
     }
+  });
+});
+
+describe('the two ceilings and the 3 m grid', () => {
+  /** A synthetic plot: in deco from 600 s to 1200 s, the computer's stop at 6 m. */
+  function decoPlot(): PlotInfo {
+    const entry = [0, 300, 600, 900, 1200, 1500].map((sec) => ({
+      sec,
+      depthMm: sec === 0 || sec === 1500 ? 0 : 30000,
+      temperatureMkelvin: 0,
+      // The core's ceiling, deeper than the computer's stop near the end.
+      ceilingMm: sec >= 600 && sec <= 1200 ? 4500 : 0,
+      inDeco: sec >= 600 && sec <= 1200,
+      stopdepthMm: sec >= 600 && sec <= 1200 ? 6000 : 0,
+      ndlSec: sec < 600 ? 600 - sec : 0,
+      currentGf: 0,
+      surfaceGf: 0,
+    }));
+    // A stop reported deeper than the diver is drawn at the diver.
+    entry[4] = { ...entry[4], depthMm: 5000 };
+    return {
+      nrCylinders: 0,
+      maxtimeSec: 1500,
+      maxDepthMm: 30000,
+      entry,
+      pressures: { sensor: [], interpolated: [] },
+    } as unknown as PlotInfo;
+  }
+
+  it("keeps the computer's ceiling apart from the core's", () => {
+    const plot = buildProfilePlot(decoPlot());
+    expect(plot.ceiling.map((p) => p.value)).toEqual([4500, 4500, 4500]);
+    // One point per sample, 0 out of deco, never below the diver (5 m at 1200 s).
+    expect(plot.dcCeiling.map((p) => p.value)).toEqual([0, 0, 6000, 6000, 5000, 0]);
+    expect(dcCeilingMm(decoPlot().entry[2])).toBe(6000);
+  });
+
+  it('has no computer ceiling for a dive the computer never put in deco', () => {
+    const pi = decoPlot();
+    const quiet = { ...pi, entry: pi.entry.map((e) => ({ ...e, inDeco: false })) } as PlotInfo;
+    expect(buildProfilePlot(quiet).dcCeiling).toEqual([]);
+  });
+
+  it('names each ceiling in the readout, and only the ones shown', () => {
+    const pi = decoPlot();
+    const read = (series: Parameters<typeof readoutLayout>[2], sec: number) => {
+      const readout = readoutAt(pi, sec, METRIC_UNITS);
+      return readoutLayout(pi, METRIC_UNITS, series).map((slot) => slot.read(readout!));
+    };
+    expect(read({ showDcCeiling: true, showCalcCeiling: true }, 900)).toEqual(
+      expect.arrayContaining(['DC ceiling 6 m', 'Calc ceiling 4.5 m']),
+    );
+    expect(read({ showDcCeiling: true, showCalcCeiling: false }, 900).join(' ')).not.toContain('Calc');
+    expect(read({ showDcCeiling: false, showCalcCeiling: true }, 900).join(' ')).not.toContain('DC ceiling');
+    // Out of deco the computer's slot says the NDL.
+    expect(read(DEFAULT_PROFILE_SERIES, 300)).toContain('NDL 5:00');
+  });
+
+  it('says both ceilings to VoiceOver when they are drawn', () => {
+    const plot = buildProfilePlot(decoPlot());
+    const spoken = profileSummary(plot, METRIC_UNITS, { showDcCeiling: true, showCalcCeiling: true });
+    expect(spoken).toContain('deepest dive computer ceiling 6 m');
+    expect(spoken).toContain('deepest calculated ceiling 4.5 m');
+    expect(profileSummary(plot, METRIC_UNITS)).not.toContain('ceiling');
+  });
+
+  it('matches the core defaults', () => {
+    expect(DEFAULT_PROFILE_SERIES).toEqual({
+      showGfNow: false,
+      showGfSurface: false,
+      showDcCeiling: true,
+      showCalcCeiling: false,
+      threeMeterGrid: false,
+    });
+  });
+
+  it('puts a 3 m grid on multiples of three, in metres', () => {
+    expect(depthTicks(16000, METRIC_UNITS, 6, true).map((t) => t.label)).toEqual(['3', '6', '9', '12', '15']);
+    expect(depthTicks(45000, METRIC_UNITS, 6, true).map((t) => t.label)).toEqual(['15', '30', '45']);
+  });
+
+  it('quantizes in feet the way desktop does, not 3 m converted', () => {
+    const ticks = depthTicks(45000, IMPERIAL_UNITS, 6, true);
+    expect(ticks.map((t) => t.label)).toEqual(['30', '60', '90', '120']);
+    expect(ticks[0].value).toBeCloseTo(9144, 0);
   });
 });

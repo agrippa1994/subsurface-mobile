@@ -33,6 +33,7 @@ import { Spacing } from '@/constants/theme';
 import type { PlotInfo, Units } from '@/models';
 import { formatDuration, mmToFeet, mmToMeters } from '@/models';
 import {
+  DEFAULT_PROFILE_SERIES,
   depthTicks,
   nearestSampleIndex,
   pressureAxis,
@@ -45,6 +46,7 @@ import {
   windowPoints,
   type Point,
   type ProfilePlot,
+  type ProfileSeries,
 } from '@/models/profile-plot';
 
 const PAD = { left: 34, top: 10, bottom: 20 };
@@ -70,10 +72,11 @@ export type ProfileChartProps = {
   pi: PlotInfo;
   units: Units;
   height?: number;
-  /** Gradient factor of the leading tissue at depth. Off by default. */
-  showGfNow?: boolean;
-  /** Gradient factor the diver would surface with. Off by default. */
-  showGfSurface?: boolean;
+  /**
+   * Which series to draw, from Settings (useProfileSeries). The core's defaults
+   * when left out: the computer's ceiling on, the rest off.
+   */
+  series?: ProfileSeries;
 };
 
 /** The visible slice of the time axis, in seconds. */
@@ -108,6 +111,29 @@ function buildLine(points: Point[], x: (sec: number) => number, y: (v: number) =
   return lineBuilder(points, x, y).detach();
 }
 
+/**
+ * A line only where the series is above zero, one stroke per stretch: the
+ * computer's ceiling is 0 outside deco, and a stroke along the surface there
+ * would read as a ceiling at the surface.
+ */
+function buildRuns(points: Point[], x: (sec: number) => number, y: (v: number) => number): SkPath {
+  const path = Skia.PathBuilder.Make();
+  let drawing = false;
+  for (const point of points) {
+    if (point.value <= 0) {
+      drawing = false;
+      continue;
+    }
+    if (drawing) {
+      path.lineTo(x(point.sec), y(point.value));
+    } else {
+      path.moveTo(x(point.sec), y(point.value));
+      drawing = true;
+    }
+  }
+  return path.detach();
+}
+
 function buildArea(
   points: Point[],
   x: (sec: number) => number,
@@ -128,9 +154,9 @@ export function ProfileChart({
   pi,
   units,
   height = 260,
-  showGfNow = false,
-  showGfSurface = false,
+  series = DEFAULT_PROFILE_SERIES,
 }: ProfileChartProps) {
+  const { showGfNow, showGfSurface, showDcCeiling, showCalcCeiling, threeMeterGrid } = series;
   const colors = ChartColors[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const [width, setWidth] = useState(0);
   const [view, setView] = useState<TimeWindow>({ from: 0, to: plot.maxSec });
@@ -164,10 +190,10 @@ export function ProfileChart({
   // The depth axis is rounded out to the next gridline so the deepest point is
   // not glued to the bottom edge.
   const depthAxisMax = useMemo(() => {
-    const ticks = depthTicks(plot.maxDepthMm, units);
+    const ticks = depthTicks(plot.maxDepthMm, units, undefined, threeMeterGrid);
     const step = ticks.length > 1 ? ticks[1].value - ticks[0].value : plot.maxDepthMm || 1;
     return Math.max(step, Math.ceil((plot.maxDepthMm || 1) / step) * step);
-  }, [plot.maxDepthMm, units]);
+  }, [plot.maxDepthMm, threeMeterGrid, units]);
 
   const span = Math.max(1, view.to - view.from);
   const x = useCallback(
@@ -198,7 +224,10 @@ export function ProfileChart({
       return null;
     }
     const depthPoints = windowPoints(plot.depth, view.from, view.to, MAX_POINTS);
-    const ceilingPoints = windowPoints(plot.ceiling, view.from, view.to, MAX_POINTS);
+    const ceilingPoints = showCalcCeiling ? windowPoints(plot.ceiling, view.from, view.to, MAX_POINTS) : [];
+    const dcCeilingPoints = showDcCeiling
+      ? windowPoints(plot.dcCeiling, view.from, view.to, MAX_POINTS)
+      : [];
     const temperaturePoints = windowPoints(plot.temperature, view.from, view.to, MAX_POINTS);
 
     const tempMin = temperatureValue(plot.temperatureRange.min, units);
@@ -219,11 +248,15 @@ export function ProfileChart({
     return {
       depthArea: buildArea(depthPoints, x, yDepth, PAD.top + chartHeight),
       depthLine: buildLine(depthPoints, x, yDepth),
-      // The ceiling is drawn as the water column the diver may not ascend into:
-      // from the surface down to the ceiling depth.
+      // Each ceiling is drawn as the water column the diver may not ascend into:
+      // from the surface down to the ceiling depth. The computer's in red, the
+      // core's calculation in green and dashed, as desktop tells them apart.
       ceilingArea:
         ceilingPoints.length > 1 ? buildArea(ceilingPoints, x, yDepth, PAD.top) : null,
       ceilingLine: ceilingPoints.length > 1 ? buildLine(ceilingPoints, x, yDepth) : null,
+      dcCeilingArea:
+        dcCeilingPoints.length > 1 ? buildArea(dcCeilingPoints, x, yDepth, PAD.top) : null,
+      dcCeilingLine: dcCeilingPoints.length > 1 ? buildRuns(dcCeilingPoints, x, yDepth) : null,
       gfNow: gfLine(plot.gfNow, showGfNow),
       gfSurface: gfLine(plot.gfSurface, showGfSurface),
       temperature:
@@ -249,6 +282,8 @@ export function ProfileChart({
     chartHeight,
     chartWidth,
     plot,
+    showCalcCeiling,
+    showDcCeiling,
     showGfNow,
     showGfSurface,
     units,
@@ -260,7 +295,7 @@ export function ProfileChart({
 
   const grid = useMemo(() => {
     const path = Skia.PathBuilder.Make();
-    for (const tick of depthTicks(depthAxisMax, units)) {
+    for (const tick of depthTicks(depthAxisMax, units, undefined, threeMeterGrid)) {
       const y = yDepth(tick.value);
       path.moveTo(PAD.left, y);
       path.lineTo(PAD.left + chartWidth, y);
@@ -273,7 +308,7 @@ export function ProfileChart({
       path.lineTo(x(tick.value), PAD.top + chartHeight);
     }
     return path.detach();
-  }, [chartHeight, chartWidth, depthAxisMax, plot.maxSec, units, view, x, yDepth]);
+  }, [chartHeight, chartWidth, depthAxisMax, plot.maxSec, threeMeterGrid, units, view, x, yDepth]);
 
   const visibleEvents = useMemo(
     () => plot.events.filter((event) => event.sec >= view.from && event.sec <= view.to),
@@ -289,8 +324,8 @@ export function ProfileChart({
   // out even before scrubbing starts (invisibly, under the hint) - so neither
   // the readout nor the chart below it moves while the finger does.
   const readoutSlots = useMemo(
-    () => readoutLayout(pi, units, { showGfNow, showGfSurface }),
-    [pi, showGfNow, showGfSurface, units]
+    () => readoutLayout(pi, units, series),
+    [pi, series, units]
   );
 
   // --- Gestures ------------------------------------------------------------
@@ -418,20 +453,32 @@ export function ProfileChart({
           // curve nor the scrubber gesture is reachable without a pointer.
           accessible
           accessibilityRole="image"
-          accessibilityLabel={profileSummary(plot, units, { showGfNow, showGfSurface })}>
+          accessibilityLabel={profileSummary(plot, units, series)}>
           <Canvas style={StyleSheet.absoluteFill}>
             <Path path={grid} style="stroke" strokeWidth={1} color={colors.grid} />
 
+            {paths?.dcCeilingArea ? (
+              <Path path={paths.dcCeilingArea} style="fill" color={colors.ceilingFill} />
+            ) : null}
+            {paths?.dcCeilingLine ? (
+              <Path
+                path={paths.dcCeilingLine}
+                style="stroke"
+                strokeWidth={2}
+                color={colors.ceiling}
+              />
+            ) : null}
             {paths?.ceilingArea ? (
-              <Path path={paths.ceilingArea} style="fill" color={colors.ceilingFill} />
+              <Path path={paths.ceilingArea} style="fill" color={colors.calcCeilingFill} />
             ) : null}
             {paths?.ceilingLine ? (
               <Path
                 path={paths.ceilingLine}
                 style="stroke"
                 strokeWidth={2}
-                color={colors.ceiling}
-              />
+                color={colors.calcCeiling}>
+                <DashPathEffect intervals={[6, 4]} />
+              </Path>
             ) : null}
 
             {paths ? (
@@ -522,7 +569,7 @@ export function ProfileChart({
             ) : null}
           </Canvas>
 
-          {depthTicks(depthAxisMax, units).map((tick) => (
+          {depthTicks(depthAxisMax, units, undefined, threeMeterGrid).map((tick) => (
             <Text
               key={`depth-${tick.value}`}
               style={[
@@ -586,8 +633,11 @@ export function ProfileChart({
             label={`Tank pressure (${units.pressure === 'psi' ? 'psi' : 'bar'})`}
           />
         ) : null}
-        {plot.ceiling.length > 0 ? (
-          <LegendItem color={colors.ceiling} textColor={colors.label} label="Deco ceiling" />
+        {showDcCeiling && plot.dcCeiling.length > 1 ? (
+          <LegendItem color={colors.ceiling} textColor={colors.label} label="Computer ceiling" />
+        ) : null}
+        {showCalcCeiling && plot.ceiling.length > 1 ? (
+          <LegendItem color={colors.calcCeiling} textColor={colors.label} label="Calculated ceiling" />
         ) : null}
         {showGfNow && plot.gfNow.length > 1 ? (
           <LegendItem color={colors.gfNow} textColor={colors.label} label="GF at depth (%)" />
