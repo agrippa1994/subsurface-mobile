@@ -1249,11 +1249,44 @@ json preview_dive(const json &args)
 	return dive_to_json(copy);
 }
 
+// The start of the legacy dive summary's periods (DiveSummaryModel::calc in
+// qt-models/divesummarymodel.cpp): now, on the wall clock dives are stored in,
+// less `months` calendar months - QDateTime::addMonths(), which keeps the day
+// of the month and clamps it to the target month's length. `now` is that wall
+// clock in core seconds; 0 means the device's current time.
+timestamp_t months_before(int months, timestamp_t now)
+{
+	if (!now)
+		now = time(nullptr) + gettimezoneoffset();
+	struct tm tm;
+	utc_mkdate(now, &tm);
+	int month = tm.tm_mon - months;
+	int year = tm.tm_year;
+	while (month < 0) {
+		month += 12;
+		--year;
+	}
+	static const int days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+	int last_day = days[month] + (month == 1 && leap ? 1 : 0);
+	tm.tm_year = year;
+	tm.tm_mon = month;
+	tm.tm_mday = std::min(tm.tm_mday, last_day);
+	return utc_mktime(&tm);
+}
+
 // Marks the dives matching `filter` as selected, since that is the input the
 // core's statistics code takes (it reads dive->selected). An absent or empty
 // filter selects every valid dive.
+//
+// `recentMonths` (1, 3, 6 or 12 in the app) is the legacy summary's period:
+// the dives after months_before(recentMonths, nowWhen), strictly, as there.
 int apply_stats_filter(const json &filter)
 {
+	int recent_months = static_cast<int>(get_int(filter, "recentMonths", 0));
+	if (recent_months < 0 || recent_months > 1200)
+		fail("argument 'recentMonths' must be between 0 and 1200");
+	timestamp_t recent_start = recent_months ? months_before(recent_months, get_int(filter, "nowWhen", 0)) : 0;
 	int64_t from = get_int(filter, "fromWhen", 0);
 	int64_t to = get_int(filter, "toWhen", 0);
 	uint32_t site = static_cast<uint32_t>(get_int(filter, "siteUuid", 0));
@@ -1274,6 +1307,8 @@ int apply_stats_filter(const json &filter)
 		if (excludePlanned && d.is_planned())
 			match = false;
 		if (from && d.when < from)
+			match = false;
+		if (recent_months && d.when <= recent_start)
 			match = false;
 		if (to && d.when > to)
 			match = false;
@@ -1329,10 +1364,27 @@ json extra_statistics()
 
 	std::vector<uint32_t> sites;
 
+	// The legacy summary's other rows (divesummarymodel.cpp, calculateDive):
+	// first and last dive, dives on a mix richer than air, and dives deeper than
+	// 39 m. Planned dives count here as they do in the core's statistics; the
+	// filter leaves them out on request.
+	timestamp_t first_when = 0, last_when = 0;
+	int nitrox_dives = 0, deep_dives = 0;
+
 	for (const auto &dp : divelog.dives) {
 		const struct dive &d = *dp;
 		if (!d.selected || d.invalid)
 			continue;
+
+		if (!first_when || d.when < first_when)
+			first_when = d.when;
+		if (d.when > last_when)
+			last_when = d.when;
+		if (std::any_of(d.cylinders.begin(), d.cylinders.end(),
+				[](const cylinder_t &cyl) { return cyl.gasmix.o2.permille > 210; }))
+			nitrox_dives++;
+		if (d.maxdepth.mm > 39000)
+			deep_dives++;
 
 		int idx = d.duration.seconds / 60 / STATS_DURATION_BUCKET_MIN;
 		idx = std::clamp(idx, 0, nr_buckets - 1);
@@ -1376,6 +1428,11 @@ json extra_statistics()
 		{ "timeline", timeline },
 		{ "byDuration", by_duration },
 		{ "siteCount", static_cast<int>(sites.size()) },
+		{ "firstWhen", first_when },
+		{ "lastWhen", last_when },
+		{ "nitroxDives", nitrox_dives },
+		{ "deepDives", deep_dives },
+		{ "periodStartWhen", 0 },
 	};
 }
 
@@ -1395,6 +1452,10 @@ json get_statistics(const json &args)
 	out["total"] = stats_to_json(calculate_stats_selected());
 	out["matched"] = selected;
 	out.update(extra_statistics());
+	// Where a recent period starts, so the screen can say "since 9 Aug 2026".
+	int recent_months = static_cast<int>(get_int(filter, "recentMonths", 0));
+	if (recent_months)
+		out["periodStartWhen"] = months_before(recent_months, get_int(filter, "nowWhen", 0));
 	return out;
 }
 

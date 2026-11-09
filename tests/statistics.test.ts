@@ -201,7 +201,7 @@ describe('filters recompute in the module', () => {
     expect(depthHistogram(filtered, METRIC_UNITS)).toEqual([]);
     expect(durationHistogram(filtered)).toEqual([]);
     expect(sacOverTime(filtered, METRIC_UNITS)).toEqual([]);
-    expect(summaryTiles(filtered, METRIC_UNITS).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0']);
+    expect(summaryTiles(filtered, METRIC_UNITS).map((tile) => tile.value)).toEqual(['0', '0 min', '-', '-', '0', '-']);
   });
 
   it('restores the full picture once the filter is dropped', async () => {
@@ -226,5 +226,70 @@ describe('a single-dive logbook', () => {
     } finally {
       await single.close();
     }
+  });
+});
+
+describe("the legacy dive summary's periods", () => {
+  /**
+   * The start of a period, worked out apart from the bindings: QDateTime::addMonths
+   * on the wall clock, keeping the day and clamping it to the shorter month.
+   */
+  function monthsBefore(now: number, months: number): number {
+    const date = new Date(now * 1000);
+    const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - months, 1));
+    const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+    return (
+      Date.UTC(
+        target.getUTCFullYear(),
+        target.getUTCMonth(),
+        Math.min(date.getUTCDate(), lastDay),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+      ) / 1000
+    );
+  }
+
+  // A week after the newest 2014 dive: the 2020 dive lies in the future of it,
+  // which a period counts too, as the legacy one did (it has no upper bound).
+  const newest2014 = () => Math.max(...dives.filter((dive) => yearOf(dive) === 2014).map((d) => d.when));
+
+  for (const months of [1, 3, 6, 12]) {
+    it(`counts the dives after ${months} month(s) back, as the core decides`, async () => {
+      const now = newest2014() + 7 * 86400;
+      const start = monthsBefore(now, months);
+      const result = await host.getStatistics({ recentMonths: months, nowWhen: now });
+      const expected = dives.filter((dive) => dive.when > start);
+      expect(result.periodStartWhen).toBe(start);
+      expect(result.matched).toBe(expected.length);
+      expect(result.total.totalTimeSec).toBe(sumOf(expected, (dive) => dive.durationSec));
+      expect(result.firstWhen).toBe(Math.min(...expected.map((dive) => dive.when)));
+      expect(result.lastWhen).toBe(Math.max(...expected.map((dive) => dive.when)));
+    });
+  }
+
+  it('clamps the day to the shorter month, as addMonths does', async () => {
+    // 31 March 2014, noon, less one month: 28 February.
+    const now = Date.UTC(2014, 2, 31, 12) / 1000;
+    const result = await host.getStatistics({ recentMonths: 1, nowWhen: now });
+    expect(result.periodStartWhen).toBe(Date.UTC(2014, 1, 28, 12) / 1000);
+  });
+
+  it('crosses a year boundary', async () => {
+    const now = Date.UTC(2014, 1, 10) / 1000;
+    const result = await host.getStatistics({ recentMonths: 6, nowWhen: now });
+    expect(result.periodStartWhen).toBe(Date.UTC(2013, 7, 10) / 1000);
+  });
+
+  it('reports first and last dive, nitrox and deep dives over everything', () => {
+    expect(summary.firstWhen).toBe(Math.min(...dives.map((dive) => dive.when)));
+    expect(summary.lastWhen).toBe(Math.max(...dives.map((dive) => dive.when)));
+    expect(summary.deepDives).toBe(dives.filter((dive) => dive.maxDepthMm > 39000).length);
+    expect(summary.nitroxDives).toBeGreaterThan(0);
+    expect(summary.periodStartWhen).toBe(0);
+  });
+
+  it('refuses a period out of range', async () => {
+    await expect(host.getStatistics({ recentMonths: -1 })).rejects.toThrow(/recentMonths/);
   });
 });

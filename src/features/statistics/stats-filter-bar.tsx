@@ -1,8 +1,12 @@
 // AI-generated (Claude)
-// Year and site filters, one row of chips each, and the planned dives where the log
-// has any. Chips rather than a menu because the point is to see what is selected
+// When and where, one row of chips each, and the planned dives where the log has
+// any. Chips rather than a menu because the point is to see what is selected
 // without opening anything - and both lists are short (a logbook covers a handful of
 // years, and the site list is the sites that have dives, most-dived first).
+//
+// "When" holds the legacy dive summary's periods (last month, 3, 6 and 12 months)
+// ahead of the calendar years: both say which dives count by their date, so they are
+// one choice in one row, and picking either replaces the other.
 //
 // The same bar on the overview and on a chart, driving one filter: there is no second
 // set of filters for a chart to be confused with.
@@ -10,6 +14,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { RECENT_PERIODS, periodNote } from '@/models/statistics';
 
 import type { StatisticsScreen } from './use-statistics-screen';
 
@@ -20,7 +25,22 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
   return (
     <View style={styles.filters}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Chip label="All years" selected={filter.year === null} onPress={() => screen.setYear(null)} />
+        <Chip
+          label="All time"
+          selected={filter.year === null && !filter.recentMonths}
+          onPress={() => screen.setYear(null)}
+        />
+        {RECENT_PERIODS.map((period) => (
+          <Chip
+            key={`recent-${period.months}`}
+            label={period.label}
+            accessibilityLabel={`Dives of ${period.spoken}`}
+            selected={filter.recentMonths === period.months}
+            onPress={() =>
+              screen.setRecentPeriod(filter.recentMonths === period.months ? null : period.months)
+            }
+          />
+        ))}
         {screen.years.map((year) => (
           <Chip
             key={year}
@@ -58,6 +78,10 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
         </View>
       ) : null}
 
+      {screen.summary && periodNote(screen.summary) ? (
+        <Text style={[styles.note, { color: theme.textSecondary }]}>{periodNote(screen.summary)}</Text>
+      ) : null}
+
       {screen.filtered ? (
         <Pressable onPress={screen.clearFilter} accessibilityRole="button">
           <Text style={[styles.clear, { color: theme.textSecondary }]}>Clear filter</Text>
@@ -67,11 +91,22 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Chip({
+  label,
+  selected,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+}) {
   const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       style={[styles.chip, { backgroundColor: selected ? theme.backgroundSelected : theme.backgroundElement }]}>

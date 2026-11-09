@@ -256,6 +256,16 @@ directly and avoids the copy.
     with `toMin: null` on the last, open-ended bucket at 180 min. 10 minutes is
     desktop's default duration binner (`stats/statsvariables.cpp`).
   - `siteCount`: distinct dive sites among the matched dives, counted by uuid.
+  - `firstWhen`, `lastWhen`, `nitroxDives` (a cylinder richer than 21% O2) and
+    `deepDives` (deeper than 39 m): the legacy dive summary's other rows
+    (`qt-models/divesummarymodel.cpp`, `calculateDive`), over the same selection.
+
+  The filter's `recentMonths` is the legacy summary's period: the dives strictly
+  after "now less that many calendar months", now being the wall clock dives are
+  logged in (`time(nullptr) + gettimezoneoffset()`, or `nowWhen` for a test), the
+  day clamped to the shorter month as `QDateTime::addMonths` does
+  (`months_before()` in `api.cpp`). `periodStartWhen` on the reply is that start,
+  0 without a period. It combines with every other filter field.
 - **`addDive`** is upstream's `Command::AddDive` without the undo stack and with
   autogrouping off, on a dive built like `dive_table::default_dive()`: a dive
   computer called "manually added dive" (`make_manually_added_dive_dc`), and six

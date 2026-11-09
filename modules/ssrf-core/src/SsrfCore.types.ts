@@ -504,6 +504,15 @@ export type StatsSummary = {
   byDuration: StatsDurationBin[];
   /** Distinct dive sites among the matched dives. Bindings, not the core. */
   siteCount: number;
+  /** The earliest and latest matched dive's `when`; 0 when nothing matched. */
+  firstWhen: number;
+  lastWhen: number;
+  /** Matched dives with a cylinder richer than air (legacy summary's "EAN dives"). */
+  nitroxDives: number;
+  /** Matched dives deeper than 39 m (legacy summary's "Deep dives"). */
+  deepDives: number;
+  /** With `recentMonths`, the `when` the period starts after; 0 otherwise. */
+  periodStartWhen: number;
 };
 
 export type StatsFilter = {
@@ -523,6 +532,13 @@ export type StatsFilter = {
   includeInvalid?: boolean;
   /** Leaves out dives that were planned rather than dived. Desktop counts them. */
   excludePlanned?: boolean;
+  /**
+   * The legacy dive summary's periods: only dives after this many calendar months
+   * before now, on the wall clock dives are logged in (DiveSummaryModel::calc).
+   */
+  recentMonths?: number;
+  /** "Now" for `recentMonths`, as a wall-clock `when`. The device's time when absent; for tests. */
+  nowWhen?: number;
 };
 
 // --- Dive planner -------------------------------------------------------------
