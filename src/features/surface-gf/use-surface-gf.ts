@@ -84,11 +84,6 @@ export function useSurfaceGf({
 } = {}): SurfaceGfState {
   const settings = useSurfaceGfSettings();
   const gf = useGradientFactors();
-  const barometer = useBarometer(settings.pressureSource === 'barometer');
-  const ambient = useMemo(
-    () => resolveAmbient(settings.pressureSource, settings.altitudeMm, barometer),
-    [settings.pressureSource, settings.altitudeMm, barometer],
-  );
   const now = useNow();
   const asOf = asOfMs ?? now;
 
@@ -102,6 +97,15 @@ export function useSurfaceGf({
     latest !== null &&
     asOf - ((latest.when + latest.durationSec) * 1000 + offsetMinutes * 60_000) > SERIES_MAX_MS;
   const hasDives = latest !== null;
+
+  // Only listened to when there is a series to compute: on iOS the first read
+  // asks for Motion & Fitness access, which must not pop up over a dive list
+  // whose last dive is weeks old.
+  const barometer = useBarometer(settings.pressureSource === 'barometer' && hasDives && !stale);
+  const ambient = useMemo(
+    () => resolveAmbient(settings.pressureSource, settings.altitudeMm, barometer),
+    [settings.pressureSource, settings.altitudeMm, barometer],
+  );
 
   const query = useSurfaceGfSeries(diveId, gf, ambient.mbar, hasDives && !stale);
   const timeline = useMemo(
