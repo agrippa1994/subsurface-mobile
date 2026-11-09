@@ -1,9 +1,9 @@
 {
   "name": "subsurface-mobile",
   "main": "expo-router/entry",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "dependencies": {
-    "@expo/ui": "~58.0.26",
+    "@expo/ui": "~58.0.27",
     "@maplibre/maplibre-react-native": "11.5.1",
     "@shopify/react-native-skia": "2.14.0",
     "@tanstack/react-form": "^1.33.5",
@@ -36,6 +36,7 @@
     "expo-symbols": "~58.0.4",
     "expo-system-ui": "~58.0.7",
     "expo-web-browser": "~58.0.7",
+    "expo-widgets": "~58.0.27",
     "fflate": "^0.8.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -70,7 +71,8 @@
     "autolinking": {
       "android": {
         "exclude": [
-          "expo-maps"
+          "expo-maps",
+          "expo-widgets"
         ]
       }
     }
