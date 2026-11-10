@@ -36,4 +36,11 @@ export const TOOLS: readonly Tool[] = [
     systemImage: 'percent',
     href: '/tools/nitrox',
   },
+  {
+    key: 'surface-gf',
+    title: 'Surface GF',
+    summary: 'Desaturation after your last dive, now and at your next entry',
+    systemImage: 'chart.line.downtrend.xyaxis',
+    href: '/tools/surface-gf',
+  },
 ];

@@ -97,6 +97,8 @@ export type {
   StatsVariableOption,
   StatsMonth,
   StatsSummary,
+  SurfaceGfInput,
+  SurfaceGfSeries,
   RemoveFromTripResult,
   Trip,
   TripPatch,

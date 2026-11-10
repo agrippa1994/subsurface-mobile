@@ -95,11 +95,13 @@ export function DiveListView({
   mergeActions,
   onMergeAction,
   openDiveId,
+  header,
 }: DiveListViewProps) {
   const inSidebar = openDiveId !== undefined;
   return (
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('insetGrouped')]}>
+        {resultsText ? null : header}
         {resultsText ? (
           <Section
             header={

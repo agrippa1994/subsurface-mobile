@@ -34,6 +34,8 @@ import { HeaderActions, type HeaderActionProps } from '@/components/header-actio
 import { PaneHeader } from '@/components/pane-header';
 import { StatusView } from '@/components/status-view';
 import { useDiveMerge } from '@/features/dives/use-dive-merge';
+import { SurfaceGfCardView } from '@/features/surface-gf/surface-gf-card';
+import { useSurfaceGf } from '@/features/surface-gf/use-surface-gf';
 import { useTripActions } from '@/features/dives/use-trip-actions';
 import { useTheme } from '@/hooks/use-theme';
 import { operationFailed, operationSucceeded, selectionChanged } from '@/lib/haptics';
@@ -53,9 +55,11 @@ import {
   tripActionsFor,
   type TripAction,
 } from '@/models/trips';
+import { surfaceGfCard } from '@/models/surface-gf';
 import { useDives, useLogbook, useTrips } from '@/queries/logbook';
 import { useDeleteDive } from '@/queries/logbook-mutations';
 import { useUnits } from '@/queries/settings';
+import { useSurfaceGfSettings } from '@/queries/surface-gf';
 
 function selectedTitle(count: number): string {
   return count === 0 ? 'Select Dives' : `${count} Selected`;
@@ -77,6 +81,20 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
   const diveMerge = useDiveMerge();
 
   const adjacent = useMemo(() => adjacentTripsByDive(dives, trips), [dives, trips]);
+
+  // The live surface GF after the latest dive, at the top of the list until the
+  // tissues are clean. A latest dive further back than any series reaches is
+  // not even computed.
+  const surface = useSurfaceGf({ skipStale: true });
+  const { plannedEntryMs } = useSurfaceGfSettings();
+  const card = useMemo(
+    () =>
+      surface.timeline
+        ? surfaceGfCard(surface.timeline, surface.now, { gfHigh: surface.gfHigh, plannedEntryMs })
+        : null,
+    [surface.timeline, surface.now, surface.gfHigh, plannedEntryMs],
+  );
+  const openSurfaceGf = useCallback(() => router.push('/dives/surface-gf'), [router]);
 
   // Kept with the dive list it was made on: a selection over a list that has
   // since changed would act on dives the user no longer sees marked. That also
@@ -314,6 +332,11 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
         mergeActions={(dive) => diveMerge.actionsFor(dive.id)}
         onMergeAction={(dive, action) => diveMerge.confirmMerge(dive.id, action)}
         openDiveId={openDiveId}
+        header={
+          card && !searching && !selectedIds ? (
+            <SurfaceGfCardView card={card} onOpen={openSurfaceGf} />
+          ) : undefined
+        }
       />
       {!selectedIds && !pane && addAction.items ? <AddDiveButton items={addAction.items} /> : null}
       {selectedIds ? (

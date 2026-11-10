@@ -49,6 +49,8 @@ import {
   type StatsChartResult,
   type StatsFilter,
   type StatsSummary,
+  type SurfaceGfInput,
+  type SurfaceGfSeries,
   type RemoveFromTripResult,
   type Trip,
   type TripPatch,
@@ -255,6 +257,15 @@ export function statsChart(request: StatsChartRequest = {}): StatsChartResult {
  */
 export function nitroxPlan(input: NitroxPlanInput): NitroxPlan {
   return call<NitroxPlan>('nitroxPlan', input);
+}
+
+/**
+ * Surface gradient factor over the surface interval after a dive (the latest
+ * by default), with residual loading from the dives before it, stepped forward
+ * on air at `ambientMbar`. Reads the logbook, changes nothing.
+ */
+export function surfaceGf(input: SurfaceGfInput): SurfaceGfSeries {
+  return call<SurfaceGfSeries>('surfaceGf', input);
 }
 
 /**

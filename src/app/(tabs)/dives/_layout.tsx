@@ -80,6 +80,7 @@ function DivesStack({ split }: { split: boolean }) {
         }}
       />
       <Stack.Screen name="download" options={{ title: 'Dive computer', headerLargeTitle: false }} />
+      <Stack.Screen name="surface-gf" options={{ title: 'Surface GF', headerLargeTitle: false }} />
       <Stack.Screen
         name="trip/[id]"
         options={{ title: 'Trip', headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}

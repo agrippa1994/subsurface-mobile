@@ -9,7 +9,7 @@
 //
 // The row itself is DiveRowView (dive-row.tsx), which matches the iOS row: the
 // dive number in a fixed-width badge, depth over duration at the end.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Alert,
   type AlertButton,
@@ -55,6 +55,12 @@ export type DiveListViewProps = {
    * when a dive opens on top of the list instead.
    */
   openDiveId?: number | null;
+  /**
+   * Shown above the first section: the surface GF card. Built by the screen with
+   * the same platform's components as this list (a SwiftUI Section on iOS, a
+   * Compose item on Android), so the list only places it.
+   */
+  header?: ReactNode;
 };
 
 export function DiveListView({
@@ -72,6 +78,7 @@ export function DiveListView({
   mergeActions,
   onMergeAction,
   openDiveId,
+  header,
 }: DiveListViewProps) {
   const theme = useTheme();
   // SectionList wants the rows under `data`; the presentation model calls them
@@ -91,6 +98,8 @@ export function DiveListView({
             style={[styles.results, { color: theme.textSecondary }]}>
             {resultsText}
           </Text>
+        ) : header ? (
+          <>{header}</>
         ) : undefined
       }
       renderSectionHeader={({ section }) => {

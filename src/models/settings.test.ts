@@ -120,6 +120,7 @@ describe('parseSettings', () => {
       planner: { ...DEFAULT_PLANNER_SETTINGS, gfLow: 40, verbatim: true },
       statsChart: null,
       defaultCylinder: 'AL80',
+      surfaceGf: { pressureSource: 'altitude' as const, altitudeMm: 1_200_000, plannedEntryMs: 1_800_000_000_000 },
     };
     expect(parseSettings(serializeSettings(settings))).toEqual(settings);
   });
