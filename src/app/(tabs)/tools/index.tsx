@@ -8,6 +8,7 @@ import { FormSection } from '@/components/form';
 import { Spacing } from '@/constants/theme';
 import { TOOLS } from '@/features/tools/tools';
 import { useTheme } from '@/hooks/use-theme';
+import { TOOLS_DISCLAIMER } from '@/models/disclaimer';
 
 export default function ToolsScreen() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function ToolsScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Planning">
+      <FormSection title="Planning" footer={TOOLS_DISCLAIMER}>
         {TOOLS.map((tool) => (
           <Pressable
             key={tool.key}

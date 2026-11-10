@@ -1,7 +1,7 @@
 {
   "name": "subsurface-mobile",
   "main": "expo-router/entry",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "dependencies": {
     "@expo/ui": "~58.0.27",
     "@maplibre/maplibre-react-native": "11.5.1",

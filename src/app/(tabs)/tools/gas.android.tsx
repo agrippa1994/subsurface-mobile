@@ -16,6 +16,7 @@ import {
 } from '@/components/material/list';
 import { useGasCalculatorScreen } from '@/features/tools/use-gas-calculator-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import { WATER_OPTIONS } from '@/models/planner';
 
 export default function GasCalculatorScreen() {
@@ -26,7 +27,7 @@ export default function GasCalculatorScreen() {
 
   return (
     <M3Screen>
-      <M3Section title="Gas">
+      <M3Section title="Gas" footer={CALCULATOR_DISCLAIMER}>
         <M3MenuRow
           label="Mix"
           value={screen.mix}

@@ -16,6 +16,7 @@ import {
 } from '@/components/material/list';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
+import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
@@ -177,7 +178,7 @@ export default function SettingsScreen() {
         <M3ActionRow label="Clear it" icon="trash" destructive onPress={screen.clearDiagnostics} />
       </M3Section>
 
-      <M3Section title="About" footer={`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
+      <M3Section title="About" footer={`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
         {aboutRows(screen.about).map((row) => (
           <M3ValueRow key={row.label} label={row.label} value={row.value} />
         ))}

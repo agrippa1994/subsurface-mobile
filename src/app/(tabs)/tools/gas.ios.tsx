@@ -7,6 +7,7 @@ import { foregroundStyle, monospacedDigit, pickerStyle, tag } from '@expo/ui/swi
 
 import { useGasCalculatorScreen } from '@/features/tools/use-gas-calculator-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import { WATER_OPTIONS, type Water } from '@/models/planner';
 
 export default function GasCalculatorScreen() {
@@ -18,7 +19,7 @@ export default function GasCalculatorScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Gas">
+        <Section title="Gas" footer={<Text>{CALCULATOR_DISCLAIMER}</Text>}>
           <Picker
             label="Mix"
             selection={isPreset ? screen.mix : 'Custom'}

@@ -50,6 +50,7 @@ import {
   plotForComputer,
 } from '@/models/dive-computers';
 import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
+import { PROFILE_CALCULATION_NOTE } from '@/models/disclaimer';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -181,8 +182,10 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         inset
         footer={
           manualComputer
-            ? 'Drawn from the depth and duration entered for this dive. Nothing was measured.'
-            : undefined
+            ? `Drawn from the depth and duration entered for this dive. Nothing was measured. ${PROFILE_CALCULATION_NOTE}`
+            : plot
+              ? PROFILE_CALCULATION_NOTE
+              : undefined
         }
         action={
           IS_TABLET && plot ? (

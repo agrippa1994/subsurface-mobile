@@ -5,12 +5,13 @@ import { useRouter } from 'expo-router';
 
 import { M3ActionRow, M3Screen, M3Section } from '@/components/material/list';
 import { TOOLS } from '@/features/tools/tools';
+import { TOOLS_DISCLAIMER } from '@/models/disclaimer';
 
 export default function ToolsScreen() {
   const router = useRouter();
   return (
     <M3Screen>
-      <M3Section title="Planning">
+      <M3Section title="Planning" footer={TOOLS_DISCLAIMER}>
         {TOOLS.map((tool) => (
           <M3ActionRow
             key={tool.key}

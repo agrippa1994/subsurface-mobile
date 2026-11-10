@@ -11,6 +11,7 @@ import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
+import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
@@ -142,7 +143,7 @@ export default function SettingsScreen() {
         <FormButtonRow label="Clear it" destructive onPress={screen.clearDiagnostics} />
       </FormSection>
 
-      <FormSection title="About" footer={`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
+      <FormSection title="About" footer={`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
         {aboutRows(screen.about).map((row) => (
           <ValueRow key={row.label} label={row.label} value={row.value} />
         ))}
