@@ -1546,3 +1546,40 @@ criteria** pass. If blocked, leave it unchecked and add a note.
   Known and left: cylinder size in cubic feet is shown and entered as water volume (an AL80
   reads 0.4 cuft) in the editor, as before this change; only the new default cylinder list
   names imperial types by their gas capacity (AL80, 80 cuft).
+
+- 2026-11-10 - **Live surface GF (desaturation)**: how desaturated the diver is after the
+  last dive, at a glance and over time.
+
+  Native: `surfaceGf` (`cpp/bindings/surface-gf.cpp`, API.md). The profile keeps its deco
+  state private, so the binding rebuilds it from the same inputs with the same calls:
+  `init_decompression()` for the residual nitrogen of earlier dives (as #60), then the
+  profile's own `add_segment()` loop over the dive's plotted points. After that, air at a
+  given ambient pressure, one step (default 60 s) at a time. Surface GF uses profile.cpp's
+  formula, so the first value equals the last sample's `surfaceGf`. It also returns the time
+  to GF 0 % and the time until every compartment is within 2 % of equilibrium ("clean",
+  about the 48 h after which the core forgets a dive). Surface GF uses the raw M-value, so
+  the gradient factors do not change it; the app shows gf high next to it instead.
+
+  App: a card at the top of the dive list (big GF, time to 0 %, time since surfacing,
+  sparkline, planned entry). It collapses to one row with only residual nitrogen left and is
+  hidden once clean. It opens a timeline screen (also under Tools) with a draggable time
+  cursor, a picker for any time, spans of 6/12/24 h or all, and "when below X %". The
+  planned next entry has a date/time picker and +30 min to +3 h presets; it is kept in
+  settings.json, not the log. Ambient pressure comes from the phone barometer (expo-sensors;
+  CMAltimeter on iOS, so Motion & Fitness permission, asked only when there is a series to
+  compute), else the altitude setting (core barometric formula), else 1013 mbar. The screen
+  says which one is in use and why it fell back. Testing: follow an older dive and set an
+  "as of" time instead of now.
+
+  Verified: vitest 83 files, all green (new: `tests/surface-gf.test.ts` - end value equals
+  the last profile sample on five fixtures, never rises at constant pressure, higher at
+  800 mbar than at 1013 mbar; `src/models/surface-gf.test.ts`). Typecheck and lint clean.
+  Dev client built for iOS and run on the "Subsurface iPhone" simulator (no barometer there,
+  so sea level): timeline, cursor, planned entry +1 h, manual altitude 800 m (914 mbar)
+  keeping GF above 0 % for hours where sea level reached 0 % in about 30 min, and the clean
+  state on an old log.
+
+  **Not verified.** The card on the dive list on a device (it needs a dive within the last
+  72 h; covered by model tests only); Android on an emulator; a real barometer; VoiceOver and
+  TalkBack; Dynamic Type at large sizes. Not done: an ambient pressure history (a drive to
+  altitude part way through the interval), and the iOS widget.
