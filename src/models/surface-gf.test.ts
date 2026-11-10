@@ -273,7 +273,7 @@ describe('timeline chart', () => {
   });
 
   it('sizes the GF axis to the curve and gf high', () => {
-    expect(gfAxisMax(timeline(), 75)).toBe(75);
+    expect(gfAxisMax(timeline(), 75)).toBe(100);
     expect(gfAxisMax(timeline(), 30)).toBe(75);
     expect(gfAxisMax(timeline({ surfaceGf: [110, 0] }), 75)).toBe(125);
     expect(gfAxisMax(timeline({ surfaceGf: [5, 0] }), 20)).toBe(50);

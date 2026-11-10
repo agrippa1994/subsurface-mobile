@@ -553,11 +553,12 @@ export function timelineWindow(
   return { fromMs: timeline.startMs, toMs: Math.max(toMs, timeline.startMs + 3600_000) };
 }
 
-/** Top of the GF axis: a multiple of 25, room for the curve and gf high, at least 50. */
+/** Top of the GF axis: a multiple of 25 with room above the curve and gf high, at least 50. */
 export function gfAxisMax(timeline: SurfaceGfTimeline, gfHigh: number): number {
   // The series falls from its first value, so that is its peak.
   const peak = Math.max(gfHigh, timeline.values[0] ?? 0);
-  return Math.max(50, Math.ceil(peak / 25) * 25);
+  // +5: the line for gf high must not sit on the top edge, where the labels are.
+  return Math.max(50, Math.ceil((peak + 5) / 25) * 25);
 }
 
 /**
