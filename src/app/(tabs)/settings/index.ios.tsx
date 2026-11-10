@@ -17,6 +17,7 @@ import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
+import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import {
@@ -240,7 +241,7 @@ export default function SettingsScreen() {
           <Button label="Clear it" role="destructive" onPress={screen.clearDiagnostics} />
         </Section>
 
-        <Section title="About" footer={<Text>{`${LICENSE_NOTICE} ${SOURCE_NOTICE}`}</Text>}>
+        <Section title="About" footer={<Text>{`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}</Text>}>
           {aboutRows(screen.about).map((row) => (
             <LabeledContent key={row.label} label={row.label}>
               <Text>{row.value}</Text>

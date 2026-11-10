@@ -768,6 +768,29 @@ struct hidden_dives_scope {
 	hidden_dives_scope &operator=(const hidden_dives_scope &) = delete;
 };
 
+// The surface interval init_decompression() would return for `d`
+// (divelist.cpp:721), without replaying any tissues: the time since the end
+// of the latest earlier dive it would add, or 48h when there is none. That
+// dive is the closest earlier one, restricted to d's trip when d has one;
+// further-back dives in the chain only load the tissues, they do not change
+// the last interval. A negative value means the dives overlap.
+static int surface_interval_before(const struct dive &d)
+{
+	const int none = 48 * 60 * 60;
+	const struct dive *prev = nullptr;
+	for (const auto &p : divelog.dives) {
+		if (p.get() == &d || p->when >= d.when)
+			continue;
+		if (d.divetrip && p->divetrip != d.divetrip)
+			continue;
+		if (!prev || p->when > prev->when)
+			prev = p.get();
+	}
+	if (!prev || prev->endtime() + none < d.when)
+		return none;
+	return static_cast<int>(d.when - prev->endtime());
+}
+
 json get_profile(const json &args)
 {
 	const struct dive &d = require_dive(static_cast<int>(require_int(args, "id")));
@@ -780,31 +803,37 @@ json get_profile(const json &args)
 
 	apply_gradient_factors(args);
 	const struct divecomputer *dc = d.get_dc(dcIndex);
-	plot_info pi = create_plot_info_new(&d, dc, nullptr);
 
-	// The calculated NDL/TTS come from a second pass with calcndltts on, not
-	// from turning it on for the first: with it on, the core also overwrites
-	// the dive computer's own `ndl` with 2h wherever the diver is shallower
-	// than 3m (profile.cpp:789-791), and `ndlSec` has to stay what the
-	// computer recorded. Only the *_calc fields are taken from this pass.
-	calcndltts_scope calc_on;
-	plot_info calc = create_plot_info_new(&d, dc, nullptr);
-	if (calc.entry.size() == pi.entry.size()) {
-		for (size_t i = 0; i < pi.entry.size(); ++i) {
-			pi.entry[i].ndl_calc = calc.entry[i].ndl_calc;
-			pi.entry[i].tts_calc = calc.entry[i].tts_calc;
-			pi.entry[i].stoptime_calc = calc.entry[i].stoptime_calc;
-			pi.entry[i].stopdepth_calc = calc.entry[i].stopdepth_calc;
-			pi.entry[i].in_deco_calc = calc.entry[i].in_deco_calc;
-		}
+	// Replaying the tissues of every earlier dive is the expensive part of a
+	// plot: init_decompression() (profile.cpp:1207) walks back through every
+	// dive that started within 48h of the next one, which on a long run of
+	// daily dives is the whole run. Only one pass here sees the full log; the
+	// other passes hide it and cost a single dive.
+	//
+	// The full pass runs with calcndltts on, for the calculated NDL/TTS. That
+	// switch also overwrites the dive computer's own `ndl` with 2h wherever
+	// the diver is shallower than 3m (profile.cpp:789-791), and `ndlSec` has
+	// to stay what the computer recorded. That value comes straight from the
+	// samples (populate_plot_entries, profile.cpp:408) and does not depend on
+	// tissues, so it is taken from a plain pass over this dive alone.
+	plot_info pi = [&] {
+		calcndltts_scope calc_on;
+		return create_plot_info_new(&d, dc, nullptr);
+	}();
+	plot_info recorded = [&] {
+		hidden_dives_scope hidden;
+		return create_plot_info_new(&d, dc, nullptr);
+	}();
+	if (recorded.entry.size() == pi.entry.size()) {
+		for (size_t i = 0; i < pi.entry.size(); ++i)
+			pi.entry[i].ndl = recorded.entry[i].ndl;
 	}
 	json out = plot_info_to_json(pi);
 
-	// init_decompression() returns the surface interval before this dive, or
-	// 48h when no earlier dive is close enough to leave nitrogen behind. Only
-	// a dive that starts loaded gets the clean-tissue comparison.
-	struct deco_state probe;
-	int surface_interval = divelog.dives.init_decompression(&probe, &d, false);
+	// The surface interval before this dive, or 48h when no earlier dive is
+	// close enough to leave nitrogen behind. Only a dive that starts loaded
+	// gets the clean-tissue comparison.
+	int surface_interval = surface_interval_before(d);
 	bool loaded = surface_interval >= 0 && surface_interval < 48 * 60 * 60;
 	out["surfaceIntervalSec"] = loaded ? json(surface_interval) : json(nullptr);
 	if (!loaded) {
@@ -813,6 +842,7 @@ json get_profile(const json &args)
 	}
 
 	plot_info fresh = [&] {
+		calcndltts_scope calc_on;
 		hidden_dives_scope hidden;
 		return create_plot_info_new(&d, dc, nullptr);
 	}();

@@ -184,3 +184,42 @@ describe('profiles of parsed logbooks', () => {
     await expect(host.getProfile(dive.id, 99)).rejects.toThrow();
   });
 });
+
+describe('residual nitrogen in profiles', () => {
+  // Repetitive dives in all of these; the surfaceGf binding takes its interval
+  // from the core's own init_decompression(), so it is the reference for the
+  // shortcut getProfile uses instead of replaying the tissues twice.
+  const files = ['TestDiveDM5.xml', 'test29.xml', 'abitofeverything.ssrf', 'TwoTimesTwo.ssrf', 'SampleDivesV2.ssrf'];
+
+  for (const name of files) {
+    it(`reports the core's surface interval for every dive in ${name}`, async () => {
+      await host.clear();
+      await host.loadFromXML(fixture(name));
+      let loaded = 0;
+      for (const dive of await host.listDives()) {
+        const profile = await host.getProfile(dive.id);
+        const series = await host.surfaceGf({ id: dive.id, gfLow: 30, gfHigh: 75 });
+        expect(profile.surfaceIntervalSec ?? null).toBe(series.residualFromSec);
+        expect(profile.fresh == null).toBe(profile.surfaceIntervalSec == null);
+        if (profile.surfaceIntervalSec != null) loaded += 1;
+      }
+      if (name === 'TestDiveDM5.xml') expect(loaded).toBeGreaterThan(0);
+    });
+  }
+
+  it("keeps the dive computer's own NDL shallower than 3m", async () => {
+    // The computers in this log report 99:00 at the surface. With calcndltts
+    // on, the core would overwrite that with 2h (MAX_PROFILE_DECO).
+    await host.clear();
+    await host.loadFromXML(fixture('SampleDivesV2.ssrf'));
+    let shallowReported = 0;
+    for (const dive of await host.listDives()) {
+      const profile = await host.getProfile(dive.id);
+      for (const e of profile.entry) {
+        expect(e.ndlSec).not.toBe(7200);
+        if (e.depthMm < 3000 && e.ndlSec === 99 * 60) shallowReported += 1;
+      }
+    }
+    expect(shallowReported).toBeGreaterThan(0);
+  });
+});

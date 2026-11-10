@@ -13,6 +13,7 @@ import {
 } from '@/components/material/list';
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import {
   formatMod,
   formatNdl,
@@ -44,7 +45,7 @@ export default function NitroxScreen() {
 
   return (
     <M3Screen>
-      <M3Section title="Dive">
+      <M3Section title="Dive" footer={CALCULATOR_DISCLAIMER}>
         <M3StepperRow
           label={`Depth  ${depthLabel}`}
           value={screen.depth}

@@ -6,6 +6,7 @@ import { foregroundStyle, monospacedDigit, pickerStyle, tag } from '@expo/ui/swi
 
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import {
   formatMod,
   formatNdl,
@@ -31,7 +32,7 @@ export default function NitroxScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Dive">
+        <Section title="Dive" footer={<Text>{CALCULATOR_DISCLAIMER}</Text>}>
           <Stepper
             label={`Depth  ${depthLabel}`}
             value={screen.depth}

@@ -7,6 +7,7 @@ import { StepperRow } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
 import { useGasCalculatorScreen } from '@/features/tools/use-gas-calculator-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import { WATER_OPTIONS } from '@/models/planner';
 
 export default function GasCalculatorScreen() {
@@ -22,7 +23,7 @@ export default function GasCalculatorScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Gas">
+      <FormSection title="Gas" footer={CALCULATOR_DISCLAIMER}>
         <OptionField
           options={screen.presets.map((preset) => ({ value: preset.label, label: preset.label }))}
           value={screen.mix}

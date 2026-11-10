@@ -6,6 +6,7 @@ import { font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { useRouter } from 'expo-router';
 
 import { TOOLS } from '@/features/tools/tools';
+import { TOOLS_DISCLAIMER } from '@/models/disclaimer';
 
 export default function ToolsScreen() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function ToolsScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Planning">
+        <Section title="Planning" footer={<Text>{TOOLS_DISCLAIMER}</Text>}>
           {TOOLS.map((tool) => (
             <Button key={tool.key} onPress={() => router.push(tool.href)}>
               <VStack alignment="leading" spacing={2}>

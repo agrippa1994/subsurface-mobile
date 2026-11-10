@@ -178,15 +178,20 @@ directly and avoids the copy.
   on every call rather than configured once: whatever the last `getProfile` set
   is what any later plot would otherwise use.
   Each entry also carries Subsurface's own `ndlCalcSec` / `ttsCalcSec` /
-  `stoptimeCalcSec` / `stopdepthCalcMm` / `inDecoCalc`, from a second pass with
-  `prefs.calcndltts` on (restored afterwards). Only the `*_calc` fields come
-  from that pass: with it on, the core overwrites the dive computer's `ndl` with
-  2h shallower than 3m (profile.cpp:789-791), and `ndlSec` stays what the
-  computer recorded. The tissues start loaded by the earlier dives, through
-  `init_decompression()`. `surfaceIntervalSec` is the interval it found (null
-  when no earlier dive within 48h counts), and for such a dive `fresh` holds
-  the calculated NDL/TTS of a third pass with every other dive hidden from it,
-  i.e. as if the diver had started with clean tissues.
+  `stoptimeCalcSec` / `stopdepthCalcMm` / `inDecoCalc`: the plot is computed
+  with `prefs.calcndltts` on (restored afterwards). With it on, the core
+  overwrites the dive computer's `ndl` with 2h shallower than 3m
+  (profile.cpp:789-791), so `ndlSec` is taken from a second, plain pass over
+  this dive alone - it comes straight from the samples and does not depend on
+  the tissues. The tissues start loaded by the earlier dives, through
+  `init_decompression()`; that replay is the costly part of a plot (on a long
+  run of daily dives it covers the whole run), so only the main pass sees the
+  rest of the log. `surfaceIntervalSec` is the interval `init_decompression()`
+  would find - the time since the closest earlier dive (in the same trip, when
+  the dive has one) ended, null when none ended within 48h - computed without
+  replaying any tissues. For such a dive `fresh` holds the calculated NDL/TTS
+  of a third pass with every other dive hidden from it, i.e. as if the diver
+  had started with clean tissues.
 - **`exportDiveCSV`** writes one dive as CSV with the core's own writers, one
   per CSV entry of desktop Subsurface's export dialog: `format` `"details"`
   (samples, `xml2detailscsv.xslt`), `"summary"` (dive information without the

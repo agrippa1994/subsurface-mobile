@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Subsurface',
   slug: 'subsurface-mobile',
-  version: '1.14.0',
+  version: '1.15.0',
   // The app declares every orientation so a tablet can use any, and a phone's
   // dive profile can go full screen when the device is turned
   // (src/hooks/use-landscape.ts). A phone's other screens are held in portrait at
@@ -105,7 +105,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'codes.mani.subsurfacereact',
-    versionCode: 10,
+    versionCode: 11,
     adaptiveIcon: {
       backgroundColor: '#062C53',
       foregroundImage: './assets/images/android-icon-foreground.png',

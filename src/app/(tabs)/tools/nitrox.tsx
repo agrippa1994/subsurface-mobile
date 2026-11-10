@@ -8,6 +8,7 @@ import { StepperRow as Stepper } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
 import {
   formatMod,
   formatNdl,
@@ -43,7 +44,7 @@ export default function NitroxScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Dive">
+      <FormSection title="Dive" footer={CALCULATOR_DISCLAIMER}>
         <Stepper
           label={`Depth  ${depthLabel}`}
           value={screen.depth}

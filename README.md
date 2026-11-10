@@ -100,6 +100,18 @@ dive list.
 <sub>Screenshots: version 1.5.0 on the iOS 27 simulator, showing the unmodified
 upstream sample logbook, `subsurface/dives/SampleDivesV2.ssrf`.</sub>
 
+## Use at your own risk
+
+Subsurface Mobile is a logbook and a set of planning aids, not a dive computer
+and not a medical device. The decompression figures (ceilings, calculated NDL
+and TTS, tissue loading, surface GF), the planner, and the gas and nitrox
+calculators come from published models applied to the data you logged or
+entered. They can be wrong and have had limited testing. Do not plan or
+conduct a dive on them alone: check every figure against another source and
+your dive computer, and dive within your training. The app says the same
+under the Tools list, on each calculator, under a dive's profile, and in
+Settings > About.
+
 ## Availability
 
 The app is not in any app store. Build it from source, as described under
