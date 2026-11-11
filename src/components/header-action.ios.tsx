@@ -7,12 +7,13 @@ import { Stack } from 'expo-router';
 import { useHistoryMenu } from '@/features/history/use-history-actions';
 
 import type { HeaderActionProps } from './header-action';
+import { t } from '@/i18n';
 
 /** The way out of a sheet, where the back button would be. */
 export function HeaderCancel({ onPress }: { onPress: () => void }) {
   return (
     <Stack.Toolbar placement="left">
-      <Stack.Toolbar.Button onPress={onPress}>Cancel</Stack.Toolbar.Button>
+      <Stack.Toolbar.Button onPress={onPress}>{t('ui.cancel')}</Stack.Toolbar.Button>
     </Stack.Toolbar>
   );
 }
@@ -36,7 +37,7 @@ export function HeaderActions({
   return (
     <Stack.Toolbar placement="right">
       {history && menu ? (
-        <Stack.Toolbar.Menu icon="arrow.uturn.backward" accessibilityLabel="Undo and redo">
+        <Stack.Toolbar.Menu icon="arrow.uturn.backward" accessibilityLabel={t('ui.undoAndRedo')}>
           <Stack.Toolbar.MenuAction
             icon="arrow.uturn.backward"
             disabled={!menu.canUndo}

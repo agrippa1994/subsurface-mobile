@@ -3,22 +3,18 @@
 
 import type { SyncResult } from '@/lib/git/sync';
 import { shortId } from './sync-plan';
+import { t } from '@/i18n';
 
 export function describeSyncResult(result: SyncResult): string {
-  const pushed = result.pushed ? ' and pushed' : '';
   switch (result.outcome) {
     case 'up-to-date':
-      return 'The logbook is up to date.';
+      return t('git.result.upToDate');
     case 'sent':
-      return result.pushed
-        ? 'Your changes were committed and pushed.'
-        : 'Your changes were committed. They reach the server with the next push.';
+      return result.pushed ? t('git.result.sentPushed') : t('git.result.sent');
     case 'received':
-      return result.logbookChanged
-        ? 'The logbook was updated with the changes from the server.'
-        : 'The logbook is up to date.';
+      return result.logbookChanged ? t('git.result.received') : t('git.result.upToDate');
     case 'merged':
-      return `The changes from the server were merged with yours${pushed}.`;
+      return result.pushed ? t('git.result.mergedPushed') : t('git.result.merged');
   }
 }
 
@@ -30,26 +26,24 @@ export function describeSyncError(error: { code?: string; message: string }): {
   switch (error.code) {
     case 'auth-failed':
       return {
-        title: 'The server refused the key',
-        message:
-          'Add the public key to the repository host (as a deploy key with write access, or to your account), or check the passphrase of an imported key.',
+        title: t('git.error.authTitle'),
+        message: t('git.error.authMessage'),
       };
     case 'push-rejected':
       return {
-        title: 'The server refused the push',
-        message:
-          'The repository changed while syncing, or the branch is protected. Sync again to bring in its changes first.',
+        title: t('git.error.pushTitle'),
+        message: t('git.error.pushMessage'),
       };
     default:
       // libssh2's wording when it cannot decrypt the key: a wrong passphrase
       // is far likelier than an actually unsupported file.
       if (/extract public key from private key/i.test(error.message)) {
         return {
-          title: 'The SSH key could not be used',
-          message: 'The passphrase is wrong, or the key file is damaged. Import the key again.',
+          title: t('git.error.keyTitle'),
+          message: t('git.error.keyMessage'),
         };
       }
-      return { title: 'Sync failed', message: error.message };
+      return { title: t('git.error.failed'), message: error.message };
   }
 }
 
@@ -59,7 +53,7 @@ export function describeHead(
   format: (date: Date) => string,
 ): string {
   return head === null
-    ? 'No commits yet'
+    ? t('git.head.none')
     : `${shortId(head.id)}, ${format(new Date(head.time * 1000))}`;
 }
 
@@ -70,14 +64,14 @@ export function describeServerState(state: {
   neverPushed: boolean;
 }): string {
   if (state.neverPushed) {
-    return 'Not pushed yet';
+    return t('git.server.neverPushed');
   }
   const parts: string[] = [];
   if (state.ahead > 0) {
-    parts.push(`${state.ahead} to push`);
+    parts.push(t('git.server.ahead', { count: state.ahead }));
   }
   if (state.behind > 0) {
-    parts.push(`${state.behind} to pull`);
+    parts.push(t('git.server.behind', { count: state.behind }));
   }
-  return parts.length === 0 ? 'In sync' : parts.join(', ');
+  return parts.length === 0 ? t('git.server.inSync') : parts.join(', ');
 }

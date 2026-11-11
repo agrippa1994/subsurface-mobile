@@ -14,6 +14,7 @@ import { ssiPlainText } from '@/models/ssi/site-browse';
 import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
 import { useSsiSiteDetail, useSsiSiteIndex } from '@/queries/ssi';
 import { SsiSiteInsights } from './ssi-site-insights';
+import { t } from '@/i18n';
 
 /**
  * The route's body in both places details open: the Sites tab and the picker
@@ -30,16 +31,16 @@ export function SsiSiteDetailScreen({
   const site = useMemo(() => catalogue.data?.find((s) => s.id === id), [catalogue.data, id]);
   return (
     <>
-      <Stack.Screen options={{ title: site?.name.trim() ?? 'SSI site', headerLargeTitle: false }} />
+      <Stack.Screen options={{ title: site?.name.trim() ?? t('nav.ssiSite'), headerLargeTitle: false }} />
       {site && onSelect ? (
-        <HeaderAction label="Select" done onPress={() => onSelect(site)} />
+        <HeaderAction label={t('ui.select')} done onPress={() => onSelect(site)} />
       ) : null}
       {site ? (
         <SsiSiteDetails site={site} />
       ) : (
         <StatusView
           kind={catalogue.isPending ? 'loading' : 'empty'}
-          title={catalogue.isPending ? 'Loading SSI site' : 'SSI site not found'}
+          title={catalogue.isPending ? t('ssiSite.loading') : t('ssiSite.notFound')}
         />
       )}
     </>
@@ -63,7 +64,7 @@ function SsiSiteDetailsSkeleton({ site }: { site: SsiSite }) {
         gap: Spacing.four,
       }}
     >
-      <FormSection title="Location">
+      <FormSection title={t('ui.location')}>
         <Text selectable style={{ color: theme.text }}>
           {describeSsiSite(site)}
         </Text>
@@ -71,8 +72,8 @@ function SsiSiteDetailsSkeleton({ site }: { site: SsiSite }) {
           {site.lat.toFixed(5)}, {site.lon.toFixed(5)}
         </Text>
       </FormSection>
-      <SkeletonGroup label="Loading SSI site details" style={{ gap: Spacing.four }}>
-        <FormSection title="About this site">
+      <SkeletonGroup label={t('ui.loadingSsiSiteDetails')} style={{ gap: Spacing.four }}>
+        <FormSection title={t('ui.aboutThisSite')}>
           <SkeletonText style={paragraph} text="The site sits along a sloping wall that" />
           <SkeletonText style={paragraph} text="drops away from the shore in a series" />
           <SkeletonText style={paragraph} text="of ledges with plenty to look at on" />
@@ -99,15 +100,15 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
     return (
       <StatusView
         kind="error"
-        title="Could not load SSI site details"
+        title={t('ui.couldNotLoadSsiSiteDetails')}
         description={query.error.message}
-        actionLabel="Try again"
+        actionLabel={t('ui.tryAgain')}
         onAction={() => void query.refetch()}
       />
     );
   if (query.data === undefined)
     return query.fetchStatus === 'paused' ? (
-      <StatusView kind="empty" title="Connect to load SSI site details" />
+      <StatusView kind="empty" title={t('ui.connectToLoadSsiSiteDetails')} />
     ) : (
       <SsiSiteDetailsSkeleton site={site} />
     );
@@ -131,7 +132,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
         gap: Spacing.four,
       }}
     >
-      <FormSection title="Location">
+      <FormSection title={t('ui.location')}>
         <Text selectable style={{ color: theme.text }}>
           {describeSsiSite(site)}
         </Text>
@@ -145,7 +146,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
         ) : null}
       </FormSection>
       {detail ? <SsiSiteInsights detail={detail} /> : null}
-      <FormSection title="About this site">
+      <FormSection title={t('ui.aboutThisSite')}>
         {descriptions.length > 1 ? (
           <Host matchContents>
             <Picker selectedValue={description?.descr_iso3 ?? language} onValueChange={setLanguage}>
@@ -154,7 +155,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
                 .map((d) => (
                   <Picker.Item
                     key={d.descr_iso3}
-                    label={`Description language: ${d.descr_iso3}`}
+                    label={t('ssiSite.language', { language: d.descr_iso3 })}
                     value={d.descr_iso3!}
                   />
                 ))}
@@ -174,7 +175,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
         ) : null}
         {!paragraphs.length ? (
           <Text style={{ color: theme.textSecondary }}>
-            SSI has not provided a description for this site.
+            {t('ssiSite.noDescription')}
           </Text>
         ) : null}
       </FormSection>
@@ -184,7 +185,7 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
             source={{ uri: (photo.big ?? photo.thumb)! }}
             style={{ width: '100%', height: 240, borderRadius: Spacing.three }}
             contentFit="contain"
-            accessibilityLabel={`SSI photo of ${site.name}`}
+            accessibilityLabel={t('ssiSite.photo', { name: site.name })}
           />
           {photo.copyright ? (
             <Text selectable style={{ color: theme.textSecondary }}>
@@ -194,8 +195,8 @@ export function SsiSiteDetails({ site }: { site: SsiSite }) {
         </View>
       ))}
       <Text style={{ color: theme.textSecondary }}>
-        Site information provided by SSI.{' '}
-        {detail === null ? 'No additional details are available.' : ''}
+        {t('ssiSite.provided')}{' '}
+        {detail === null ? t('ssiSite.noDetails') : ''}
       </Text>
     </ScrollView>
   );

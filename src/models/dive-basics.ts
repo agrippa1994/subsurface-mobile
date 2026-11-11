@@ -23,6 +23,7 @@ import {
   mmToMeters,
   type Units,
 } from './units';
+import { t } from '@/i18n';
 
 /** `manual_dc_name` in core/divecomputer.cpp, which is how the core recognizes one. */
 export const MANUAL_DC_MODEL = 'manually added dive';
@@ -207,10 +208,14 @@ function temperatureError(
     return undefined;
   }
   if (mkelvin === null) {
-    return 'Enter a temperature, such as 18.';
+    return t('diveBasics.temperature.invalid');
   }
   return mkelvin < min || mkelvin > max
-    ? `Enter a temperature from ${formatTemperatureInput(min, units)} to ${formatTemperatureInput(max, units)} ${temperatureUnit(units)}.`
+    ? t('diveBasics.temperature.range', {
+        min: formatTemperatureInput(min, units),
+        max: formatTemperatureInput(max, units),
+        unit: temperatureUnit(units),
+      })
     : undefined;
 }
 
@@ -225,39 +230,43 @@ export function validateDiveBasics(
 
   if (draft.when !== seed?.when) {
     if (draft.when >= MAX_WHEN) {
-      errors.when = 'The logbook cannot hold a date after 2029.';
+      errors.when = t('diveBasics.when.tooLate');
     } else if (draft.when <= 0) {
-      errors.when = 'The logbook cannot hold a date before 1970.';
+      errors.when = t('diveBasics.when.tooEarly');
     } else if (!rules.allowFuture && draft.when > rules.now + FUTURE_SLACK_SEC) {
-      errors.when = 'This date is in the future.';
+      errors.when = t('diveBasics.when.future');
     }
   }
 
   if (rules.profileEditable) {
     const seconds = parseDurationInput(draft.durationText);
     if (seconds === undefined) {
-      errors.durationText = 'Enter how long the dive lasted.';
+      errors.durationText = t('diveBasics.duration.missing');
     } else if (seconds === null) {
-      errors.durationText = 'Enter minutes, such as 45, or hours and minutes, such as 1:05.';
+      errors.durationText = t('diveBasics.duration.invalid');
     } else if (seconds < 1) {
-      errors.durationText = 'A dive lasts longer than that.';
+      errors.durationText = t('diveBasics.duration.tooShort');
     } else if (seconds > MAX_DURATION_SEC) {
-      errors.durationText = 'A dive cannot last more than 24 hours.';
+      errors.durationText = t('diveBasics.duration.tooLong');
     }
 
     const depth = parseDepthInput(draft.maxDepthText, units);
-    const range = `from ${formatDepthInput(MIN_DEPTH_MM, units)} to ${formatDepthInput(MAX_DEPTH_MM, units)} ${depthUnit(units)}`;
+    const range = t('diveBasics.depth.range', {
+      min: formatDepthInput(MIN_DEPTH_MM, units),
+      max: formatDepthInput(MAX_DEPTH_MM, units),
+      unit: depthUnit(units),
+    });
     if (depth === undefined) {
-      errors.maxDepthText = 'Enter how deep the dive went.';
+      errors.maxDepthText = t('diveBasics.depth.missing');
     } else if (depth === null) {
-      errors.maxDepthText = `Enter a depth ${range}.`;
+      errors.maxDepthText = range;
     } else if (depth < MIN_DEPTH_MM || depth > MAX_DEPTH_MM) {
-      errors.maxDepthText = `Enter a depth ${range}.`;
+      errors.maxDepthText = range;
     }
 
     const mean = parseDepthInput(draft.meanDepthText, units);
     if (mean === null) {
-      errors.meanDepthText = 'Enter a depth, or leave this empty.';
+      errors.meanDepthText = t('diveBasics.meanDepth.invalid');
     } else if (
       typeof mean === 'number' &&
       typeof depth === 'number' &&
@@ -265,10 +274,10 @@ export function validateDiveBasics(
       draft.meanDepthText !== seed?.meanDepthText
     ) {
       if (mean >= depth) {
-        errors.meanDepthText = 'The average has to be less than the maximum depth.';
+        errors.meanDepthText = t('diveBasics.meanDepth.tooDeep');
       } else if (mean < depth / 10) {
         // `fake_dc` would quietly put a figure of its own in place of this one.
-        errors.meanDepthText = 'The average has to be at least a tenth of the maximum depth.';
+        errors.meanDepthText = t('diveBasics.meanDepth.tooShallow');
       }
     }
   }
@@ -293,7 +302,7 @@ export function validateDiveBasics(
   }
 
   if (!/^\d*$/.test(draft.numberText.trim())) {
-    errors.numberText = 'Enter a whole number, or leave this empty for no number.';
+    errors.numberText = t('diveBasics.number.invalid');
   }
 
   for (const key of Object.keys(errors) as (keyof DiveBasicsDraft)[]) {
@@ -415,27 +424,36 @@ export function dateNotes(input: {
   const notes: string[] = [];
   const [first, ...others] = overlappingDives(dives, when, durationSec, dive?.id);
   if (first) {
-    const name = first.number > 0 ? `dive ${first.number}` : first.siteName.trim() || 'another dive';
+    const name =
+      first.number > 0
+        ? t('diveBasics.notes.diveNumber', { number: first.number })
+        : first.siteName.trim() || t('diveBasics.notes.anotherDive');
     notes.push(
       others.length > 0
-        ? `This overlaps ${name} and ${others.length} more.`
-        : `This overlaps ${name}.`,
+        ? t('diveBasics.notes.overlapsMore', { name, count: others.length })
+        : t('diveBasics.notes.overlaps', { name }),
     );
   }
   if (dive) {
     if (dive.tripId !== 0) {
-      notes.push(`The dive stays in ${dive.tripLocation.trim() || 'its trip'} and keeps its number.`);
+      notes.push(
+        dive.tripLocation.trim()
+          ? t('diveBasics.notes.staysInTrip', { trip: dive.tripLocation.trim() })
+          : t('diveBasics.notes.staysInItsTrip'),
+      );
     }
     return notes;
   }
   const trip = tripAround(trips, when);
   if (trip) {
     notes.push(
-      `This falls within ${trip.location.trim() || 'a trip'}. The dive is not added to it; you can do that from the dive.`,
+      trip.location.trim()
+        ? t('diveBasics.notes.withinTrip', { trip: trip.location.trim() })
+        : t('diveBasics.notes.withinATrip'),
     );
   }
   if (staysUnnumbered(dives, when)) {
-    notes.push('Later dives exist, so this one gets no number. You can set one afterwards.');
+    notes.push(t('diveBasics.notes.noNumber'));
   }
   return notes;
 }

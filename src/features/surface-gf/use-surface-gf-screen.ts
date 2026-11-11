@@ -27,13 +27,14 @@ import {
 import { useDives } from '@/queries/logbook';
 import { useUnits } from '@/queries/settings';
 import { useSetSurfaceGfSettings, useSurfaceGfSettings } from '@/queries/surface-gf';
+import { labelled, t } from '@/i18n';
 
 /** Dives offered as the reference, newest first. */
 const REFERENCE_DIVES = 40;
 
-export const PRESSURE_SOURCE_OPTIONS: readonly { value: PressureSource; label: string }[] = [
-  { value: 'barometer', label: 'Phone barometer' },
-  { value: 'altitude', label: 'Manual altitude' },
+export const PRESSURE_SOURCE_OPTIONS: readonly { value: PressureSource; readonly label: string }[] = [
+  labelled({ value: 'barometer' as PressureSource }, () => t('surfaceGfScreen.phoneBarometer')),
+  labelled({ value: 'altitude' as PressureSource }, () => t('surfaceGfScreen.manualAltitude')),
 ];
 
 export function useSurfaceGfScreen() {
@@ -54,7 +55,10 @@ export function useSurfaceGfScreen() {
     const sorted = [...(dives ?? [])].filter((dive) => !dive.invalid).sort((a, b) => b.when - a.when);
     const latest = dives ? latestDive(dives) : null;
     return [
-      { value: -1, label: latest ? `Latest (#${latest.number}, ${formatDiveDate(latest.when)})` : 'Latest' },
+      { value: -1, label: latest
+          ? t('surfaceGfScreen.latestDive', { number: latest.number, date: formatDiveDate(latest.when) })
+          : t('surfaceGfScreen.latest'),
+      },
       ...sorted.slice(0, REFERENCE_DIVES).map((dive) => ({
         value: dive.id,
         label: `#${dive.number}, ${formatDiveDate(dive.when)}`,

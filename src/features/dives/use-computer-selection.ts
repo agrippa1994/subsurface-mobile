@@ -19,6 +19,7 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { selectedComputerIndex, type ComputerSelection } from '@/models/dive-computers';
 import { usePrepareProfile } from '@/queries/logbook';
 import { useMakeFirstDiveComputer } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 export function useComputerSelection(diveId: number, computerCount: number) {
   const [selection, setSelection] = useState<ComputerSelection>({ diveId, index: 0 });
@@ -55,7 +56,7 @@ export function useComputerSelection(diveId: number, computerCount: number) {
           operationSucceeded();
         } catch (error) {
           operationFailed();
-          Alert.alert('The computer could not be made first', formatErrorLine(describeError(error)));
+          Alert.alert(t('alerts.makeFirstFailed'), formatErrorLine(describeError(error)));
         }
       })();
     },

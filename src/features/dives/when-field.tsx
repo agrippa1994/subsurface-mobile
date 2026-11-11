@@ -3,6 +3,7 @@
 // the native pickers, see when-field.ios.tsx.
 import { StepperRow } from '@/components/stepper-row';
 import { formatWhen } from '@/models/planner';
+import { t } from '@/i18n';
 
 export function WhenField({
   value,
@@ -14,7 +15,7 @@ export function WhenField({
   return (
     <>
       <StepperRow
-        label={`Day  ${formatWhen(value)}`}
+        label={`${t('toolsScreen.day')}  ${formatWhen(value)}`}
         value={value}
         min={0}
         max={Number.MAX_SAFE_INTEGER}
@@ -22,7 +23,7 @@ export function WhenField({
         onChange={onChange}
       />
       <StepperRow
-        label="Time, by 5 min"
+        label={t('ui.timeBy5Min')}
         value={value}
         min={0}
         max={Number.MAX_SAFE_INTEGER}

@@ -19,6 +19,7 @@ import {
 
 import { gasInfo, plannerOptions } from '../../../modules/ssrf-core/src';
 import { usePlanner } from './use-planner';
+import { labelled, t } from '@/i18n';
 
 /** The core's table does not change while the app runs. */
 let tanks: PlanTank[] | null = null;
@@ -29,9 +30,9 @@ function coreTanks(): PlanTank[] {
   return tanks;
 }
 
-export const USE_OPTIONS: readonly { value: CylinderUse; label: string }[] = [
-  { value: CylinderUse.OcGas, label: 'Open circuit' },
-  { value: CylinderUse.Diluent, label: 'Diluent' },
+export const USE_OPTIONS: readonly { value: CylinderUse; readonly label: string }[] = [
+  labelled({ value: CylinderUse.OcGas }, () => t('diveForm.use.ocGas')),
+  labelled({ value: CylinderUse.Diluent }, () => t('diveForm.use.diluent')),
 ];
 
 export function usePlannerCylinderScreen() {
@@ -82,7 +83,10 @@ export function usePlannerCylinderScreen() {
     canRemove: draft.cylinders.length > 1 && !cylinderInUse(draft, key),
     inUse: cylinderInUse(draft, key),
     bestLabel: best
-      ? `Best mix for ${formatDepth(maxDepthMm, units)}: ${gasName(Math.round(best.o2Permille / 10), Math.round(best.hePermille / 10))}`
+      ? t('plannerScreen.bestMix', {
+          depth: formatDepth(maxDepthMm, units),
+          gas: gasName(Math.round(best.o2Permille / 10), Math.round(best.hePermille / 10)),
+        })
       : null,
     applyBest: () => {
       if (best) {

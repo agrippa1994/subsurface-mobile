@@ -33,6 +33,7 @@ import {
   psiToMbar,
   type Units,
 } from './units';
+import { t } from '@/i18n';
 
 /**
  * One row of the cylinder editor.
@@ -221,33 +222,33 @@ export function validateCylinderDrafts(
 function validateCylinderDraft(draft: CylinderDraft, units: Units): string | null {
   const size = parseSizeInput(draft.sizeText, units);
   if (size === null) {
-    return 'Size is not a number.';
+    return t('equipment.cylinder.sizeInvalid');
   }
   const working = parsePressureInput(draft.workingPressureText, units);
   if (working === null) {
-    return 'Working pressure is not a number.';
+    return t('equipment.cylinder.workingPressureInvalid');
   }
   const start = parsePressureInput(draft.startText, units);
   if (start === null) {
-    return 'Start pressure is not a number.';
+    return t('equipment.cylinder.startInvalid');
   }
   const end = parsePressureInput(draft.endText, units);
   if (end === null) {
-    return 'End pressure is not a number.';
+    return t('equipment.cylinder.endInvalid');
   }
   const o2 = parseFractionInput(draft.o2Text);
   if (o2 === null) {
-    return 'Oxygen must be a percentage between 0 and 100.';
+    return t('equipment.cylinder.o2Invalid');
   }
   const he = parseFractionInput(draft.heText);
   if (he === null) {
-    return 'Helium must be a percentage between 0 and 100.';
+    return t('equipment.cylinder.heInvalid');
   }
   if ((o2 ?? 0) + (he ?? 0) > 1000) {
-    return 'Oxygen and helium together cannot exceed 100%.';
+    return t('equipment.cylinder.mixTooRich');
   }
   if (start !== undefined && end !== undefined && end > start) {
-    return 'The end pressure cannot be above the start pressure.';
+    return t('equipment.cylinder.endAboveStart');
   }
   return null;
 }
@@ -356,7 +357,7 @@ export function defaultCylinderOptions(
   units: Units,
 ): DefaultCylinderOption[] {
   return [
-    { value: '', label: 'None' },
+    { value: '', label: t('equipment.cylinder.none') },
     ...tanks.map((tank) => ({
       value: tank.name,
       label:

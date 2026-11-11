@@ -4,6 +4,7 @@
 // leave an authenticated singleton behind.
 
 import { createClient, DivessiHttpError, type ApiResponse } from 'divessi-client';
+import { t } from '@/i18n';
 
 export function createSsiClient(token?: string) {
   return createClient({ token, metadata: { lang: 'eng' } });
@@ -26,7 +27,7 @@ export async function ssiData<T>(request: Promise<ApiResponse<T>>): Promise<T> {
     ({ data } = await request);
   } catch (error) {
     if (error instanceof DivessiHttpError) {
-      throw new SsiApiError(`SSI returned HTTP ${error.status}.`, false);
+      throw new SsiApiError(t('errors.ssi.http', { status: error.status }), false);
     }
     throw error;
   }
@@ -44,7 +45,7 @@ export async function ssiData<T>(request: Promise<ApiResponse<T>>): Promise<T> {
         throw new SsiApiError(message.trim(), true);
       }
     }
-    throw new SsiApiError('SSI refused the request.', true);
+    throw new SsiApiError(t('errors.ssi.refused'), true);
   }
   return data;
 }

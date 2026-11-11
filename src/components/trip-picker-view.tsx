@@ -7,6 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Trip } from '@/models';
 import { emptyPickerText, tripSubtitle, tripTitle } from '@/models/trips';
+import { t } from '@/i18n';
 
 export type TripPickerViewProps = {
   /** What is on offer, nearest first, after any search. */
@@ -59,8 +60,8 @@ export function TripPickerView({
       keyExtractor={(trip) => String(trip.id)}
       ListHeaderComponent={
         <View>
-          {row('New Trip', null, theme.accent, onNewTrip)}
-          {canRemove ? row('Remove from Trip', null, theme.danger, onRemove) : null}
+          {row(t('trips.action.new'), null, theme.accent, onNewTrip)}
+          {canRemove ? row(t('trips.action.remove'), null, theme.danger, onRemove) : null}
         </View>
       }
       ListEmptyComponent={

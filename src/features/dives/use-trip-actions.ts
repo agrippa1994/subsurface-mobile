@@ -16,6 +16,7 @@ import {
   useCreateTrip,
   useRemoveDivesFromTrip,
 } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 export type TripActions = {
   /** `onDone` gets the new trip. */
@@ -35,7 +36,7 @@ async function apply<T>(work: () => Promise<T>, onDone?: (result: T) => void): P
     onDone?.(result);
   } catch (error) {
     operationFailed();
-    Alert.alert('The trip could not be changed', formatErrorLine(describeError(error)));
+    Alert.alert(t('alerts.tripFailed'), formatErrorLine(describeError(error)));
   }
 }
 

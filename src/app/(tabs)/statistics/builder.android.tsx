@@ -10,20 +10,22 @@ import {
   type BuilderField,
   type VariableField,
 } from '@/features/statistics/use-builder';
+import { t } from '@/i18n';
+import { variableLabel } from '@/models/stats-chart';
 
 function VariableRow({ field }: { field: VariableField }) {
   return (
     <M3MenuRow<string | null>
       label={field.label}
       value={field.selected}
-      shown={field.selected}
+      shown={variableLabel(field.selected)}
       groups={[
         ...(field.noneLabel ? [{ options: [{ value: null, label: field.noneLabel }] }] : []),
         ...field.groups.map((group) => ({
           title: group.title,
           options: group.variables.map((variable) => ({
             value: variable.name,
-            label: variable.name,
+            label: variableLabel(variable.name),
           })),
         })),
       ]}
@@ -48,9 +50,9 @@ export default function BuilderScreen() {
   const router = useRouter();
   return (
     <>
-      <HeaderAction label="Done" done onPress={() => router.back()} />
+      <HeaderAction label={t('ui.done')} done onPress={() => router.back()} />
       <M3Screen>
-        <M3Section title="What to show" footer={builder.description}>
+        <M3Section title={t('ui.whatToShow')} footer={builder.description}>
           {builder.first ? <VariableRow field={builder.first} /> : null}
           {builder.fields.map((field) => (
             <ChoiceRow key={field.key} field={field} />
@@ -61,8 +63,8 @@ export default function BuilderScreen() {
           ))}
         </M3Section>
         <M3Section
-          title="How to show it"
-          footer="The chart counts the dives the filter on the chart screen selects.">
+          title={t('ui.howToShowIt')}
+          footer={t('ui.theChartCountsTheDivesThe')}>
           {builder.display.map((field) => (
             <ChoiceRow key={field.key} field={field} />
           ))}

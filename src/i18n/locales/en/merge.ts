@@ -1,0 +1,23 @@
+// AI-generated (Claude)
+export default {
+  overlaps: 'Overlaps this dive',
+  startsAfter: 'Starts {{gap}} after this dive ends',
+  endedBefore: 'Ended {{gap}} before this dive',
+  withNext: 'Merge with Next Dive',
+  withPrevious: 'Merge with Previous Dive',
+  numbered: 'Dive {{number}}: {{name}}',
+  figures: '{{depth}} deep, {{duration}} long',
+  becomeOneComputers_one: 'They become one dive, {{figures}}, keeping the recordings of {{count}} dive computer.',
+  becomeOneComputers_other: 'They become one dive, {{figures}}, keeping the recordings of {{count}} dive computers.',
+  becomeOneInterval: 'They become one dive, {{figures}}. Its profile keeps the {{gap}} on the surface between them.',
+  becomeOne: 'They become one dive, {{figures}}.',
+  combined: 'Notes, buddies, tags and cylinders are combined.',
+  otherSite: 'The other site',
+  staysAt: 'It stays at {{site}}. {{other}} stays in your sites without it.',
+  goesInTrip: 'It goes in the trip {{trip}}.',
+  tripEnds: 'The trip {{trip}} ends, with its location and notes.',
+  renumbered_one: '{{count}} later dive gets a new number.',
+  renumbered_other: '{{count}} later dives get a new number.',
+  confirmTitle: 'Merge these dives?',
+  confirm: 'Merge',
+};

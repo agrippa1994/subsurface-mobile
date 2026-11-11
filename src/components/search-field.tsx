@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export function SearchField({
   value,
@@ -40,7 +41,7 @@ export function SearchField({
       {value !== '' ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Clear search"
+          accessibilityLabel={t('ui.clearSearch')}
           hitSlop={Spacing.two}
           onPress={() => onChangeText('')}>
           <SymbolView name="xmark.circle.fill" size={17} tintColor={theme.textSecondary} />

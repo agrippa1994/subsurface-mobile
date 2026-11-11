@@ -95,7 +95,8 @@ maps load their tiles from Apple Maps on iOS and OpenFreeMap on Android.
 
 Native controls throughout: liquid glass on iOS 26 and later, Material on Android,
 dark mode, metric or imperial units, and VoiceOver labels on the profile and the
-dive list.
+dive list. In English and German, following the device's language (or the
+per-app language in the system settings).
 
 <sub>Screenshots: version 1.5.0 on the iOS 27 simulator, showing the unmodified
 upstream sample logbook, `subsurface/dives/SampleDivesV2.ssrf`.</sub>
@@ -231,6 +232,23 @@ strict, ESLint + Prettier, every new source file starts with
 
 Implementation is tracked task-by-task in [docs/tasks/](docs/tasks/) —
 see [PROGRESS.md](docs/tasks/PROGRESS.md).
+
+### Translations
+
+Every user-facing string goes through i18next (`src/i18n`): `t('area.key')`
+from `@/i18n`, in screens and presentation models alike. English is the source
+(`src/i18n/locales/en`, one file per area); each other language is typed against
+it, so a missing or extra key fails `tsc`, and `src/i18n/i18n.test.ts` checks
+that every translation keeps the English placeholders. Counts use i18next's
+plural keys (`_one`, `_other`) with a `count` option rather than assembling
+words. Strings are looked up when shown, never cached in module constants (an
+option list exports getters, see `labelled()`). The widgets cannot load the
+translations inside the extension, so their words travel in the widget props.
+The system prompts' German texts are in `assets/locales/de.json`.
+
+Not translated: what the C++ core writes itself (planner notes, dive mode and
+statistics bin names, CSV headers), text written into the logbook or git
+commits, and the MCP server's tool descriptions, which are for the AI client.
 
 ## License
 

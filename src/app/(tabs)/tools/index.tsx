@@ -8,7 +8,8 @@ import { FormSection } from '@/components/form';
 import { Spacing } from '@/constants/theme';
 import { TOOLS } from '@/features/tools/tools';
 import { useTheme } from '@/hooks/use-theme';
-import { TOOLS_DISCLAIMER } from '@/models/disclaimer';
+import { toolsDisclaimer } from '@/models/disclaimer';
+import { t } from '@/i18n';
 
 export default function ToolsScreen() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function ToolsScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Planning" footer={TOOLS_DISCLAIMER}>
+      <FormSection title={t('ui.planning')} footer={toolsDisclaimer()}>
         {TOOLS.map((tool) => (
           <Pressable
             key={tool.key}

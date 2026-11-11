@@ -36,7 +36,6 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
     color: index === lastIndex ? accent : muted,
   }));
   const anyDives = props.months.some((month) => month.dives > 0);
-  const delta = props.thisYear - props.lastYear;
 
   const caption = (
     <HStack spacing={4}>
@@ -44,7 +43,7 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
       <Text
         modifiers={[font({ textStyle: 'caption2', weight: 'semibold' }), foregroundStyle(accent)]}
       >
-        DIVE ACTIVITY
+        {props.text.caption}
       </Text>
     </HStack>
   );
@@ -67,18 +66,14 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
           lineLimit(1),
         ]}
       >
-        {`in ${props.yearLabel}`}
+        {props.text.inYear}
       </Text>
     </HStack>
   );
 
   const comparison = (
     <Text modifiers={[font({ textStyle: 'caption', weight: 'medium' }), secondary, lineLimit(1)]}>
-      {delta === 0
-        ? `Same as last year (${props.lastYear})`
-        : delta > 0
-          ? `${delta} more than last year`
-          : `${-delta} fewer than last year`}
+      {props.text.comparison}
     </Text>
   );
 
@@ -92,7 +87,7 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
   ) : (
     <VStack modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 })]}>
       <Text modifiers={[font({ textStyle: 'caption' }), secondary]}>
-        No dives in the last 12 months
+        {props.text.none}
       </Text>
     </VStack>
   );
@@ -105,7 +100,7 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
         {yearCount(40)}
         {comparison}
         <Text modifiers={[font({ textStyle: 'caption' }), secondary, lineLimit(1)]}>
-          {`${props.hoursText} in 12 months`}
+          {props.text.hoursIn12}
         </Text>
       </VStack>
     );
@@ -169,9 +164,9 @@ const DiveActivityWidget = (props: ActivityWidgetProps, environment: WidgetEnvir
       {comparison}
       <VStack modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 })]}>{chart}</VStack>
       <HStack spacing={8}>
-        {stat('Last year', String(props.lastYear))}
-        {stat('12 months', props.hoursText)}
-        {stat('Busiest', props.busiestText !== '' ? props.busiestText : '-')}
+        {stat(props.text.lastYear, String(props.lastYear))}
+        {stat(props.text.months12, props.hoursText)}
+        {stat(props.text.busiest, props.busiestText !== '' ? props.busiestText : '-')}
       </HStack>
     </VStack>
   );

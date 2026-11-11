@@ -13,6 +13,7 @@ import { diveRowTitle, formatDate, sortDivesNewestFirst } from './dive-list';
 import type { DiveSummary, PlotEntry } from './index';
 import { shortMonthName } from './date-format';
 import { depthInUnit, formatDepth, formatTemperature, type Units } from './units';
+import { t } from '@/i18n';
 
 /** One point of the miniature profile: minutes in, depth below the surface (negative). */
 export type WidgetProfilePoint = { x: number; y: number };
@@ -40,6 +41,20 @@ export type LastDiveWidgetProps = {
   endedAt: number;
   /** Opens this dive in the app. */
   url: string;
+  /**
+   * The words the layout shows, in the app's language. The layout runs in the
+   * widget extension, which cannot load the translations, so they travel with
+   * the props.
+   */
+  text: {
+    /** The Lock Screen line: "18.2 m, 47 min at Blue Hole", or "No dives yet". */
+    inline: string;
+    rating: string;
+    maxDepth: string;
+    duration: string;
+    water: string;
+    buddy: string;
+  };
 };
 
 export type TotalsPeriodKey = 'all' | 'year' | 'last12';
@@ -56,6 +71,22 @@ export type TotalsPeriod = {
   longestText: string;
   averageDepthText: string;
   sites: number;
+  /** "dive" or "dives", after the big count. */
+  divesWord: string;
+  /** "12 dives" */
+  countText: string;
+  /** "12 dives, 18 h underwater" */
+  inlineText: string;
+  /** "18 h, deepest 32.1 m" */
+  summaryText: string;
+  /** "18 h underwater" */
+  underwaterText: string;
+  /** "Deepest 32.1 m" */
+  deepestLine: string;
+  /** "4 sites" */
+  sitesText: string;
+  /** "Deepest dive: Blue Hole, 12 Mar 2024", "" with none. */
+  deepestDiveText: string;
 };
 
 export type TotalsWidgetProps = {
@@ -66,6 +97,18 @@ export type TotalsWidgetProps = {
   nextMilestone: number;
   previousMilestone: number;
   url: string;
+  /** Words for the layout; see `LastDiveWidgetProps.text`. */
+  text: {
+    underwater: string;
+    deepest: string;
+    longest: string;
+    avgDepth: string;
+    diveSites: string;
+    /** "Next milestone: 150 dives" */
+    milestone: string;
+    /** "27 to go" */
+    toGo: string;
+  };
 };
 
 export type ActivityMonth = {
@@ -85,6 +128,20 @@ export type ActivityWidgetProps = {
   /** The busiest month of the twelve, "" when none had a dive. */
   busiestText: string;
   url: string;
+  /** Words for the layout; see `LastDiveWidgetProps.text`. */
+  text: {
+    caption: string;
+    /** "in 2026", after this year's count. */
+    inYear: string;
+    /** Against last year: "3 more than last year". */
+    comparison: string;
+    /** "42 h in 12 months" */
+    hoursIn12: string;
+    none: string;
+    lastYear: string;
+    months12: string;
+    busiest: string;
+  };
 };
 
 export type SurfaceIntervalWidgetProps = {
@@ -95,6 +152,15 @@ export type SurfaceIntervalWidgetProps = {
   dateText: string;
   numberText: string;
   url: string;
+  /** Words for the layout; see `LastDiveWidgetProps.text`. */
+  text: {
+    caption: string;
+    title: string;
+    /** "since Blue Hole" */
+    since: string;
+    empty: string;
+    noDives: string;
+  };
 };
 
 /** Every widget's props, computed in one pass over the dive list. */
@@ -235,7 +301,7 @@ function monthIndex({ year, month }: { year: number; month: number }): number {
 }
 
 function numberText(dive: DiveSummary): string {
-  return dive.number > 0 ? `Dive ${dive.number}` : '';
+  return dive.number > 0 ? t('widgets.diveNumber', { number: dive.number }) : '';
 }
 
 function diveUrl(dive: DiveSummary, links: WidgetLinks): string {
@@ -248,8 +314,8 @@ function emptyLastDive(input: WidgetSnapshotInput): LastDiveWidgetProps {
   return {
     hasDive: false,
     numberText: '',
-    title: 'No dives yet',
-    dateText: 'Import or download a dive to see it here.',
+    title: t('widgets.noDives'),
+    dateText: t('widgets.noDivesDetail'),
     depthText: '-',
     durationText: '-',
     temperatureText: '',
@@ -260,6 +326,19 @@ function emptyLastDive(input: WidgetSnapshotInput): LastDiveWidgetProps {
     depthUnit: input.units.depth,
     endedAt: input.now,
     url: input.links.url('/dives'),
+    text: lastDiveText(t('widgets.noDives')),
+  };
+}
+
+/** The labels of the last dive widget, around its one-line summary. */
+function lastDiveText(inline: string): LastDiveWidgetProps['text'] {
+  return {
+    inline,
+    rating: t('widgets.rating'),
+    maxDepth: t('dive.field.maxDepth'),
+    duration: t('dive.field.duration'),
+    water: t('dive.field.water'),
+    buddy: t('dive.field.buddy'),
   };
 }
 
@@ -287,6 +366,13 @@ function lastDiveProps(
     depthUnit: input.units.depth,
     endedAt: diveEndInstant(dive, input.timezoneOffsetMinutes, input.now),
     url: diveUrl(dive, input.links),
+    text: lastDiveText(
+      t('widgets.inline', {
+        depth: formatDepth(dive.maxDepthMm, input.units),
+        duration: formatDiveMinutes(dive.durationSec),
+        title: diveRowTitle(dive),
+      }),
+    ),
   };
 }
 
@@ -317,15 +403,27 @@ function totalsFor(
       sites.add(dive.siteUuid);
     }
   }
+  const hoursText = formatTotalHours(seconds);
+  const deepestText = deepest ? formatDepth(deepest.maxDepthMm, units) : '-';
+  const deepestWhere = deepest ? `${diveRowTitle(deepest)}, ${formatDate(deepest.when)}` : '';
+  const countText = t('common.diveCount', { count: dives.length });
   return {
     label,
     dives: dives.length,
-    hoursText: formatTotalHours(seconds),
-    deepestText: deepest ? formatDepth(deepest.maxDepthMm, units) : '-',
-    deepestWhere: deepest ? `${diveRowTitle(deepest)}, ${formatDate(deepest.when)}` : '',
+    hoursText,
+    deepestText,
+    deepestWhere,
     longestText: longest ? formatDiveMinutes(longest.durationSec) : '-',
     averageDepthText: depthCount > 0 ? formatDepth(depthSum / depthCount, units) : '-',
     sites: sites.size,
+    divesWord: t('widgets.divesWord', { count: dives.length }),
+    countText,
+    inlineText: t('widgets.inlineTotals', { dives: countText, hours: hoursText }),
+    summaryText: t('widgets.summary', { hours: hoursText, deepest: deepestText }),
+    underwaterText: t('widgets.underwaterText', { hours: hoursText }),
+    deepestLine: t('widgets.deepestLine', { depth: deepestText }),
+    sitesText: t('widgets.sites', { count: sites.size }),
+    deepestDiveText: deepestWhere === '' ? '' : t('widgets.deepestDive', { where: deepestWhere }),
   };
 }
 
@@ -338,14 +436,23 @@ function totalsProps(dives: readonly DiveSummary[], input: WidgetSnapshotInput):
   const previousMilestone = Math.floor(total / MILESTONE_STEP) * MILESTONE_STEP;
   return {
     periods: {
-      all: totalsFor('All dives', dives, input.units),
+      all: totalsFor(t('widgets.allDives'), dives, input.units),
       year: totalsFor(String(today.year), thisYear, input.units),
-      last12: totalsFor('Last 12 months', last12, input.units),
+      last12: totalsFor(t('widgets.last12Months'), last12, input.units),
     },
     totalDives: total,
     previousMilestone,
     nextMilestone: previousMilestone + MILESTONE_STEP,
     url: input.links.url('/statistics'),
+    text: {
+      underwater: t('widgets.underwater'),
+      deepest: t('widgets.deepest'),
+      longest: t('widgets.longest'),
+      avgDepth: t('widgets.avgDepth'),
+      diveSites: t('ui.diveSites'),
+      milestone: t('widgets.milestone', { count: previousMilestone + MILESTONE_STEP }),
+      toGo: t('widgets.toGo', { count: previousMilestone + MILESTONE_STEP - total }),
+    },
   };
 }
 
@@ -388,9 +495,24 @@ function activityProps(
     yearLabel: String(today.year),
     hoursText: formatTotalHours(seconds),
     busiestText: busiest
-      ? `${busiest.label}, ${busiest.dives} ${busiest.dives === 1 ? 'dive' : 'dives'}`
+      ? t('widgets.busiest', { month: busiest.label, dives: t('common.diveCount', { count: busiest.dives }) })
       : '',
     url: input.links.url('/statistics'),
+    text: {
+      caption: t('widgets.activity'),
+      inYear: t('widgets.inYear', { year: today.year }),
+      comparison:
+        thisYear === lastYear
+          ? t('widgets.sameAsLastYear', { count: lastYear })
+          : thisYear > lastYear
+            ? t('widgets.moreThanLastYear', { count: thisYear - lastYear })
+            : t('widgets.fewerThanLastYear', { count: lastYear - thisYear }),
+      hoursIn12: t('widgets.hoursIn12', { hours: formatTotalHours(seconds) }),
+      none: t('widgets.noneIn12'),
+      lastYear: t('widgets.lastYear'),
+      months12: t('widgets.months12'),
+      busiest: t('widgets.busiestLabel'),
+    },
   };
 }
 
@@ -402,10 +524,11 @@ function surfaceIntervalProps(
     return {
       hasDive: false,
       endedAt: input.now,
-      title: 'No dives yet',
+      title: t('widgets.noDives'),
       dateText: '',
       numberText: '',
       url: input.links.url('/dives'),
+      text: surfaceIntervalText(''),
     };
   }
   return {
@@ -415,6 +538,17 @@ function surfaceIntervalProps(
     dateText: formatDate(dive.when),
     numberText: numberText(dive),
     url: diveUrl(dive, input.links),
+    text: surfaceIntervalText(t('widgets.since', { title: diveRowTitle(dive) })),
+  };
+}
+
+function surfaceIntervalText(since: string): SurfaceIntervalWidgetProps['text'] {
+  return {
+    caption: t('widgets.surfaceIntervalCaption'),
+    title: t('widgets.surfaceInterval'),
+    since,
+    empty: t('widgets.nextDive'),
+    noDives: t('widgets.noDives'),
   };
 }
 

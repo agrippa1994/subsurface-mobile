@@ -15,11 +15,12 @@ import {
   M3ValueRow,
 } from '@/components/material/list';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
-import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
+import { aboutRows, licenseNotice, privacyNotice, sourceNotice } from '@/models/about';
+import { diveDataDisclaimer } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
+import { t } from '@/i18n';
 
 
 export default function SettingsScreen() {
@@ -28,11 +29,11 @@ export default function SettingsScreen() {
   return (
     <M3Screen>
       <M3Section
-        title="Units"
+        title={t('ui.units')}
         footer={
           screen.showUnitRows
-            ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
-            : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`
+            ? t('settingsScreen.unitsEach')
+            : `${unitsSummary(screen.units)} ${t('settingsScreen.unitsCustom')}`
         }>
         <M3SegmentedRow
           options={UNIT_PRESET_OPTIONS}
@@ -52,9 +53,9 @@ export default function SettingsScreen() {
           : null}
       </M3Section>
 
-      <M3Section title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
+      <M3Section title={t('ui.decompression')} footer={SETTINGS_FOOTERS.decompression}>
         <M3StepperRow
-          label={`GF low  ${screen.gfLow}%`}
+          label={`${t('plannerSettings.label.gfLow')}  ${screen.gfLow}%`}
           value={screen.gfLow}
           min={GF_RANGE.min}
           max={GF_RANGE.max}
@@ -62,7 +63,7 @@ export default function SettingsScreen() {
           onChange={screen.setGfLow}
         />
         <M3StepperRow
-          label={`GF high  ${screen.gfHigh}%`}
+          label={`${t('plannerSettings.label.gfHigh')}  ${screen.gfHigh}%`}
           value={screen.gfHigh}
           min={GF_RANGE.min}
           max={GF_RANGE.max}
@@ -71,7 +72,7 @@ export default function SettingsScreen() {
         />
       </M3Section>
 
-      <M3Section title="Profile" footer={SETTINGS_FOOTERS.profile}>
+      <M3Section title={t('ui.profile')} footer={SETTINGS_FOOTERS.profile}>
         {PROFILE_TOGGLES.map((toggle) => (
           <M3SwitchRow
             key={toggle.key}
@@ -82,9 +83,9 @@ export default function SettingsScreen() {
         ))}
       </M3Section>
 
-      <M3Section title="New dives" footer={SETTINGS_FOOTERS.newDives}>
+      <M3Section title={t('ui.newDives')} footer={SETTINGS_FOOTERS.newDives}>
         <M3MenuRow
-          label="Default cylinder"
+          label={t('ui.defaultCylinder')}
           value={screen.defaultCylinder.value}
           shown={screen.defaultCylinder.label}
           options={screen.defaultCylinder.options}
@@ -92,38 +93,38 @@ export default function SettingsScreen() {
         />
       </M3Section>
 
-      <M3Section title="Logbook">
-        <M3ValueRow inline label="Dives" value={String(screen.diveCount)} />
-        <M3ValueRow inline label="Dive sites" value={String(screen.siteCount)} />
-        <M3ValueRow inline label="Trips" value={String(screen.tripCount)} />
-        <M3ActionRow label="Ungroup all dives" icon="trash" destructive onPress={screen.ungroupDives} />
+      <M3Section title={t('ui.logbook')}>
+        <M3ValueRow inline label={t('ui.dives')} value={String(screen.diveCount)} />
+        <M3ValueRow inline label={t('ui.diveSites')} value={String(screen.siteCount)} />
+        <M3ValueRow inline label={t('ui.trips')} value={String(screen.tripCount)} />
+        <M3ActionRow label={t('ui.ungroupAllDives')} icon="trash" destructive onPress={screen.ungroupDives} />
       </M3Section>
 
       <M3Section
-        title="Transfer"
-        footer="Import adds the dives in a Subsurface logbook or a Suunto export to this one. Open replaces it.">
-        <M3ActionRow label="Download from dive computer" icon="arrow.down.circle" opens onPress={screen.diveComputers.open} />
+        title={t('ui.transfer')}
+        footer={t('ui.importAddsTheDivesInA')}>
+        <M3ActionRow label={t('ui.downloadFromDiveComputer')} icon="arrow.down.circle" opens onPress={screen.diveComputers.open} />
         <M3ActionRow
-          label="Import dives"
+          label={t('ui.importDives')}
           icon="square.and.arrow.down"
           disabled={screen.transfer.busy}
           onPress={screen.transfer.importFile}
         />
         <M3ActionRow
-          label="Export and share"
+          label={t('ui.exportAndShare')}
           icon="square.and.arrow.up"
           disabled={screen.transfer.busy}
           onPress={screen.transfer.shareLogbook}
         />
         <M3ActionRow
-          label="Open a logbook"
+          label={t('ui.openALogbook')}
           icon="folder"
           destructive
           disabled={screen.transfer.busy}
           onPress={screen.transfer.openLogbook}
         />
         <M3ActionRow
-          label="Forget remembered dive computers"
+          label={t('ui.forgetRememberedDiveComputers')}
           icon="trash"
           destructive
           disabled={screen.diveComputers.remembered === 0}
@@ -132,39 +133,39 @@ export default function SettingsScreen() {
       </M3Section>
 
       <M3Section
-        title="SSI"
-        footer="Push a dive to your SSI logbook from the dive itself. Your SSI email and password are kept in this device's encrypted storage, never in the logbook file. Not affiliated with SSI.">
-        <M3ValueRow label="Account" value={screen.ssi.account ?? 'Not signed in'} />
-        <M3ValueRow label="Dive sites" value={screen.ssi.siteCatalogue} />
-        <M3ActionRow label="SSI account" icon="person.fill.checkmark" opens onPress={screen.ssi.open} />
+        title={t('ui.ssi')}
+        footer={t('ui.pushADiveToYourSsi')}>
+        <M3ValueRow label={t('ui.account')} value={screen.ssi.account ?? t('dive.ssi.notSignedIn')} />
+        <M3ValueRow label={t('ui.diveSites')} value={screen.ssi.siteCatalogue} />
+        <M3ActionRow label={t('ui.ssiAccount')} icon="person.fill.checkmark" opens onPress={screen.ssi.open} />
       </M3Section>
 
       <M3Section
-        title="Git sync"
-        footer="Keep the logbook in a git repository over SSH, to back it up and share it between devices.">
-        <M3ValueRow label="Repository" value={screen.git.repository} />
-        <M3ValueRow label="Last sync" value={screen.git.lastSync} />
+        title={t('ui.gitSync')}
+        footer={t('ui.keepTheLogbookInAGit')}>
+        <M3ValueRow label={t('ui.repository')} value={screen.git.repository} />
+        <M3ValueRow label={t('ui.lastSync')} value={screen.git.lastSync} />
         {screen.git.ready ? (
           <M3ActionRow
-            label={screen.git.busy ? 'Syncing...' : 'Sync now'}
+            label={screen.git.busy ? t('gitScreen.syncing') : t('settingsScreen.syncNow')}
             icon="clock.arrow.circlepath"
             disabled={screen.git.busy}
             onPress={screen.git.sync}
           />
         ) : null}
-        <M3ActionRow label="Git sync settings" icon="gearshape" opens onPress={screen.git.open} />
+        <M3ActionRow label={t('ui.gitSyncSettings')} icon="gearshape" opens onPress={screen.git.open} />
       </M3Section>
 
       <M3Section
-        title="MCP server"
-        footer="Lets an AI assistant on a computer in the same network, or on your VPN, read this logbook - dives, statistics, notes, cylinders, weights and the computed profile as CSV. Read-only, and without a password: anyone who can reach one of these addresses can connect while it runs. It answers only while the app is open, and is off again on the next launch.">
-        <M3SwitchRow label="Run MCP server" value={screen.mcp.on} onChange={screen.mcp.setOn} />
-        <M3ValueRow label="Status" value={screen.mcp.status} />
+        title={t('ui.mcpServer')}
+        footer={t('ui.letsAnAiAssistantOnA')}>
+        <M3SwitchRow label={t('ui.runMcpServer')} value={screen.mcp.on} onChange={screen.mcp.setOn} />
+        <M3ValueRow label={t('ui.status')} value={screen.mcp.status} />
         {screen.mcp.urls.map(({ kind, url }) => (
           <Fragment key={url}>
             <M3ValueRow label={kind} value={url} />
             <M3ActionRow
-              label={screen.mcp.copied === url ? 'Copied' : `Copy ${kind} URL`}
+              label={screen.mcp.copied === url ? t('diveForm.copied') : t('settingsScreen.copyUrl', { kind })}
               icon="doc.on.doc"
               onPress={() => screen.mcp.copyUrl(url)}
             />
@@ -172,17 +173,17 @@ export default function SettingsScreen() {
         ))}
       </M3Section>
 
-      <M3Section title="Problems" footer={PRIVACY_NOTICE}>
-        <M3ValueRow label="Problem log" value={screen.diagnostics} />
-        <M3ActionRow label="Share the problem log" icon="square.and.arrow.up" onPress={screen.shareDiagnostics} />
-        <M3ActionRow label="Clear it" icon="trash" destructive onPress={screen.clearDiagnostics} />
+      <M3Section title={t('ui.problems')} footer={privacyNotice()}>
+        <M3ValueRow label={t('ui.problemLog')} value={screen.diagnostics} />
+        <M3ActionRow label={t('ui.shareTheProblemLog')} icon="square.and.arrow.up" onPress={screen.shareDiagnostics} />
+        <M3ActionRow label={t('ui.clearIt')} icon="trash" destructive onPress={screen.clearDiagnostics} />
       </M3Section>
 
-      <M3Section title="About" footer={`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
+      <M3Section title={t('ui.about')} footer={`${diveDataDisclaimer()}\n\n${licenseNotice()} ${sourceNotice()}`}>
         {aboutRows(screen.about).map((row) => (
           <M3ValueRow key={row.label} label={row.label} value={row.value} />
         ))}
-        <M3ActionRow label="Source code and licence" icon="arrow.up.right.square" onPress={screen.openSource} />
+        <M3ActionRow label={t('ui.sourceCodeAndLicence')} icon="arrow.up.right.square" onPress={screen.openSource} />
       </M3Section>
     </M3Screen>
   );

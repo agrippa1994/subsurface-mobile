@@ -12,11 +12,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { describeError, formatErrorLine } from '@/models/errors';
 import {
   PLANNED_ENTRY_PRESETS,
-  SINGLE_PRESSURE_NOTE,
-  SURFACE_GF_DISCLAIMER,
-  SURFACE_GF_EXPLAINER,
+  singlePressureNote,
+  surfaceGfDisclaimer,
+  surfaceGfExplainer,
   TIMELINE_SPANS,
 } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   const theme = useTheme();
@@ -40,7 +41,7 @@ export function SurfaceGfScreen() {
     return (
       <StatusView
         kind="error"
-        title="Surface GF is unavailable"
+        title={t('ui.surfaceGfIsUnavailable')}
         description={formatErrorLine(describeError(surface.error))}
         systemImage="exclamationmark.triangle"
       />
@@ -48,9 +49,9 @@ export function SurfaceGfScreen() {
   }
   if (!timeline || !readout || !window) {
     return surface.isPending ? (
-      <StatusView kind="loading" title="Working out the surface GF" />
+      <StatusView kind="loading" title={t('ui.workingOutTheSurfaceGf')} />
     ) : (
-      <StatusView kind="empty" title="No dives yet" description="The surface GF follows the latest dive in your logbook." />
+      <StatusView kind="empty" title={t('ui.noDivesYet')} description={t('ui.theSurfaceGfFollowsTheLatest')} />
     );
   }
 
@@ -71,16 +72,16 @@ export function SurfaceGfScreen() {
         onCursorChange={screen.setCursor}
         plannedMs={screen.settings.plannedEntryMs}
         gfHigh={surface.gfHigh}
-        accessibilityLabel={`Surface GF over time. ${readout.accessibilityLabel}`}
+        accessibilityLabel={`${t('surfaceGfScreen.overTime')} ${readout.accessibilityLabel}`}
       />
       <View style={styles.row}>
         {TIMELINE_SPANS.map((span) => (
           <Chip key={span.key} label={span.label} selected={screen.span === span.key} onPress={() => screen.setSpan(span.key)} />
         ))}
-        {screen.cursorFollowsNow ? null : <Chip label="Back to now" onPress={screen.resetCursor} />}
+        {screen.cursorFollowsNow ? null : <Chip label={t('ui.backToNow')} onPress={screen.resetCursor} />}
       </View>
 
-      <Text style={[styles.heading, { color: theme.text }]}>Next entry</Text>
+      <Text style={[styles.heading, { color: theme.text }]}>{t('ui.nextEntry')}</Text>
       {planned ? (
         <Text style={{ color: theme.text }}>{`${planned.gfText}, ${planned.whenText}`}</Text>
       ) : null}
@@ -88,13 +89,13 @@ export function SurfaceGfScreen() {
         {PLANNED_ENTRY_PRESETS.map((preset) => (
           <Chip key={preset.minutes} label={preset.label} onPress={() => screen.applyPreset(preset.minutes)} />
         ))}
-        {planned ? <Chip label="Clear" onPress={() => screen.setPlannedEntry(null)} /> : null}
+        {planned ? <Chip label={t('ui.clear')} onPress={() => screen.setPlannedEntry(null)} /> : null}
       </View>
 
-      <Text style={[styles.heading, { color: theme.text }]}>{`Below ${screen.threshold} %`}</Text>
+      <Text style={[styles.heading, { color: theme.text }]}>{t('surfaceGfScreen.below', { threshold: screen.threshold })}</Text>
       <Text style={{ color: theme.text }}>{screen.belowText}</Text>
 
-      <Text style={[styles.heading, { color: theme.text }]}>Ambient pressure</Text>
+      <Text style={[styles.heading, { color: theme.text }]}>{t('ui.ambientPressure')}</Text>
       <View style={styles.row}>
         {PRESSURE_SOURCE_OPTIONS.map((option) => (
           <Chip
@@ -107,9 +108,9 @@ export function SurfaceGfScreen() {
       </View>
       <Text style={{ color: theme.text }}>{surface.ambient.label}</Text>
       {surface.ambient.fallbackNote ? <Text style={{ color: theme.warning }}>{surface.ambient.fallbackNote}</Text> : null}
-      <Text style={[styles.small, { color: theme.textSecondary }]}>{SINGLE_PRESSURE_NOTE}</Text>
-      <Text style={[styles.small, { color: theme.textSecondary }]}>{SURFACE_GF_EXPLAINER}</Text>
-      <Text style={[styles.small, { color: theme.textSecondary }]}>{SURFACE_GF_DISCLAIMER}</Text>
+      <Text style={[styles.small, { color: theme.textSecondary }]}>{singlePressureNote()}</Text>
+      <Text style={[styles.small, { color: theme.textSecondary }]}>{surfaceGfExplainer()}</Text>
+      <Text style={[styles.small, { color: theme.textSecondary }]}>{surfaceGfDisclaimer()}</Text>
     </ScrollView>
   );
 }

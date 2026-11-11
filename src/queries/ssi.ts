@@ -60,6 +60,7 @@ import {
   type NearestSsiSite,
   type SsiSite,
 } from '@/models/ssi/sites';
+import { t } from '@/i18n';
 
 /**
  * The tag a synced dive carries. It is the only durable record that a dive went
@@ -352,7 +353,7 @@ export function useReplaceWithSsiLogbook(): UseMutationResult<
     mutationFn: async (download) => {
       const result = convertSsiLogbookToSsrf(download);
       if (result.dives === 0) {
-        throw new Error('SSI returned no dives, so the logbook was left as it is.');
+        throw new Error(t('errors.ssi.noDives'));
       }
       const file = writeSsiSsrfFile(result.xml, 'ssi-replace.ssrf');
       try {

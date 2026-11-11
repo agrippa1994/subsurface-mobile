@@ -51,8 +51,8 @@ const LastDiveWidget = (props: LastDiveWidgetProps, environment: WidgetEnvironme
     return (
       <Text modifiers={[link]}>
         {props.hasDive
-          ? `${props.depthText}, ${props.durationText} at ${props.title}`
-          : 'No dives yet'}
+          ? props.text.inline
+          : props.text.inline}
       </Text>
     );
   }
@@ -271,12 +271,12 @@ const LastDiveWidget = (props: LastDiveWidgetProps, environment: WidgetEnvironme
       </VStack>
       <VStack modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 })]}>{profile}</VStack>
       <HStack spacing={8}>
-        {detail('Max depth', props.depthText)}
-        {detail('Duration', props.durationText)}
-        {detail('Water', props.temperatureText !== '' ? props.temperatureText : '-')}
+        {detail(props.text.maxDepth, props.depthText)}
+        {detail(props.text.duration, props.durationText)}
+        {detail(props.text.water, props.temperatureText !== '' ? props.temperatureText : '-')}
       </HStack>
       <HStack spacing={8}>
-        {detail('Buddy', props.buddyText !== '' ? props.buddyText : '-')}
+        {detail(props.text.buddy, props.buddyText !== '' ? props.buddyText : '-')}
         <VStack
           alignment="leading"
           spacing={3}
@@ -289,7 +289,7 @@ const LastDiveWidget = (props: LastDiveWidgetProps, environment: WidgetEnvironme
               opacity(0.7),
             ]}
           >
-            RATING
+            {props.text.rating}
           </Text>
           <HStack spacing={2}>{stars}</HStack>
         </VStack>

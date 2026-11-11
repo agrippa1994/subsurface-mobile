@@ -5,18 +5,19 @@ import { Stack } from 'expo-router';
 
 import { StatisticsProvider } from '@/features/statistics/statistics-context';
 import { STACK_OPTIONS } from '@/constants/navigation';
+import { t } from '@/i18n';
 
 export default function StatisticsLayout() {
   return (
     <StatisticsProvider>
       <Stack screenOptions={STACK_OPTIONS}>
-        <Stack.Screen name="index" options={{ title: 'Statistics' }} />
-        <Stack.Screen name="explore" options={{ title: 'Explore', headerLargeTitle: false }} />
-        <Stack.Screen name="chart" options={{ title: 'Chart', headerLargeTitle: false }} />
+        <Stack.Screen name="index" options={{ title: t('nav.statistics') }} />
+        <Stack.Screen name="explore" options={{ title: t('nav.explore'), headerLargeTitle: false }} />
+        <Stack.Screen name="chart" options={{ title: t('nav.chart'), headerLargeTitle: false }} />
         <Stack.Screen
           name="builder"
           options={{
-            title: 'Customize',
+            title: t('nav.customize'),
             headerLargeTitle: false,
             presentation: 'formSheet',
             // Half a screen by default: the chart behind it follows every change. Dimmed:
@@ -25,20 +26,20 @@ export default function StatisticsLayout() {
             sheetGrabberVisible: true,
           }}
         />
-        <Stack.Screen name="dives" options={{ title: 'Dives', headerLargeTitle: false }} />
-        <Stack.Screen name="dive/[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
-        <Stack.Screen name="dive/edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
-        <Stack.Screen name="dive/ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
-        <Stack.Screen name="site/[uuid]" options={{ title: 'Dive site', headerLargeTitle: false }} />
+        <Stack.Screen name="dives" options={{ title: t('nav.dives'), headerLargeTitle: false }} />
+        <Stack.Screen name="dive/[id]" options={{ title: t('nav.dive'), headerLargeTitle: false }} />
+        <Stack.Screen name="dive/edit/[id]" options={{ title: t('nav.editDive'), headerLargeTitle: false }} />
+        <Stack.Screen name="dive/ssi/[id]" options={{ title: t('nav.syncToSsi'), headerLargeTitle: false }} />
+        <Stack.Screen name="site/[uuid]" options={{ title: t('nav.diveSite'), headerLargeTitle: false }} />
         <Stack.Screen
           name="dive/trip/[id]"
-          options={{ title: 'Trip', headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}
+          options={{ title: t('nav.trip'), headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}
         />
-        <Stack.Screen name="dive/trip/edit/[id]" options={{ title: 'Edit trip', headerLargeTitle: false }} />
+        <Stack.Screen name="dive/trip/edit/[id]" options={{ title: t('nav.editTrip'), headerLargeTitle: false }} />
         <Stack.Screen
           name="dive/trip/pick"
           options={{
-            title: 'Add to Trip',
+            title: t('nav.addToTrip'),
             headerLargeTitle: false,
             presentation: 'formSheet',
             sheetGrabberVisible: true,

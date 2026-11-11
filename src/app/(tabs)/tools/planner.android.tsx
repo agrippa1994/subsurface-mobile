@@ -39,7 +39,7 @@ import {
   DIVE_MODE_OPTIONS,
   formatMinutes,
   gasName,
-  PLAN_DISCLAIMER,
+  planDisclaimer,
   SETPOINT_RANGE,
   TIME_RANGE,
   WATER_OPTIONS,
@@ -47,6 +47,7 @@ import {
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
 import { useProfileSeries } from '@/queries/settings';
+import { t } from '@/i18n';
 
 function WarningRow({ text, color }: { text: string; color: string }) {
   return (
@@ -70,12 +71,12 @@ export default function PlannerScreen() {
   const warningSection = (
     <>
       {outcome.kind !== 'planned' ? (
-        <M3Section title="No plan">
+        <M3Section title={t('ui.noPlan')}>
           <WarningRow text={outcome.message} color={palette.error} />
         </M3Section>
       ) : null}
       {view && view.warnings.length > 0 ? (
-        <M3Section title={view.warnings.length === 1 ? 'Warning' : 'Warnings'}>
+        <M3Section title={t('toolsScreen.warnings', { count: view.warnings.length })}>
           {view.warnings.map((warning) => (
             <WarningRow
               key={warning.text}
@@ -95,16 +96,16 @@ export default function PlannerScreen() {
         return (
           <M3Section
             key={segment.key}
-            title={draft.segments.length > 1 ? `Level ${index + 1}` : 'Level'}
+            title={draft.segments.length > 1 ? t('toolsScreen.levelNumber', { number: index + 1 }) : t('toolsScreen.level')}
             footer={
               index === 0
                 ? planner.dropStone
-                  ? 'The time includes the descent.'
-                  : 'The level takes its whole time to reach its depth.'
-                : 'The time includes the travel from the level before.'
+                  ? t('toolsScreen.includesDescent')
+                  : t('toolsScreen.wholeTime')
+                : t('toolsScreen.includesTravel')
             }>
             <M3StepperRow
-              label={`Depth  ${screen.depthOf(segment)} ${screen.depthUnit}`}
+              label={`${t('units.quantity.depth')}  ${screen.depthOf(segment)} ${screen.depthUnit}`}
               value={screen.depthOf(segment)}
               min={screen.depthRange.min}
               max={screen.depthRange.max}
@@ -112,7 +113,7 @@ export default function PlannerScreen() {
               onChange={(value) => screen.setDepth(segment.key, value)}
             />
             <M3StepperRow
-              label={`Time  ${segment.minutes} min`}
+              label={`${t('toolsScreen.time')}  ${segment.minutes} min`}
               value={segment.minutes}
               min={TIME_RANGE.min}
               max={TIME_RANGE.max}
@@ -121,7 +122,7 @@ export default function PlannerScreen() {
             />
             {draft.cylinders.length > 1 ? (
               <M3MenuRow
-                label="Gas"
+                label={t('ui.gas')}
                 value={segment.cylinderKey}
                 options={draft.cylinders.map((option) => ({
                   value: option.key,
@@ -132,7 +133,7 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isCcr && screen.isDiluent(cylinder) ? (
               <M3StepperRow
-                label={`Setpoint  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
+                label={`${t('toolsScreen.setpoint')}  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
                 value={segment.setpointMbar || planner.defaultSetpointMbar}
                 min={SETPOINT_RANGE.min}
                 max={SETPOINT_RANGE.max}
@@ -142,14 +143,14 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isPscr ? (
               <M3SwitchRow
-                label="On the loop"
+                label={t('ui.onTheLoop')}
                 value={segment.onLoop}
                 onChange={(value) => screen.setOnLoop(segment.key, value)}
               />
             ) : null}
             {draft.segments.length > 1 ? (
               <M3ActionRow
-                label="Remove level"
+                label={t('ui.removeLevel')}
                 destructive
                 onPress={() => screen.removeLevel(segment.key)}
               />
@@ -159,10 +160,10 @@ export default function PlannerScreen() {
       })}
 
       <M3Section>
-        <M3ActionRow label="Add level" icon="plus" onPress={screen.addLevel} />
+        <M3ActionRow label={t('ui.addLevel')} icon="plus" onPress={screen.addLevel} />
       </M3Section>
 
-      <M3Section title="Cylinders">
+      <M3Section title={t('ui.cylinders')}>
         {draft.cylinders.map((cylinder) => (
           <M3ActionRow
             key={cylinder.key}
@@ -172,37 +173,37 @@ export default function PlannerScreen() {
             onPress={() => screen.openCylinder(cylinder.key)}
           />
         ))}
-        <M3ActionRow label="Add cylinder" icon="plus" onPress={screen.addCylinderAndOpen} />
+        <M3ActionRow label={t('ui.addCylinder')} icon="plus" onPress={screen.addCylinderAndOpen} />
       </M3Section>
 
-      <M3Section title="Dive">
+      <M3Section title={t('ui.dive')}>
         <M3WhenRows
-          dateLabel="Start date"
-          timeLabel="Start time"
+          dateLabel={t('toolsScreen.startDate')}
+          timeLabel={t('toolsScreen.startTime')}
           value={draft.when}
           onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
         />
         <M3MenuRow
-          label="Deco model"
+          label={t('ui.decoModel')}
           value={planner.decoMode}
           options={DECO_MODE_OPTIONS}
           onChange={(decoMode) => screen.setPlanner({ decoMode })}
         />
         <M3MenuRow
-          label="Dive mode"
+          label={t('ui.diveMode')}
           value={draft.diveMode}
           options={DIVE_MODE_OPTIONS}
           onChange={screen.setMode}
         />
         {(screen.isCcr || screen.isPscr) && planner.decoMode !== PlanDecoMode.Recreational ? (
           <M3SwitchRow
-            label="Deco on open circuit bailout"
+            label={t('ui.decoOnOpenCircuitBailout')}
             value={planner.doBailout}
             onChange={(doBailout) => screen.setPlanner({ doBailout })}
           />
         ) : null}
         <M3SegmentedRow
-          label="Water"
+          label={t('ui.water')}
           options={WATER_OPTIONS}
           value={draft.water}
           onChange={(water) => screen.setDraft((d) => ({ ...d, water }))}
@@ -215,12 +216,12 @@ export default function PlannerScreen() {
     view && result ? (
       <>
         {view.stops.length > 0 ? (
-          <M3Section title="Stops">
+          <M3Section title={t('ui.stops')}>
             {view.stops.map((stop) => (
               <M3ValueRow
                 key={`${stop.depthMm}-${stop.endSec}`}
                 inline
-                label={`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
+                label={t('toolsScreen.stopOn', { depth: formatDepth(stop.depthMm, units), gas: stop.gas })}
                 value={formatMinutes(stop.durationSec)}
               />
             ))}
@@ -228,8 +229,8 @@ export default function PlannerScreen() {
         ) : null}
 
         <M3Section
-          title="Gas"
-          footer={screen.isCcr ? 'Closed loop legs are not counted against the cylinders.' : undefined}>
+          title={t('ui.gas')}
+          footer={screen.isCcr ? t('toolsScreen.closedLoop') : undefined}>
           {view.gasRows.map((row) => (
             <Column
               key={row.key}
@@ -265,17 +266,17 @@ export default function PlannerScreen() {
                 ))}
             </Column>
           ))}
-          <M3ValueRow inline label="CNS" value={`${result.cns}%`} />
-          <M3ValueRow inline label="OTU" value={String(result.otu)} />
+          <M3ValueRow inline label={t('ui.cns')} value={`${result.cns}%`} />
+          <M3ValueRow inline label={t('ui.otu')} value={String(result.otu)} />
         </M3Section>
 
         {view.plot && result.profile ? (
-          <M3Section title="Profile" footer={view.interval ?? undefined}>
+          <M3Section title={t('ui.profile')} footer={view.interval ?? undefined}>
             <Column modifiers={[padding(16, 0, 16, 0)]}>
               <RNHostView matchContents>
                 <View
                   style={{ width: screen.chartWidth }}
-                  accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, units)}`}>
+                  accessibilityLabel={t('toolsScreen.planProfile', { runtime: view.headline.runtime, depth: formatDepth(result.maxDepthMm, units) })}>
                   {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
                   <ProfileChart
                     key={result.runtimeSec}
@@ -292,15 +293,15 @@ export default function PlannerScreen() {
         ) : null}
 
         <M3Section>
-          <M3ActionRow label="Full plan notes" icon="doc.text" opens onPress={screen.openNotes} />
+          <M3ActionRow label={t('ui.fullPlanNotes')} icon="doc.text" opens onPress={screen.openNotes} />
         </M3Section>
       </>
     ) : null;
 
   const ending = (
-    <M3Section footer={PLAN_DISCLAIMER}>
-      <M3ActionRow label="Planner settings" icon="gearshape" opens onPress={screen.openSettings} />
-      <M3ActionRow label="Start over" destructive onPress={screen.resetDraft} />
+    <M3Section footer={planDisclaimer()}>
+      <M3ActionRow label={t('ui.plannerSettings')} icon="gearshape" opens onPress={screen.openSettings} />
+      <M3ActionRow label={t('ui.startOver')} destructive onPress={screen.resetDraft} />
     </M3Section>
   );
 
@@ -308,16 +309,16 @@ export default function PlannerScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Dive planner' }} />
+      <Stack.Screen options={{ title: t('nav.divePlanner') }} />
       <HeaderActions
         actions={[
           {
-            label: 'Add to the logbook',
+            label: t('toolsScreen.addToLogbook'),
             icon: 'square.and.arrow.down',
             disabled: !view?.canSave || screen.saving,
             onPress: screen.savePlan,
           },
-          { label: 'Planner settings', icon: 'gearshape', onPress: screen.openSettings },
+          { label: t('ui.plannerSettings'), icon: 'gearshape', onPress: screen.openSettings },
         ]}
       />
       {screen.twoPanes ? (

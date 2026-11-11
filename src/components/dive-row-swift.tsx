@@ -15,6 +15,7 @@ import {
 import { PlatformColor } from 'react-native';
 
 import { ratingStars, type DiveRow } from '@/models/dive-list';
+import { t } from '@/i18n';
 
 const ACCENT = '#007AFF';
 const ACCENT_FILL = '#007AFF1F';
@@ -74,12 +75,12 @@ export function DiveRowContent({
             ))}
             {row.planned ? (
               <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>
-                {stars > 0 ? '  planned' : 'planned'}
+                {`${stars > 0 ? '  ' : ''}${t('diveList.planned')}`}
               </Text>
             ) : null}
             {row.invalid ? (
               <Text modifiers={[font({ textStyle: 'caption' }), foregroundStyle(SECONDARY)]}>
-                {stars > 0 || row.planned ? '  invalid' : 'invalid'}
+                {`${stars > 0 || row.planned ? '  ' : ''}${t('diveList.invalid')}`}
               </Text>
             ) : null}
           </HStack>

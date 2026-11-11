@@ -6,6 +6,7 @@ import { FilledTonalIconButton, Row, Text } from '@expo/ui/jetpack-compose';
 import { fillMaxWidth, weight } from '@expo/ui/jetpack-compose/modifiers';
 
 import { M3Icon } from '@/components/material/icon';
+import { t } from '@/i18n';
 
 export function StepperRow({
   label,
@@ -34,12 +35,12 @@ export function StepperRow({
         <FilledTonalIconButton
           enabled={value > min}
           onClick={() => onChange(Math.max(min, value - step))}>
-          <M3Icon name="remove" label={`Decrease ${label}`} />
+          <M3Icon name="remove" label={t('charts.decrease', { label })} />
         </FilledTonalIconButton>
         <FilledTonalIconButton
           enabled={value < max}
           onClick={() => onChange(Math.min(max, value + step))}>
-          <M3Icon name="add" label={`Increase ${label}`} />
+          <M3Icon name="add" label={t('charts.increase', { label })} />
         </FilledTonalIconButton>
       </Row>
     </Host>

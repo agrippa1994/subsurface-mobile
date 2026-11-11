@@ -26,6 +26,7 @@ import {
   type BarMark,
   type ChartScene,
 } from '@/models/stats-chart-layout';
+import { t } from '@/i18n';
 
 const BAR_RADIUS = 4;
 /** Columns thinner than this get no value above them. */
@@ -402,7 +403,7 @@ export function StatsLegend({ chart }: { chart: StatsChart }) {
     <View
       style={styles.legend}
       accessible
-      accessibilityLabel={`Legend: ${names.map((name) => binLabel(name)).join(', ')}`}>
+      accessibilityLabel={t('charts.legend', { names: names.map((name) => binLabel(name)).join(', ') })}>
       {names.map((name, series) => (
         <View key={name} style={styles.legendEntry}>
           <View style={[styles.swatch, { backgroundColor: seriesColor(colors, series) }]} />
@@ -420,8 +421,8 @@ export function StatsMarkers({ chart, config }: { chart: StatsChart; config: Sta
   const colors = ChartColors[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const axis = chart.catAxis?.title.match(/\[(.*)\]$/)?.[1] ?? '';
   const markers = [
-    config.features.mean && chart.mean != null ? { label: 'Mean', value: chart.mean, color: colors.trend } : null,
-    config.features.median && chart.median != null ? { label: 'Median', value: chart.median, color: colors.median } : null,
+    config.features.mean && chart.mean != null ? { label: t('stats.readout.mean'), value: chart.mean, color: colors.trend } : null,
+    config.features.median && chart.median != null ? { label: t('stats.readout.median'), value: chart.median, color: colors.median } : null,
   ].filter((marker) => marker !== null);
   if (markers.length === 0) {
     return null;

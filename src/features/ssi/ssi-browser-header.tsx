@@ -10,6 +10,7 @@ import { Alert, Platform, Pressable, Text, View } from 'react-native';
 import { HeaderIconButton } from '@/components/header-icon-button';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export type SsiBrowserView = 'map' | 'list';
 export type SsiSiteSort = 'name' | 'nearest' | 'recent';
@@ -61,18 +62,18 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
   const items: NativeStackHeaderItemMenuSubmenu[] = [
     ...(props.onMySites
       ? [
-          section('Show', [
-            action('My dive sites', () => props.onMySites?.()),
-            action('SSI dive sites', () => {}, true),
+          section(t('ssiBrowser.show'), [
+            action(t('ui.myDiveSites'), () => props.onMySites?.()),
+            action(t('sitesScreen.ssiSites'), () => {}, true),
           ]),
         ]
       : []),
     ...(props.view === 'list'
       ? [
-          section('Sort by', [
-            action('Name', () => props.onSortChange('name'), props.sort === 'name'),
-            action('Nearest', () => props.onSortChange('nearest'), props.sort === 'nearest'),
-            action('Recently used', () => props.onSortChange('recent'), props.sort === 'recent'),
+          section(t('ui.sortBy'), [
+            action(t('ui.name'), () => props.onSortChange('name'), props.sort === 'name'),
+            action(t('ui.nearest'), () => props.onSortChange('nearest'), props.sort === 'nearest'),
+            action(t('ui.recentlyUsed'), () => props.onSortChange('recent'), props.sort === 'recent'),
           ]),
         ]
       : []),
@@ -81,20 +82,20 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
   if (props.mapsAvailable)
     right.push({
       type: 'button',
-      label: props.view === 'map' ? 'Show as list' : 'Show on map',
+      label: props.view === 'map' ? t('ssiBrowser.showList') : t('ssiBrowser.showMap'),
       icon: { type: 'sfSymbol', name: props.view === 'map' ? 'list.bullet' : 'map' },
       onPress: () => props.onViewChange(props.view === 'map' ? 'list' : 'map'),
     });
   right.push({
     type: 'button',
-    label: props.view === 'map' ? 'Go to my location' : 'Sort by nearest to me',
+    label: props.view === 'map' ? t('ui.goToMyLocation') : t('ssiBrowser.sortNearest'),
     icon: { type: 'sfSymbol', name: props.locating ? 'location.fill' : 'location' },
     onPress: props.onLocate,
   });
   if (items.length)
     right.push({
       type: 'menu',
-      label: 'Site options',
+      label: t('sitesScreen.options'),
       icon: { type: 'sfSymbol', name: 'line.3.horizontal.decrease' },
       menu: { items },
     });
@@ -102,12 +103,12 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
   if (props.onBack)
     left.push({
       type: 'button',
-      label: 'Back to sites',
+      label: t('ssiBrowser.backToSites'),
       icon: { type: 'sfSymbol', name: 'chevron.left' },
       onPress: () => props.onBack?.(),
     });
   if (props.onClose)
-    left.push({ type: 'button', label: 'Cancel', onPress: () => props.onClose?.() });
+    left.push({ type: 'button', label: t('ui.cancel'), onPress: () => props.onClose?.() });
   const fallbackButton = (label: string, onPress: () => void) => (
     <Pressable
       key={label}
@@ -125,7 +126,7 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
     // Bar items float over the map on iOS 26; Android's header is opaque.
     headerTransparent: Platform.OS === 'ios' && props.view === 'map',
     headerSearchBarOptions: {
-      placeholder: 'Search SSI dive sites',
+      placeholder: t('ssiBrowser.search'),
       hideWhenScrolling: false,
       hideNavigationBar: false,
       placement: 'stacked',
@@ -140,39 +141,39 @@ export function SsiBrowserHeader(props: SsiBrowserHeaderProps) {
       : {
           headerLeft: () => (
             <View style={{ flexDirection: 'row' }}>
-              {props.onBack ? fallbackButton('Back', props.onBack) : null}
-              {props.onClose ? fallbackButton('Cancel', props.onClose) : null}
+              {props.onBack ? fallbackButton(t('common.back'), props.onBack) : null}
+              {props.onClose ? fallbackButton(t('common.cancel'), props.onClose) : null}
             </View>
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {props.mapsAvailable && props.view === 'map' ? (
                 <HeaderIconButton
-                  label="Go to my location"
+                  label={t('ui.goToMyLocation')}
                   icon={props.locating ? 'location.fill' : 'location'}
                   onPress={props.onLocate}
                 />
               ) : null}
               {props.mapsAvailable ? (
                 <HeaderIconButton
-                  label={props.view === 'map' ? 'Show as list' : 'Show on map'}
+                  label={props.view === 'map' ? t('ssiBrowser.showList') : t('ssiBrowser.showMap')}
                   icon={props.view === 'map' ? 'list.bullet' : 'map'}
                   onPress={() => props.onViewChange(props.view === 'map' ? 'list' : 'map')}
                 />
               ) : null}
-              {fallbackButton('Options', () =>
-                Alert.alert('Site options', undefined, [
+              {fallbackButton(t('ui.options'), () =>
+                Alert.alert(t('sitesScreen.options'), undefined, [
                   {
-                    text: 'Sort by',
+                    text: t('ui.sortBy'),
                     onPress: () =>
-                      Alert.alert('Sort by', undefined, [
-                        { text: 'Name', onPress: () => props.onSortChange('name') },
-                        { text: 'Nearest', onPress: () => props.onSortChange('nearest') },
-                        { text: 'Recently used', onPress: () => props.onSortChange('recent') },
+                      Alert.alert(t('ui.sortBy'), undefined, [
+                        { text: t('ui.name'), onPress: () => props.onSortChange('name') },
+                        { text: t('ui.nearest'), onPress: () => props.onSortChange('nearest') },
+                        { text: t('ui.recentlyUsed'), onPress: () => props.onSortChange('recent') },
                       ]),
                   },
-                  ...(props.onMySites ? [{ text: 'My dive sites', onPress: props.onMySites }] : []),
-                  { text: 'Cancel', style: 'cancel' as const },
+                  ...(props.onMySites ? [{ text: t('ui.myDiveSites'), onPress: props.onMySites }] : []),
+                  { text: t('ui.cancel'), style: 'cancel' as const },
                 ]),
               )}
             </View>

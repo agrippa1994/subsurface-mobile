@@ -21,6 +21,7 @@ import {
 import { Spacing } from '@/constants/theme';
 import { selectionChanged } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export function FormSection({
   title,
@@ -188,7 +189,7 @@ export function RatingField({
               onChange(value === star ? 0 : star);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`${label} ${star} of 5`}
+            accessibilityLabel={t('charts.starOf', { label, star })}
             hitSlop={Spacing.two}>
             <SymbolView
               name={star <= value ? 'star.fill' : 'star'}

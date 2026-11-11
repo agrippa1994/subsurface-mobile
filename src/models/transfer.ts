@@ -9,6 +9,7 @@
 // difference between "open this instead" and "merge this in".
 
 import type { CsvFormat, DiveSummary, ImportResult } from '@/models';
+import { t } from '@/i18n';
 
 /**
  * What the document picker accepts. These are MIME types, not UTIs:
@@ -53,23 +54,19 @@ export function exportFileName(when: Date = new Date()): string {
 }
 
 /** The CSV formats in the order the export menu offers them, with their labels. */
-export const CSV_FORMATS: readonly { format: CsvFormat; label: string; description: string }[] = [
-  {
-    format: 'details',
-    label: 'Profile samples',
-    description: 'The samples as downloaded from the dive computer.',
+export const CSV_FORMATS: readonly {
+  format: CsvFormat;
+  readonly label: string;
+  readonly description: string;
+}[] = (['details', 'summary', 'profile'] as const).map((format) => ({
+  format,
+  get label() {
+    return t(`transfer.csv.${format}.label`);
   },
-  {
-    format: 'summary',
-    label: 'Dive summary',
-    description: 'One row of dive details, without the profile.',
+  get description() {
+    return t(`transfer.csv.${format}.description`);
   },
-  {
-    format: 'profile',
-    label: 'Computed profile',
-    description: 'Everything the profile diagram computes, sample by sample.',
-  },
-];
+}));
 
 /**
  * `dive-12-2026-08-14-details.csv`. The date is read in UTC because
@@ -80,10 +77,6 @@ export function csvFileName(dive: Pick<DiveSummary, 'number' | 'when'>, format: 
   const date = new Date(dive.when * 1000).toISOString().slice(0, 10);
   const number = dive.number > 0 ? `-${dive.number}` : '';
   return `dive${number}-${date}-${format}.csv`;
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 /**
@@ -102,16 +95,16 @@ export function importNeedsExplaining(result: ImportResult): boolean {
 export function describeImport(result: ImportResult): string {
   const parts: string[] = [];
   if (result.added > 0) {
-    parts.push(`${plural(result.added, 'dive')} added`);
+    parts.push(t('transfer.import.added', { count: result.added }));
   }
   if (result.merged > 0) {
-    parts.push(`${plural(result.merged, 'dive')} already in the logbook`);
+    parts.push(t('transfer.import.merged', { count: result.merged }));
   }
   if (result.failed > 0) {
-    parts.push(`${plural(result.failed, 'file')} could not be read`);
+    parts.push(t('transfer.import.failed', { count: result.failed }));
   }
   if (parts.length === 0) {
-    return 'Nothing to import.';
+    return t('transfer.import.nothing');
   }
-  return `${parts.join(', ')}. The logbook now holds ${plural(result.dives, 'dive')}.`;
+  return t('transfer.import.summary', { parts: parts.join(', '), count: result.dives });
 }

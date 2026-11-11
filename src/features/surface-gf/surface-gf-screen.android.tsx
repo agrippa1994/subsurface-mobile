@@ -27,11 +27,12 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import {
   BELOW_THRESHOLDS,
   PLANNED_ENTRY_PRESETS,
-  SINGLE_PRESSURE_NOTE,
-  SURFACE_GF_DISCLAIMER,
-  SURFACE_GF_EXPLAINER,
+  singlePressureNote,
+  surfaceGfDisclaimer,
+  surfaceGfExplainer,
   TIMELINE_SPANS,
 } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 /** The Material date and time dialogs take the core's wall-clock seconds; these convert. */
 function toWhen(ms: number): number {
@@ -52,7 +53,7 @@ export function SurfaceGfScreen() {
     return (
       <StatusView
         kind="error"
-        title="Surface GF is unavailable"
+        title={t('ui.surfaceGfIsUnavailable')}
         description={formatErrorLine(describeError(surface.error))}
         systemImage="exclamationmark.triangle"
       />
@@ -60,12 +61,12 @@ export function SurfaceGfScreen() {
   }
   if (!timeline || !readout || !window) {
     return surface.isPending ? (
-      <StatusView kind="loading" title="Working out the surface GF" />
+      <StatusView kind="loading" title={t('ui.workingOutTheSurfaceGf')} />
     ) : (
       <StatusView
         kind="empty"
-        title="No dives yet"
-        description="The surface GF follows the latest dive in your logbook."
+        title={t('ui.noDivesYet')}
+        description={t('ui.theSurfaceGfFollowsTheLatest')}
         systemImage="water.waves"
       />
     );
@@ -76,7 +77,7 @@ export function SurfaceGfScreen() {
   return (
     <M3Screen>
       <M3Section
-        footer={`Dive #${timeline.diveNumber}. ${surface.ambient.label}.${timeline.residual ? ' Includes nitrogen from the dives before it.' : ''}`}>
+        footer={`${t('surfaceGfScreen.diveNumber', { number: timeline.diveNumber })} ${surface.ambient.label}.${timeline.residual ? ` ${t('surfaceGfScreen.residual')}` : ''}`}>
         <Column modifiers={[padding(16, 12, 16, 4)]}>
           <Text color={aboveHigh ? theme.warning : palette.onSurface} style={{ typography: 'displayMedium' }}>
             {readout.gfText}
@@ -99,7 +100,7 @@ export function SurfaceGfScreen() {
                 onCursorChange={screen.setCursor}
                 plannedMs={screen.settings.plannedEntryMs}
                 gfHigh={surface.gfHigh}
-                accessibilityLabel={`Surface GF over time. ${readout.accessibilityLabel}`}
+                accessibilityLabel={`${t('surfaceGfScreen.overTime')} ${readout.accessibilityLabel}`}
               />
             </View>
           </RNHostView>
@@ -112,25 +113,25 @@ export function SurfaceGfScreen() {
         <M3WhenRows
           value={toWhen(screen.cursorMs)}
           onChange={(when) => screen.setCursor(fromWhen(when))}
-          dateLabel="Show the day"
-          timeLabel="Show the time"
+          dateLabel={t('surfaceGfScreen.showDay')}
+          timeLabel={t('ui.showTheTime')}
         />
         {screen.cursorFollowsNow ? null : (
-          <M3ActionRow label="Back to now" icon="arrow.uturn.backward" onPress={screen.resetCursor} />
+          <M3ActionRow label={t('ui.backToNow')} icon="arrow.uturn.backward" onPress={screen.resetCursor} />
         )}
       </M3Section>
 
       {screen.pastSeries ? (
-        <M3Section footer="The tissues were clean long before now, so the card on the dive list is hidden.">
+        <M3Section footer={t('ui.theTissuesWereCleanLongBefore')}>
           <M3ActionRow
-            label="Look at it 30 min after the dive"
+            label={t('ui.lookAtIt30MinAfter')}
             icon="clock.arrow.circlepath"
             onPress={() => screen.setAsOfOverride(screen.asOfDefault)}
           />
         </M3Section>
       ) : null}
 
-      <M3Section title="Next entry" footer="Kept on this phone as a preference, not in the logbook.">
+      <M3Section title={t('ui.nextEntry')} footer={t('ui.keptOnThisPhoneAsA')}>
         {planned ? (
           <M3ValueRow
             label={planned.whenText}
@@ -141,8 +142,8 @@ export function SurfaceGfScreen() {
         <M3WhenRows
           value={toWhen(screen.settings.plannedEntryMs ?? screen.asOf)}
           onChange={(when) => screen.setPlannedEntry(fromWhen(when))}
-          dateLabel="Planned day"
-          timeLabel="Planned time"
+          dateLabel={t('surfaceGfScreen.plannedDay')}
+          timeLabel={t('surfaceGfScreen.plannedTime')}
         />
         <FlowRow horizontalArrangement={{ spacedBy: 8 }} modifiers={[padding(16, 4, 16, 8)]}>
           {PLANNED_ENTRY_PRESETS.map((preset) => (
@@ -152,13 +153,13 @@ export function SurfaceGfScreen() {
           ))}
         </FlowRow>
         {planned ? (
-          <M3ActionRow label="Clear planned entry" destructive onPress={() => screen.setPlannedEntry(null)} />
+          <M3ActionRow label={t('ui.clearPlannedEntry')} destructive onPress={() => screen.setPlannedEntry(null)} />
         ) : null}
       </M3Section>
 
-      <M3Section title="When below">
+      <M3Section title={t('ui.whenBelow')}>
         <M3MenuRow
-          label="Surface GF at or below"
+          label={t('ui.surfaceGfAtOrBelow')}
           value={screen.threshold}
           options={BELOW_THRESHOLDS.map((value) => ({ value, label: `${value} %` }))}
           onChange={screen.setThreshold}
@@ -166,7 +167,7 @@ export function SurfaceGfScreen() {
         <M3Note>{screen.belowText ?? ''}</M3Note>
       </M3Section>
 
-      <M3Section title="Ambient pressure" footer={SINGLE_PRESSURE_NOTE}>
+      <M3Section title={t('ui.ambientPressure')} footer={singlePressureNote()}>
         <M3SegmentedRow
           options={PRESSURE_SOURCE_OPTIONS}
           value={screen.settings.pressureSource}
@@ -174,7 +175,7 @@ export function SurfaceGfScreen() {
         />
         {screen.settings.pressureSource === 'altitude' || surface.ambient.source !== 'barometer' ? (
           <M3StepperRow
-            label={`Altitude  ${screen.altitudeText}`}
+            label={`${t('ui.altitude')}  ${screen.altitudeText}`}
             value={screen.settings.altitudeMm}
             min={screen.altitudeRangeMm.min}
             max={screen.altitudeRangeMm.max}
@@ -182,23 +183,23 @@ export function SurfaceGfScreen() {
             onChange={screen.setAltitudeMm}
           />
         ) : null}
-        <M3ValueRow inline label="In use" value={surface.ambient.label} />
+        <M3ValueRow inline label={t('ui.inUse')} value={surface.ambient.label} />
         {surface.ambient.fallbackNote ? (
           <M3Note color={theme.warning}>{surface.ambient.fallbackNote}</M3Note>
         ) : null}
       </M3Section>
 
       <M3Section
-        title="Testing"
-        footer="Follow an older dive, or pretend now is another time, to try the timeline on a log whose last dive was long ago.">
+        title={t('ui.testing')}
+        footer={t('ui.followAnOlderDiveOrPretend')}>
         <M3MenuRow
-          label="Dive"
+          label={t('ui.dive')}
           value={screen.referenceValue}
           options={screen.referenceOptions}
           onChange={screen.setReference}
         />
         <M3SwitchRow
-          label="As of another time"
+          label={t('ui.asOfAnotherTime')}
           value={screen.asOfOverride !== null}
           onChange={(on) => screen.setAsOfOverride(on ? screen.asOfDefault : null)}
         />
@@ -206,14 +207,14 @@ export function SurfaceGfScreen() {
           <M3WhenRows
             value={toWhen(screen.asOfOverride)}
             onChange={(when) => screen.setAsOfOverride(fromWhen(when))}
-            dateLabel="As of day"
-            timeLabel="As of time"
+            dateLabel={t('surfaceGfScreen.asOfDay')}
+            timeLabel={t('surfaceGfScreen.asOfTime')}
           />
         ) : null}
       </M3Section>
 
-      <M3Section footer={SURFACE_GF_DISCLAIMER}>
-        <M3Note color={palette.onSurfaceVariant}>{SURFACE_GF_EXPLAINER}</M3Note>
+      <M3Section footer={surfaceGfDisclaimer()}>
+        <M3Note color={palette.onSurfaceVariant}>{surfaceGfExplainer()}</M3Note>
       </M3Section>
       <M3Footnote>{' '}</M3Footnote>
     </M3Screen>

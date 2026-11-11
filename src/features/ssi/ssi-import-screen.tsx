@@ -42,10 +42,7 @@ import {
   useReplaceWithSsiLogbook,
   useSsiDownload,
 } from '@/queries/ssi';
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
+import { t } from '@/i18n';
 
 export function SsiImportScreen() {
   const theme = useTheme();
@@ -82,7 +79,7 @@ export function SsiImportScreen() {
     // The download's paused state means no network: a skeleton would promise a list
     // that is not coming until the connection returns.
     return download.fetchStatus === 'paused' ? (
-      <StatusView kind="empty" title="Connect to read your SSI logbook" />
+      <StatusView kind="empty" title={t('ui.connectToReadYourSsiLogbook')} />
     ) : (
       <SsiImportSkeleton />
     );
@@ -91,15 +88,15 @@ export function SsiImportScreen() {
     return (
       <StatusView
         kind="error"
-        title="Could not read your SSI logbook"
+        title={t('ui.couldNotReadYourSsiLogbook')}
         description={download.error ? formatErrorLine(describeError(download.error)) : undefined}
-        actionLabel="Try again"
+        actionLabel={t('ui.tryAgain')}
         onAction={() => void download.refetch()}
       />
     );
   }
   if (!preview || preview.length === 0) {
-    return <StatusView kind="empty" title="No dives in your SSI logbook" />;
+    return <StatusView kind="empty" title={t('ui.noDivesInYourSsiLogbook')} />;
   }
 
   const source = download.data;
@@ -124,18 +121,18 @@ export function SsiImportScreen() {
             operationSucceeded();
             router.back();
           } else {
-            finish('SSI logbook', describeSsiImport(result));
+            finish(t('ssiImport.ssiLogbook'), describeSsiImport(result));
           }
         },
-        onError: (caught) => fail('Could not import from SSI', caught),
+        onError: (caught) => fail(t('ssiImport.importFailed'), caught),
       },
     );
   };
 
   const replace = () => {
     replaceLog.mutate(source, {
-      onSuccess: (result) => finish('Logbook replaced', describeSsiImport(result)),
-      onError: (caught) => fail('Could not replace the logbook', caught),
+      onSuccess: (result) => finish(t('ssiImport.replaced'), describeSsiImport(result)),
+      onError: (caught) => fail(t('ssiImport.replaceFailed'), caught),
     });
   };
 
@@ -144,15 +141,15 @@ export function SsiImportScreen() {
     const lost = countDivesOnlyInLog(current, preview);
     warned();
     Alert.alert(
-      `Replace with ${plural(preview.length, 'SSI dive')}?`,
-      `All ${plural(current.length, 'dive')} in this logbook are removed, including your edits and original dive computer data. ` +
-        (lost > 0
-          ? `${plural(lost, 'dive')} not on SSI will be lost. `
-          : 'Every one of them has a copy on SSI. ') +
-        'This cannot be undone. Export the logbook first if you may want it back.',
+      t('ssiImport.replaceTitle', { count: preview.length }),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Replace', style: 'destructive', onPress: replace },
+        t('ssiImport.replaceRemoved', { count: current.length }),
+        lost > 0 ? t('ssiImport.replaceLost', { count: lost }) : t('ssiImport.replaceCopied'),
+        t('ssiImport.replaceFinal'),
+      ].join(' '),
+      [
+        { text: t('ui.cancel'), style: 'cancel' },
+        { text: t('ui.replace'), style: 'destructive', onPress: replace },
       ],
     );
   };
@@ -171,9 +168,9 @@ export function SsiImportScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Add SSI dives' }} />
+      <Stack.Screen options={{ title: t('nav.addSsiDives') }} />
       <HeaderAction
-        label={chosen.length > 0 ? `Import ${chosen.length}` : 'Import'}
+        label={chosen.length > 0 ? t('ssiImport.importCount', { count: chosen.length }) : t('ui.import')}
         disabled={busy || chosen.length === 0}
         onPress={importChosen}
       />
@@ -193,13 +190,13 @@ export function SsiImportScreen() {
               <View style={styles.busy}>
                 <ActivityIndicator color={theme.accent} />
                 <Text style={{ color: theme.textSecondary }}>
-                  {replaceLog.isPending ? 'Replacing the logbook...' : 'Importing dives...'}
+                  {replaceLog.isPending ? t('ssiImport.replacing') : t('ssiImport.importing')}
                 </Text>
               </View>
             ) : null}
-            <FormSection footer="Removes every dive in this logbook and puts all your SSI dives in its place.">
+            <FormSection footer={t('ui.removesEveryDiveInThisLogbook')}>
               <FormButtonRow
-                label="Replace logbook with all SSI dives"
+                label={t('ui.replaceLogbookWithAllSsiDives')}
                 value={String(preview.length)}
                 destructive
                 onPress={busy ? () => undefined : confirmReplace}
@@ -208,8 +205,11 @@ export function SsiImportScreen() {
             <View style={styles.listTitle}>
               <Text style={[styles.listTitleText, { color: theme.textSecondary }]}>
                 {newKeys.length === 0
-                  ? 'All SSI dives are in this logbook'
-                  : `${plural(newKeys.length, 'new dive')}, ${chosen.length} selected`}
+                  ? t('ssiImport.allIn')
+                  : t('ssiImport.newSelected', {
+                      dives: t('ssiImport.newDives', { count: newKeys.length }),
+                      selected: chosen.length,
+                    })}
               </Text>
               {newKeys.length > 0 ? (
                 <Pressable
@@ -217,7 +217,7 @@ export function SsiImportScreen() {
                   hitSlop={Spacing.two}
                   onPress={() => setSelected(allChosen ? new Set() : new Set(newKeys))}>
                   <Text style={{ color: theme.accent }}>
-                    {allChosen ? 'Select none' : 'Select all'}
+                    {allChosen ? t('ssiImport.selectNone') : t('download.selectAll')}
                   </Text>
                 </Pressable>
               ) : null}
@@ -256,16 +256,16 @@ function SsiImportSkeleton() {
   const theme = useTheme();
   return (
     <>
-      <HeaderAction label="Import" disabled onPress={() => undefined} />
+      <HeaderAction label={t('ui.import')} disabled onPress={() => undefined} />
       <ScrollView
         scrollEnabled={false}
         style={{ backgroundColor: theme.background }}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic">
-        <SkeletonGroup label="Reading your SSI logbook">
+        <SkeletonGroup label={t('ui.readingYourSsiLogbook')}>
           <View style={styles.header}>
-            <FormSection footer="Removes every dive in this logbook and puts all your SSI dives in its place.">
-              <SkeletonText text="Replace logbook with all SSI dives" style={styles.skeletonButton} />
+            <FormSection footer={t('ui.removesEveryDiveInThisLogbook')}>
+              <SkeletonText text={t('ui.replaceLogbookWithAllSsiDives')} style={styles.skeletonButton} />
             </FormSection>
             <SkeletonText text="128 new dives, 0 selected" style={styles.listTitleText} />
           </View>
@@ -296,7 +296,7 @@ function DiveRow({
   onToggle: () => void;
 }) {
   const theme = useTheme();
-  const title = dive.siteName || 'No dive site';
+  const title = dive.siteName || t('ui.noDiveSite');
   const detail = [
     formatDate(dive.when),
     dive.maxDepthMm > 0 ? formatDepth(dive.maxDepthMm, units) : '',
@@ -312,7 +312,7 @@ function DiveRow({
       onPress={onToggle}
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected, disabled: dive.inLog }}
-      accessibilityLabel={`${number}${title}, ${detail}${dive.inLog ? ', already in the logbook' : ''}`}
+      accessibilityLabel={`${number}${title}, ${detail}${dive.inLog ? `, ${t('ssiImport.alreadyIn')}` : ''}`}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: pressed ? theme.backgroundSelected : theme.background },
@@ -334,7 +334,7 @@ function DiveRow({
           {title}
         </Text>
         <Text numberOfLines={1} style={[styles.rowDetail, { color: theme.textSecondary }]}>
-          {dive.inLog ? `${detail} - in logbook` : detail}
+          {dive.inLog ? `${detail} - ${t('ssiImport.inLogbook')}` : detail}
         </Text>
       </View>
     </Pressable>

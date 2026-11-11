@@ -12,6 +12,8 @@ import { Spacing } from '@/constants/theme';
 import { ChoicePicker, type Choice } from '@/features/dive-computer/choice-picker';
 import { useBuilder, type BuilderField, type VariableField } from '@/features/statistics/use-builder';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
+import { variableLabel } from '@/models/stats-chart';
 
 type Open = { title: string; selected: string; choices: Choice<string | null>[]; onChoose: (value: string | null) => void };
 
@@ -37,7 +39,7 @@ export default function BuilderScreen() {
   );
 
   const variableRow = (field: VariableField) =>
-    row(field.key, field.label, field.selected, () =>
+    row(field.key, field.label, variableLabel(field.selected), () =>
       setOpen({
         title: field.label,
         selected: field.selected,
@@ -46,7 +48,7 @@ export default function BuilderScreen() {
           ...field.groups.flatMap((group) =>
             group.variables.map((variable) => ({
               key: variable.name,
-              label: variable.name,
+              label: variableLabel(variable.name),
               detail: group.title,
               value: variable.name,
             })),
@@ -76,18 +78,18 @@ export default function BuilderScreen() {
 
   return (
     <>
-      <HeaderAction label="Done" done onPress={() => router.back()} />
+      <HeaderAction label={t('ui.done')} done onPress={() => router.back()} />
       <ScrollView
         style={{ backgroundColor: theme.background }}
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic">
-        <FormSection title="What to show" footer={builder.description}>
+        <FormSection title={t('ui.whatToShow')} footer={builder.description}>
           {builder.first ? variableRow(builder.first) : null}
           {builder.fields.map(choiceRow)}
           {builder.second ? variableRow(builder.second) : null}
           {builder.measures.map(choiceRow)}
         </FormSection>
-        <FormSection title="How to show it">
+        <FormSection title={t('ui.howToShowIt')}>
           {builder.display.map(choiceRow)}
           {builder.features.map((feature) => (
             <View key={feature.key} style={styles.row}>
@@ -101,7 +103,7 @@ export default function BuilderScreen() {
           ))}
         </FormSection>
         <Text style={[styles.note, { color: theme.textSecondary }]}>
-          The chart counts the dives the filter on the chart screen selects.
+          {t('ui.theChartCountsTheDivesThe')}
         </Text>
       </ScrollView>
       <ChoicePicker

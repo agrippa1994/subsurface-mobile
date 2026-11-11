@@ -41,6 +41,7 @@ import { Children, useState, type ReactNode } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { M3Icon } from './icon';
+import { t } from '@/i18n';
 
 /** A row takes the colour of the card it sits in. */
 const ROW_COLORS = { containerColor: 'transparent' };
@@ -284,12 +285,12 @@ export function M3StepperRow({
           <FilledTonalIconButton
             enabled={value > min}
             onClick={() => onChange(Math.max(min, value - step))}>
-            <M3Icon name="remove" label={`Decrease ${label}`} />
+            <M3Icon name="remove" label={t('charts.decrease', { label })} />
           </FilledTonalIconButton>
           <FilledTonalIconButton
             enabled={value < max}
             onClick={() => onChange(Math.min(max, value + step))}>
-            <M3Icon name="add" label={`Increase ${label}`} />
+            <M3Icon name="add" label={t('charts.increase', { label })} />
           </FilledTonalIconButton>
         </Row>
       </ListItem.TrailingContent>

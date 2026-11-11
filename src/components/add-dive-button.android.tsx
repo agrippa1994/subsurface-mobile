@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { HeaderMenuItem } from '@/components/header-action';
 import { M3Icon } from '@/components/material/icon';
+import { t } from '@/i18n';
 
 export const ADD_DIVE_IN_HEADER = false;
 
@@ -25,7 +26,7 @@ export function AddDiveButton({ items }: { items: HeaderMenuItem[] }) {
           <DropdownMenu.Trigger>
             <FloatingActionButton onClick={() => setOpen(true)}>
               <FloatingActionButton.Icon>
-                <M3Icon name="add" label="Add dive" />
+                <M3Icon name="add" label={t('ui.addDive')} />
               </FloatingActionButton.Icon>
             </FloatingActionButton>
           </DropdownMenu.Trigger>

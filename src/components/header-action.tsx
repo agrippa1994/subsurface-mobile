@@ -12,6 +12,7 @@ import { SymbolView, type SFSymbol } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useHistoryMenu } from '@/features/history/use-history-actions';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export type HeaderActionProps = {
   /** What the action does; the visible text, or the accessibility label of an icon. */
@@ -33,7 +34,7 @@ export function HeaderCancel({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
   const headerLeft = () => (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={Spacing.two}>
-      <Text style={[styles.label, { color: theme.accent }]}>Cancel</Text>
+      <Text style={[styles.label, { color: theme.accent }]}>{t('ui.cancel')}</Text>
     </Pressable>
   );
   return <Stack.Screen options={{ headerLeft }} />;
@@ -61,11 +62,11 @@ export function HeaderActions({
     history && menu
       ? [
           {
-            label: 'Undo and redo',
+            label: t('ui.undoAndRedo'),
             icon: 'arrow.uturn.backward',
             onPress: () =>
-              Alert.alert('Undo and redo', undefined, [
-                { text: 'Cancel', style: 'cancel' },
+              Alert.alert(t('common.undoRedo'), undefined, [
+                { text: t('ui.cancel'), style: 'cancel' },
                 ...(menu.canRedo ? [{ text: menu.redoTitle, onPress: menu.redo }] : []),
                 ...(menu.canUndo ? [{ text: menu.undoTitle, onPress: menu.undo }] : []),
               ]),
@@ -86,7 +87,7 @@ export function HeaderActions({
             items
               ? () =>
                   Alert.alert(label, undefined, [
-                    { text: 'Cancel', style: 'cancel' },
+                    { text: t('ui.cancel'), style: 'cancel' },
                     ...items.map((item) => ({ text: item.label, onPress: item.onPress })),
                   ])
               : onPress

@@ -18,6 +18,7 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { buildTripPatch, tripDraftFrom } from '@/models/trips';
 import { useTrips } from '@/queries/logbook';
 import { useUpdateTrip } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 export default function TripEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,21 +30,21 @@ export default function TripEditScreen() {
     return (
       <StatusView
         kind="error"
-        title="The trip could not be opened"
+        title={t('tripScreen.openFailed')}
         description={formatErrorLine(describeError(tripsQuery.error))}
         systemImage="exclamationmark.triangle"
       />
     );
   }
   if (tripsQuery.isPending) {
-    return <StatusView kind="loading" title="Opening trip" />;
+    return <StatusView kind="loading" title={t('ui.openingTrip')} />;
   }
   if (!trip) {
     return (
       <StatusView
         kind="empty"
-        title="This trip is gone"
-        description="A trip ends when its last dive leaves it."
+        title={t('tripScreen.gone')}
+        description={t('tripScreen.goneShort')}
         systemImage="suitcase"
       />
     );
@@ -78,9 +79,9 @@ function TripEditForm({ trip }: { trip: Trip }) {
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <>
-            <Stack.Screen options={{ title: 'Edit trip' }} />
+            <Stack.Screen options={{ title: t('nav.editTrip') }} />
             <HeaderAction
-              label="Save"
+              label={t('common.save')}
               done
               disabled={isSubmitting}
               onPress={() => void form.handleSubmit()}
@@ -95,12 +96,12 @@ function TripEditForm({ trip }: { trip: Trip }) {
         </Text>
       ) : null}
 
-      <FormSection footer="The trip's dives keep their own dive sites.">
+      <FormSection footer={t('tripScreen.editFooter')}>
         <form.Field name="location">
           {(field) => (
             <FormField
-              label="Location"
-              placeholder="Where the trip went"
+              label={t('tripScreen.location')}
+              placeholder={t('tripScreen.locationPlaceholder')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -115,8 +116,8 @@ function TripEditForm({ trip }: { trip: Trip }) {
         <form.Field name="notes">
           {(field) => (
             <FormField
-              label="Notes"
-              placeholder="Operator, boat, who came along"
+              label={t('dive.notes')}
+              placeholder={t('tripScreen.notesPlaceholder')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}

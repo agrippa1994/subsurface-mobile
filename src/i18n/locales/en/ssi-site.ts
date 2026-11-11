@@ -1,0 +1,22 @@
+// AI-generated (Claude)
+export default {
+  loading: 'Loading SSI site',
+  notFound: 'SSI site not found',
+  language: 'Description language: {{language}}',
+  noDescription: 'SSI has not provided a description for this site.',
+  photo: 'SSI photo of {{name}}',
+  provided: 'Site information provided by SSI.',
+  noDetails: 'No additional details are available.',
+  avgMaxDepth: 'Average maximum depth',
+  avgDiveTime: 'Average dive time',
+  environment: 'Environment',
+  level: 'Level',
+  rating: 'SSI rating',
+  ratingValue: '{{rating}} of 5',
+  loggedDives: 'Logged dives',
+  divers: 'Divers',
+  divesPerMonth: 'Dives per month',
+  monthCountHint: 'Tap a month for its count',
+  monthHint: 'Tap a month for its average',
+  ratings: 'Ratings',
+};

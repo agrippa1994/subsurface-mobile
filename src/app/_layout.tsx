@@ -13,6 +13,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack, ThemeProvider } from 'expo-router';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { StatusView } from '@/components/status-view';
@@ -22,6 +23,7 @@ import { useWidgetSync } from '@/features/widgets/use-widget-sync';
 import { usePortraitLock } from '@/hooks/use-landscape';
 import { useNavigationTheme, useRootScreenOptions } from '@/hooks/use-navigation-theme';
 import { useFlushOnBackground } from '@/hooks/use-logbook-persist';
+import { t } from '@/i18n';
 import { useDeviceClock } from '@/lib/device-clock';
 import { installProblemHandlers, recordProblem } from '@/lib/diagnostics';
 import { queryClient } from '@/lib/query-client';
@@ -43,10 +45,10 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Pro
   return (
     <StatusView
       kind="error"
-      title="Something went wrong"
+      title={t('app.errorTitle')}
       description={formatErrorLine(describeError(error))}
       systemImage="exclamationmark.triangle"
-      actionLabel="Try again"
+      actionLabel={t('common.tryAgain')}
       onAction={() => void retry()}
     />
   );
@@ -70,8 +72,12 @@ export default function RootLayout() {
 
 /** Everything that needs the query client, which the layout above creates. */
 function AppShell() {
-  // Before anything formats a date: the region and the 12/24-hour clock.
+  // Before anything formats a date: the region and the 12/24-hour clock, and
+  // the language the app speaks.
   useDeviceClock();
+  // Strings are looked up as screens render, so a change of language (the
+  // device's, while the app runs) remounts the tree to say everything anew.
+  const { i18n } = useTranslation();
   // The preferences the core reads itself, such as the default cylinder.
   useSyncCorePreferences();
 
@@ -97,7 +103,7 @@ function AppShell() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <Stack screenOptions={rootScreenOptions}>
+      <Stack key={i18n.language} screenOptions={rootScreenOptions}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ssi-site-picker" options={{ presentation: 'fullScreenModal' }} />
       </Stack>

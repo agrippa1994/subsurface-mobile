@@ -10,11 +10,12 @@ import { FormButtonRow, FormSection, OptionField } from '@/components/form';
 import { Spacing } from '@/constants/theme';
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
-import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
+import { aboutRows, licenseNotice, privacyNotice, sourceNotice } from '@/models/about';
+import { diveDataDisclaimer } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import { UNIT_PRESET_OPTIONS, UNIT_ROWS, unitsSummary } from '@/models/units';
+import { t } from '@/i18n';
 
 
 export default function SettingsScreen() {
@@ -27,11 +28,11 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
       <FormSection
-        title="Units"
+        title={t('ui.units')}
         footer={
           screen.showUnitRows
-            ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
-            : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`
+            ? t('settingsScreen.unitsEach')
+            : `${unitsSummary(screen.units)} ${t('settingsScreen.unitsCustom')}`
         }>
         <OptionField
           options={UNIT_PRESET_OPTIONS}
@@ -52,12 +53,12 @@ export default function SettingsScreen() {
           : null}
       </FormSection>
 
-      <FormSection title="Decompression" footer={SETTINGS_FOOTERS.decompression}>
-        <StepperRow label="GF low" value={screen.gfLow} onChange={screen.setGfLow} />
-        <StepperRow label="GF high" value={screen.gfHigh} onChange={screen.setGfHigh} />
+      <FormSection title={t('ui.decompression')} footer={SETTINGS_FOOTERS.decompression}>
+        <StepperRow label={t('ui.gfLow')} value={screen.gfLow} onChange={screen.setGfLow} />
+        <StepperRow label={t('ui.gfHigh')} value={screen.gfHigh} onChange={screen.setGfHigh} />
       </FormSection>
 
-      <FormSection title="Profile" footer={SETTINGS_FOOTERS.profile}>
+      <FormSection title={t('ui.profile')} footer={SETTINGS_FOOTERS.profile}>
         {PROFILE_TOGGLES.map((toggle) => (
           <SwitchRow
             key={toggle.key}
@@ -68,8 +69,8 @@ export default function SettingsScreen() {
         ))}
       </FormSection>
 
-      <FormSection title="New dives" footer={SETTINGS_FOOTERS.newDives}>
-        <Text style={{ color: theme.textSecondary }}>Default cylinder</Text>
+      <FormSection title={t('ui.newDives')} footer={SETTINGS_FOOTERS.newDives}>
+        <Text style={{ color: theme.textSecondary }}>{t('ui.defaultCylinder')}</Text>
         <OptionField
           options={screen.defaultCylinder.options}
           value={screen.defaultCylinder.value}
@@ -77,77 +78,77 @@ export default function SettingsScreen() {
         />
       </FormSection>
 
-      <FormSection title="Logbook">
-        <ValueRow label="Dives" value={String(screen.diveCount)} />
-        <ValueRow label="Dive sites" value={String(screen.siteCount)} />
-        <ValueRow label="Trips" value={String(screen.tripCount)} />
-        <FormButtonRow label="Ungroup all dives" destructive onPress={screen.ungroupDives} />
+      <FormSection title={t('ui.logbook')}>
+        <ValueRow label={t('ui.dives')} value={String(screen.diveCount)} />
+        <ValueRow label={t('ui.diveSites')} value={String(screen.siteCount)} />
+        <ValueRow label={t('ui.trips')} value={String(screen.tripCount)} />
+        <FormButtonRow label={t('ui.ungroupAllDives')} destructive onPress={screen.ungroupDives} />
       </FormSection>
 
       <FormSection
-        title="Transfer"
-        footer="Import adds the dives in a Subsurface logbook or a Suunto export to this one. Open replaces it.">
-        <ActionRow label="Download from dive computer" onPress={screen.diveComputers.open} />
-        <ActionRow label="Import dives" onPress={screen.transfer.importFile} />
-        <ActionRow label="Export and share" onPress={screen.transfer.shareLogbook} />
-        <ActionRow label="Open a logbook" onPress={screen.transfer.openLogbook} />
+        title={t('ui.transfer')}
+        footer={t('ui.importAddsTheDivesInA')}>
+        <ActionRow label={t('ui.downloadFromDiveComputer')} onPress={screen.diveComputers.open} />
+        <ActionRow label={t('ui.importDives')} onPress={screen.transfer.importFile} />
+        <ActionRow label={t('ui.exportAndShare')} onPress={screen.transfer.shareLogbook} />
+        <ActionRow label={t('ui.openALogbook')} onPress={screen.transfer.openLogbook} />
         <ActionRow
-          label="Forget remembered dive computers"
+          label={t('ui.forgetRememberedDiveComputers')}
           onPress={screen.diveComputers.forget}
           disabled={screen.diveComputers.remembered === 0}
         />
       </FormSection>
 
       <FormSection
-        title="SSI"
-        footer="Push a dive to your SSI logbook from the dive itself. Your SSI email and password are kept in this device's encrypted storage, never in the logbook file. Not affiliated with SSI.">
-        <ValueRow label="Account" value={screen.ssi.account ?? 'Not signed in'} />
-        <ValueRow label="Dive sites" value={screen.ssi.siteCatalogue} />
-        <ActionRow label="SSI account" onPress={screen.ssi.open} />
+        title={t('ui.ssi')}
+        footer={t('ui.pushADiveToYourSsi')}>
+        <ValueRow label={t('ui.account')} value={screen.ssi.account ?? t('dive.ssi.notSignedIn')} />
+        <ValueRow label={t('ui.diveSites')} value={screen.ssi.siteCatalogue} />
+        <ActionRow label={t('ui.ssiAccount')} onPress={screen.ssi.open} />
       </FormSection>
 
       <FormSection
-        title="Git sync"
-        footer="Keep the logbook in a git repository over SSH, to back it up and share it between devices.">
-        <ValueRow label="Repository" value={screen.git.repository} />
-        <ValueRow label="Last sync" value={screen.git.lastSync} />
+        title={t('ui.gitSync')}
+        footer={t('ui.keepTheLogbookInAGit')}>
+        <ValueRow label={t('ui.repository')} value={screen.git.repository} />
+        <ValueRow label={t('ui.lastSync')} value={screen.git.lastSync} />
         {screen.git.ready ? (
           <ActionRow
-            label={screen.git.busy ? 'Syncing...' : 'Sync now'}
+            label={screen.git.busy ? t('gitScreen.syncing') : t('settingsScreen.syncNow')}
             disabled={screen.git.busy}
             onPress={screen.git.sync}
           />
         ) : null}
-        <ActionRow label="Git sync settings" onPress={screen.git.open} />
+        <ActionRow label={t('ui.gitSyncSettings')} onPress={screen.git.open} />
       </FormSection>
 
       <FormSection
-        title="MCP server"
-        footer="Lets an AI assistant on a computer in the same network, or on your VPN, read this logbook - dives, statistics, notes, cylinders, weights and the computed profile as CSV. Read-only, and without a password: anyone who can reach one of these addresses can connect while it runs. It answers only while the app is open, and is off again on the next launch.">
-        <SwitchRow label="Run MCP server" value={screen.mcp.on} onChange={screen.mcp.setOn} />
-        <ValueRow label="Status" value={screen.mcp.status} />
+        title={t('ui.mcpServer')}
+        footer={t('ui.letsAnAiAssistantOnA')}>
+        <SwitchRow label={t('ui.runMcpServer')} value={screen.mcp.on} onChange={screen.mcp.setOn} />
+        <ValueRow label={t('ui.status')} value={screen.mcp.status} />
         {screen.mcp.urls.map(({ kind, url }) => (
           <Fragment key={url}>
             <ValueRow label={kind} value={url} />
             <ActionRow
-              label={screen.mcp.copied === url ? 'Copied' : `Copy ${kind} URL`}
+              label={screen.mcp.copied === url ? t('diveForm.copied') : t('settingsScreen.copyUrl', { kind })}
               onPress={() => screen.mcp.copyUrl(url)}
             />
           </Fragment>
         ))}
       </FormSection>
 
-      <FormSection title="Problems" footer={PRIVACY_NOTICE}>
-        <ValueRow label="Problem log" value={screen.diagnostics} />
-        <ActionRow label="Share the problem log" onPress={screen.shareDiagnostics} />
-        <FormButtonRow label="Clear it" destructive onPress={screen.clearDiagnostics} />
+      <FormSection title={t('ui.problems')} footer={privacyNotice()}>
+        <ValueRow label={t('ui.problemLog')} value={screen.diagnostics} />
+        <ActionRow label={t('ui.shareTheProblemLog')} onPress={screen.shareDiagnostics} />
+        <FormButtonRow label={t('ui.clearIt')} destructive onPress={screen.clearDiagnostics} />
       </FormSection>
 
-      <FormSection title="About" footer={`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}>
+      <FormSection title={t('ui.about')} footer={`${diveDataDisclaimer()}\n\n${licenseNotice()} ${sourceNotice()}`}>
         {aboutRows(screen.about).map((row) => (
           <ValueRow key={row.label} label={row.label} value={row.value} />
         ))}
-        <ActionRow label="Source code and licence" onPress={screen.openSource} />
+        <ActionRow label={t('ui.sourceCodeAndLicence')} onPress={screen.openSource} />
       </FormSection>
     </ScrollView>
   );
@@ -226,7 +227,7 @@ function StepperRow({
   const step = (delta: number, symbol: string, enabled: boolean) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${delta < 0 ? 'Decrease' : 'Increase'} ${label}`}
+      accessibilityLabel={delta < 0 ? t('charts.decrease', { label }) : t('charts.increase', { label })}
       accessibilityState={{ disabled: !enabled }}
       disabled={!enabled}
       onPress={() => onChange(value + delta)}

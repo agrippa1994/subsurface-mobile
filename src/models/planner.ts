@@ -30,6 +30,7 @@ import {
   psiToMbar,
   type Units,
 } from './units';
+import { labelled, t } from '@/i18n';
 
 // --- The draft ---------------------------------------------------------------
 
@@ -38,14 +39,14 @@ export type Water = 'salt' | 'en13319' | 'fresh';
 /** Salinity in g/10l, the three options the legacy planner has. */
 export const WATER_SALINITY: Record<Water, number> = { salt: 10300, en13319: 10200, fresh: 10000 };
 
-export const WATER_OPTIONS: readonly { value: Water; label: string }[] = [
-  { value: 'salt', label: 'Salt' },
-  { value: 'fresh', label: 'Fresh' },
+export const WATER_OPTIONS: readonly { value: Water; readonly label: string }[] = [
+  labelled({ value: 'salt' as Water }, () => t('planner.water.salt')),
+  labelled({ value: 'fresh' as Water }, () => t('planner.water.fresh')),
   { value: 'en13319', label: 'EN13319' },
 ];
 
-export const DIVE_MODE_OPTIONS: readonly { value: PlanDiveMode; label: string }[] = [
-  { value: PlanDiveMode.OpenCircuit, label: 'Open circuit' },
+export const DIVE_MODE_OPTIONS: readonly { value: PlanDiveMode; readonly label: string }[] = [
+  labelled({ value: PlanDiveMode.OpenCircuit }, () => t('planner.openCircuit')),
   { value: PlanDiveMode.Ccr, label: 'CCR' },
   { value: PlanDiveMode.Pscr, label: 'pSCR' },
 ];
@@ -325,29 +326,29 @@ export function setDiveMode(draft: PlanDraft, diveMode: PlanDiveMode): PlanDraft
   };
 }
 
-export const GAS_PRESETS: readonly { label: string; o2: number; he: number }[] = [
-  { label: 'Air', o2: 21, he: 0 },
+export const GAS_PRESETS: readonly { readonly label: string; o2: number; he: number }[] = [
+  labelled({ o2: 21, he: 0 }, () => t('units.gas.air')),
   { label: 'EAN32', o2: 32, he: 0 },
   { label: 'EAN36', o2: 36, he: 0 },
   { label: 'EAN50', o2: 50, he: 0 },
-  { label: 'Oxygen', o2: 100, he: 0 },
+  labelled({ o2: 100, he: 0 }, () => t('units.gas.oxygen')),
   { label: 'Trimix 21/35', o2: 21, he: 35 },
   { label: 'Trimix 18/45', o2: 18, he: 45 },
 ];
 
 export function gasName(o2Percent: number, hePercent: number): string {
   if (hePercent > 0) {
-    return `Trimix ${o2Percent}/${hePercent}`;
+    return t('units.gas.trimix', { o2: o2Percent, he: hePercent });
   }
   if (o2Percent === 21) {
-    return 'Air';
+    return t('units.gas.air');
   }
-  return o2Percent === 100 ? 'Oxygen' : `EAN${o2Percent}`;
+  return o2Percent === 100 ? t('units.gas.oxygen') : `EAN${o2Percent}`;
 }
 
 /** A tank's name often carries a pressure of its own, hence "filled to". */
 export function cylinderSummary(cylinder: PlanCylinderDraft, units: Units): string {
-  return `${cylinder.tank}, filled to ${formatPressure(cylinder.fillMbar, units)}`;
+  return t('planner.cylinderSummary', { tank: cylinder.tank, pressure: formatPressure(cylinder.fillMbar, units) });
 }
 
 // --- Draft to arguments --------------------------------------------------------
@@ -399,7 +400,10 @@ export function draftProblem(
   if (settings.dropStone && settings.descrate > 0) {
     const descentSec = first.depthMm / settings.descrate;
     if (first.minutes * 60 < Math.floor(descentSec)) {
-      return `The first level is shorter than the ${Math.ceil(descentSec / 60)} min descent to ${formatDepth(first.depthMm, units)}. Give it more time, or a shallower depth.`;
+      return t('planner.firstLevelTooShort', {
+        minutes: Math.ceil(descentSec / 60),
+        depth: formatDepth(first.depthMm, units),
+      });
     }
   }
   return null;
@@ -426,7 +430,7 @@ export type PlanStop = {
 };
 
 function gasOf(result: PlanResult, waypoint: PlanWaypoint): string {
-  return result.cylinders[waypoint.cylinder]?.name ?? 'Air';
+  return result.cylinders[waypoint.cylinder]?.name ?? t('units.gas.air');
 }
 
 /**
@@ -460,7 +464,7 @@ export function planStops(result: PlanResult): PlanStop[] {
 }
 
 export function formatMinutes(seconds: number): string {
-  return `${Math.round(seconds / 60)} min`;
+  return t('planner.minutes', { minutes: Math.round(seconds / 60) });
 }
 
 export type PlanGasRow = {
@@ -510,22 +514,27 @@ function gasRow(
     description: cylinder.description,
     usedText:
       carried > 0
-        ? `${gasVolume(used, units)} of ${gasVolume(carried, units)}`
+        ? t('planner.gas.usedOf', { used: gasVolume(used, units), carried: gasVolume(carried, units) })
         : gasVolume(used, units),
     usedFraction: fraction,
     endText:
       carried > 0
-        ? `Ends at ${formatPressure(Math.max(0, cylinder.endMbar), units)} of ${formatPressure(cylinder.startMbar, units)}`
+        ? t('planner.gas.endsAt', {
+            end: formatPressure(Math.max(0, cylinder.endMbar), units),
+            start: formatPressure(cylinder.startMbar, units),
+          })
         : null,
     minimumText:
       cylinder.minimumGasMbar > 0
-        ? `Minimum gas ${formatPressure(cylinder.minimumGasMbar, units)}`
+        ? t('planner.gas.minimum', { pressure: formatPressure(cylinder.minimumGasMbar, units) })
         : null,
     decoText:
-      cylinder.decoGasUsedMl > 0 ? `${gasVolume(cylinder.decoGasUsedMl, units)} in the ascent` : null,
+      cylinder.decoGasUsedMl > 0
+        ? t('planner.gas.inAscent', { volume: gasVolume(cylinder.decoGasUsedMl, units) })
+        : null,
     switchText:
       index !== firstGasIndex && cylinder.switchDepthMm > 0
-        ? `Switch at ${formatDepth(cylinder.switchDepthMm, units)}`
+        ? t('planner.gas.switchAt', { depth: formatDepth(cylinder.switchDepthMm, units) })
         : null,
     level,
   };
@@ -580,7 +589,7 @@ export function planWarnings(
   if (result.waypointAboveCeiling && result.error === 'ok') {
     out.push({
       level: 'danger',
-      text: 'A planned level is shallower than the deco ceiling at that point. Plan a deeper level or a shorter dive before it.',
+      text: t('planner.warning.aboveCeiling'),
     });
   }
   for (const text of planNoteWarnings(result.notes)) {
@@ -591,14 +600,18 @@ export function planWarnings(
     if (belowMinimumGas(cylinder)) {
       out.push({
         level: 'caution',
-        text: `Below minimum gas: ${cylinder.name} is at ${formatPressure(cylinder.ascentStartMbar, units)} when the ascent starts, and the minimum is ${formatPressure(cylinder.minimumGasMbar, units)}.`,
+        text: t('planner.warning.belowMinimum', {
+          name: cylinder.name,
+          pressure: formatPressure(cylinder.ascentStartMbar, units),
+          minimum: formatPressure(cylinder.minimumGasMbar, units),
+        }),
       });
     }
   }
   if (result.surfaceIntervalSec < 0 || planOverlapsDive(result, when, dives)) {
     out.push({
       level: 'caution',
-      text: 'This plan overlaps a dive in the logbook. Check the start time.',
+      text: t('planner.warning.overlap'),
     });
   }
   return out;
@@ -607,7 +620,7 @@ export function planWarnings(
 /** The word on a failed plan's message when the notes have none, which they should. */
 export function planFailure(result: PlanResult): string {
   const [warning] = planNoteWarnings(result.notes);
-  return warning ?? 'The planner could not work out this plan.';
+  return warning ?? t('planner.failure');
 }
 
 /** Runtime as a diver reads it, and what is not the bottom time. */
@@ -622,8 +635,12 @@ export function planHeadline(result: PlanResult): {
     runtime: formatMinutes(result.runtimeSec),
     decoLine:
       stops.length === 0
-        ? `No stops · ${formatMinutes(ascentSec)} ascent`
-        : `${stops.length} ${stops.length === 1 ? 'stop' : 'stops'}, ${formatMinutes(stopSec)} · ${formatMinutes(ascentSec)} ascent`,
+        ? t('planner.headline.noStops', { ascent: formatMinutes(ascentSec) })
+        : t('planner.headline.stops', {
+            count: stops.length,
+            stopTime: formatMinutes(stopSec),
+            ascent: formatMinutes(ascentSec),
+          }),
   };
 }
 
@@ -635,7 +652,7 @@ export function surfaceIntervalText(result: PlanResult): string | null {
   }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
-  return `Repetitive dive: ${hours}:${String(minutes).padStart(2, '0')} h after the previous dive in the logbook, whose tissue loading is included.`;
+  return t('planner.repetitive', { interval: `${hours}:${String(minutes).padStart(2, '0')}` });
 }
 
 /** The deepest a plan goes as entered: what a best mix is for. */
@@ -644,8 +661,10 @@ export function plannedMaxDepthMm(draft: PlanDraft): number {
 }
 
 /** The line on the pinned bar when it has nothing more urgent to say. */
-export const PLAN_SHORT_DISCLAIMER =
-  'A plan is not a substitute for training or a dive computer.';
+export function planShortDisclaimer(): string {
+  return t('planner.shortDisclaimer');
+}
 
-export const PLAN_DISCLAIMER =
-  'A plan is not a substitute for training or a dive computer. This calculation has had limited testing. Check it against another source, and dive within your training.';
+export function planDisclaimer(): string {
+  return t('planner.disclaimer');
+}

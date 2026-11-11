@@ -8,6 +8,7 @@
 
 import type { DiveSite } from './index';
 import { udegToDegrees } from './units';
+import { t } from '@/i18n';
 
 export type MapsPlatform = 'ios' | 'android' | 'web';
 
@@ -26,7 +27,7 @@ export function mapsLink(
   }
   const lat = degrees(site.latUdeg);
   const lon = degrees(site.lonUdeg);
-  const name = site.name.trim() || 'Dive site';
+  const name = site.name.trim() || t('sites.diveSite');
   if (platform === 'android') {
     // geo:0,0?q=lat,lon(label) is the form that drops a labelled pin; the
     // leading coordinate is where the map opens.
@@ -38,5 +39,5 @@ export function mapsLink(
 
 /** What the row says: the app it opens. */
 export function mapsAppName(platform: MapsPlatform): string {
-  return platform === 'ios' ? 'Apple Maps' : 'Maps';
+  return platform === 'ios' ? 'Apple Maps' : t('sites.maps');
 }

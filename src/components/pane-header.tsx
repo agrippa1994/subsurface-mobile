@@ -13,6 +13,7 @@ import { SearchField } from '@/components/search-field';
 import { Spacing } from '@/constants/theme';
 import { useHistoryMenu } from '@/features/history/use-history-actions';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export function PaneHeader({
   title,
@@ -54,7 +55,7 @@ export function PaneHeader({
                     // As the portable header action asks. A native bar menu needs the
                     // navigation bar this pane does not have.
                     Alert.alert(label, undefined, [
-                      { text: 'Cancel', style: 'cancel' },
+                      { text: t('ui.cancel'), style: 'cancel' },
                       ...items.map((item) => ({ text: item.label, onPress: item.onPress })),
                     ]);
                   } else {

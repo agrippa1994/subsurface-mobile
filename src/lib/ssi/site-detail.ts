@@ -3,6 +3,7 @@ import { parseSsiSiteDetail } from '@/models/ssi/site-browse';
 import { parseSsiSiteLookups, type SsiSiteLookups } from '@/models/ssi/site-lookups';
 import { createClient } from 'divessi-client';
 import { createSsiClient, ssiData } from './api';
+import { t } from '@/i18n';
 
 export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
   const response = await ssiData(createSsiClient().siteDetail({ site_id: id }, { signal }));
@@ -11,7 +12,7 @@ export async function fetchSsiSiteDetail(id: number, signal?: AbortSignal) {
     throw new Error(
       typeof error === 'object' && !Array.isArray(error) && error && typeof error.error === 'string'
         ? error.error
-        : 'SSI could not provide this site. Refresh the catalogue in Settings.',
+        : t('errors.ssi.noSite'),
     );
   }
   return parseSsiSiteDetail(response, id);
@@ -40,7 +41,7 @@ export async function fetchSsiSiteLookups(signal?: AbortSignal): Promise<SsiSite
     ),
   );
   if (results.every((result) => result.status === 'rejected')) {
-    throw new Error('SSI provided no lookup tables.');
+    throw new Error(t('errors.ssi.noLookups'));
   }
   const [vars, wildlife, translations] = results.map((result) =>
     result.status === 'fulfilled' ? result.value : null,

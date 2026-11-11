@@ -22,6 +22,7 @@ import {
   isLogbookName,
 } from '@/models/transfer';
 import { useExportTo, useImportFile, useReplaceLogbook } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 /** Alert body for a failure: the message, plus whatever the core reported. */
 function describeFailure(error: unknown): string {
@@ -62,11 +63,11 @@ export function useTransfer(): Transfer {
         // A plain import is the toast's to report, with its Undo. Anything more
         // needs reading.
         if (importNeedsExplaining(result)) {
-          Alert.alert('Import complete', describeImport(result));
+          Alert.alert(t('transferScreen.importComplete'), describeImport(result));
         }
       } catch (error) {
         operationFailed();
-        Alert.alert('Import failed', describeFailure(error));
+        Alert.alert(t('transferScreen.importFailed'), describeFailure(error));
       }
     },
     [importIntoLog],
@@ -77,10 +78,16 @@ export function useTransfer(): Transfer {
       try {
         const { lastLoad } = await replaceWith.mutateAsync(path);
         operationSucceeded();
-        Alert.alert('Logbook opened', `${lastLoad.dives} dives, ${lastLoad.sites} dive sites.`);
+        Alert.alert(
+          t('transferScreen.opened'),
+          t('transferScreen.openedMessage', {
+            dives: t('common.diveCount', { count: lastLoad.dives }),
+            sites: t('transferScreen.siteCount', { count: lastLoad.sites }),
+          }),
+        );
       } catch (error) {
         operationFailed();
-        Alert.alert('Could not open', describeFailure(error));
+        Alert.alert(t('transferScreen.openFailed'), describeFailure(error));
       }
     },
     [replaceWith],
@@ -110,12 +117,12 @@ export function useTransfer(): Transfer {
       // does not undo - so it asks first, every time.
       warned();
       Alert.alert(
-        'Open this logbook?',
-        'The dives currently in the app are replaced by the ones in the file. This cannot be undone. Import instead to keep both.',
+        t('transferScreen.openTitle'),
+        t('transferScreen.openMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Import', onPress: () => void merge(path) },
-          { text: 'Open', style: 'destructive', onPress: () => void replace(path) },
+          { text: t('ui.cancel'), style: 'cancel' },
+          { text: t('ui.import'), onPress: () => void merge(path) },
+          { text: t('transferScreen.open'), style: 'destructive', onPress: () => void replace(path) },
         ],
       );
     });
@@ -134,17 +141,17 @@ export function useTransfer(): Transfer {
         }
         await exportTo.mutateAsync(toNativePath(target.uri));
         if (!(await Sharing.isAvailableAsync())) {
-          Alert.alert('Export saved', target.uri);
+          Alert.alert(t('transferScreen.exportSaved'), target.uri);
           return;
         }
         await Sharing.shareAsync(target.uri, {
           UTI: 'org.subsurface.ssrf',
           mimeType: 'application/xml',
-          dialogTitle: 'Share logbook',
+          dialogTitle: t('transferScreen.share'),
         });
       } catch (error) {
         operationFailed();
-        Alert.alert('Export failed', describeFailure(error));
+        Alert.alert(t('transferScreen.exportFailed'), describeFailure(error));
       } finally {
         setSharing(false);
       }
@@ -162,7 +169,7 @@ export function useTransfer(): Transfer {
           uri = `file://${encodeURI(await copyContentUri(incoming))}`;
         } catch (error) {
           operationFailed();
-          Alert.alert('Could not open', describeFailure(error));
+          Alert.alert(t('transferScreen.openFailed'), describeFailure(error));
           return;
         }
       }
@@ -185,10 +192,10 @@ export function useTransfer(): Transfer {
         await done(merge(path));
         return;
       }
-      Alert.alert(name, 'Add these dives to your logbook, or open the file instead? Opening replaces your logbook and cannot be undone.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open', style: 'destructive', onPress: () => void done(replace(path)) },
-        { text: 'Import', onPress: () => void done(merge(path)) },
+      Alert.alert(name, t('transferScreen.incoming'), [
+        { text: t('ui.cancel'), style: 'cancel' },
+        { text: t('transferScreen.open'), style: 'destructive', onPress: () => void done(replace(path)) },
+        { text: t('ui.import'), onPress: () => void done(merge(path)) },
       ]);
     },
     [merge, replace],

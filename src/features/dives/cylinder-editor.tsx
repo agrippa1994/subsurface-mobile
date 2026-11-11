@@ -24,12 +24,13 @@ import {
   type CylinderDraft,
   type CylinderErrors,
 } from '@/models/cylinder-edit';
+import { labelled, t } from '@/i18n';
 
-const USE_OPTIONS: readonly { value: CylinderUse; label: string }[] = [
-  { value: CylinderUse.OcGas, label: 'Open circuit' },
-  { value: CylinderUse.Diluent, label: 'Diluent' },
-  { value: CylinderUse.Oxygen, label: 'Oxygen' },
-  { value: CylinderUse.NotUsed, label: 'Not used' },
+const USE_OPTIONS: readonly { value: CylinderUse; readonly label: string }[] = [
+  labelled({ value: CylinderUse.OcGas }, () => t('diveForm.use.ocGas')),
+  labelled({ value: CylinderUse.Diluent }, () => t('diveForm.use.diluent')),
+  labelled({ value: CylinderUse.Oxygen }, () => t('units.gas.oxygen')),
+  labelled({ value: CylinderUse.NotUsed }, () => t('diveForm.use.notUsed')),
 ];
 
 export function CylinderEditor({
@@ -58,9 +59,9 @@ export function CylinderEditor({
   return (
     <View style={styles.container}>
       {drafts.map((draft, index) => (
-        <FormSection key={draft.key} title={`Cylinder ${index + 1}`}>
+        <FormSection key={draft.key} title={t('dive.cylinderNumber', { number: index + 1 })}>
           <SuggestField
-            label="Type"
+            label={t('ui.type')}
             value={draft.description}
             corpus={descriptions}
             placeholder="AL80"
@@ -70,7 +71,7 @@ export function CylinderEditor({
 
           <View style={styles.pair}>
             <FormField
-              label={units.volume === 'cuft' ? 'Size (cuft)' : 'Size (l)'}
+              label={t('diveForm.size', { unit: units.volume })}
               value={draft.sizeText}
               onChangeText={(sizeText) => patchRow(draft.key, { sizeText })}
               keyboardType="decimal-pad"
@@ -78,7 +79,7 @@ export function CylinderEditor({
               style={styles.half}
             />
             <FormField
-              label={units.pressure === 'psi' ? 'Working (psi)' : 'Working (bar)'}
+              label={t('diveForm.working', { unit: units.pressure })}
               value={draft.workingPressureText}
               onChangeText={(workingPressureText) =>
                 patchRow(draft.key, { workingPressureText })
@@ -91,7 +92,7 @@ export function CylinderEditor({
 
           <View style={styles.pair}>
             <FormField
-              label="Oxygen (%)"
+              label={t('ui.oxygen')}
               value={draft.o2Text}
               onChangeText={(o2Text) => patchRow(draft.key, { o2Text })}
               keyboardType="decimal-pad"
@@ -99,7 +100,7 @@ export function CylinderEditor({
               style={styles.half}
             />
             <FormField
-              label="Helium (%)"
+              label={t('ui.helium')}
               value={draft.heText}
               onChangeText={(heText) => patchRow(draft.key, { heText })}
               keyboardType="decimal-pad"
@@ -113,7 +114,7 @@ export function CylinderEditor({
 
           <View style={styles.pair}>
             <FormField
-              label={units.pressure === 'psi' ? 'Start (psi)' : 'Start (bar)'}
+              label={t('diveForm.start', { unit: units.pressure })}
               value={draft.startText}
               onChangeText={(startText) => patchRow(draft.key, { startText })}
               keyboardType="decimal-pad"
@@ -121,7 +122,7 @@ export function CylinderEditor({
               style={styles.half}
             />
             <FormField
-              label={units.pressure === 'psi' ? 'End (psi)' : 'End (bar)'}
+              label={t('diveForm.end', { unit: units.pressure })}
               value={draft.endText}
               onChangeText={(endText) => patchRow(draft.key, { endText })}
               keyboardType="decimal-pad"
@@ -142,14 +143,14 @@ export function CylinderEditor({
 
           {draft.used ? (
             <Text style={[styles.note, { color: theme.textSecondary }]}>
-              Recorded by the dive computer, so this cylinder cannot be removed.
+              {t('diveForm.cylinderRecorded')}
             </Text>
           ) : (
             <Pressable
               accessibilityRole="button"
               onPress={() => onChange(drafts.filter((other) => other.key !== draft.key))}
               style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}>
-              <Text style={[styles.remove, { color: theme.danger }]}>Remove cylinder</Text>
+              <Text style={[styles.remove, { color: theme.danger }]}>{t('ui.removeCylinder')}</Text>
             </Pressable>
           )}
         </FormSection>
@@ -170,7 +171,7 @@ export function CylinderEditor({
           tintColor={theme.accent}
           fallback={<Text style={{ color: theme.accent }}>+</Text>}
         />
-        <Text style={[styles.addText, { color: theme.accent }]}>Add cylinder</Text>
+        <Text style={[styles.addText, { color: theme.accent }]}>{t('ui.addCylinder')}</Text>
       </Pressable>
     </View>
   );

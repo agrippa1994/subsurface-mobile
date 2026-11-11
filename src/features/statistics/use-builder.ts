@@ -17,10 +17,12 @@ import {
   operationLabel,
   secondBinnerLabel,
   sortLabel,
+  variableLabel,
   type VariableGroup,
 } from '@/models/stats-chart';
 
 import { useChartScreen, type ChartScreen } from './use-chart-screen';
+import { t } from '@/i18n';
 
 export type BuilderChoice = { key: string; label: string };
 
@@ -42,7 +44,10 @@ export type VariableField = {
   onChoose: (name: string | null) => void;
 };
 
-export const NUMBER_OF_DIVES = 'Number of dives';
+/** The second variable's "none": the chart counts dives. */
+export function numberOfDives(): string {
+  return t('builder.numberOfDives');
+}
 
 export function useBuilder() {
   const screen = useChartScreen();
@@ -58,7 +63,7 @@ function builderFields(screen: ChartScreen) {
   const first: VariableField = {
     key: 'var1',
     // Unbinned, nothing is grouped: each dive sits somewhere along this variable.
-    label: options.binners1[config.binner1] === 'none' ? 'Across' : 'Group by',
+    label: options.binners1[config.binner1] === 'none' ? t('builder.across') : t('builder.groupBy'),
     selected: config.var1,
     noneLabel: null,
     groups: groupVariables(options.var1),
@@ -70,9 +75,9 @@ function builderFields(screen: ChartScreen) {
   };
   const second: VariableField = {
     key: 'var2',
-    label: 'Measure',
-    selected: config.var2 ?? NUMBER_OF_DIVES,
-    noneLabel: NUMBER_OF_DIVES,
+    label: t('builder.measure'),
+    selected: config.var2 ?? numberOfDives(),
+    noneLabel: numberOfDives(),
     groups: groupVariables(options.var2),
     onChoose: (name) => change({ kind: 'var2', value: name }),
   };
@@ -81,7 +86,7 @@ function builderFields(screen: ChartScreen) {
   if (options.binners1.length > 0) {
     fields.push({
       key: 'binner1',
-      label: 'Steps',
+      label: t('builder.steps'),
       selected: String(config.binner1),
       choices: options.binners1.map((name, index) => ({ key: String(index), label: binnerLabel(name) })),
       onChoose: (key) => change({ kind: 'binner1', value: Number(key) }),
@@ -92,7 +97,7 @@ function builderFields(screen: ChartScreen) {
   if (options.binners2.length > 0) {
     measures.push({
       key: 'binner2',
-      label: `${config.var2} steps`,
+      label: t('builder.varSteps', { variable: variableLabel(config.var2 ?? '') }),
       selected: String(config.binner2),
       choices: options.binners2.map((name, index) => ({ key: String(index), label: secondBinnerLabel(name) })),
       onChoose: (key) => change({ kind: 'binner2', value: Number(key) }),
@@ -101,7 +106,7 @@ function builderFields(screen: ChartScreen) {
   if (options.operations.length > 0) {
     measures.push({
       key: 'operation',
-      label: 'Calculate',
+      label: t('builder.calculate'),
       selected: config.operation,
       choices: options.operations.map((operation) => ({ key: operation.key, label: operationLabel(operation.key) })),
       onChoose: (key) => change({ kind: 'operation', value: key as never }),
@@ -113,7 +118,7 @@ function builderFields(screen: ChartScreen) {
   if (options.sorts.length > 0) {
     display.push({
       key: 'sort',
-      label: 'Order',
+      label: t('builder.order'),
       selected: config.sort,
       choices: options.sorts.map((sort) => ({ key: sort.key, label: sortLabel(sort.key) })),
       onChoose: (key) => change({ kind: 'sort', value: key as never }),
@@ -147,7 +152,7 @@ function chartField(
   const others = options.charts.filter((c) => c.warning);
   return {
     key: 'chart',
-    label: 'Chart',
+    label: t('builder.chart'),
     selected: `${chart.type}/${chart.subtype}`,
     choices: [...recommended, ...others].map((c) => ({ key: chartOptionKey(c), label: chartOptionLabel(c) })),
     onChoose: (key) => {

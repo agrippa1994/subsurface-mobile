@@ -4,43 +4,49 @@
 
 import type { Href } from 'expo-router';
 import type { SFSymbol } from 'sf-symbols-typescript';
+import { t } from '@/i18n';
 
 export type Tool = {
   key: string;
-  title: string;
+  readonly title: string;
   /** One line under the title saying what the tool answers. */
-  summary: string;
+  readonly summary: string;
   systemImage: SFSymbol;
   href: Href;
 };
 
+/** A tool whose words are looked up when read. */
+function tool(key: 'planner' | 'gas' | 'nitrox' | 'surfaceGf', rest: Omit<Tool, 'key' | 'title' | 'summary'> & { key: string }): Tool {
+  return {
+    ...rest,
+    get title() {
+      return t(`tools.${key}.title`);
+    },
+    get summary() {
+      return t(`tools.${key}.summary`);
+    },
+  };
+}
+
 export const TOOLS: readonly Tool[] = [
-  {
+  tool('planner', {
     key: 'planner',
-    title: 'Dive planner',
-    summary: 'Runtime, stops and gas for a planned dive',
     systemImage: 'list.bullet.clipboard',
     href: '/tools/planner',
-  },
-  {
+  }),
+  tool('gas', {
     key: 'gas',
-    title: 'Gas calculator',
-    summary: 'MOD and END of any mix, and the best mix for a depth',
     systemImage: 'cylinder.fill',
     href: '/tools/gas',
-  },
-  {
+  }),
+  tool('nitrox', {
     key: 'nitrox',
-    title: 'Nitrox',
-    summary: 'MOD, best mix and no-deco limit against air',
     systemImage: 'percent',
     href: '/tools/nitrox',
-  },
-  {
+  }),
+  tool('surfaceGf', {
     key: 'surface-gf',
-    title: 'Surface GF',
-    summary: 'Desaturation after your last dive, now and at your next entry',
     systemImage: 'chart.line.downtrend.xyaxis',
     href: '/tools/surface-gf',
-  },
+  }),
 ];

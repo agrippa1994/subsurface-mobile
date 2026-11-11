@@ -6,15 +6,12 @@
 // nobody has written words for yet: it still undoes, under a general label.
 
 import type { HistoryEntry, HistoryState } from './index';
+import { t } from '@/i18n';
 
 export type HistoryDirection = 'undo' | 'redo';
 
 /** updateDive filed under this: a tag the SSI upload adds, not an edit of the diver's. */
 export const SSI_TAG_KIND = 'ssiSyncTag';
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
 
 function capitalized(text: string): string {
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
@@ -23,34 +20,39 @@ function capitalized(text: string): string {
 /** "Dive 42", or the site for a dive with no number. */
 function diveName(entry: HistoryEntry): string {
   if (entry.diveNumber) {
-    return `Dive ${entry.diveNumber}`;
+    return t('history.dive.number', { number: entry.diveNumber });
   }
-  return entry.diveSite ? `Dive at ${entry.diveSite}` : 'Dive';
+  return entry.diveSite ? t('history.dive.atSite', { site: entry.diveSite }) : t('history.dive.plain');
 }
 
 function mergedName(entry: HistoryEntry): string {
   const numbers = entry.diveNumbers ?? [];
   return numbers.length >= 2
-    ? `Dives ${numbers.slice(0, -1).join(', ')} and ${numbers[numbers.length - 1]}`
-    : 'Dives';
+    ? t('history.dives.merged', { list: numbers.slice(0, -1).join(', '), last: numbers[numbers.length - 1] })
+    : t('history.dives.plain');
 }
 
-function siteName(entry: HistoryEntry, capital: boolean): string {
+/** In a menu title ("Dive Site Blue Hole") or inside a sentence ("dive site Blue Hole"). */
+function siteName(entry: HistoryEntry, title: boolean): string {
   const name = entry.siteName?.trim() ?? '';
-  const noun = capital ? 'Dive Site' : 'dive site';
-  return name === '' ? noun : `${noun} ${name}`;
+  if (name === '') {
+    return title ? t('history.site.titlePlain') : t('history.site.inlinePlain');
+  }
+  return title ? t('history.site.title', { name }) : t('history.site.inline', { name });
 }
 
-function tripName(entry: HistoryEntry, capital: boolean): string {
+function tripName(entry: HistoryEntry, title: boolean): string {
   const location = entry.tripLocation?.trim() ?? '';
-  const noun = capital ? 'Trip' : 'trip';
-  return location === '' ? noun : `${noun} ${location}`;
+  if (location === '') {
+    return title ? t('history.trip.titlePlain') : t('history.trip.inlinePlain');
+  }
+  return title ? t('history.trip.title', { location }) : t('history.trip.inline', { location });
 }
 
-function diveCountName(entry: HistoryEntry, capital: boolean): string {
+/** "Dive" for one, "3 Dives" for more. */
+function diveCountName(entry: HistoryEntry, title: boolean): string {
   const count = entry.diveCount ?? 0;
-  const noun = capital ? 'Dive' : 'dive';
-  return count === 1 ? noun : plural(count, noun);
+  return title ? t('history.count.title', { count }) : t('history.count.inline', { count });
 }
 
 function added(entry: HistoryEntry): number {
@@ -61,40 +63,44 @@ function added(entry: HistoryEntry): number {
 export function changeTitle(entry: HistoryEntry): string {
   switch (entry.kind) {
     case 'addDive':
-      return 'Add Dive';
+      return t('history.title.addDive');
     case 'updateDive':
-      return `Edit ${diveName(entry)}`;
+      return t('history.title.updateDive', { dive: diveName(entry) });
     case 'deleteDive':
-      return `Delete ${diveName(entry)}`;
+      return t('history.title.deleteDive', { dive: diveName(entry) });
     case 'mergeDives':
-      return `Merge ${mergedName(entry)}`;
+      return t('history.title.mergeDives', { dives: mergedName(entry) });
     case 'makeFirstDiveComputer':
-      return `Change First Computer of ${diveName(entry)}`;
+      return t('history.title.makeFirstComputer', { dive: diveName(entry) });
     case SSI_TAG_KIND:
-      return `Mark ${diveName(entry)} as Synced to SSI`;
+      return t('history.title.ssiTag', { dive: diveName(entry) });
     case 'upsertDiveSite':
-      return `${entry.isNew ? 'Add' : 'Edit'} ${siteName(entry, true)}`;
+      return entry.isNew
+        ? t('history.title.addSite', { site: siteName(entry, true) })
+        : t('history.title.editSite', { site: siteName(entry, true) });
     case 'deleteDiveSite':
-      return `Delete ${siteName(entry, true)}`;
+      return t('history.title.deleteSite', { site: siteName(entry, true) });
     case 'createTrip':
-      return `New ${tripName(entry, true)}`;
+      return t('history.title.createTrip', { trip: tripName(entry, true) });
     case 'addDivesToTrip':
-      return `Move ${diveCountName(entry, true)} to ${tripName(entry, true)}`;
+      return t('history.title.addToTrip', { dives: diveCountName(entry, true), trip: tripName(entry, true) });
     case 'removeDivesFromTrip':
-      return `Remove ${diveCountName(entry, true)} from Trip`;
+      return t('history.title.removeFromTrip', { dives: diveCountName(entry, true) });
     case 'updateTrip':
-      return `Edit ${tripName(entry, true)}`;
+      return t('history.title.updateTrip', { trip: tripName(entry, true) });
     case 'ungroupDives':
-      return 'Ungroup All Trips';
+      return t('history.title.ungroup');
     case 'importFile':
     case 'importSuunto':
-      return added(entry) > 0 ? `Import ${plural(added(entry), 'Dive')}` : 'Import';
+      return added(entry) > 0 ? t('history.title.importCount', { count: added(entry) }) : t('history.title.import');
     case 'dcDownloadAccept':
-      return added(entry) > 0 ? `Download ${plural(added(entry), 'Dive')}` : 'Download';
+      return added(entry) > 0
+        ? t('history.title.downloadCount', { count: added(entry) })
+        : t('history.title.download');
     case 'savePlan':
-      return 'Add Planned Dive';
+      return t('history.title.savePlan');
     default:
-      return 'Change to the Logbook';
+      return t('history.title.other');
   }
 }
 
@@ -102,57 +108,64 @@ export function changeTitle(entry: HistoryEntry): string {
 export function changeDone(entry: HistoryEntry): string {
   switch (entry.kind) {
     case 'addDive':
-      return 'Dive added';
+      return t('history.done.addDive');
     case 'updateDive':
-      return `${diveName(entry)} updated`;
+      return t('history.done.updateDive', { dive: diveName(entry) });
     case 'deleteDive':
-      return `${diveName(entry)} deleted`;
+      return t('history.done.deleteDive', { dive: diveName(entry) });
     case 'mergeDives':
-      return `${mergedName(entry)} merged`;
+      return t('history.done.mergeDives', { dives: mergedName(entry) });
     case 'makeFirstDiveComputer': {
       const model = entry.computerModel?.trim() ?? '';
       return model === ''
-        ? `First computer of ${diveName(entry)} changed`
-        : `${model} is now first on ${diveName(entry)}`;
+        ? t('history.done.makeFirstComputer', { dive: diveName(entry) })
+        : t('history.done.makeFirstComputerModel', { model, dive: diveName(entry) });
     }
     case SSI_TAG_KIND:
-      return `${diveName(entry)} marked as synced to SSI`;
-    case 'upsertDiveSite':
-      return `${capitalized(siteName(entry, false))} ${entry.isNew ? 'added' : 'updated'}`;
-    case 'deleteDiveSite':
-      return `${capitalized(siteName(entry, false))} deleted${
-        entry.siteDives ? `, ${plural(entry.siteDives, 'dive')} without a site` : ''
-      }`;
+      return t('history.done.ssiTag', { dive: diveName(entry) });
+    case 'upsertDiveSite': {
+      const site = capitalized(siteName(entry, false));
+      return entry.isNew ? t('history.done.siteAdded', { site }) : t('history.done.siteUpdated', { site });
+    }
+    case 'deleteDiveSite': {
+      const site = capitalized(siteName(entry, false));
+      return entry.siteDives
+        ? t('history.done.siteDeletedDives', { site, count: entry.siteDives })
+        : t('history.done.siteDeleted', { site });
+    }
     case 'createTrip':
-      return `${capitalized(tripName(entry, false))} created`;
+      return t('history.done.tripCreated', { trip: capitalized(tripName(entry, false)) });
     case 'addDivesToTrip':
-      return `${capitalized(diveCountName(entry, false))} moved to ${tripName(entry, false)}`;
+      return t('history.done.movedToTrip', {
+        dives: capitalized(diveCountName(entry, false)),
+        trip: tripName(entry, false),
+      });
     case 'removeDivesFromTrip':
-      return `${capitalized(diveCountName(entry, false))} removed from trip`;
+      return t('history.done.removedFromTrip', { dives: capitalized(diveCountName(entry, false)) });
     case 'updateTrip':
-      return `${capitalized(tripName(entry, false))} updated`;
+      return t('history.done.tripUpdated', { trip: capitalized(tripName(entry, false)) });
     case 'ungroupDives':
-      return 'All trips ungrouped';
+      return t('history.done.ungrouped');
     case 'importFile':
     case 'importSuunto':
-      return added(entry) > 0 ? `${plural(added(entry), 'dive')} imported` : 'Logbook updated from the file';
+      return added(entry) > 0 ? t('history.done.imported', { count: added(entry) }) : t('history.done.importedNone');
     case 'dcDownloadAccept':
       return added(entry) > 0
-        ? `${plural(added(entry), 'dive')} downloaded`
-        : 'Logbook updated from the dive computer';
+        ? t('history.done.downloaded', { count: added(entry) })
+        : t('history.done.downloadedNone');
     case 'savePlan':
-      return 'Planned dive added';
+      return t('history.done.savePlan');
     default:
-      return 'Logbook changed';
+      return t('history.done.other');
   }
 }
 
 export function undoTitle(entry: HistoryEntry): string {
-  return `Undo ${changeTitle(entry)}`;
+  return t('history.undoTitle', { title: changeTitle(entry) });
 }
 
 export function redoTitle(entry: HistoryEntry): string {
-  return `Redo ${changeTitle(entry)}`;
+  return t('history.redoTitle', { title: changeTitle(entry) });
 }
 
 /**
@@ -189,9 +202,9 @@ export function historyToast(state: HistoryState): HistoryToast | null {
         key: state.revision,
         message,
         action: 'undo',
-        actionLabel: 'Undo',
+        actionLabel: t('history.undo'),
         actionAccessibilityLabel: undoTitle(entry),
-        announcement: `${message}. Undo is available.`,
+        announcement: t('history.undoAvailable', { message }),
       };
     }
     case 'undo': {
@@ -199,14 +212,14 @@ export function historyToast(state: HistoryState): HistoryToast | null {
       if (!entry) {
         return null;
       }
-      const message = `Undid ${changeTitle(entry)}`;
+      const message = t('history.undid', { title: changeTitle(entry) });
       return {
         key: state.revision,
         message,
         action: 'redo',
-        actionLabel: 'Redo',
+        actionLabel: t('history.redo'),
         actionAccessibilityLabel: redoTitle(entry),
-        announcement: `${message}. Redo is available.`,
+        announcement: t('history.redoAvailable', { message }),
       };
     }
     default:

@@ -54,6 +54,7 @@ import {
   useSsiSiteIndex,
   useSyncDiveToSsi,
 } from '@/queries/ssi';
+import { t } from '@/i18n';
 
 export function SsiSyncScreen({ diveId }: { diveId: number }) {
   const theme = useTheme();
@@ -99,7 +100,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
     validators: {
       onSubmit: ({ value }) =>
         value.site === null
-          ? { fields: { site: 'Pick the SSI dive site this dive belongs to.' } }
+          ? { fields: { site: t('ssiSync.pickSite') } }
           : undefined,
     },
     onSubmit: async ({ value }) => {
@@ -118,7 +119,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
         router.back();
       } catch (caught) {
         operationFailed();
-        Alert.alert('Could not sync to SSI', formatErrorLine(describeError(caught)));
+        Alert.alert(t('ssiSync.failed'), formatErrorLine(describeError(caught)));
       }
     },
   });
@@ -136,15 +137,15 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   // The keychain read is fast but not instant, and until it lands there is no
   // telling whether this screen is a sign-in prompt or a catalogue download.
   if (account.isPending) {
-    return <StatusView kind="loading" title="Opening dive" />;
+    return <StatusView kind="loading" title={t('ui.openingDive')} />;
   }
 
   if (!account.data) {
     return (
       <StatusView
         kind="empty"
-        title="Not signed in to SSI"
-        description="Sign in under Settings, SSI, and this dive can go straight to your SSI logbook."
+        title={t('ui.notSignedInToSsi')}
+        description={t('ui.signInUnderSettingsSsiAnd')}
         systemImage="person.crop.circle.badge.questionmark"
       />
     );
@@ -155,7 +156,7 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
     return (
       <StatusView
         kind="error"
-        title="Dive not found"
+        title={t('ui.diveNotFound')}
         description={formatErrorLine(describeError(failure))}
         systemImage="questionmark.circle"
       />
@@ -163,17 +164,17 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
   }
 
   if (!dive || !profile) {
-    return <StatusView kind="loading" title="Opening dive" />;
+    return <StatusView kind="loading" title={t('ui.openingDive')} />;
   }
 
   if (catalogue.isError) {
     return (
       <StatusView
         kind="error"
-        title="No dive site catalogue"
-        description={`${formatErrorLine(describeError(catalogue.error))} SSI has no site search, so the catalogue has to be downloaded before a dive can be filed.`}
+        title={t('ui.noDiveSiteCatalogue')}
+        description={`${formatErrorLine(describeError(catalogue.error))} ${t('ssiSync.noSearch')}`}
         systemImage="exclamationmark.triangle"
-        actionLabel="Try again"
+        actionLabel={t('ui.tryAgain')}
         onAction={() => void catalogue.refetch()}
       />
     );
@@ -183,8 +184,8 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
     return (
       <StatusView
         kind="loading"
-        title="Downloading SSI dive sites"
-        description="This happens once and takes about a minute. The catalogue is kept on this device afterwards."
+        title={t('ui.downloadingSsiDiveSites')}
+        description={t('ui.thisHappensOnceAndTakesAbout')}
       />
     );
   }
@@ -201,28 +202,28 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <FormSection title="Dive">
-              <Row label="Date" value={`${row.dateText} ${row.timeText}`} />
-              <Row label="Max depth" value={formatDepth(dive.maxDepthMm, units)} />
-              <Row label="Duration" value={formatDuration(dive.durationSec)} />
-              <Row label="Site in this logbook" value={dive.siteName || '-'} />
+            <FormSection title={t('ui.dive')}>
+              <Row label={t('ui.date')} value={`${row.dateText} ${row.timeText}`} />
+              <Row label={t('ui.maxDepth')} value={formatDepth(dive.maxDepthMm, units)} />
+              <Row label={t('ui.duration')} value={formatDuration(dive.durationSec)} />
+              <Row label={t('ui.siteInThisLogbook')} value={dive.siteName || '-'} />
             </FormSection>
 
             <FormSection
-              title="SSI dive site"
+              title={t('ui.ssiDiveSite')}
               footer={
                 field.state.value !== null &&
                 nearest !== null &&
                 field.state.value.id === nearest.site.id
-                  ? `Nearest site to this dive's position, ${formatDistance(nearest.distanceMeters)} away.`
+                  ? t('ssiSync.nearest', { distance: formatDistance(nearest.distanceMeters) })
                   : position === null
-                    ? 'Choose an SSI site by name, nearby location, recently used sites, or on the map.'
-                    : "Searched in SSI's own site catalogue, which is separate from this logbook."
+                    ? t('ssiSync.choose')
+                    : t('ssiSync.searched')
               }
             >
               <FormButtonRow
-                label={field.state.value?.name ?? 'Select SSI dive site'}
-                value={field.state.value ? 'Change' : 'Choose'}
+                label={field.state.value?.name ?? t('ssiSync.select')}
+                value={field.state.value ? t('ssiSync.change') : t('download.choose')}
                 onPress={() => setSitePickerOpen(true)}
               />
               <SsiSitePicker
@@ -265,20 +266,20 @@ export function SsiSyncScreen({ diveId }: { diveId: number }) {
                 isSubmitting ? (
                   <View style={styles.pending}>
                     <ActivityIndicator />
-                    <Text style={{ color: theme.textSecondary }}>Sending to SSI...</Text>
+                    <Text style={{ color: theme.textSecondary }}>{t('ssiSync.sending')}</Text>
                   </View>
                 ) : (
                   <FormButtonRow
-                    label={isSyncedToSsi(dive) ? 'Sync again' : 'Sync to SSI'}
+                    label={isSyncedToSsi(dive) ? t('ui.syncAgain') : t('dive.ssi.sync')}
                     onPress={() => {
                       if (isSyncedToSsi(dive)) {
                         warned();
                         Alert.alert(
-                          'Already synced',
-                          'This dive has gone to SSI before. Syncing again adds a second copy to your SSI logbook.',
+                          t('dive.ssi.synced'),
+                          t('ssiSync.againMessage'),
                           [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Sync again', onPress: () => void form.handleSubmit() },
+                            { text: t('ui.cancel'), style: 'cancel' },
+                            { text: t('ui.syncAgain'), onPress: () => void form.handleSubmit() },
                           ],
                         );
                         return;
@@ -335,8 +336,8 @@ function BuddySection({
 
   return (
     <FormSection
-      title="SSI buddies"
-      footer="From your own SSI buddy list. This logbook's buddy field is not used: it holds names, and SSI files buddies by id.">
+      title={t('ui.ssiBuddies')}
+      footer={t('ui.fromYourOwnSsiBuddyList')}>
       {selected.length > 0 ? (
         <View style={styles.chips}>
           {selected.map((buddy) => (
@@ -353,7 +354,7 @@ function BuddySection({
       {isPending ? (
         <View style={styles.pending}>
           <ActivityIndicator />
-          <Text style={{ color: theme.textSecondary }}>Loading your SSI buddies...</Text>
+          <Text style={{ color: theme.textSecondary }}>{t('ssiSync.loadingBuddies')}</Text>
         </View>
       ) : error !== null ? (
         <View style={styles.pending}>
@@ -361,19 +362,19 @@ function BuddySection({
             {formatErrorLine(describeError(error))}
           </Text>
           <Pressable onPress={onRetry} accessibilityRole="button">
-            <Text style={{ color: theme.accent }}>Try again</Text>
+            <Text style={{ color: theme.accent }}>{t('ui.tryAgain')}</Text>
           </Pressable>
         </View>
       ) : buddies.length === 0 ? (
         <Text style={{ color: theme.textSecondary }}>
-          Your SSI logbook has no buddies yet. Add them in the SSI app and they show up here.
+          {t('ssiSync.noBuddies')}
         </Text>
       ) : (
         <>
           <TextInput
             value={query}
             onChangeText={onQueryChange}
-            placeholder="Search your SSI buddies"
+            placeholder={t('ui.searchYourSsiBuddies')}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="words"
             autoCorrect={false}
@@ -382,8 +383,8 @@ function BuddySection({
           {offered.length === 0 ? (
             <Text style={{ color: theme.textSecondary }}>
               {isSearchable(query)
-                ? `No SSI buddy matches "${query.trim()}".`
-                : 'Every SSI buddy is already on this dive.'}
+                ? t('ssiSync.noBuddyMatch', { query: query.trim() })
+                : t('ssiSync.allBuddies')}
             </Text>
           ) : (
             <View style={styles.chips}>
@@ -425,7 +426,8 @@ function BuddyChip({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={
-        (selected ? `Remove ${buddy.name}` : `Add ${buddy.name}`) + (buddy.pro ? ', SSI pro' : '')
+        (selected ? t('ssiSync.removeBuddy', { name: buddy.name }) : t('ssiSync.addBuddy', { name: buddy.name })) +
+        (buddy.pro ? `, ${t('ssiSync.pro')}` : '')
       }
       style={({ pressed }) => [
         styles.chip,

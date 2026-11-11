@@ -6,7 +6,7 @@ import { foregroundStyle, monospacedDigit, pickerStyle, tag } from '@expo/ui/swi
 
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
-import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
+import { calculatorDisclaimer } from '@/models/disclaimer';
 import {
   formatMod,
   formatNdl,
@@ -18,6 +18,7 @@ import {
   PO2_RANGE,
   type Water,
 } from '@/models/nitrox';
+import { t } from '@/i18n';
 
 const PO2_OPTIONS = [1200, 1300, 1400, 1500, 1600] as const;
 
@@ -32,9 +33,9 @@ export default function NitroxScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Dive" footer={<Text>{CALCULATOR_DISCLAIMER}</Text>}>
+        <Section title={t('ui.dive')} footer={<Text>{calculatorDisclaimer()}</Text>}>
           <Stepper
-            label={`Depth  ${depthLabel}`}
+            label={`${t('units.quantity.depth')}  ${depthLabel}`}
             value={screen.depth}
             min={screen.depthRange.min}
             max={screen.depthRange.max}
@@ -42,19 +43,19 @@ export default function NitroxScreen() {
             onValueChange={screen.setDepth}
           />
           <Picker
-            label="Water"
+            label={t('ui.water')}
             selection={input.water}
             onSelectionChange={(value: string) => screen.setWater(value as Water)}
             modifiers={[pickerStyle('segmented')]}
           >
-            <Text modifiers={[tag('salt')]}>Salt</Text>
-            <Text modifiers={[tag('fresh')]}>Fresh</Text>
+            <Text modifiers={[tag('salt')]}>{t('planner.water.salt')}</Text>
+            <Text modifiers={[tag('fresh')]}>{t('planner.water.fresh')}</Text>
           </Picker>
         </Section>
 
-        <Section title="Gas">
+        <Section title={t('ui.gas')}>
           <Stepper
-            label={`Oxygen  ${input.o2Percent}%  (${mix})`}
+            label={`${t('toolsScreen.oxygen')}  ${input.o2Percent}%  (${mix})`}
             value={input.o2Percent}
             min={O2_RANGE.min}
             max={O2_RANGE.max}
@@ -62,7 +63,7 @@ export default function NitroxScreen() {
             onValueChange={screen.setO2Percent}
           />
           <Picker
-            label="Max pO2"
+            label={t('ui.maxPo2')}
             selection={input.maxPo2Mbar}
             onSelectionChange={(value: number) => screen.setMaxPo2Mbar(value)}
             modifiers={[pickerStyle('segmented')]}
@@ -80,7 +81,7 @@ export default function NitroxScreen() {
         {plan ? (
           <>
             <Section
-              title="Depth limits"
+              title={t('ui.depthLimits')}
               footer={
                 <Text>
                   Rounded down to the whole {units.depth === 'ft' ? 'foot' : 'metre'}. The best
@@ -88,18 +89,18 @@ export default function NitroxScreen() {
                 </Text>
               }
             >
-              <LabeledContent label={`MOD at ${formatPo2(input.maxPo2Mbar)}`}>
+              <LabeledContent label={t('toolsScreen.modAt', { po2: formatPo2(input.maxPo2Mbar) })}>
                 <Text modifiers={[monospacedDigit()]}>{formatMod(plan.modMm, units)}</Text>
               </LabeledContent>
-              <LabeledContent label="MOD at 1.60 bar">
+              <LabeledContent label={t('ui.modAt160Bar')}>
                 <Text modifiers={[monospacedDigit()]}>
                   {formatMod(plan.contingencyModMm, units)}
                 </Text>
               </LabeledContent>
-              <LabeledContent label={`pO2 at ${depthLabel}`}>
+              <LabeledContent label={t('toolsScreen.po2At', { depth: depthLabel })}>
                 <Text modifiers={[monospacedDigit()]}>{formatPo2(plan.po2Mbar)}</Text>
               </LabeledContent>
-              <LabeledContent label={`Best mix for ${depthLabel}`}>
+              <LabeledContent label={t('toolsScreen.bestMixFor', { depth: depthLabel })}>
                 <Text>{mixName(Math.min(100, Math.floor(plan.bestMixPermille / 10)))}</Text>
               </LabeledContent>
               {warning ? (
@@ -114,17 +115,17 @@ export default function NitroxScreen() {
             </Section>
 
             <Section
-              title={`No-deco limit at ${depthLabel}`}
+              title={t('toolsScreen.ndlAt', { depth: depthLabel })}
               footer={
                 <Text>
-                  {`Buehlmann ZHL-16C with gradient factors ${screen.gfLow}/${screen.gfHigh} from Settings, for a square dive: arriving at the depth and staying there. A planning aid, not a substitute for a dive computer.`}
+                  {t('toolsScreen.ndlFooter', { gfLow: screen.gfLow, gfHigh: screen.gfHigh })}
                 </Text>
               }
             >
               <LabeledContent label={mix}>
                 <Text modifiers={[monospacedDigit()]}>{formatNdl(plan.ndlMin)}</Text>
               </LabeledContent>
-              <LabeledContent label="Air">
+              <LabeledContent label={t('ui.air')}>
                 <Text modifiers={[monospacedDigit()]}>{formatNdl(plan.airNdlMin)}</Text>
               </LabeledContent>
               <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
@@ -133,8 +134,8 @@ export default function NitroxScreen() {
             </Section>
           </>
         ) : (
-          <Section title="Result">
-            <Text>{screen.error ?? 'The calculation is unavailable.'}</Text>
+          <Section title={t('ui.result')}>
+            <Text>{screen.error ?? t('toolsScreen.unavailable')}</Text>
           </Section>
         )}
       </Form>

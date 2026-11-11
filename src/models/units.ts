@@ -13,6 +13,8 @@
 // `Units`, never a unit system - a unit system alone cannot say whether a diver
 // who logs feet also wants bar.
 
+import { t } from '@/i18n';
+
 /** Millikelvin of 0 C. `ZERO_C_IN_MKELVIN` in core/units.h. */
 export const ZERO_C_IN_MKELVIN = 273150;
 
@@ -338,27 +340,27 @@ export function sacLabel(units: Units): string {
 /** Spoken names, for accessibility labels: "feet", "degrees Celsius". */
 export function depthUnitName(units: Units): string {
   assertUnits(units);
-  return units.depth === 'ft' ? 'feet' : 'meters';
+  return units.depth === 'ft' ? t('units.spoken.feet') : t('units.spoken.meters');
 }
 
 export function temperatureUnitName(units: Units): string {
   assertUnits(units);
-  return units.temperature === 'F' ? 'degrees Fahrenheit' : 'degrees Celsius';
+  return units.temperature === 'F' ? t('units.spoken.fahrenheit') : t('units.spoken.celsius');
 }
 
 export function pressureUnitName(units: Units): string {
   assertUnits(units);
-  return units.pressure === 'psi' ? 'psi' : 'bar';
+  return units.pressure === 'psi' ? t('units.spoken.psi') : t('units.spoken.bar');
 }
 
 export function volumeUnitName(units: Units): string {
   assertUnits(units);
-  return units.volume === 'cuft' ? 'cubic feet' : 'liters';
+  return units.volume === 'cuft' ? t('units.spoken.cubicFeet') : t('units.spoken.liters');
 }
 
 export function weightUnitName(units: Units): string {
   assertUnits(units);
-  return units.weight === 'lbs' ? 'pounds' : 'kilograms';
+  return units.weight === 'lbs' ? t('units.spoken.pounds') : t('units.spoken.kilograms');
 }
 
 /**
@@ -395,13 +397,13 @@ export function formatDuration(seconds: number): string {
  */
 export function formatGasMix(o2Permille: number, hePermille: number): string {
   if (hePermille > 0) {
-    return `Trimix ${Math.round(o2Permille / 10)}/${Math.round(hePermille / 10)}`;
+    return t('units.gas.trimix', { o2: Math.round(o2Permille / 10), he: Math.round(hePermille / 10) });
   }
   if (o2Permille === 0 || o2Permille === 209) {
-    return 'Air';
+    return t('units.gas.air');
   }
   if (o2Permille === 1000) {
-    return 'Oxygen';
+    return t('units.gas.oxygen');
   }
   return `EAN${Math.round(o2Permille / 10)}`;
 }
@@ -415,33 +417,85 @@ export function formatWhenIso(when: number): string {
 
 export type UnitPresetChoice = UnitSystem | 'personalized';
 
+// The labels are getters so they are looked up in the language in force each
+// time a row is drawn, not once when this module loads.
+
 /** The three choices of the legacy app's unit setting (qml/Settings.qml). */
-export const UNIT_PRESET_OPTIONS: readonly { value: UnitPresetChoice; label: string }[] = [
-  { value: 'metric', label: 'Metric' },
-  { value: 'imperial', label: 'Imperial' },
-  { value: 'personalized', label: 'Custom' },
+export const UNIT_PRESET_OPTIONS: readonly { value: UnitPresetChoice; readonly label: string }[] = [
+  {
+    value: 'metric',
+    get label() {
+      return t('units.preset.metric');
+    },
+  },
+  {
+    value: 'imperial',
+    get label() {
+      return t('units.preset.imperial');
+    },
+  },
+  {
+    value: 'personalized',
+    get label() {
+      return t('units.preset.custom');
+    },
+  },
 ];
 
-/** One row per quantity, in the order desktop's preferences list them. */
-export const UNIT_ROWS: readonly {
+type UnitRow = {
   key: keyof Units;
-  label: string;
-  options: readonly { value: string; label: string }[];
-}[] = [
-  { key: 'depth', label: 'Depth', options: [{ value: 'm', label: 'Meters' }, { value: 'ft', label: 'Feet' }] },
-  { key: 'pressure', label: 'Pressure', options: [{ value: 'bar', label: 'Bar' }, { value: 'psi', label: 'psi' }] },
-  { key: 'volume', label: 'Volume', options: [{ value: 'l', label: 'Liters' }, { value: 'cuft', label: 'Cubic feet' }] },
-  { key: 'temperature', label: 'Temperature', options: [{ value: 'C', label: 'Celsius' }, { value: 'F', label: 'Fahrenheit' }] },
-  { key: 'weight', label: 'Weight', options: [{ value: 'kg', label: 'Kilograms' }, { value: 'lbs', label: 'Pounds' }] },
+  readonly label: string;
+  options: readonly { value: string; readonly label: string }[];
+};
+
+/** A row whose labels are looked up when read. */
+function unitRow(key: keyof Units, options: readonly (readonly [string, () => string])[]): UnitRow {
+  return {
+    key,
+    get label() {
+      return t(`units.quantity.${key}`);
+    },
+    options: options.map(([value, label]) => ({
+      value,
+      get label() {
+        return label();
+      },
+    })),
+  };
+}
+
+/** One row per quantity, in the order desktop's preferences list them. */
+export const UNIT_ROWS: readonly UnitRow[] = [
+  unitRow('depth', [
+    ['m', () => t('units.name.meters')],
+    ['ft', () => t('units.name.feet')],
+  ]),
+  unitRow('pressure', [
+    ['bar', () => t('units.name.bar')],
+    ['psi', () => t('units.name.psi')],
+  ]),
+  unitRow('volume', [
+    ['l', () => t('units.name.liters')],
+    ['cuft', () => t('units.name.cubicFeet')],
+  ]),
+  unitRow('temperature', [
+    ['C', () => t('units.name.celsius')],
+    ['F', () => t('units.name.fahrenheit')],
+  ]),
+  unitRow('weight', [
+    ['kg', () => t('units.name.kilograms')],
+    ['lbs', () => t('units.name.pounds')],
+  ]),
 ];
 
 /** A footer line naming the units in force, e.g. "Meters, bar, liters, Celsius, kilograms." */
 export function unitsSummary(units: Units): string {
   assertUnits(units);
   const names = UNIT_ROWS.map((row) => {
-    const label = row.options.find((option) => option.value === units[row.key])?.label ?? '';
-    // Celsius and Fahrenheit are names; the rest are words.
-    return row.key === 'depth' || row.key === 'temperature' ? label : label.charAt(0).toLowerCase() + label.slice(1);
+    const option = row.options.find((candidate) => candidate.value === units[row.key]);
+    return option ? t(`units.inline.${option.value as InlineUnit}`) : '';
   });
-  return `${names.join(', ')}.`;
+  return t('units.summary', { list: names.join(', ') });
 }
+
+type InlineUnit = 'm' | 'ft' | 'bar' | 'psi' | 'l' | 'cuft' | 'C' | 'F' | 'kg' | 'lbs';

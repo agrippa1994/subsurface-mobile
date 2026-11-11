@@ -9,6 +9,8 @@
 import type { PlanSettingsInput } from './index';
 import { PlanDecoMode } from './index';
 import { feetToMm, mlToCuft, mmToFeet, cuftToMl, mbarToPsi, psiToMbar, coreUnits, type Units } from './units';
+import { t } from '@/i18n';
+import type en from '@/i18n/locales/en';
 
 export type PlannerSettings = {
   decoMode: PlanDecoMode;
@@ -129,7 +131,7 @@ export function rateFromValue(value: number, units: Units): number {
 export type StepperSetting = {
   kind: 'stepper';
   key: string;
-  label: string;
+  readonly label: string;
   /** The value in the unit shown, which is what the stepper moves. */
   value: (settings: PlannerSettings, units: Units, gf: { gfLow: number; gfHigh: number }) => number;
   format: (value: number, units: Units) => string;
@@ -141,27 +143,30 @@ export type StepperSetting = {
 export type ToggleSetting = {
   kind: 'toggle';
   key: keyof PlannerSettings;
-  label: string;
+  readonly label: string;
   visible?: (settings: PlannerSettings) => boolean;
 };
 
 export type PlannerSetting = StepperSetting | ToggleSetting;
 
 export type PlannerSettingSection = {
-  title: string;
-  footer?: string | ((settings: PlannerSettings) => string | undefined);
+  readonly title: string;
+  readonly footer?: string | ((settings: PlannerSettings) => string | undefined);
   settings: PlannerSetting[];
 };
 
 type NumericKey = {
   [K in keyof PlannerSettings]: PlannerSettings[K] extends number ? K : never;
-}[keyof PlannerSettings];
+}[keyof PlannerSettings] &
+  SettingLabelKey;
 
-function rate(key: NumericKey, label: string, visible?: StepperSetting['visible']): StepperSetting {
+function rate(key: NumericKey, visible?: StepperSetting['visible']): StepperSetting {
   return {
     kind: 'stepper',
     key,
-    label,
+    get label() {
+      return settingLabel(key);
+    },
     visible,
     value: (s, units) => rateValue(s[key] as number, units),
     format: (value, units) => `${value} ${units.depth === 'ft' ? 'ft/min' : 'm/min'}`,
@@ -172,7 +177,6 @@ function rate(key: NumericKey, label: string, visible?: StepperSetting['visible'
 
 function plain(
   key: NumericKey,
-  label: string,
   range: { min: number; max: number; step: number },
   format: (value: number) => string,
   visible?: StepperSetting['visible'],
@@ -181,7 +185,9 @@ function plain(
   return {
     kind: 'stepper',
     key,
-    label,
+    get label() {
+      return settingLabel(key);
+    },
     visible,
     value: (s) => (s[key] as number) / scale,
     format,
@@ -190,11 +196,13 @@ function plain(
   };
 }
 
-function sac(key: NumericKey, label: string): StepperSetting {
+function sac(key: NumericKey): StepperSetting {
   return {
     kind: 'stepper',
     key,
-    label,
+    get label() {
+      return settingLabel(key);
+    },
     value: (s, units) =>
       units.volume === 'cuft'
         ? Math.round(mlToCuft(s[key] as number) * 20) / 20
@@ -209,8 +217,19 @@ function sac(key: NumericKey, label: string): StepperSetting {
   };
 }
 
-function po2(key: NumericKey, label: string, range: { min: number; max: number; step: number }) {
-  return plain(key, label, range, (value) => `${value.toFixed(2)} bar`, undefined, 1000);
+function toggle(key: keyof PlannerSettings & SettingLabelKey, visible?: ToggleSetting['visible']): ToggleSetting {
+  return {
+    kind: 'toggle',
+    key,
+    get label() {
+      return settingLabel(key);
+    },
+    visible,
+  };
+}
+
+function po2(key: NumericKey, range: { min: number; max: number; step: number }) {
+  return plain(key, range, (value) => `${value.toFixed(2)} bar`, undefined, 1000);
 }
 
 const isBuehlmann = (s: PlannerSettings) => s.decoMode === PlanDecoMode.Buehlmann;
@@ -218,25 +237,38 @@ const isVpmb = (s: PlannerSettings) => s.decoMode === PlanDecoMode.VpmB;
 const isRecreational = (s: PlannerSettings) => s.decoMode === PlanDecoMode.Recreational;
 const isDeco = (s: PlannerSettings) => s.decoMode !== PlanDecoMode.Recreational;
 
-export const DECO_MODE_OPTIONS: readonly { value: PlanDecoMode; label: string }[] = [
+/** A setting's row label, by its key. */
+function settingLabel(key: SettingLabelKey): string {
+  return t(`plannerSettings.label.${key}`);
+}
+
+type SettingLabelKey = keyof typeof en.plannerSettings.label;
+
+export const DECO_MODE_OPTIONS: readonly { value: PlanDecoMode; readonly label: string }[] = [
   { value: PlanDecoMode.Buehlmann, label: 'Bühlmann' },
   { value: PlanDecoMode.VpmB, label: 'VPM-B' },
-  { value: PlanDecoMode.Recreational, label: 'Recreational' },
+  {
+    value: PlanDecoMode.Recreational,
+    get label() {
+      return t('plannerSettings.recreational');
+    },
+  },
 ];
 
 /** Everything DivePlannerSetup.qml offers, in the order a diver thinks of it. */
 export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
   {
-    title: 'Decompression',
-    footer: (s) =>
-      isRecreational(s)
-        ? 'Recreational mode plans no stops: it stays down until the no-deco limit or the reserve, whichever comes first.'
-        : undefined,
+    get title() {
+      return t('plannerSettings.section.decompression');
+    },
+    footer: (s) => (isRecreational(s) ? t('plannerSettings.footer.recreational') : undefined),
     settings: [
       {
         kind: 'stepper',
         key: 'gfLow',
-        label: 'GF low',
+        get label() {
+          return settingLabel('gfLow');
+        },
         visible: isBuehlmann,
         value: (s, _system, gf) => s.gfLow ?? gf.gfLow,
         format: (value) => `${value}%`,
@@ -246,7 +278,9 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
       {
         kind: 'stepper',
         key: 'gfHigh',
-        label: 'GF high',
+        get label() {
+          return settingLabel('gfHigh');
+        },
         visible: isBuehlmann,
         value: (s, _system, gf) => s.gfHigh ?? gf.gfHigh,
         format: (value) => `${value}%`,
@@ -255,15 +289,16 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
       },
       plain(
         'vpmbConservatism',
-        'Conservatism',
         { min: 0, max: 4, step: 1 },
-        (value) => (value === 0 ? 'Nominal' : `+${value}`),
+        (value) => (value === 0 ? t('plannerSettings.nominal') : `+${value}`),
         isVpmb,
       ),
       {
         kind: 'stepper',
         key: 'reserveGasMbar',
-        label: 'Reserve gas',
+        get label() {
+          return settingLabel('reserveGasMbar');
+        },
         visible: isRecreational,
         value: (s, units) =>
           units.pressure === 'psi'
@@ -276,59 +311,74 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
           reserveGasMbar: units.pressure === 'psi' ? psiToMbar(value) : value * 1000,
         }),
       },
-      { kind: 'toggle', key: 'safetyStop', label: 'Safety stop', visible: isRecreational },
+      toggle('safetyStop', isRecreational),
     ],
   },
   {
-    title: 'Ascent',
-    footer: 'As in the desktop app, the rates change with depth against the average depth of the dive.',
+    get title() {
+      return t('plannerSettings.section.ascent');
+    },
+    get footer() {
+      return t('plannerSettings.footer.ascent');
+    },
     settings: [
-      rate('ascrate75', 'Below 75% of average depth'),
-      rate('ascrate50', '75% to 50% of average depth'),
-      rate('ascratestops', '50% of average depth to 6 m / 20 ft'),
-      rate('ascratelast6m', 'Last 6 m / 20 ft'),
+      rate('ascrate75'),
+      rate('ascrate50'),
+      rate('ascratestops'),
+      rate('ascratelast6m'),
     ],
   },
   {
-    title: 'Descent',
-    footer: 'Off, the first level takes its whole time to reach its depth.',
+    get title() {
+      return t('plannerSettings.section.descent');
+    },
+    get footer() {
+      return t('plannerSettings.footer.descent');
+    },
     settings: [
-      { kind: 'toggle', key: 'dropStone', label: 'Descend at the rate below' },
-      rate('descrate', 'Descent rate', (s) => s.dropStone),
+      toggle('dropStone'),
+      rate('descrate', (s) => s.dropStone),
     ],
   },
   {
-    title: 'Stops',
+    get title() {
+      return t('plannerSettings.section.stops');
+    },
     settings: [
-      { kind: 'toggle', key: 'lastStop6m', label: 'Last stop at 6 m / 20 ft', visible: isDeco },
-      { kind: 'toggle', key: 'o2Breaks', label: 'Back gas breaks', visible: isDeco },
-      { kind: 'toggle', key: 'switchAtRequiredStop', label: 'Switch gas only at required stops', visible: isDeco },
+      toggle('lastStop6m', isDeco),
+      toggle('o2Breaks', isDeco),
+      toggle('switchAtRequiredStop', isDeco),
       plain(
         'minSwitchSec',
-        'Minimum switch time',
         { min: 0, max: 4, step: 1 },
         (value) => `${value} min`,
         isDeco,
         60,
       ),
-      plain('surfaceSegmentSec', 'Surface segment', { min: 0, max: 60, step: 1 }, (value) => `${value} min`, undefined, 60),
+      plain('surfaceSegmentSec', { min: 0, max: 60, step: 1 }, (value) => `${value} min`, undefined, 60),
     ],
   },
   {
-    title: 'Gas',
-    footer: 'Minimum gas is the SAC factor times the bottom SAC for the problem solving time, plus the ascent at that factor.',
+    get title() {
+      return t('plannerSettings.section.gas');
+    },
+    get footer() {
+      return t('plannerSettings.footer.gas');
+    },
     settings: [
-      sac('bottomSacMl', 'Bottom SAC'),
-      sac('decoSacMl', 'Deco SAC'),
-      plain('sacFactor', 'SAC factor', { min: 1, max: 9.9, step: 0.1 }, (value) => value.toFixed(1), undefined, 100),
-      plain('problemSolvingMin', 'Problem solving time', { min: 1, max: 9, step: 1 }, (value) => `${value} min`),
-      po2('bottomPo2Mbar', 'Bottom pO₂', { min: 1, max: 2, step: 0.05 }),
-      po2('decoPo2Mbar', 'Deco pO₂', { min: 1, max: 2, step: 0.05 }),
-      po2('defaultSetpointMbar', 'Default CCR setpoint', { min: 0.2, max: 2, step: 0.05 }),
+      sac('bottomSacMl'),
+      sac('decoSacMl'),
+      plain('sacFactor', { min: 1, max: 9.9, step: 0.1 }, (value) => value.toFixed(1), undefined, 100),
+      plain('problemSolvingMin', { min: 1, max: 9, step: 1 }, (value) => `${value} min`),
+      po2('bottomPo2Mbar', { min: 1, max: 2, step: 0.05 }),
+      po2('decoPo2Mbar', { min: 1, max: 2, step: 0.05 }),
+      po2('defaultSetpointMbar', { min: 0.2, max: 2, step: 0.05 }),
       {
         kind: 'stepper',
         key: 'bestMixEndMm',
-        label: 'Best mix END',
+        get label() {
+          return settingLabel('bestMixEndMm');
+        },
         value: (s, units) =>
           units.depth === 'ft' ? Math.round(mmToFeet(s.bestMixEndMm) / 5) * 5 : Math.round(s.bestMixEndMm / 1000),
         format: (value, units) => `${value} ${units.depth === 'ft' ? 'ft' : 'm'}`,
@@ -338,18 +388,20 @@ export const PLANNER_SETTING_SECTIONS: readonly PlannerSettingSection[] = [
           bestMixEndMm: units.depth === 'ft' ? feetToMm(value) : value * 1000,
         }),
       },
-      { kind: 'toggle', key: 'o2Narcotic', label: 'Oxygen is narcotic' },
+      toggle('o2Narcotic'),
     ],
   },
   {
-    title: 'Plan notes',
+    get title() {
+      return t('plannerSettings.section.notes');
+    },
     settings: [
-      { kind: 'toggle', key: 'displayRuntime', label: 'Show runtime' },
-      { kind: 'toggle', key: 'displayDuration', label: 'Show segment duration' },
-      { kind: 'toggle', key: 'displayTransitions', label: 'Show transitions in deco' },
-      { kind: 'toggle', key: 'verbatim', label: 'Verbatim plan' },
-      { kind: 'toggle', key: 'displayVariations', label: 'Show plan variations', visible: isDeco },
-      { kind: 'toggle', key: 'showIcd', label: 'Isobaric counterdiffusion check' },
+      toggle('displayRuntime'),
+      toggle('displayDuration'),
+      toggle('displayTransitions'),
+      toggle('verbatim'),
+      toggle('displayVariations', isDeco),
+      toggle('showIcd'),
     ],
   },
 ];

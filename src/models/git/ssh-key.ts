@@ -9,6 +9,7 @@
 // the private half is protected by a passphrase.
 
 import { decodeBase64, encodeBase64 } from './base64';
+import { t } from '@/i18n';
 
 const MAGIC = 'openssh-key-v1\0';
 const OPENSSH_BEGIN = '-----BEGIN OPENSSH PRIVATE KEY-----';
@@ -90,7 +91,7 @@ class Reader {
 
   uint32(): number {
     if (this.offset + 4 > this.data.length) {
-      throw new Error('The key file is truncated.');
+      throw new Error(t('git.key.truncated'));
     }
     const d = this.data;
     const o = this.offset;
@@ -101,7 +102,7 @@ class Reader {
   bytes(): Uint8Array {
     const length = this.uint32();
     if (this.offset + length > this.data.length) {
-      throw new Error('The key file is truncated.');
+      throw new Error(t('git.key.truncated'));
     }
     const out = this.data.subarray(this.offset, this.offset + length);
     this.offset += length;
@@ -203,23 +204,23 @@ export type KeyInfo = {
 export function describePrivateKey(text: string): KeyInfo {
   const trimmed = text.trim();
   if (/^(ssh-|ecdsa-)\S+ [A-Za-z0-9+/=]+/.test(trimmed)) {
-    throw new Error('This is a public key. Pick the private key file (the one without .pub).');
+    throw new Error(t('git.key.public'));
   }
 
   if (trimmed.startsWith(OPENSSH_BEGIN)) {
     const end = trimmed.indexOf(OPENSSH_END);
     if (end < 0) {
-      throw new Error('The key file is incomplete.');
+      throw new Error(t('git.key.incomplete'));
     }
     const reader = new Reader(decodeBase64(trimmed.slice(OPENSSH_BEGIN.length, end)));
     if (!reader.magic(MAGIC)) {
-      throw new Error('This is not an OpenSSH private key.');
+      throw new Error(t('git.key.notOpenssh'));
     }
     const cipher = reader.string();
     reader.string(); // kdf name
     reader.bytes(); // kdf options
     if (reader.uint32() < 1) {
-      throw new Error('The key file holds no key.');
+      throw new Error(t('git.key.empty'));
     }
     const publicBlob = reader.bytes();
     const type = new Reader(publicBlob).string();
@@ -242,5 +243,5 @@ export function describePrivateKey(text: string): KeyInfo {
     };
   }
 
-  throw new Error('This is not an SSH private key.');
+  throw new Error(t('git.key.notPrivate'));
 }

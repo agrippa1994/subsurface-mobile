@@ -6,6 +6,7 @@ import { Stack } from 'expo-router';
 import { StatusView } from '@/components/status-view';
 import { DiveListScreen } from '@/features/dives/dive-list-screen';
 import { useSplitLayout } from '@/hooks/use-adaptive-layout';
+import { t } from '@/i18n';
 
 export default function DivesIndexRoute() {
   const { split } = useSplitLayout();
@@ -17,8 +18,8 @@ export default function DivesIndexRoute() {
       <Stack.Screen options={{ title: '', headerLargeTitle: false }} />
       <StatusView
         kind="empty"
-        title="No dive selected"
-        description="Pick a dive from the list to see its profile and details."
+        title={t('diveList.noneSelected')}
+        description={t('diveList.noneSelectedDetail')}
         systemImage="water.waves"
       />
     </>

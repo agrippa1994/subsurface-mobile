@@ -32,6 +32,7 @@ import {
 } from '@/models/statistics';
 import { chartHeadline } from '@/models/stats-chart';
 import { useSettings, useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export default function StatisticsScreen() {
   const screen = useStatisticsScreen();
@@ -56,15 +57,15 @@ export default function StatisticsScreen() {
   );
 
   if (screen.loading) {
-    return <StatusView kind="loading" title="Opening logbook" />;
+    return <StatusView kind="loading" title={t('ui.openingLogbook')} />;
   }
 
   if (screen.error || !summary) {
     return (
       <StatusView
         kind="error"
-        title="Statistics are unavailable"
-        description={screen.error ?? 'The logbook could not be read.'}
+        title={t('ui.statisticsAreUnavailable')}
+        description={screen.error ?? t('errors.unreadable')}
         systemImage="exclamationmark.triangle"
       />
     );
@@ -74,15 +75,15 @@ export default function StatisticsScreen() {
     return (
       <StatusView
         kind="empty"
-        title="Nothing to count yet"
-        description="Statistics appear once the logbook holds a dive."
+        title={t('ui.nothingToCountYet')}
+        description={t('ui.statisticsAppearOnceTheLogbookHolds')}
         systemImage="chart.bar"
       />
     );
   }
 
   const perYear = pickGranularity(summary) === 'year';
-  const timeLabel = perYear ? 'Dives per year' : 'Dives per month';
+  const timeLabel = perYear ? t('statsScreen.perYear') : t('statsScreen.perMonth');
 
   return (
     <ScrollView
@@ -101,24 +102,24 @@ export default function StatisticsScreen() {
 
       {screen.filtered && summary.matched === 0 ? (
         <Text style={[styles.note, { color: theme.textSecondary }]}>
-          No dives match this filter.
+          {t('charts.noDivesMatch')}
         </Text>
       ) : null}
 
       <BarChart title={timeLabel} bars={overTime} />
       <BarChart
-        title="Dives by maximum depth"
+        title={t('ui.divesByMaximumDepth')}
         bars={depths}
         axisUnit={depthAxisUnit(units)}
       />
-      <BarChart title="Dives by duration" bars={durations} axisUnit="min" />
+      <BarChart title={t('ui.divesByDuration')} bars={durations} axisUnit="min" />
       <BarChart
-        title={perYear ? 'Average SAC per year' : 'Average SAC per month'}
+        title={perYear ? t('statsScreen.sacPerYear') : t('statsScreen.sacPerMonth')}
         bars={sacs}
         axisUnit={sacAxisUnit(units)}
         integer={false}
-        hint="Tap a bar for its average"
-        emptyText="No dives with a known SAC. It needs cylinder sizes and pressures."
+        hint={t('ui.tapABarForItsAverage')}
+        emptyText={t('ui.noDivesWithAKnownSac')}
       />
     </ScrollView>
   );
@@ -150,11 +151,11 @@ function ExploreRow() {
   const theme = useTheme();
   const router = useRouter();
   const { statsChart } = useSettings();
-  const detail = statsChart ? chartHeadline(statsChart) : 'Ask a question, or build your own chart';
+  const detail = statsChart ? chartHeadline(statsChart) : t('statsScreen.askQuestion');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Explore your dives. ${detail}`}
+      accessibilityLabel={`${t('statsScreen.explore')}. ${detail}`}
       onPress={() => router.push('/statistics/explore')}
       style={({ pressed }) => [
         styles.explore,
@@ -162,7 +163,7 @@ function ExploreRow() {
       ]}>
       <SymbolView name="chart.xyaxis.line" size={22} tintColor={theme.accent} />
       <View style={styles.exploreText}>
-        <Text style={[styles.exploreTitle, { color: theme.text }]}>Explore your dives</Text>
+        <Text style={[styles.exploreTitle, { color: theme.text }]}>{t('statsScreen.explore')}</Text>
         <Text style={[styles.tileLabel, { color: theme.textSecondary }]} numberOfLines={2}>
           {detail}
         </Text>

@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { ChoicePicker } from '@/features/dive-computer/choice-picker';
 import { useTheme } from '@/hooks/use-theme';
 import { computerPositionText } from '@/models/dive-computers';
+import { t } from '@/i18n';
 
 export type ComputerPickerProps = {
   /** One name per computer, from computerLabels. */
@@ -43,16 +44,16 @@ export function ComputerPicker({
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Dive computer"
+        accessibilityLabel={t('ui.diveComputer')}
         accessibilityValue={{
           text: computerPositionText(labels[selectedIndex], selectedIndex, labels.length),
         }}
-        accessibilityHint="Shows the profile and details from another computer"
+        accessibilityHint={t('ui.showsTheProfileAndDetailsFrom')}
         onPress={() => setOpen(true)}
         android_ripple={{ color: theme.backgroundSelected }}
         style={[styles.row, compact ? styles.compact : null]}>
         {compact ? null : (
-          <Text style={[styles.caption, { color: theme.text }]}>Computer</Text>
+          <Text style={[styles.caption, { color: theme.text }]}>{t('ui.computer')}</Text>
         )}
         <Text style={[styles.value, { color: theme.accent }]} numberOfLines={1}>
           {labels[selectedIndex]}
@@ -61,7 +62,7 @@ export function ComputerPicker({
       </Pressable>
       <ChoicePicker
         visible={open}
-        title="Dive computer"
+        title={t('ui.diveComputer')}
         searchable={false}
         choices={choices}
         selectedKey={String(selectedIndex)}

@@ -49,6 +49,7 @@ import {
   useSettings,
   useUpdateSettings,
 } from '@/queries/settings';
+import { t } from '@/i18n';
 
 /** Asks Android for what a scan needs. iOS asks by itself when the scan starts. */
 async function ensureBluetoothPermission(): Promise<boolean> {
@@ -297,7 +298,7 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
     } catch (error) {
       operationFailed();
       recordProblem('Dive computer download', error);
-      Alert.alert('The download could not start', formatErrorLine(describeError(error)));
+      Alert.alert(t('alerts.downloadFailed'), formatErrorLine(describeError(error)));
     }
   }, [connection, force, product, settings.syncDiveComputerTime, vendor]);
 
@@ -309,13 +310,13 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
         refreshStatus();
         // As an import: a plain result is the toast's to report, with its Undo.
         if (importNeedsExplaining(result)) {
-          Alert.alert('Dives downloaded', acceptSummary(result));
+          Alert.alert(t('alerts.downloaded'), acceptSummary(result));
         }
         onDone();
       } catch (error) {
         operationFailed();
         recordProblem('Accepting downloaded dives', error);
-        Alert.alert('The dives could not be saved', formatErrorLine(describeError(error)));
+        Alert.alert(t('alerts.saveFailed'), formatErrorLine(describeError(error)));
       }
     })();
   }, [acceptDownload, onDone, refreshStatus, selected]);
@@ -331,9 +332,9 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
       return;
     }
     warned();
-    Alert.alert('Discard the downloaded dives?', 'They stay on the dive computer.', [
-      { text: 'Keep reviewing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: finish },
+    Alert.alert(t('download.discardTitle'), t('download.discardMessage'), [
+      { text: t('download.keepReviewing'), style: 'cancel' },
+      { text: t('ui.discard'), style: 'destructive', onPress: finish },
     ]);
   }, [onDone, refreshStatus, selected.size]);
 
@@ -346,9 +347,9 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
       void Sharing.shareAsync(new File(`file://${logPath}`).uri, {
         mimeType: 'text/plain',
         UTI: 'public.plain-text',
-        dialogTitle: 'Dive computer log',
+        dialogTitle: t('download.log'),
       }).catch((error: unknown) => {
-        Alert.alert('The log could not be shared', formatErrorLine(describeError(error)));
+        Alert.alert(t('alerts.logFailed'), formatErrorLine(describeError(error)));
       });
     };
   }, [logPath, status.state]);
@@ -384,7 +385,7 @@ export function useDiveComputer(onDone: () => void): DiveComputerScreen {
     outcome,
     running,
     canDownload: vendor !== '' && product !== '' && connection !== null && !running,
-    downloadLabel: wentWrong ? 'Retry' : 'Download',
+    downloadLabel: wentWrong ? t('download.retry') : t('download.download'),
     download,
     cancel: dcDownloadCancel,
 

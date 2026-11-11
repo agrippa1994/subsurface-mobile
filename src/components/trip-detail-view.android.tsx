@@ -13,6 +13,7 @@ import type { DiveSummary } from '@/models';
 import { diveRowTitle, toDiveRow } from '@/models/dive-list';
 
 import type { TripDetailViewProps } from './trip-detail-view';
+import { t } from '@/i18n';
 
 export type { TripDetailViewProps };
 
@@ -35,16 +36,16 @@ export function TripDetailView({
     <Host style={{ flex: 1, backgroundColor: palette.surface }}>
       <Box modifiers={[fillMaxSize()]}>
         <LazyColumn modifiers={[fillMaxSize()]} contentPadding={{ bottom: 24 }}>
-          <M3Section title="Summary" footer={summaryFooter}>
-            {location.trim() === '' ? <M3ActionRow label="Add a Location" onPress={onEdit} /> : null}
+          <M3Section title={t('ui.summary')} footer={summaryFooter}>
+            {location.trim() === '' ? <M3ActionRow label={t('ui.addALocation')} onPress={onEdit} /> : null}
             {summary.map((row) => (
               <M3ValueRow key={row.label} label={row.label} value={row.value} />
             ))}
           </M3Section>
-          <M3Section title="Notes">
-            {text !== '' ? <M3Note>{text}</M3Note> : <M3ActionRow label="Add Notes" onPress={onEdit} />}
+          <M3Section title={t('ui.notes')}>
+            {text !== '' ? <M3Note>{text}</M3Note> : <M3ActionRow label={t('ui.addNotes')} onPress={onEdit} />}
           </M3Section>
-          <M3Section title="Dives">
+          <M3Section title={t('ui.dives')}>
             {dives.map((dive) => (
               <M3DiveRow
                 key={dive.id}
@@ -54,8 +55,8 @@ export function TripDetailView({
               />
             ))}
           </M3Section>
-          <M3Section footer="The trip goes away. Its dives stay in your logbook.">
-            <M3ActionRow label="Ungroup Trip" destructive onPress={onUngroup} />
+          <M3Section footer={t('ui.theTripGoesAwayItsDives')}>
+            <M3ActionRow label={t('ui.ungroupTrip')} destructive onPress={onUngroup} />
           </M3Section>
         </LazyColumn>
         {pressed ? (
@@ -63,7 +64,7 @@ export function TripDetailView({
             title={diveRowTitle(pressed)}
             actions={[
               {
-                label: 'Remove from Trip',
+                label: t('ui.removeFromTrip'),
                 icon: 'minus.circle',
                 onPress: () => onRemoveDive(pressed),
               },

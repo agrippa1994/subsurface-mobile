@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import type { SitePosition } from '@/models/ssi/site-browse';
+import { t } from '@/i18n';
 
 export function useUserLocation(initialPosition: SitePosition | null = null) {
   const [position, setPosition] = useState(initialPosition);
@@ -23,11 +24,11 @@ export function useUserLocation(initialPosition: SitePosition | null = null) {
       void refreshPermission();
       if (!requested.granted) {
         Alert.alert(
-          'Location access is off',
-          'Allow location access in Settings to find dive sites near you.',
+          t('location.offTitle'),
+          t('location.offMessage'),
           [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            { text: t('location.notNow'), style: 'cancel' },
+            { text: t('location.openSettings'), onPress: () => void Linking.openSettings() },
           ],
         );
         return null;
@@ -39,7 +40,7 @@ export function useUserLocation(initialPosition: SitePosition | null = null) {
       setPosition(next);
       return next;
     } catch {
-      Alert.alert('Could not find your location', 'Try again, search by name, or explore the map.');
+      Alert.alert(t('location.failedTitle'), t('location.failedMessage'));
       return null;
     } finally {
       inFlight.current = false;

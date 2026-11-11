@@ -10,11 +10,12 @@ import { M3Icon } from '@/components/material/icon';
 import { SurfaceGfSparkline } from '@/components/surface-gf-chart';
 import { useTheme } from '@/hooks/use-theme';
 import type { SurfaceGfCard } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpen: () => void }) {
   const palette = useMaterialColors();
   const theme = useTheme();
-  const description = `${card.accessibilityLabel} Opens the surface GF timeline.`;
+  const description = `${card.accessibilityLabel} ${t('surfaceGfScreen.opensTimeline')}`;
   const container = [
     padding(16, 12, 16, 4),
     fillMaxWidth(),
@@ -28,7 +29,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
         <Row verticalAlignment="center" horizontalArrangement={{ spacedBy: 12 }} modifiers={[padding(16, 12, 16, 12)]}>
           <M3Icon name="trending_down" tint={palette.primary} />
           <Column modifiers={[weight(1)]}>
-            <Text style={{ typography: 'titleSmall' }}>{`Surface GF ${card.gfText}`}</Text>
+            <Text style={{ typography: 'titleSmall' }}>{t('surfaceGf.gf', { gf: card.gfText })}</Text>
             <Text color={palette.onSurfaceVariant} style={{ typography: 'bodySmall' }}>
               {card.untilText}
             </Text>
@@ -45,7 +46,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
         <Row verticalAlignment="center" horizontalArrangement={{ spacedBy: 12 }}>
           <Column modifiers={[weight(1)]}>
             <Text color={palette.onSecondaryContainer} style={{ typography: 'labelMedium' }}>
-              Surface GF
+              {t('nav.surfaceGf')}
             </Text>
             <Text
               color={card.aboveGfHigh ? theme.warning : palette.onSecondaryContainer}
@@ -70,12 +71,12 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
           <Row verticalAlignment="center" horizontalArrangement={{ spacedBy: 8 }} modifiers={[padding(0, 8, 0, 0)]}>
             <M3Icon name="schedule" size={18} tint={palette.primary} />
             <Text color={palette.onSecondaryContainer} style={{ typography: 'bodyMedium' }}>
-              {`Next entry: ${card.planned.gfText}, ${card.planned.whenText}`}
+              {t('surfaceGfScreen.nextEntry', { entry: `${card.planned.gfText}, ${card.planned.whenText}` })}
             </Text>
           </Row>
         ) : (
           <Text color={palette.onSurfaceVariant} style={{ typography: 'bodySmall' }} modifiers={[padding(0, 8, 0, 0)]}>
-            Model value from your log, not medical advice.
+            {t('surfaceGfScreen.modelValue')}
           </Text>
         )}
       </Column>

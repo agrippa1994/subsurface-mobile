@@ -16,6 +16,7 @@ import type {
 } from '../../modules/ssrf-core/src/SsrfCore.types';
 import { formatDiveDateTime } from './date-format';
 import { formatDepth, formatDuration, type Units } from './units';
+import { t } from '@/i18n';
 
 export type RememberedComputer = DiveComputerIdentity & {
   /** The BLE address. On iOS it only means something on this phone. */
@@ -133,11 +134,11 @@ export function autoSelection(
 export function adapterMessage(state: BleAdapterState): string | null {
   switch (state) {
     case 'off':
-      return 'Bluetooth is off. Turn it on to look for your dive computer.';
+      return t('download.adapter.off');
     case 'unauthorized':
-      return 'Subsurface is not allowed to use Bluetooth. You can change that in the system settings.';
+      return t('download.adapter.unauthorized');
     case 'unsupported':
-      return 'This device has no Bluetooth LE. The iOS simulator does not either.';
+      return t('download.adapter.unsupported');
     default:
       return null;
   }
@@ -176,16 +177,12 @@ export type DownloadOutcome = {
   detail: string;
 };
 
-function dives(count: number): string {
-  return count === 1 ? '1 dive' : `${count} dives`;
-}
-
 // A dive computer hands out its newest dive first, and the next "only new" download
 // stops at the newest dive the logbook has. So if a download breaks off and what came
 // through is accepted, the older dives it never reached are skipped from then on.
-const PARTIAL_WARNING =
-  'The download stopped early. If you keep these, a later download only finds dives ' +
-  'newer than them: to get the older ones, use "Force downloading all dives".';
+function partialWarning(): string {
+  return t('download.outcome.partial');
+}
 
 /** What the screen says about the state of the session. */
 export function describeOutcome(status: DownloadStatus): DownloadOutcome {
@@ -194,40 +191,40 @@ export function describeOutcome(status: DownloadStatus): DownloadOutcome {
     case 'idle':
       return { kind: 'none', title: '', detail: '' };
     case 'running':
-      return { kind: 'running', title: 'Downloading', detail: status.text };
+      return { kind: 'running', title: t('download.outcome.running'), detail: status.text };
     case 'finished':
       return got > 0
-        ? { kind: 'review', title: `${dives(got)} downloaded`, detail: '' }
+        ? { kind: 'review', title: t('download.outcome.downloaded', { count: got }), detail: '' }
         : {
             kind: 'nothing-new',
-            title: 'No new dives',
-            detail: 'Everything on the dive computer is already in this logbook.',
+            title: t('download.outcome.nothingNew'),
+            detail: t('download.outcome.nothingNewDetail'),
           };
     case 'failed': {
       if (got > 0) {
-        return { kind: 'review', title: `${dives(got)} downloaded`, detail: PARTIAL_WARNING };
+        return { kind: 'review', title: t('download.outcome.downloaded', { count: got }), detail: partialWarning() };
       }
       const reasons = status.errors.length > 0 ? `\n${status.errors.join('\n')}` : '';
       return {
         kind: 'failed',
-        title: 'The download failed',
+        title: t('download.outcome.failed'),
         detail: `${status.error}${reasons}`,
       };
     }
     case 'cancelled':
       return got > 0
-        ? { kind: 'review', title: `${dives(got)} downloaded`, detail: PARTIAL_WARNING }
-        : { kind: 'cancelled', title: 'Download cancelled', detail: '' };
+        ? { kind: 'review', title: t('download.outcome.downloaded', { count: got }), detail: partialWarning() }
+        : { kind: 'cancelled', title: t('download.outcome.cancelled'), detail: '' };
   }
 }
 
 export function acceptSummary(result: ImportResult): string {
   const parts: string[] = [];
   if (result.added > 0) {
-    parts.push(`${dives(result.added)} added`);
+    parts.push(t('download.accept.added', { count: result.added }));
   }
   if (result.merged > 0) {
-    parts.push(`${dives(result.merged)} merged into dives already in the logbook`);
+    parts.push(t('download.accept.merged', { count: result.merged }));
   }
-  return parts.length > 0 ? `${parts.join(', ')}.` : 'Nothing changed.';
+  return parts.length > 0 ? `${parts.join(', ')}.` : t('download.accept.nothing');
 }

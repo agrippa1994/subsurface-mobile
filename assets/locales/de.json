@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "NSBluetoothAlwaysUsageDescription": "Subsurface verbindet sich über Bluetooth mit deinem Tauchcomputer, um deine Tauchgänge herunterzuladen.",
+    "NSLocalNetworkUsageDescription": "Der MCP-Server, den du in den Einstellungen einschalten kannst, lässt KI-Assistenten in deinem lokalen Netzwerk dein Logbuch lesen.",
+    "NSLocationWhenInUseUsageDescription": "Dein Standort wird verwendet, um SSI-Tauchplätze in der Nähe zu finden.",
+    "NSMotionUsageDescription": "Subsurface liest den Luftdruck vom Barometer, um deinen Oberflächen-Gradientenfaktor auf deiner Höhe zu berechnen."
+  }
+}

@@ -24,6 +24,7 @@ import { sortDivesNewestFirst, toSiteDiveRow } from '@/models/dive-list';
 import { toSiteRow } from '@/models/site-edit';
 import { useDives, useSites } from '@/queries/logbook';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export function SiteDetail({
   uuid,
@@ -56,8 +57,8 @@ export function SiteDetail({
     return (
       <StatusView
         kind="error"
-        title="Dive site not found"
-        description="The logbook was reloaded and this site is no longer in it."
+        title={t('ui.diveSiteNotFound')}
+        description={t('ui.theLogbookWasReloadedAndThis')}
         systemImage="mappin.slash"
       />
     );
@@ -73,10 +74,10 @@ export function SiteDetail({
     >
       <Stack.Screen options={{ title: row.title }} />
       {editable ? (
-        <HeaderAction history label="Edit" onPress={() => router.push(`/sites/edit/${uuid}`)} />
+        <HeaderAction history label={t('ui.edit')} onPress={() => router.push(`/sites/edit/${uuid}`)} />
       ) : null}
 
-      <FormSection title="Position">
+      <FormSection title={t('ui.position')}>
         {MAPS_AVAILABLE ? (
           <SiteMap
             latUdeg={site.hasGps ? site.latUdeg : null}
@@ -88,7 +89,7 @@ export function SiteDetail({
         <Text style={[styles.coordinates, { color: theme.textSecondary }]}>{row.subtitle}</Text>
         {site.hasGps ? (
           <FormButtonRow
-            label="Open in Maps"
+            label={t('ui.openInMaps')}
             value={mapsAppName(MAPS_PLATFORM)}
             onPress={() => openInMaps(site)}
           />
@@ -97,7 +98,7 @@ export function SiteDetail({
 
       <FormSection title={row.countText}>
         {dives.length === 0 ? (
-          <Text style={{ color: theme.textSecondary }}>No dives at this site yet.</Text>
+          <Text style={{ color: theme.textSecondary }}>{t('siteEditor.noDives')}</Text>
         ) : (
           // One block, so the card's gap does not space the rows; hairlines
           // between them instead, inset past the badge like the dive list's.

@@ -14,6 +14,7 @@ import { operationFailed, operationSucceeded, warned } from '@/lib/haptics';
 import type { SyncMode } from '@/lib/git/sync';
 import { describeSyncError, describeSyncResult } from '@/models/git/presentation';
 import { useGitSync, useTrustHostKey } from '@/queries/git-sync';
+import { t } from '@/i18n';
 
 export type GitSyncRunner = {
   run: (mode: SyncMode) => void;
@@ -32,7 +33,7 @@ export function useGitSyncRunner(): GitSyncRunner {
         sync.mutate(mode, {
           onSuccess: (result) => {
             operationSucceeded();
-            Alert.alert(mode === 'pull' ? 'Pulled' : 'Synced', describeSyncResult(result));
+            Alert.alert(mode === 'pull' ? t('gitScreen.pulled') : t('gitScreen.synced'), describeSyncResult(result));
           },
           onError: (error) => {
             if (
@@ -43,11 +44,11 @@ export function useGitSyncRunner(): GitSyncRunner {
               const fingerprint = error.fingerprint;
               warned();
               Alert.alert(
-                `Trust ${error.host ?? 'this server'}?`,
-                `This is the first connection to the server. Its host key fingerprint is:\n\n${fingerprint}\n\nCompare it with the one your git host publishes before trusting it.`,
+                error.host ? t('gitScreen.trustTitle', { host: error.host }) : t('gitScreen.trustServer'),
+                t('gitScreen.trustMessage', { fingerprint }),
                 [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Trust', onPress: () => retryTrusting(fingerprint) },
+                  { text: t('ui.cancel'), style: 'cancel' },
+                  { text: t('gitScreen.trust'), onPress: () => retryTrusting(fingerprint) },
                 ],
               );
               return;
@@ -60,12 +61,12 @@ export function useGitSyncRunner(): GitSyncRunner {
               const fingerprint = error.fingerprint;
               operationFailed();
               Alert.alert(
-                'Host key changed',
-                `The server ${error.host ?? ''} presented a different host key than the one trusted before:\n\n${fingerprint}\n\nThis happens when the host replaces its keys, but it is also what an attacker in the middle looks like. Only trust the new key if your git host announced the change.`,
+                t('gitScreen.changedTitle'),
+                t('gitScreen.changedMessage', { host: error.host ?? '', fingerprint }),
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('ui.cancel'), style: 'cancel' },
                   {
-                    text: 'Trust new key',
+                    text: t('gitScreen.trustNew'),
                     style: 'destructive',
                     onPress: () => retryTrusting(fingerprint),
                   },

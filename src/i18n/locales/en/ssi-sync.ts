@@ -1,0 +1,20 @@
+// AI-generated (Claude)
+export default {
+  pickSite: 'Pick the SSI dive site this dive belongs to.',
+  noSearch: 'SSI has no site search, so the catalogue has to be downloaded before a dive can be filed.',
+  nearest: 'Nearest site to this dive\'s position, {{distance}} away.',
+  choose: 'Choose an SSI site by name, nearby location, recently used sites, or on the map.',
+  searched: 'Searched in SSI\'s own site catalogue, which is separate from this logbook.',
+  select: 'Select SSI dive site',
+  change: 'Change',
+  sending: 'Sending to SSI...',
+  againMessage: 'This dive has gone to SSI before. Syncing again adds a second copy to your SSI logbook.',
+  loadingBuddies: 'Loading your SSI buddies...',
+  noBuddies: 'Your SSI logbook has no buddies yet. Add them in the SSI app and they show up here.',
+  noBuddyMatch: 'No SSI buddy matches "{{query}}".',
+  allBuddies: 'Every SSI buddy is already on this dive.',
+  removeBuddy: 'Remove {{name}}',
+  addBuddy: 'Add {{name}}',
+  pro: 'SSI pro',
+  failed: 'Could not sync to SSI',
+};

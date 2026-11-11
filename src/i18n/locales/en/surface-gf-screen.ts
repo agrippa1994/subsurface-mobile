@@ -1,0 +1,21 @@
+// AI-generated (Claude)
+export default {
+  opensTimeline: 'Opens the surface GF timeline.',
+  nextEntry: 'Next entry: {{entry}}',
+  modelValue: 'Model value from your log, not medical advice.',
+  desaturation: 'Desaturation',
+  caption: 'SURFACE GF',
+  diveNumber: 'Dive #{{number}}.',
+  residual: 'Includes nitrogen from the dives before it.',
+  overTime: 'Surface GF over time.',
+  showDay: 'Show the day',
+  plannedDay: 'Planned day',
+  plannedTime: 'Planned time',
+  asOfDay: 'As of day',
+  asOfTime: 'As of time',
+  below: 'Below {{threshold}} %',
+  phoneBarometer: 'Phone barometer',
+  manualAltitude: 'Manual altitude',
+  latestDive: 'Latest (#{{number}}, {{date}})',
+  latest: 'Latest',
+};

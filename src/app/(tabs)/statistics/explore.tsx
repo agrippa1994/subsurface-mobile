@@ -8,6 +8,7 @@ import { SymbolView, type SFSymbol } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useExploreScreen } from '@/features/statistics/use-explore-screen';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export default function ExploreScreen() {
   const screen = useExploreScreen();
@@ -34,13 +35,19 @@ export default function ExploreScreen() {
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <FormSection title="Your chart">
+      <FormSection title={t('ui.yourChart')}>
         {screen.last
           ? row('last', 'chart.xyaxis.line', screen.last.title, screen.last.detail, screen.openLast)
           : null}
-        {row('build', 'slider.horizontal.3', 'Build your own', 'Choose what to compare and how to show it', screen.build)}
+        {row(
+          'build',
+          'slider.horizontal.3',
+          t('ui.buildYourOwn'),
+          t('ui.chooseWhatToCompareAndHow'),
+          screen.build,
+        )}
       </FormSection>
-      <FormSection title="Questions">
+      <FormSection title={t('ui.questions')}>
         {screen.presets.map((preset) =>
           row(preset.key, preset.icon, preset.title, preset.detail, () => screen.openPreset(preset)),
         )}

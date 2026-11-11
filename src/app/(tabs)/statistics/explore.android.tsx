@@ -2,12 +2,13 @@
 // Useful questions and the way to a chart of one's own, as a Compose list.
 import { M3ActionRow, M3Screen, M3Section } from '@/components/material/list';
 import { useExploreScreen } from '@/features/statistics/use-explore-screen';
+import { t } from '@/i18n';
 
 export default function ExploreScreen() {
   const screen = useExploreScreen();
   return (
     <M3Screen>
-      <M3Section title="Your chart">
+      <M3Section title={t('ui.yourChart')}>
         {screen.last ? (
           <M3ActionRow
             icon="chart.xyaxis.line"
@@ -19,13 +20,13 @@ export default function ExploreScreen() {
         ) : null}
         <M3ActionRow
           icon="slider.horizontal.3"
-          label="Build your own"
-          detail="Choose what to compare and how to show it"
+          label={t('ui.buildYourOwn')}
+          detail={t('ui.chooseWhatToCompareAndHow')}
           opens
           onPress={screen.build}
         />
       </M3Section>
-      <M3Section title="Questions">
+      <M3Section title={t('ui.questions')}>
         {screen.presets.map((preset) => (
           <M3ActionRow
             key={preset.key}

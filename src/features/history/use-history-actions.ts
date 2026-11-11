@@ -17,6 +17,7 @@ import {
 import { describeError, formatErrorLine } from '@/models/errors';
 import { redoTitle, undoTitle, type HistoryDirection } from '@/models/logbook-history';
 import type { HistoryState } from '@/models';
+import { t } from '@/i18n';
 
 /** The history as it stands, for what renders from it. */
 export function useLogbookHistory(): HistoryState {
@@ -40,7 +41,7 @@ export function useHistoryActions(): { step: (direction: HistoryDirection) => vo
         } catch (error) {
           operationFailed();
           Alert.alert(
-            direction === 'undo' ? 'Could not undo' : 'Could not redo',
+            direction === 'undo' ? t('history.undoFailed') : t('history.redoFailed'),
             formatErrorLine(describeError(error)),
           );
         }
@@ -70,8 +71,8 @@ export function useHistoryMenu(): HistoryMenu | null {
     () =>
       history.canUndo || history.canRedo
         ? {
-            undoTitle: history.undo ? undoTitle(history.undo) : 'Undo',
-            redoTitle: history.redo ? redoTitle(history.redo) : 'Redo',
+            undoTitle: history.undo ? undoTitle(history.undo) : t('history.undo'),
+            redoTitle: history.redo ? redoTitle(history.redo) : t('history.redo'),
             canUndo: history.canUndo,
             canRedo: history.canRedo,
             undo: () => step('undo'),

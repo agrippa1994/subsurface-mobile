@@ -16,6 +16,7 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { sortSitesByName, toSiteRow } from '@/models/site-edit';
 import { useSites } from '@/queries/logbook';
 import { useSaveSite } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 export function SitePicker({
   visible,
@@ -60,16 +61,16 @@ export function SitePicker({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Dive site</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{t('ui.diveSite')}</Text>
           <Pressable onPress={onClose} accessibilityRole="button" hitSlop={Spacing.two}>
-            <Text style={[styles.action, { color: theme.accent }]}>Done</Text>
+            <Text style={[styles.action, { color: theme.accent }]}>{t('ui.done')}</Text>
           </Pressable>
         </View>
 
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search or name a new site"
+          placeholder={t('ui.searchOrNameANewSite')}
           placeholderTextColor={theme.textSecondary}
           autoCapitalize="words"
           autoCorrect={false}
@@ -89,15 +90,15 @@ export function SitePicker({
             <View>
               {canCreate ? (
                 <Row
-                  title={`Create "${name}"`}
-                  subtitle="A new site with no position; add one from the Sites tab."
+                  title={t('diveForm.createSite', { name })}
+                  subtitle={t('ui.aNewSiteWithNoPosition')}
                   onPress={create}
                   accent
                 />
               ) : null}
               <Row
-                title="No dive site"
-                subtitle="Keeps the dive, detaches the place."
+                title={t('ui.noDiveSite')}
+                subtitle={t('ui.keepsTheDiveDetachesThePlace')}
                 selected={selectedUuid === 0}
                 onPress={() => onSelect(0)}
               />
@@ -145,7 +146,7 @@ function Row({
         <Text style={[styles.rowTitle, { color: accent ? theme.accent : theme.text }]}>{title}</Text>
         <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>
       </View>
-      {selected ? <Text style={{ color: theme.accent }}>Selected</Text> : null}
+      {selected ? <Text style={{ color: theme.accent }}>{t('diveForm.selected')}</Text> : null}
     </Pressable>
   );
 }

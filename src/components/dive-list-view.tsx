@@ -30,6 +30,7 @@ import type { DiveSummary, Units } from '@/models';
 import { diveRowTitle, sectionSubtitle, skeletonRows, toDiveRow, type DiveTripSection } from '@/models/dive-list';
 import type { MergeAction } from '@/models/dive-merge';
 import type { TripAction } from '@/models/trips';
+import { t } from '@/i18n';
 
 export type DiveListViewProps = {
   sections: DiveTripSection[];
@@ -108,7 +109,7 @@ export function DiveListView({
           <Pressable
             disabled={!opensTrip}
             accessibilityRole={opensTrip ? 'button' : 'header'}
-            accessibilityHint={opensTrip ? 'Opens the trip' : undefined}
+            accessibilityHint={opensTrip ? t('diveList.opensTrip') : undefined}
             onPress={() => onOpenTrip(section.tripId)}
             style={[styles.sectionHeader, { backgroundColor: theme.backgroundElement }]}>
             <View style={styles.sectionTitleRow}>
@@ -138,15 +139,15 @@ export function DiveListView({
                   const pick =
                     tripActions(item).find((action) => action.kind === 'pick') ?? null;
                   const trip: AlertButton = {
-                    text: 'Trip',
+                    text: t('ui.trip'),
                     onPress: () => (pick ? onTripAction(item, pick) : undefined),
                   };
                   const select: AlertButton = {
-                    text: 'Select',
+                    text: t('ui.select'),
                     onPress: () => onStartSelecting(item.id),
                   };
                   const remove: AlertButton = {
-                    text: 'Delete',
+                    text: t('ui.delete'),
                     style: 'destructive',
                     onPress: () => onDeleteDive(item),
                   };
@@ -159,23 +160,23 @@ export function DiveListView({
                   Alert.alert(diveRowTitle(item), undefined, [
                     trip,
                     {
-                      text: 'Merge',
+                      text: t('ui.merge'),
                       onPress: () =>
                         merges.length === 1
                           ? onMergeAction(item, merges[0])
-                          : Alert.alert('Merge with', undefined, [
-                              { text: 'Cancel', style: 'cancel' },
+                          : Alert.alert(t('diveList.mergeWith'), undefined, [
+                              { text: t('ui.cancel'), style: 'cancel' },
                               ...merges.map((action) => ({
-                                text: action.kind === 'next' ? 'Next Dive' : 'Previous Dive',
+                                text: action.kind === 'next' ? t('diveList.nextDive') : t('diveList.previousDive'),
                                 onPress: () => onMergeAction(item, action),
                               })),
                             ]),
                     },
                     {
-                      text: 'More',
+                      text: t('ui.more'),
                       onPress: () =>
                         Alert.alert(diveRowTitle(item), undefined, [
-                          { text: 'Cancel', style: 'cancel' },
+                          { text: t('ui.cancel'), style: 'cancel' },
                           select,
                           remove,
                         ]),
@@ -221,7 +222,7 @@ export function DiveListSkeleton() {
   return (
     <Animated.View
       accessible
-      accessibilityLabel="Loading dives"
+      accessibilityLabel={t('ui.loadingDives')}
       style={[styles.skeleton, { backgroundColor: theme.background, opacity: pulse }]}>
       <View style={styles.sectionHeader}>
         {bar(styles.sectionTitle, 'Trip location')}

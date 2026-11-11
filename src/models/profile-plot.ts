@@ -27,6 +27,7 @@ import {
   formatTemperature,
   type Units,
 } from './units';
+import { t } from '@/i18n';
 
 export type Point = { sec: number; value: number };
 
@@ -449,12 +450,14 @@ function decoCalc(inDeco: boolean, ndlSec: number, ttsSec: number): DecoCalc | n
 }
 
 /** "NDL 12:00" / "TTS 4:00", with an optional prefix such as "fresh". */
-export function decoCalcLabel(calc: DecoCalc | null, prefix = ''): string | null {
+export function decoCalcLabel(calc: DecoCalc | null, fresh = false): string | null {
   if (calc === null) {
     return null;
   }
-  const name = calc.kind === 'ndl' ? 'NDL' : 'TTS';
-  return `${prefix}${name} ${calc.text}`;
+  const name = calc.kind === 'ndl' ? t('profile.readout.ndl') : t('profile.readout.tts');
+  return fresh
+    ? t('profile.readout.fresh', { name, value: calc.text })
+    : t('profile.readout.calc', { name, value: calc.text });
 }
 
 /** Index of the plotted sample nearest `sec`, or -1 when there are none. */
@@ -583,9 +586,13 @@ export function readoutLayout(
     ...Array.from({ length: pi.nrCylinders }, (_, cylinder) =>
       slot(`pressure-${cylinder}`, (r) => r.pressures[cylinder]?.text ?? null)
     ),
-    options.showGfNow ? slot('gf-now', (r) => (r.gfNowText ? `GF ${r.gfNowText}` : null)) : null,
+    options.showGfNow
+      ? slot('gf-now', (r) => (r.gfNowText ? t('profile.readout.gf', { value: r.gfNowText }) : null))
+      : null,
     options.showGfSurface
-      ? slot('gf-surface', (r) => (r.gfSurfaceText ? `sGF ${r.gfSurfaceText}` : null))
+      ? slot('gf-surface', (r) =>
+          r.gfSurfaceText ? t('profile.readout.surfaceGf', { value: r.gfSurfaceText }) : null,
+        )
       : null,
     // The two ceilings are named apart, as the legend names their curves: the
     // computer's reading against the core's calculation can differ by metres.
@@ -594,18 +601,23 @@ export function readoutLayout(
     slot(
       'deco',
       ...(options.showDcCeiling
-        ? [(r: ProfileReadout) => (r.dcCeilingText ? `DC ceiling ${r.dcCeilingText}` : null)]
+        ? [
+            (r: ProfileReadout) =>
+              r.dcCeilingText ? t('profile.readout.dcCeiling', { value: r.dcCeilingText }) : null,
+          ]
         : []),
-      (r) => (!r.inDeco && r.ndlText ? `DC NDL ${r.ndlText}` : null),
-      (r) => (r.ttsText ? `DC TTS ${r.ttsText}` : null)
+      (r) => (!r.inDeco && r.ndlText ? t('profile.readout.dcNdl', { value: r.ndlText }) : null),
+      (r) => (r.ttsText ? t('profile.readout.dcTts', { value: r.ttsText }) : null)
     ),
     options.showCalcCeiling
-      ? slot('calc-ceiling', (r) => (r.calcCeilingText ? `Calc ceiling ${r.calcCeilingText}` : null))
+      ? slot('calc-ceiling', (r) =>
+          r.calcCeilingText ? t('profile.readout.calcCeiling', { value: r.calcCeilingText }) : null,
+        )
       : null,
     // Subsurface's own NDL or TTS, with the earlier dives' nitrogen...
     slot('deco-calc', (r) => decoCalcLabel(r.decoCalc)),
     // ...and as if the diver had started with clean tissues.
-    slot('deco-fresh', (r) => decoCalcLabel(r.decoFresh, 'fresh ')),
+    slot('deco-fresh', (r) => decoCalcLabel(r.decoFresh, true)),
   ].filter((candidate): candidate is ReadoutSlot => candidate !== null);
 
   return [
@@ -680,60 +692,63 @@ export function profileSummary(
   gf: Partial<ProfileSeries> = {}
 ): string {
   if (plot.depth.length === 0) {
-    return 'Dive profile. This dive has no profile samples.';
+    return t('profile.summary.noSamples');
   }
 
   const deepest = plot.depth.reduce((best, point) => (point.value > best.value ? point : best));
   const parts = [
-    `maximum depth ${formatDepth(plot.maxDepthMm, units)} at ${formatDuration(deepest.sec)}`,
-    `total time ${formatDuration(plot.maxSec)}`,
+    t('profile.summary.maxDepth', { depth: formatDepth(plot.maxDepthMm, units), time: formatDuration(deepest.sec) }),
+    t('profile.summary.totalTime', { time: formatDuration(plot.maxSec) }),
   ];
 
   if (plot.temperature.length > 0) {
     const { min, max } = plot.temperatureRange;
     parts.push(
       min === max
-        ? `water temperature ${formatTemperature(min, units)}`
-        : `water temperature ${formatTemperature(min, units)} to ${formatTemperature(max, units)}`
+        ? t('profile.summary.waterTemperature', { temperature: formatTemperature(min, units) })
+        : t('profile.summary.waterTemperatureRange', {
+            min: formatTemperature(min, units),
+            max: formatTemperature(max, units),
+          })
     );
   }
   if (plot.pressures.length > 0) {
     parts.push(
-      `tank pressure from ${formatPressure(plot.pressureRange.max, units)} to ${formatPressure(
-        plot.pressureRange.min,
-        units
-      )}`
+      t('profile.summary.tankPressure', {
+        from: formatPressure(plot.pressureRange.max, units),
+        to: formatPressure(plot.pressureRange.min, units),
+      })
     );
   }
   if (plot.surfaceIntervalSec !== null) {
     parts.push(
-      `starts with nitrogen from a dive ${formatDuration(plot.surfaceIntervalSec)} earlier`
+      t('profile.summary.residual', { interval: formatDuration(plot.surfaceIntervalSec) })
     );
   }
   parts.push(
     plot.ceiling.length > 0 || plot.dcCeiling.length > 0
-      ? 'the dive went into decompression'
-      : 'no decompression obligation'
+      ? t('profile.summary.deco')
+      : t('profile.summary.noDeco')
   );
   if (gf.showDcCeiling && plot.dcCeiling.length > 0) {
     const deepest = Math.max(...plot.dcCeiling.map((point) => point.value));
-    parts.push(`deepest dive computer ceiling ${formatDepth(deepest, units)}`);
+    parts.push(t('profile.summary.dcCeiling', { depth: formatDepth(deepest, units) }));
   }
   if (gf.showCalcCeiling && plot.ceiling.length > 0) {
     const deepest = Math.max(...plot.ceiling.map((point) => point.value));
-    parts.push(`deepest calculated ceiling ${formatDepth(deepest, units)}`);
+    parts.push(t('profile.summary.calcCeiling', { depth: formatDepth(deepest, units) }));
   }
   if (gf.showGfNow && plot.gfNow.length > 0) {
     const peak = Math.max(...plot.gfNow.map((point) => point.value));
-    parts.push(`highest gradient factor at depth ${Math.round(peak)} percent`);
+    parts.push(t('profile.summary.gfNow', { percent: Math.round(peak) }));
   }
   if (gf.showGfSurface && plot.gfSurface.length > 0) {
     const peak = Math.max(...plot.gfSurface.map((point) => point.value));
-    parts.push(`highest surface gradient factor ${Math.round(peak)} percent`);
+    parts.push(t('profile.summary.gfSurface', { percent: Math.round(peak) }));
   }
   if (plot.events.length > 0) {
-    parts.push(`${plot.events.length} ${plot.events.length === 1 ? 'event' : 'events'}`);
+    parts.push(t('profile.summary.events', { count: plot.events.length }));
   }
 
-  return `Dive profile. ${parts.join(', ')}.`;
+  return t('profile.summary.text', { parts: parts.join(', ') });
 }

@@ -8,13 +8,21 @@
 
 import { DiveMode, type DiveComputer } from './index';
 import { formatDepth, formatDuration, formatTemperature, type Units } from './units';
+import { t } from '@/i18n';
 
-export const DIVE_MODE_LABEL: Record<DiveMode, string> = {
-  [DiveMode.OC]: 'Open circuit',
-  [DiveMode.CCR]: 'CCR',
-  [DiveMode.PSCR]: 'pSCR',
-  [DiveMode.Freedive]: 'Freedive',
-};
+/** A dive mode's name; an unknown one reads as open circuit, which is 0. */
+export function diveModeLabel(mode: DiveMode): string {
+  switch (mode) {
+    case DiveMode.CCR:
+      return 'CCR';
+    case DiveMode.PSCR:
+      return 'pSCR';
+    case DiveMode.Freedive:
+      return t('diveComputers.mode.freedive');
+    default:
+      return t('diveComputers.mode.openCircuit');
+  }
+}
 
 /** Which computer a screen has selected, tied to the dive it was selected on. */
 export type ComputerSelection = { diveId: number; index: number };
@@ -41,7 +49,7 @@ export function selectedComputerIndex(
  * model takes its serial, and failing that its position.
  */
 export function computerLabels(computers: readonly DiveComputer[]): string[] {
-  const named = computers.map((dc) => upperFirst(dc.model.trim()) || 'Unknown computer');
+  const named = computers.map((dc) => upperFirst(dc.model.trim()) || t('diveComputers.unknown'));
   const repeated = (list: readonly string[], index: number) =>
     list.filter((name) => name === list[index]).length > 1;
 
@@ -60,7 +68,7 @@ export function computerLabels(computers: readonly DiveComputer[]): string[] {
  * the screen shows only the selected name.
  */
 export function computerPositionText(label: string, index: number, count: number): string {
-  return `${label}, ${index + 1} of ${count}`;
+  return t('diveComputers.position', { label, index: index + 1, count });
 }
 
 /**
@@ -73,22 +81,22 @@ export function computerFigures(
   units: Units,
 ): { label: string; value: string }[] {
   const figures = [
-    { label: 'Mode', value: DIVE_MODE_LABEL[dc.divemode] ?? DIVE_MODE_LABEL[DiveMode.OC] },
+    { label: t('diveComputers.figure.mode'), value: diveModeLabel(dc.divemode) },
   ];
   if (dc.maxDepthMm > 0) {
-    figures.push({ label: 'Max depth', value: formatDepth(dc.maxDepthMm, units) });
+    figures.push({ label: t('diveComputers.figure.maxDepth'), value: formatDepth(dc.maxDepthMm, units) });
   }
   if (dc.meanDepthMm > 0) {
-    figures.push({ label: 'Average depth', value: formatDepth(dc.meanDepthMm, units) });
+    figures.push({ label: t('diveComputers.figure.averageDepth'), value: formatDepth(dc.meanDepthMm, units) });
   }
   if (dc.durationSec > 0) {
-    figures.push({ label: 'Duration', value: formatDuration(dc.durationSec) });
+    figures.push({ label: t('diveComputers.figure.duration'), value: formatDuration(dc.durationSec) });
   }
   if (dc.waterTempMkelvin > 0) {
-    figures.push({ label: 'Water', value: formatTemperature(dc.waterTempMkelvin, units) });
+    figures.push({ label: t('diveComputers.figure.water'), value: formatTemperature(dc.waterTempMkelvin, units) });
   }
   if (dc.airTempMkelvin > 0) {
-    figures.push({ label: 'Air', value: formatTemperature(dc.airTempMkelvin, units) });
+    figures.push({ label: t('diveComputers.figure.air'), value: formatTemperature(dc.airTempMkelvin, units) });
   }
   return figures;
 }
@@ -118,4 +126,6 @@ function upperFirst(text: string): string {
 }
 
 /** The action that moves a dive's selected computer to the front. */
-export const MAKE_FIRST_LABEL = 'Make First Computer';
+export function makeFirstLabel(): string {
+  return t('diveComputers.makeFirst');
+}

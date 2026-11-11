@@ -8,6 +8,7 @@
 // the details for a secondary line.
 
 import { SsrfCoreError } from './index';
+import { t } from '@/i18n';
 
 export type ErrorInfo = {
   /** One line, always non-empty. */
@@ -19,7 +20,7 @@ export type ErrorInfo = {
 export function describeError(error: unknown): ErrorInfo {
   if (error instanceof SsrfCoreError) {
     return {
-      message: error.message || 'The logbook could not be read.',
+      message: error.message || t('errors.unreadable'),
       details: error.coreErrors,
     };
   }
@@ -27,7 +28,7 @@ export function describeError(error: unknown): ErrorInfo {
     return { message: error.message || error.name, details: [] };
   }
   const text = String(error);
-  return { message: text === '' ? 'Unknown error' : text, details: [] };
+  return { message: text === '' ? t('errors.unknown') : text, details: [] };
 }
 
 /**

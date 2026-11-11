@@ -13,8 +13,8 @@ import { DiveMode } from './index';
 import {
   buildDiveSearchIndex,
   groupDivesByTrip,
-  NO_TRIP_LABEL,
-  UNTITLED_TRIP_LABEL,
+  noTripLabel,
+  untitledTripLabel,
   ratingStars,
   searchDives,
   searchResultsText,
@@ -122,13 +122,13 @@ describe('groupDivesByTrip', () => {
       summary({ id: 2, when: 2 * DAY }),
       summary({ id: 3, when: 3 * DAY, tripId: 7, tripLocation: 'Elba' }),
     ]);
-    expect(sections.map((s) => s.title)).toEqual(['Elba', NO_TRIP_LABEL]);
+    expect(sections.map((s) => s.title)).toEqual(['Elba', noTripLabel()]);
     expect(sections[1].dives.map((d) => d.id)).toEqual([2, 1]);
   });
 
   it('shows a trip without a location as a trip, not as no trip', () => {
     const sections = groupDivesByTrip([summary({ id: 1, tripId: 7, tripLocation: '   ' })]);
-    expect(sections[0].title).toBe(UNTITLED_TRIP_LABEL);
+    expect(sections[0].title).toBe(untitledTripLabel());
     expect(sections[0].tripId).toBe(7);
   });
 
@@ -139,7 +139,7 @@ describe('groupDivesByTrip', () => {
       summary({ id: 3, when: 3 * DAY, tripId: 8, tripLocation: 'Bonaire' }),
       summary({ id: 4, when: 4 * DAY, tripId: 7, tripLocation: 'Elba' }),
     ]);
-    expect(sections.map((s) => s.title)).toEqual(['Elba', 'Bonaire', NO_TRIP_LABEL]);
+    expect(sections.map((s) => s.title)).toEqual(['Elba', 'Bonaire', noTripLabel()]);
     expect(sections[0].dives.map((d) => d.id)).toEqual([4, 1]);
     expect(sections[0].oldestWhen).toBe(1 * DAY);
   });

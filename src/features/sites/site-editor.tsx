@@ -42,6 +42,7 @@ import {
 } from '@/models/site-edit';
 import { useSites } from '@/queries/logbook';
 import { useDeleteSite, useSaveSite } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 /**
  * The draft plus the raw coordinate text. The parsed position is kept beside
@@ -135,8 +136,8 @@ export function SiteEditor({ uuid }: { uuid: number }) {
     return (
       <StatusView
         kind="error"
-        title="Dive site not found"
-        description="The logbook was reloaded and this site is no longer in it."
+        title={t('ui.diveSiteNotFound')}
+        description={t('ui.theLogbookWasReloadedAndThis')}
         systemImage="mappin.slash"
       />
     );
@@ -155,11 +156,11 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <>
-            <Stack.Screen options={{ title: isNew ? 'New site' : 'Edit site' }} />
+            <Stack.Screen options={{ title: isNew ? t('nav.newSite') : t('nav.editSite') }} />
             {/* A native bar button item, so Save gets the system confirmation
                 style (prominent liquid glass on iOS 26). */}
             <HeaderAction
-              label="Save"
+              label={t('ui.save')}
               done
               disabled={isSubmitting}
               onPress={() => void form.handleSubmit()}
@@ -174,11 +175,11 @@ export function SiteEditor({ uuid }: { uuid: number }) {
         </Text>
       ) : null}
 
-      <FormSection title="Site">
+      <FormSection title={t('ui.site')}>
         <form.Field name="name">
           {(field) => (
             <FormField
-              label="Name"
+              label={t('ui.name')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -191,18 +192,18 @@ export function SiteEditor({ uuid }: { uuid: number }) {
         <form.Field name="description">
           {(field) => (
             <FormField
-              label="Description"
+              label={t('ui.description')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
-              placeholder="Wall, 5 minutes by boat"
+              placeholder={t('ui.wall5MinutesByBoat')}
             />
           )}
         </form.Field>
         <form.Field name="notes">
           {(field) => (
             <FormField
-              label="Notes"
+              label={t('ui.notes')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -213,11 +214,11 @@ export function SiteEditor({ uuid }: { uuid: number }) {
       </FormSection>
 
       <FormSection
-        title="Position"
+        title={t('ui.position')}
         footer={
           MAPS_AVAILABLE
-            ? 'Tap the map to move the marker, or type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
-            : 'Type coordinates - decimal degrees, or degrees and minutes with a hemisphere.'
+            ? t('siteEditor.positionMap')
+            : t('siteEditor.positionType')
         }>
         <form.Field
           name="coordinateText"
@@ -225,11 +226,11 @@ export function SiteEditor({ uuid }: { uuid: number }) {
             onChange: ({ value }) =>
               value.trim() === '' || parseCoordinates(value) !== null
                 ? undefined
-                : 'Not a position this can read.',
+                : t('siteEditor.positionInvalid'),
           }}>
           {(field) => (
             <FormField
-              label="Coordinates"
+              label={t('ui.coordinates')}
               value={field.state.value}
               onChangeText={onCoordinateText}
               onBlur={field.handleBlur}
@@ -252,11 +253,11 @@ export function SiteEditor({ uuid }: { uuid: number }) {
                 lonUdeg={lonUdeg}
                 editable
                 onPick={onPick}
-                title={name || 'Dive site'}
+                title={name || t('ui.diveSite')}
               />
               {latUdeg !== null ? (
                 <FormButtonRow
-                  label="Clear position"
+                  label={t('ui.clearPosition')}
                   onPress={() => {
                     form.setFieldValue('latUdeg', null);
                     form.setFieldValue('lonUdeg', null);
@@ -275,7 +276,7 @@ export function SiteEditor({ uuid }: { uuid: number }) {
 
       {!isNew ? (
         <FormSection>
-          <FormButtonRow label="Delete site" onPress={onDelete} destructive />
+          <FormButtonRow label={t('ui.deleteSite')} onPress={onDelete} destructive />
         </FormSection>
       ) : null}
 
@@ -303,22 +304,19 @@ function DuplicateWarning({
     return null;
   }
   return (
-    <FormSection title="Possible duplicate">
+    <FormSection title={t('ui.possibleDuplicate')}>
       {duplicates.length > 0 ? (
         <Text style={{ color: theme.text }}>
-          {duplicates.length === 1
-            ? 'Another site already has this name.'
-            : `${duplicates.length} other sites already have this name.`}
+          {t('siteEditor.duplicates', { count: duplicates.length })}
         </Text>
       ) : null}
       {nearby.length > 0 ? (
         <Text style={{ color: theme.text }}>
-          {`Within 100 m of ${nearby.map((site) => site.name || 'an unnamed site').join(', ')}.`}
+          {t('siteEditor.nearby', { sites: nearby.map((site) => site.name || t('siteEditor.anUnnamedSite')).join(', ') })}
         </Text>
       ) : null}
       <Text style={{ color: theme.textSecondary }}>
-        Two sites can share a name and a position; move the dives to one of them if that is not what
-        you meant.
+        {t('siteEditor.duplicateNote')}
       </Text>
     </FormSection>
   );

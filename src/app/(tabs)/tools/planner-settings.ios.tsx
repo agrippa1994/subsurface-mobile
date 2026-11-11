@@ -6,6 +6,7 @@ import { pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { usePlannerSettingsScreen } from '@/features/tools/use-planner-settings-screen';
 import type { PlanDecoMode } from '@/models';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
+import { t } from '@/i18n';
 
 export default function PlannerSettingsScreen() {
   const screen = usePlannerSettingsScreen();
@@ -13,9 +14,9 @@ export default function PlannerSettingsScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Deco model">
+        <Section title={t('ui.decoModel')}>
           <Picker
-            label="Model"
+            label={t('ui.model')}
             selection={screen.planner.decoMode}
             onSelectionChange={(value: number) => screen.setDecoMode(value as PlanDecoMode)}
             modifiers={[pickerStyle('segmented')]}
@@ -55,7 +56,7 @@ export default function PlannerSettingsScreen() {
           </Section>
         ))}
 
-        <Section title="Altitude">
+        <Section title={t('ui.altitude')}>
           <Stepper
             label={screen.altitudeLabel}
             value={screen.altitude}
@@ -63,7 +64,7 @@ export default function PlannerSettingsScreen() {
             onValueChange={screen.setAltitude}
           />
           <Stepper
-            label={`Surface pressure  ${screen.planner.surfacePressureMbar} mbar`}
+            label={`${t('toolsScreen.surfacePressure')}  ${screen.planner.surfacePressureMbar} mbar`}
             value={screen.planner.surfacePressureMbar}
             min={689}
             max={1100}
@@ -73,7 +74,7 @@ export default function PlannerSettingsScreen() {
         </Section>
 
         <Section>
-          <Button label="Restore defaults" role="destructive" onPress={screen.restore} />
+          <Button label={t('ui.restoreDefaults')} role="destructive" onPress={screen.restore} />
         </Section>
       </Form>
     </Host>

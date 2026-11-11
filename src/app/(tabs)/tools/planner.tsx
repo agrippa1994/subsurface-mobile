@@ -19,7 +19,7 @@ import {
   formatMinutes,
   formatWhen,
   gasName,
-  PLAN_DISCLAIMER,
+  planDisclaimer,
   SETPOINT_RANGE,
   TIME_RANGE,
   WATER_OPTIONS,
@@ -27,6 +27,7 @@ import {
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
 import { useProfileSeries } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export default function PlannerScreen() {
   const screen = usePlannerScreen();
@@ -40,14 +41,14 @@ export default function PlannerScreen() {
   const warningSection = (
     <>
       {outcome.kind !== 'planned' ? (
-        <FormSection title="No plan">
+        <FormSection title={t('ui.noPlan')}>
           <Text accessibilityRole="alert" selectable style={{ color: theme.danger }}>
             {outcome.message}
           </Text>
         </FormSection>
       ) : null}
       {view && view.warnings.length > 0 ? (
-        <FormSection title={view.warnings.length === 1 ? 'Warning' : 'Warnings'}>
+        <FormSection title={t('toolsScreen.warnings', { count: view.warnings.length })}>
           {view.warnings.map((warning) => (
             <Text
               key={warning.text}
@@ -69,23 +70,23 @@ export default function PlannerScreen() {
         return (
           <FormSection
             key={segment.key}
-            title={draft.segments.length > 1 ? `Level ${index + 1}` : 'Level'}
+            title={draft.segments.length > 1 ? t('toolsScreen.levelNumber', { number: index + 1 }) : t('toolsScreen.level')}
             footer={
               index > 0
-                ? 'The time includes the travel from the level before.'
+                ? t('toolsScreen.includesTravel')
                 : planner.dropStone
-                  ? 'The time includes the descent.'
-                  : 'The level takes its whole time to reach its depth.'
+                  ? t('toolsScreen.includesDescent')
+                  : t('toolsScreen.wholeTime')
             }
           >
             <StepperRow
-              label={`Depth  ${screen.depthOf(segment)} ${screen.depthUnit}`}
+              label={`${t('units.quantity.depth')}  ${screen.depthOf(segment)} ${screen.depthUnit}`}
               value={screen.depthOf(segment)}
               {...screen.depthRange}
               onChange={(value) => screen.setDepth(segment.key, value)}
             />
             <StepperRow
-              label={`Time  ${segment.minutes} min`}
+              label={`${t('toolsScreen.time')}  ${segment.minutes} min`}
               value={segment.minutes}
               {...TIME_RANGE}
               onChange={(value) => screen.setMinutes(segment.key, value)}
@@ -102,7 +103,7 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isCcr && screen.isDiluent(cylinder) ? (
               <StepperRow
-                label={`Setpoint  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
+                label={`${t('toolsScreen.setpoint')}  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
                 value={segment.setpointMbar || planner.defaultSetpointMbar}
                 {...SETPOINT_RANGE}
                 onChange={(value) => screen.setSetpoint(segment.key, value)}
@@ -110,7 +111,7 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isPscr ? (
               <View style={styles.row}>
-                <Text style={{ color: theme.text }}>On the loop</Text>
+                <Text style={{ color: theme.text }}>{t('ui.onTheLoop')}</Text>
                 <Switch
                   value={segment.onLoop}
                   onValueChange={(value) => screen.setOnLoop(segment.key, value)}
@@ -119,7 +120,7 @@ export default function PlannerScreen() {
             ) : null}
             {draft.segments.length > 1 ? (
               <FormButtonRow
-                label="Remove level"
+                label={t('ui.removeLevel')}
                 destructive
                 onPress={() => screen.removeLevel(segment.key)}
               />
@@ -128,10 +129,10 @@ export default function PlannerScreen() {
         );
       })}
       <FormSection>
-        <FormButtonRow label="Add level" onPress={screen.addLevel} />
+        <FormButtonRow label={t('ui.addLevel')} onPress={screen.addLevel} />
       </FormSection>
 
-      <FormSection title="Cylinders">
+      <FormSection title={t('ui.cylinders')}>
         {draft.cylinders.map((cylinder) => (
           <FormButtonRow
             key={cylinder.key}
@@ -140,12 +141,12 @@ export default function PlannerScreen() {
             onPress={() => screen.openCylinder(cylinder.key)}
           />
         ))}
-        <FormButtonRow label="Add cylinder" onPress={screen.addCylinderAndOpen} />
+        <FormButtonRow label={t('ui.addCylinder')} onPress={screen.addCylinderAndOpen} />
       </FormSection>
 
-      <FormSection title="Dive">
+      <FormSection title={t('ui.dive')}>
         <StepperRow
-          label={`Day  ${formatWhen(draft.when)}`}
+          label={`${t('toolsScreen.day')}  ${formatWhen(draft.when)}`}
           value={draft.when}
           min={0}
           max={Number.MAX_SAFE_INTEGER}
@@ -153,7 +154,7 @@ export default function PlannerScreen() {
           onChange={(when) => screen.setDraft((d) => ({ ...d, when }))}
         />
         <StepperRow
-          label="Time, by 15 min"
+          label={t('ui.timeBy15Min')}
           value={draft.when}
           min={0}
           max={Number.MAX_SAFE_INTEGER}
@@ -168,7 +169,7 @@ export default function PlannerScreen() {
         <OptionField options={DIVE_MODE_OPTIONS} value={draft.diveMode} onChange={screen.setMode} />
         {(screen.isCcr || screen.isPscr) && planner.decoMode !== PlanDecoMode.Recreational ? (
           <View style={styles.row}>
-            <Text style={{ color: theme.text }}>Deco on open circuit bailout</Text>
+            <Text style={{ color: theme.text }}>{t('ui.decoOnOpenCircuitBailout')}</Text>
             <Switch
               value={planner.doBailout}
               onValueChange={(doBailout) => screen.setPlanner({ doBailout })}
@@ -189,16 +190,16 @@ export default function PlannerScreen() {
     view && result ? (
       <>
         {view.stops.length > 0 ? (
-          <FormSection title="Stops">
+          <FormSection title={t('ui.stops')}>
             {view.stops.map((stop) => (
               <View
                 key={`${stop.depthMm}-${stop.endSec}`}
                 style={styles.row}
                 accessible
-                accessibilityLabel={`${formatDepth(stop.depthMm, units)} on ${stop.gas}, ${formatMinutes(stop.durationSec)}`}
+                accessibilityLabel={`${t('toolsScreen.stopOn', { depth: formatDepth(stop.depthMm, units), gas: stop.gas })}, ${formatMinutes(stop.durationSec)}`}
               >
                 <Text style={{ color: theme.text }}>
-                  {`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
+                  {t('toolsScreen.stopOn', { depth: formatDepth(stop.depthMm, units), gas: stop.gas })}
                 </Text>
                 <Text style={[styles.tabular, { color: theme.textSecondary }]}>
                   {formatMinutes(stop.durationSec)}
@@ -208,8 +209,8 @@ export default function PlannerScreen() {
           </FormSection>
         ) : null}
         <FormSection
-          title="Gas"
-          footer={screen.isCcr ? 'Closed loop legs are not counted against the cylinders.' : undefined}
+          title={t('ui.gas')}
+          footer={screen.isCcr ? t('toolsScreen.closedLoop') : undefined}
         >
           {view.gasRows.map((row) => (
             <View key={row.key} accessible>
@@ -251,35 +252,35 @@ export default function PlannerScreen() {
           </View>
         </FormSection>
         {view.plot && result.profile ? (
-          <FormSection title="Profile" footer={view.interval ?? undefined}>
+          <FormSection title={t('ui.profile')} footer={view.interval ?? undefined}>
             <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} series={profileSeries} height={200} />
           </FormSection>
         ) : null}
         <FormSection>
-          <FormButtonRow label="Full plan notes" onPress={screen.openNotes} />
+          <FormButtonRow label={t('ui.fullPlanNotes')} onPress={screen.openNotes} />
         </FormSection>
       </>
     ) : null;
 
   const ending = (
-    <FormSection footer={PLAN_DISCLAIMER}>
-      <FormButtonRow label="Planner settings" onPress={screen.openSettings} />
-      <FormButtonRow label="Start over" destructive onPress={screen.resetDraft} />
+    <FormSection footer={planDisclaimer()}>
+      <FormButtonRow label={t('ui.plannerSettings')} onPress={screen.openSettings} />
+      <FormButtonRow label={t('ui.startOver')} destructive onPress={screen.resetDraft} />
     </FormSection>
   );
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Dive planner' }} />
+      <Stack.Screen options={{ title: t('nav.divePlanner') }} />
       <HeaderActions
         actions={[
           {
-            label: 'Add to the logbook',
+            label: t('toolsScreen.addToLogbook'),
             icon: 'square.and.arrow.down',
             disabled: !view?.canSave || screen.saving,
             onPress: screen.savePlan,
           },
-          { label: 'Planner settings', icon: 'gearshape', onPress: screen.openSettings },
+          { label: t('ui.plannerSettings'), icon: 'gearshape', onPress: screen.openSettings },
         ]}
       />
       {screen.twoPanes ? (

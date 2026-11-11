@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { StatRow } from '@/models/stats-chart';
 
 import { seriesColor } from './stats-chart';
+import { t } from '@/i18n';
 
 export function StatsRow({ row, showBar, onPress }: { row: StatRow; showBar: boolean; onPress: () => void }) {
   const theme = useTheme();
@@ -23,7 +24,7 @@ export function StatsRow({ row, showBar, onPress }: { row: StatRow; showBar: boo
       onPress={onPress}
       accessibilityRole={opens ? 'button' : undefined}
       accessibilityLabel={row.accessibilityLabel}
-      accessibilityHint={opens ? 'Shows these dives' : undefined}
+      accessibilityHint={opens ? t('charts.showsDives') : undefined}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}>
       <View style={styles.body}>
         <View style={styles.header}>

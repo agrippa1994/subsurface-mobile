@@ -20,6 +20,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ChartColors } from '@/constants/chart-theme';
 import { Spacing } from '@/constants/theme';
 import { countAxis, type StatBar } from '@/models/statistics';
+import { t } from '@/i18n';
 
 const PAD = { left: 28, right: 6, top: 6, bottom: 18 };
 /** Surface gap between neighbouring bars, per the mark specs. */
@@ -47,9 +48,9 @@ export function BarChart({
   bars,
   axisUnit,
   height = 160,
-  emptyText = 'No dives match this filter.',
+  emptyText = t('charts.noDivesMatch'),
   integer = true,
-  hint = 'Tap a bar for its count',
+  hint = t('charts.tapBarCount'),
 }: BarChartProps) {
   const colors = ChartColors[useColorScheme() === 'dark' ? 'dark' : 'light'];
   const [width, setWidth] = useState(0);

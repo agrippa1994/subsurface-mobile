@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { DiveSummary } from '@/models';
+import { t } from '@/i18n';
 
 export type DiveSelectionBarProps = {
   dives: readonly DiveSummary[];
@@ -37,9 +38,9 @@ export function DiveSelectionRow({
   );
   return (
     <View style={[styles.bar, { backgroundColor: theme.backgroundElement }]}>
-      {button('New Trip', none, onNewTrip)}
-      {button('Add to Trip', none, onAddToTrip)}
-      {button('Remove', !dives.some((dive) => dive.tripId !== 0), onRemoveFromTrip)}
+      {button(t('trips.action.new'), none, onNewTrip)}
+      {button(t('trips.action.add'), none, onAddToTrip)}
+      {button(t('ui.remove'), !dives.some((dive) => dive.tripId !== 0), onRemoveFromTrip)}
     </View>
   );
 }

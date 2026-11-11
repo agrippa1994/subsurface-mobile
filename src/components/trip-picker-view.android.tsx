@@ -5,6 +5,7 @@ import { M3ActionRow, M3Footnote, M3Screen, M3Section } from '@/components/mater
 import { emptyPickerText, tripSubtitle, tripTitle } from '@/models/trips';
 
 import type { TripPickerViewProps } from './trip-picker-view';
+import { t } from '@/i18n';
 
 export type { TripPickerViewProps };
 
@@ -20,17 +21,17 @@ export function TripPickerView({
   return (
     <M3Screen>
       <M3Section>
-        <M3ActionRow label="New Trip" icon="plus" onPress={onNewTrip} />
+        <M3ActionRow label={t('ui.newTrip')} icon="plus" onPress={onNewTrip} />
         {canRemove ? (
           <M3ActionRow
-            label="Remove from Trip"
+            label={t('ui.removeFromTrip')}
             icon="minus.circle"
             destructive
             onPress={onRemove}
           />
         ) : null}
       </M3Section>
-      <M3Section title="Trips">
+      <M3Section title={t('ui.trips')}>
         {trips.length === 0 ? (
           <M3Footnote>{emptyPickerText(hasCandidates, searching)}</M3Footnote>
         ) : (

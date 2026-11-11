@@ -21,6 +21,7 @@
 import type { Site } from 'divessi-client';
 
 import { isDeletedSsiSite, reduceSsiSites, type SsiSite } from './sites';
+import { t } from '@/i18n';
 
 /** The server's own default. One page took about 1.4 s and under a megabyte. */
 export const SITES_PAGE_SIZE = 1000;
@@ -86,7 +87,7 @@ async function readPages(
       return changes;
     }
   }
-  throw new Error('The dive site list did not end.');
+  throw new Error(t('ssi.catalogue.endless'));
 }
 
 /**
@@ -97,7 +98,7 @@ export async function fetchAllSsiSites(fetchPage: SitesPageFetcher): Promise<Sit
   const changes = await readPages(fetchPage, 0, (rows) => rows.every(isDeletedSsiSite));
   if (changes.sites.length === 0) {
     // The ZIP alone would otherwise be stored as if the walk had succeeded.
-    throw new Error('The dive site list came back empty.');
+    throw new Error(t('ssi.catalogue.empty'));
   }
   return changes;
 }

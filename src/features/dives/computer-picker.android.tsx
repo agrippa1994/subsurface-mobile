@@ -14,9 +14,10 @@ import { useState } from 'react';
 import { M3MenuRow } from '@/components/material/list';
 import { M3Icon } from '@/components/material/icon';
 
-import { MAKE_FIRST_LABEL } from '@/models/dive-computers';
+import { makeFirstLabel } from '@/models/dive-computers';
 
 import type { ComputerPickerProps } from './computer-picker';
+import { t } from '@/i18n';
 
 export type { ComputerPickerProps };
 
@@ -33,7 +34,7 @@ export function ComputerPicker({
     return (
       <Host matchContents={{ vertical: true }}>
         <M3MenuRow
-          label="Computer"
+          label={t('ui.computer')}
           value={selectedIndex}
           options={labels.map((label, index) => ({ value: index, label }))}
           onChange={onSelect}
@@ -83,7 +84,7 @@ export function ComputerPicker({
                 <M3Icon name="arrow_upward" />
               </DropdownMenuItem.LeadingIcon>
               <DropdownMenuItem.Text>
-                <Text>{MAKE_FIRST_LABEL}</Text>
+                <Text>{makeFirstLabel()}</Text>
               </DropdownMenuItem.Text>
             </DropdownMenuItem>
           ) : null}

@@ -45,12 +45,12 @@ import {
 import {
   computerFigures,
   computerLabels,
-  DIVE_MODE_LABEL,
-  MAKE_FIRST_LABEL,
+  diveModeLabel,
+  makeFirstLabel,
   plotForComputer,
 } from '@/models/dive-computers';
 import { isManualDive, MANUAL_DC_MODEL } from '@/models/dive-basics';
-import { PROFILE_CALCULATION_NOTE } from '@/models/disclaimer';
+import { profileCalculationNote } from '@/models/disclaimer';
 import { toDiveRow } from '@/models/dive-list';
 import { buildProfilePlot } from '@/models/profile-plot';
 import { describeError, formatErrorLine } from '@/models/errors';
@@ -67,6 +67,7 @@ import {
 import { useDive, useDives, useProfile, useSites, useTrips } from '@/queries/logbook';
 import { useProfileSeries, useUnits } from '@/queries/settings';
 import { isSyncedToSsi, useSsiAccount } from '@/queries/ssi';
+import { t } from '@/i18n';
 
 type SymbolName = SymbolViewProps['name'];
 
@@ -127,7 +128,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
     return (
       <StatusView
         kind="error"
-        title="Dive not found"
+        title={t('dive.notFound')}
         description={formatErrorLine(describeError(failure))}
         systemImage="questionmark.circle"
       />
@@ -135,7 +136,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
   }
 
   if (!dive || !profile) {
-    return <StatusView kind="loading" title="Opening dive" />;
+    return <StatusView kind="loading" title={t('ui.openingDive')} />;
   }
 
   const row = toDiveRow(dive, units);
@@ -162,7 +163,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       <Stack.Screen options={{ title: row.title }} />
       {/* A native bar button item rather than a custom headerRight view, so it
           gets the system Edit look (liquid glass on iOS 26). */}
-      <HeaderAction history label="Edit" onPress={() => router.push(`${stackPath}/edit/${dive.id}`)} />
+      <HeaderAction history label={t('common.edit')} onPress={() => router.push(`${stackPath}/edit/${dive.id}`)} />
 
       <Header
         dive={dive}
@@ -173,25 +174,25 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
 
       {dive.planned ? (
         <Text style={[styles.plannedBanner, { color: theme.warning }]}>
-          This dive was planned, not dived. Its figures come from the planner.
+          {t('dive.plannedBanner')}
         </Text>
       ) : null}
 
       <Section
-        title="Profile"
+        title={t('dive.profile')}
         inset
         footer={
           manualComputer
-            ? `Drawn from the depth and duration entered for this dive. Nothing was measured. ${PROFILE_CALCULATION_NOTE}`
+            ? `${t('dive.manualProfile')} ${profileCalculationNote()}`
             : plot
-              ? PROFILE_CALCULATION_NOTE
+              ? profileCalculationNote()
               : undefined
         }
         action={
           IS_TABLET && plot ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Show profile full screen"
+              accessibilityLabel={t('dive.fullScreen')}
               hitSlop={Spacing.three}
               onPress={() => setExpanded(true)}>
               <SymbolView
@@ -223,7 +224,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           />
         ) : (
           <Text style={[styles.placeholder, { color: theme.textSecondary }]}>
-            This dive has no profile.
+            {t('dive.noProfile')}
           </Text>
         )}
       </Section>
@@ -231,7 +232,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {/* Turning a phone, or the button on a tablet, hands the same plot the whole screen. */}
       {plot ? (
         <ProfileFullscreen
-          title={manualComputer ? `${row.title}, added manually` : row.title}
+          title={manualComputer ? t('dive.addedManually', { title: row.title }) : row.title}
           chartKey={computer.index}
           expanded={expanded}
           onClose={() => setExpanded(false)}
@@ -253,34 +254,34 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
         />
       ) : null}
 
-      <Section title="Details">
+      <Section title={t('dive.details')}>
         {dive.meanDepthMm > 0 ? (
-          <Row label="Average depth" value={formatDepth(dive.meanDepthMm, units)} />
+          <Row label={t('dive.field.averageDepth')} value={formatDepth(dive.meanDepthMm, units)} />
         ) : null}
         {/* The summary's mode is the first computer's. With several, each states its own. */}
         {severalComputers ? null : (
-          <Row label="Mode" value={DIVE_MODE_LABEL[dive.divemode] ?? 'Open circuit'} />
+          <Row label={t('dive.field.mode')} value={diveModeLabel(dive.divemode)} />
         )}
         {dive.airTempMkelvin > 0 ? (
-          <Row label="Air temperature" value={formatTemperature(dive.airTempMkelvin, units)} />
+          <Row label={t('dive.field.airTemperature')} value={formatTemperature(dive.airTempMkelvin, units)} />
         ) : null}
         {dive.sac > 0 ? (
-          <Row label="SAC" value={`${formatVolume(dive.sac, units)}/min`} />
+          <Row label={t('dive.field.sac')} value={`${formatVolume(dive.sac, units)}/min`} />
         ) : null}
-        {dive.otu > 0 ? <Row label="OTU" value={String(Math.round(dive.otu))} /> : null}
-        {dive.maxcns > 0 ? <Row label="CNS" value={`${Math.round(dive.maxcns)} %`} /> : null}
-        {dive.rating > 0 ? <StarRow label="Rating" value={dive.rating} /> : null}
-        {dive.visibility > 0 ? <StarRow label="Visibility" value={dive.visibility} /> : null}
+        {dive.otu > 0 ? <Row label={t('ui.otu')} value={String(Math.round(dive.otu))} /> : null}
+        {dive.maxcns > 0 ? <Row label={t('ui.cns')} value={`${Math.round(dive.maxcns)} %`} /> : null}
+        {dive.rating > 0 ? <StarRow label={t('dive.field.rating')} value={dive.rating} /> : null}
+        {dive.visibility > 0 ? <StarRow label={t('dive.field.visibility')} value={dive.visibility} /> : null}
       </Section>
 
       <SiteSection dive={dive} stackPath={stackPath} />
 
       {hasPeopleOrPlace ? (
-        <Section title="People and place">
-          {dive.siteName && !siteOnMap ? <Row label="Dive site" value={dive.siteName} /> : null}
-          {dive.buddy ? <Row label="Buddy" value={dive.buddy} /> : null}
-          {dive.diveguide ? <Row label="Divemaster" value={dive.diveguide} /> : null}
-          {dive.suit ? <Row label="Suit" value={dive.suit} /> : null}
+        <Section title={t('dive.peopleAndPlace')}>
+          {dive.siteName && !siteOnMap ? <Row label={t('dive.field.diveSite')} value={dive.siteName} /> : null}
+          {dive.buddy ? <Row label={t('dive.field.buddy')} value={dive.buddy} /> : null}
+          {dive.diveguide ? <Row label={t('dive.field.divemaster')} value={dive.diveguide} /> : null}
+          {dive.suit ? <Row label={t('dive.field.suit')} value={dive.suit} /> : null}
           {dive.tags.length > 0 ? <TagsRow tags={dive.tags} /> : null}
         </Section>
       ) : null}
@@ -288,7 +289,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       <TripSection dive={dive} stackPath={stackPath} />
 
       {notes !== '' ? (
-        <Section title={dive.planned ? 'Plan' : 'Notes'}>
+        <Section title={dive.planned ? t('dive.plan') : t('dive.notes')}>
           {dive.planned ? (
             <View style={styles.planNotes}>
               <PlanNotesView notes={notes} />
@@ -302,7 +303,7 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       ) : null}
 
       {dive.cylinders.length > 0 ? (
-        <Section title="Cylinders">
+        <Section title={t('dive.cylinders')}>
           {dive.cylinders.map((cylinder, index) => (
             <CylinderRow key={index} cylinder={cylinder} index={index} />
           ))}
@@ -310,33 +311,33 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       ) : null}
 
       {dive.weightsystems.length > 0 ? (
-        <Section title="Weights">
+        <Section title={t('dive.weights')}>
           {dive.weightsystems.map((weight, index) => (
             <WeightRow key={index} weight={weight} />
           ))}
           {dive.weightsystems.length > 1 ? (
-            <Row label="Total" value={formatWeight(dive.totalWeightGrams, units)} emphasized />
+            <Row label={t('dive.field.total')} value={formatWeight(dive.totalWeightGrams, units)} emphasized />
           ) : null}
         </Section>
       ) : null}
 
       {dc ? (
         <Section
-          title={manualComputer ? 'Source' : 'Dive computer'}
+          title={manualComputer ? t('dive.source') : t('dive.diveComputer')}
           footer={
             severalComputers
-              ? 'The figures at the top of the screen and under Details cover the whole dive.'
+              ? t('dive.wholeDiveNote')
               : undefined
           }
         >
           {manualComputer ? (
-            <Row label="Dive computer" value="None, added manually" />
+            <Row label={t('dive.diveComputer')} value={t('dive.noneManual')} />
           ) : (
-            <Row label="Model" value={dc.model || 'Unknown'} />
+            <Row label={t('dive.field.model')} value={dc.model || t('dive.unknown')} />
           )}
-          {dc.serial ? <Row label="Serial" value={dc.serial} /> : null}
-          {dc.fwVersion ? <Row label="Firmware" value={dc.fwVersion} /> : null}
-          {manualComputer ? null : <Row label="Samples" value={String(dc.sampleCount)} />}
+          {dc.serial ? <Row label={t('dive.field.serial')} value={dc.serial} /> : null}
+          {dc.fwVersion ? <Row label={t('dive.field.firmware')} value={dc.fwVersion} /> : null}
+          {manualComputer ? null : <Row label={t('dive.field.samples')} value={String(dc.sampleCount)} />}
           {severalComputers
             ? computerFigures(dc, units).map(({ label, value }) => (
                 <Row key={label} label={label} value={value} />
@@ -347,8 +348,8 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
           {severalComputers && computer.index > 0 ? (
             <ActionRow
               symbol="arrow.up"
-              label={MAKE_FIRST_LABEL}
-              detail="The first computer is the one SSI upload and CSV export use."
+              label={makeFirstLabel()}
+              detail={t('dive.makeFirstDetail')}
               onPress={() => computer.makeFirst(computer.index)}
             />
           ) : null}
@@ -358,23 +359,23 @@ export default function DiveDetailScreen({ stackPath = '/dives' }: { stackPath?:
       {/* A plan never happened, and an SSI logbook is of dives that did. */}
       {dive.planned ? null : (
       <Section
-        title="SSI"
+        title={t('ui.ssi')}
         footer={
           ssiAccount.data === null
-            ? 'Sign in under Settings, SSI to upload dives.'
+            ? t('dive.ssi.signIn')
             : severalComputers
-              ? `Uploads the profile from the first computer, ${computerLabels(dive.dcs)[0]}. To upload another, make it first under Dive computer.`
+              ? t('dive.ssi.firstComputer', { computer: computerLabels(dive.dcs)[0] })
               : undefined
         }
       >
         {ssiAccount.data === null ? (
-          <ActionRow symbol="icloud.slash" label="Not signed in" disabled />
+          <ActionRow symbol="icloud.slash" label={t('dive.ssi.notSignedIn')} disabled />
         ) : (
           <Link href={`${stackPath}/ssi/${dive.id}`} asChild>
             <ActionRow
               symbol={synced ? 'checkmark.icloud' : 'icloud.and.arrow.up'}
-              label={synced ? 'Sync to SSI again' : 'Sync to SSI'}
-              detail={synced ? 'Already synced' : 'Pick a site, then upload'}
+              label={synced ? t('dive.ssi.syncAgain') : t('dive.ssi.sync')}
+              detail={synced ? t('dive.ssi.synced') : t('dive.ssi.pickSite')}
               chevron
             />
           </Link>
@@ -412,14 +413,14 @@ function SiteSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
   const row = toSiteRow(site);
   const openSite = () => router.push(`${SITE_PATH[stackPath]}/${site.uuid}`);
   return (
-    <Section title="Dive site">
+    <Section title={t('dive.field.diveSite')}>
       {MAPS_AVAILABLE ? (
         <Pressable
           key="map"
           onPress={openSite}
           accessibilityRole="button"
-          accessibilityLabel={`Map of ${row.title}`}
-          accessibilityHint="Shows the dive site"
+          accessibilityLabel={t('dive.site.map', { title: row.title })}
+          accessibilityHint={t('dive.site.mapHint')}
           style={({ pressed }) => [styles.siteMap, pressed ? { opacity: 0.8 } : null]}
         >
           {/* A picture of the place, not a map to pan: the tap is the row's. */}
@@ -441,13 +442,13 @@ function SiteSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
         detail={`${row.subtitle} - ${row.countText}`}
         chevron
         onPress={openSite}
-        accessibilityHint="Shows the dive site and its dives"
+        accessibilityHint={t('dive.site.rowHint')}
       />
       <ActionRow
         key="maps"
         symbol="map"
-        label="Open in Maps"
-        detail={`Directions in ${mapsAppName(MAPS_PLATFORM)}`}
+        label={t('dive.site.openInMaps')}
+        detail={t('dive.site.directions', { app: mapsAppName(MAPS_PLATFORM) })}
         onPress={() => openInMaps(site)}
       />
     </Section>
@@ -489,7 +490,7 @@ function TripSection({ dive, stackPath }: { dive: Dive; stackPath: DiveStackPath
   };
 
   return (
-    <Section title="Trip">
+    <Section title={t('dive.trip')}>
       {actions.map((action) =>
         action.kind === 'open' ? (
           <ActionRow
@@ -525,7 +526,7 @@ function MergeSection({ diveId }: { diveId: number }) {
     return null;
   }
   return (
-    <Section title="Merge">
+    <Section title={t('dive.merge')}>
       {actions.map((action) => (
         <ActionRow
           key={action.kind}
@@ -547,10 +548,10 @@ function CsvExportSection({ dive }: { dive: Dive }) {
   const { busy, share } = useDiveCsvExport(dive);
   return (
     <Section
-      title="Export as CSV"
+      title={t('dive.csv.title')}
       footer={
         dive.dcs.length > 1
-          ? `Uses the profile from the first computer, ${computerLabels(dive.dcs)[0]}. To export another, make it first under Dive computer.`
+          ? t('dive.csv.firstComputer', { computer: computerLabels(dive.dcs)[0] })
           : undefined
       }
     >
@@ -561,7 +562,7 @@ function CsvExportSection({ dive }: { dive: Dive }) {
           label={label}
           detail={
             format === 'details' && isManualDive(dive)
-              ? 'The points the profile was drawn through. Nothing was measured.'
+              ? t('dive.csv.manualDetails')
               : description
           }
           disabled={busy}
@@ -591,13 +592,13 @@ function Header({
   const units = useUnits();
   const stats: { label: string; value: string; symbol: SymbolName }[] = [
     {
-      label: 'Max depth',
+      label: t('dive.field.maxDepth'),
       value: formatDepth(dive.maxDepthMm, units),
       symbol: 'arrow.down.to.line',
     },
-    { label: 'Duration', value: formatDuration(dive.durationSec), symbol: 'clock' },
+    { label: t('dive.field.duration'), value: formatDuration(dive.durationSec), symbol: 'clock' },
     {
-      label: 'Water',
+      label: t('dive.field.water'),
       value: dive.waterTempMkelvin > 0 ? formatTemperature(dive.waterTempMkelvin, units) : '-',
       symbol: 'thermometer.medium',
     },
@@ -607,13 +608,13 @@ function Header({
     <View style={styles.header}>
       <View style={styles.headerLine}>
         <Text style={[styles.headerDate, { color: theme.textSecondary }]}>
-          {dateText} at {timeText}
+          {t('diveList.spoken.dateAt', { date: dateText, time: timeText })}
         </Text>
         {numberText ? (
           <View style={[styles.badge, { backgroundColor: theme.backgroundSelected }]}>
             <Text
               style={[styles.badgeText, { color: theme.textSecondary }]}
-              accessibilityLabel={`Dive number ${dive.number}`}
+              accessibilityLabel={t('dive.numberSpoken', { number: dive.number })}
             >
               {numberText}
             </Text>
@@ -701,7 +702,7 @@ function Section({
  * dive does not carry is a visual placeholder; VoiceOver says what it means.
  */
 function spoken(label: string, value: string): string {
-  const text = value.trim() === '-' ? 'not recorded' : value.replace(/\n/g, ', ');
+  const text = value.trim() === '-' ? t('dive.notRecorded') : value.replace(/\n/g, ', ');
   return `${label}, ${text}`;
 }
 
@@ -735,7 +736,7 @@ function StarRow({ label, value }: { label: string; value: number }) {
   const theme = useTheme();
   const filled = Math.round(value);
   return (
-    <View style={styles.row} accessible accessibilityLabel={`${label}, ${filled} of 5`}>
+    <View style={styles.row} accessible accessibilityLabel={t('dive.stars', { label, filled })}>
       <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
       <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((star) => (
@@ -754,8 +755,8 @@ function StarRow({ label, value }: { label: string; value: number }) {
 function TagsRow({ tags }: { tags: readonly string[] }) {
   const theme = useTheme();
   return (
-    <View style={styles.row} accessible accessibilityLabel={`Tags, ${tags.join(', ')}`}>
-      <Text style={[styles.label, { color: theme.text }]}>Tags</Text>
+    <View style={styles.row} accessible accessibilityLabel={`${t('dive.field.tags')}, ${tags.join(', ')}`}>
+      <Text style={[styles.label, { color: theme.text }]}>{t('dive.field.tags')}</Text>
       <View style={styles.tags}>
         {tags.map((tag) => (
           <View key={tag} style={[styles.tag, { backgroundColor: theme.backgroundSelected }]}>
@@ -825,9 +826,9 @@ function CylinderRow({ cylinder, index }: { cylinder: Cylinder; index: number })
   const end = cylinder.endMbar || cylinder.sampleEndMbar;
   const pressure =
     start > 0 && end > 0
-      ? `${formatPressure(start, units)} to ${formatPressure(end, units)}`
+      ? t('statistics.range', { from: formatPressure(start, units), to: formatPressure(end, units) })
       : '';
-  const name = cylinder.description || `Cylinder ${index + 1}`;
+  const name = cylinder.description || t('dive.cylinderNumber', { number: index + 1 });
   const size = cylinder.sizeMl > 0 ? formatVolume(cylinder.sizeMl, units) : '';
   const subtitle = [name, size].filter(Boolean).join(' - ');
 
@@ -852,7 +853,7 @@ function WeightRow({ weight }: { weight: WeightSystem }) {
   const units = useUnits();
   return (
     <Row
-      label={weight.description || 'Weight'}
+      label={weight.description || t('dive.field.weight')}
       value={formatWeight(weight.weightGrams, units)}
     />
   );

@@ -8,6 +8,7 @@
 
 import type { GradientFactors, NitroxPlan, NitroxPlanInput } from './index';
 import { feetToMm, mmToFeet, type Units } from './units';
+import { t } from '@/i18n';
 
 export type Water = 'salt' | 'fresh';
 
@@ -81,37 +82,37 @@ export function formatPo2(mbar: number): string {
 }
 
 export function formatNdl(minutes: number | null): string {
-  return minutes === null ? 'Over 300 min' : `${minutes} min`;
+  return minutes === null ? t('nitrox.ndlOver') : t('common.minutesShort', { minutes });
 }
 
 export function mixName(o2Percent: number): string {
   if (o2Percent === 21) {
-    return 'Air';
+    return t('units.gas.air');
   }
-  return o2Percent === 100 ? 'Oxygen' : `EAN${o2Percent}`;
+  return o2Percent === 100 ? t('units.gas.oxygen') : `EAN${o2Percent}`;
 }
 
 /** How the mix's NDL compares with air's, as one line. */
 export function ndlComparison(plan: NitroxPlan): string {
   const { ndlMin, airNdlMin } = plan;
   if (ndlMin === null && airNdlMin === null) {
-    return 'Neither gas reaches a limit within 300 min';
+    return t('nitrox.compare.neither');
   }
   if (ndlMin === null) {
-    return `More than ${300 - (airNdlMin ?? 0)} min longer than on air`;
+    return t('nitrox.compare.moreThan', { minutes: 300 - (airNdlMin ?? 0) });
   }
   if (airNdlMin === null) {
-    return 'Shorter than on air';
+    return t('nitrox.compare.shorter');
   }
   const delta = ndlMin - airNdlMin;
   if (delta === 0) {
-    return 'Same as on air';
+    return t('nitrox.compare.same');
   }
   const percent =
     airNdlMin > 0 ? ` (${delta > 0 ? '+' : ''}${Math.round((delta / airNdlMin) * 100)}%)` : '';
   return delta > 0
-    ? `${delta} min longer than on air${percent}`
-    : `${-delta} min shorter than on air${percent}`;
+    ? t('nitrox.compare.longerBy', { minutes: delta, percent })
+    : t('nitrox.compare.shorterBy', { minutes: -delta, percent });
 }
 
 export type NitroxWarning = { level: 'danger' | 'caution'; text: string };
@@ -121,13 +122,13 @@ export function nitroxWarning(input: NitroxInput, plan: NitroxPlan): NitroxWarni
   if (input.depthMm > plan.contingencyModMm) {
     return {
       level: 'danger',
-      text: `The pO2 at this depth is ${formatPo2(plan.po2Mbar)}, past the 1.60 bar contingency limit.`,
+      text: t('nitrox.warning.contingency', { po2: formatPo2(plan.po2Mbar) }),
     };
   }
   if (input.depthMm > plan.modMm) {
     return {
       level: 'caution',
-      text: `The pO2 at this depth is ${formatPo2(plan.po2Mbar)}, past the working limit of ${formatPo2(input.maxPo2Mbar)}.`,
+      text: t('nitrox.warning.working', { po2: formatPo2(plan.po2Mbar), limit: formatPo2(input.maxPo2Mbar) }),
     };
   }
   return null;

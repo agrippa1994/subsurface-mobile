@@ -33,6 +33,7 @@ import {
   sheetPositions,
   type SheetDetent,
 } from '@/models/sheet-detents';
+import { t } from '@/i18n';
 
 /** Hands the worklet below a function of the React Native runtime to call back. */
 const dismissKeyboard = () => Keyboard.dismiss();
@@ -201,8 +202,8 @@ function SheetBody<T>({
               }}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Resize the list"
-                accessibilityValue={{ text: DETENT_NAMES[detent] }}
+                accessibilityLabel={t('ui.resizeTheList')}
+                accessibilityValue={{ text: detentName(detent) }}
                 onPress={() => moveTo(nextDetent(detent))}
                 style={styles.grabberArea}>
                 <View style={[styles.grabber, { backgroundColor: theme.textSecondary }]} />
@@ -235,11 +236,9 @@ function SheetBody<T>({
   );
 }
 
-const DETENT_NAMES: Record<SheetDetent, string> = {
-  small: 'Collapsed',
-  medium: 'Half open',
-  large: 'Open',
-};
+function detentName(detent: SheetDetent): string {
+  return t(`charts.detent.${detent}`);
+}
 
 const styles = StyleSheet.create({
   sheet: {

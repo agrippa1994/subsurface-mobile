@@ -13,6 +13,7 @@ import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ratingStars, type DiveRow } from '@/models/dive-list';
+import { t } from '@/i18n';
 
 const BADGE_WIDTH = 44;
 
@@ -35,7 +36,7 @@ export function DiveRowView({
   open?: boolean;
 }) {
   const theme = useTheme();
-  const subtitle = [row.subtitle, row.planned ? 'planned' : '', row.invalid ? 'invalid' : ''].filter(Boolean).join('  ');
+  const subtitle = [row.subtitle, row.planned ? t('diveList.planned') : '', row.invalid ? t('diveList.invalid') : ''].filter(Boolean).join('  ');
   return (
     <Pressable
       accessible

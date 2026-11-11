@@ -32,6 +32,7 @@ import {
 import { reduceSsiSites, type SsiSite } from '@/models/ssi/sites';
 
 import { createSsiClient, ssiData } from './api';
+import { t } from '@/i18n';
 
 /** The reduced catalogue, in app documents so it survives a cache eviction. */
 const INDEX_FILENAME = 'ssi-sites-index.json';
@@ -134,13 +135,13 @@ async function downloadZip(): Promise<{ sites: SsiSite[]; raw: SitesResponse }> 
   const entries = unzipSync(new Uint8Array(data));
   const name = Object.keys(entries).find((entry) => entry.endsWith('.json'));
   if (name === undefined) {
-    throw new Error('The dive site download contained no catalogue.');
+    throw new Error(t('errors.ssi.noCatalogue'));
   }
 
   const raw = JSON.parse(new TextDecoder().decode(entries[name])) as SitesResponse;
   const sites = reduceSsiSites(raw.divesites ?? []);
   if (sites.length === 0) {
-    throw new Error('The dive site catalogue came back empty.');
+    throw new Error(t('errors.ssi.emptyCatalogue'));
   }
   return { sites, raw };
 }
@@ -156,7 +157,7 @@ function sitesPageFetcher(): SitesPageFetcher {
     const rows =
       body !== null && typeof body === 'object' && 'divesites' in body ? body.divesites : null;
     if (!Array.isArray(rows)) {
-      throw new Error('SSI returned no dive site list.');
+      throw new Error(t('errors.ssi.noSiteList'));
     }
     return rows as unknown as Site[];
   };
@@ -182,7 +183,7 @@ async function buildSiteIndex(): Promise<SsiSite[]> {
   try {
     merged = mergeSsiSites(zipSites, await downloadTopUp(header.created));
     if (isSsiCatalogueShort(merged.length, header.divesites_total)) {
-      throw new Error('The dive site list stopped short of the whole catalogue.');
+      throw new Error(t('errors.ssi.shortList'));
     }
   } catch (error) {
     // Whatever is stored stays. With nothing stored, the ZIP alone is still most

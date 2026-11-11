@@ -5,6 +5,7 @@
 import { Stack } from 'expo-router';
 
 import type { DiveSelectionBarProps } from './dive-selection-bar';
+import { t } from '@/i18n';
 
 export function DiveSelectionBar({
   dives,
@@ -16,19 +17,19 @@ export function DiveSelectionBar({
     <Stack.Toolbar placement="left">
       <Stack.Toolbar.Menu
         icon="suitcase"
-        accessibilityLabel="Trip actions for the selected dives"
+        accessibilityLabel={t('ui.tripActionsForTheSelectedDives')}
         disabled={dives.length === 0}>
         <Stack.Toolbar.MenuAction icon="plus" onPress={onNewTrip}>
-          New Trip
+          {t('ui.newTrip')}
         </Stack.Toolbar.MenuAction>
         <Stack.Toolbar.MenuAction icon="text.badge.plus" onPress={onAddToTrip}>
-          Add to Trip...
+          {`${t('trips.action.add')}...`}
         </Stack.Toolbar.MenuAction>
         <Stack.Toolbar.MenuAction
           icon="minus.circle"
           disabled={!dives.some((dive) => dive.tripId !== 0)}
           onPress={onRemoveFromTrip}>
-          Remove from Trip
+          {t('ui.removeFromTrip')}
         </Stack.Toolbar.MenuAction>
       </Stack.Toolbar.Menu>
     </Stack.Toolbar>
