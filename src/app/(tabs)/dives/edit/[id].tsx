@@ -51,6 +51,7 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { useDive } from '@/queries/logbook';
 import { useDeleteDive, useUpdateDive } from '@/queries/logbook-mutations';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export default function DiveEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -67,7 +68,7 @@ export default function DiveEditScreen() {
     return (
       <StatusView
         kind="error"
-        title="Dive not found"
+        title={t('dive.notFound')}
         description={formatErrorLine(describeError(diveQuery.error))}
         systemImage="questionmark.circle"
       />
@@ -75,7 +76,7 @@ export default function DiveEditScreen() {
   }
 
   if (!diveQuery.data) {
-    return <StatusView kind="loading" title="Opening dive" />;
+    return <StatusView kind="loading" title={t('ui.openingDive')} />;
   }
 
   // Keyed on the dive so the form is rebuilt from scratch if the log is
@@ -165,11 +166,11 @@ function DiveEditForm({ dive, units }: { dive: Dive; units: Units }) {
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (
           <>
-            <Stack.Screen options={{ title: 'Edit dive' }} />
+            <Stack.Screen options={{ title: t('nav.editDive') }} />
             {/* A native bar button item, so Save gets the system confirmation
                 style (prominent liquid glass on iOS 26). */}
             <HeaderAction
-              label="Save"
+              label={t('common.save')}
               done
               disabled={isSubmitting}
               onPress={() => void form.handleSubmit()}
@@ -188,7 +189,7 @@ function DiveEditForm({ dive, units }: { dive: Dive; units: Units }) {
       />
 
       <FormSection>
-        <FormButtonRow label="Delete dive" onPress={onDelete} destructive />
+        <FormButtonRow label={t('diveForm.deleteDive')} onPress={onDelete} destructive />
       </FormSection>
 
       <View style={diveFormStyles.footerSpace} />

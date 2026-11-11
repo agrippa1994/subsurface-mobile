@@ -17,6 +17,7 @@ import { describeError, formatErrorLine } from '@/models/errors';
 import { useDives, useMergePairs, useTrips } from '@/queries/logbook';
 import { useMergeDives } from '@/queries/logbook-mutations';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export type DiveMerge = {
   actionsFor: (diveId: number) => MergeAction[];
@@ -41,7 +42,7 @@ export function useDiveMerge(): DiveMerge {
 
   const fail = useCallback((error: unknown) => {
     operationFailed();
-    Alert.alert('The dives could not be merged', formatErrorLine(describeError(error)));
+    Alert.alert(t('alerts.mergeFailed'), formatErrorLine(describeError(error)));
   }, []);
 
   const confirmMerge = useCallback(
@@ -62,7 +63,7 @@ export function useDiveMerge(): DiveMerge {
       // Asked for what it says, not as a warning: a merge undoes, but what it does to
       // the numbers, the sites and the trips shows nowhere else before it happens.
       Alert.alert(question.title, question.message, [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('ui.cancel'), style: 'cancel' },
         {
           text: question.confirmLabel,
           onPress: () => {

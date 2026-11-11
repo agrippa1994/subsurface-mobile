@@ -24,6 +24,7 @@ import {
   samplePoints,
   type SurfaceGfTimeline,
 } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 const PAD = { left: 36, right: 12, top: 12, bottom: 22 };
 /** Points per drawn curve; the series is up to 4320 values. */
@@ -143,7 +144,7 @@ export function SurfaceGfChart({
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel={accessibilityLabel}
-        accessibilityHint="Drag to move the time. Swipe up or down to move by 15 minutes."
+        accessibilityHint={t('ui.dragToMoveTheTimeSwipe')}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(event) => {
           const step = event.nativeEvent.actionName === 'increment' ? 15 * 60_000 : -15 * 60_000;
@@ -215,17 +216,17 @@ export function SurfaceGfChart({
             ))
           : null}
         {width > 0 && inWindow(nowMs) ? (
-          <Text style={[styles.marker, { left: xOf(nowMs) + 3, color: theme.textSecondary }]}>Now</Text>
+          <Text style={[styles.marker, { left: xOf(nowMs) + 3, color: theme.textSecondary }]}>{t('charts.now')}</Text>
         ) : null}
         {width > 0 && inWindow(plannedMs) ? (
           <Text style={[styles.marker, { left: xOf(plannedMs) + 3, top: 26, color: colors.depth }]}>
-            Entry
+            {t('ui.entry')}
           </Text>
         ) : null}
         {width > 0 && gfHigh <= yMax ? (
           <Text
             style={[styles.marker, { right: PAD.right + 2, left: undefined, top: yOf(gfHigh) - 16, color: theme.warning }]}>
-            {`GF high ${gfHigh}`}
+            {t('charts.gfHigh', { value: gfHigh })}
           </Text>
         ) : null}
       </View>

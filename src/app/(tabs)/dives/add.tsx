@@ -33,6 +33,7 @@ import { BLANK_DIVE_DRAFT, buildDivePatch } from '@/models/dive-edit';
 import { buildWeightPatches } from '@/models/weight-edit';
 import { useAddDive } from '@/queries/logbook-mutations';
 import { useDefaultCylinder, useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 /** What the cylinder and weight patches compare against: a dive with neither. */
 const NOTHING_YET = { cylinders: [], weightsystems: [] };
@@ -116,10 +117,10 @@ export default function AddDiveScreen() {
 
   usePreventRemove(!untouched && savedId === null, ({ data }) => {
     warned();
-    Alert.alert('Discard this dive?', 'What you entered will be lost.', [
-      { text: 'Keep Editing', style: 'cancel' },
+    Alert.alert(t('diveForm.discardTitle'), t('diveForm.discardMessage'), [
+      { text: t('diveForm.keepEditing'), style: 'cancel' },
       {
-        text: 'Discard',
+        text: t('diveForm.discard'),
         style: 'destructive',
         onPress: () => navigation.dispatch(data.action),
       },
@@ -164,7 +165,7 @@ export default function AddDiveScreen() {
       keyboardDismissMode="on-drag">
       <HeaderCancel onPress={() => router.back()} />
       <HeaderAction
-        label="Save"
+        label={t('common.save')}
         done
         disabled={isSubmitting}
         onPress={() => void form.handleSubmit()}

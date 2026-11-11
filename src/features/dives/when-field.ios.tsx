@@ -4,6 +4,7 @@
 import { DatePicker, Host } from '@expo/ui/swift-ui';
 
 import { whenFromDate, whenToDate } from '@/models/planner';
+import { t } from '@/i18n';
 
 export function WhenField({
   value,
@@ -15,7 +16,7 @@ export function WhenField({
   return (
     <Host matchContents={{ vertical: true }} style={{ minHeight: 34 }}>
       <DatePicker
-        title="Date and time"
+        title={t('ui.dateAndTime')}
         selection={whenToDate(value)}
         displayedComponents={['date', 'hourAndMinute']}
         onDateChange={(date) => onChange(whenFromDate(date))}

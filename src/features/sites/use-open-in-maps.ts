@@ -6,6 +6,7 @@ import { Alert, Linking, Platform } from 'react-native';
 
 import type { DiveSite } from '@/models';
 import { mapsLink, type MapsPlatform } from '@/models/maps-link';
+import { t } from '@/i18n';
 
 export const MAPS_PLATFORM: MapsPlatform =
   Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
@@ -17,7 +18,7 @@ export function useOpenInMaps(): (site: Pick<DiveSite, 'name' | 'hasGps' | 'latU
       return;
     }
     Linking.openURL(url).catch(() => {
-      Alert.alert('Could not open Maps', 'No maps app on this device took the site.');
+      Alert.alert(t('siteEditor.mapsFailed'), t('siteEditor.mapsFailedMessage'));
     });
   }, []);
 }

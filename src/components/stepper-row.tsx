@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export function StepperRow({
   label,
@@ -25,7 +26,7 @@ export function StepperRow({
   const button = (text: string, next: number, disabled: boolean) => (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${text === '-' ? 'Decrease' : 'Increase'} ${label}`}
+      accessibilityLabel={text === '-' ? t('charts.decrease', { label }) : t('charts.increase', { label })}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => onChange(next)}

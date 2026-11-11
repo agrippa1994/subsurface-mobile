@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { degreesToUdeg, udegToDegrees } from '@/models';
 import { formatCoordinates, SITE_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
+import { t } from '@/i18n';
 
 export { MAPS_AVAILABLE };
 
@@ -50,10 +51,10 @@ export function SiteMap({
           { height, backgroundColor: theme.backgroundElement, borderColor: theme.separator },
         ]}>
         <Text style={{ color: theme.textSecondary }}>
-          {hasPosition ? formatCoordinates(latUdeg, lonUdeg) : 'No position'}
+          {hasPosition ? formatCoordinates(latUdeg, lonUdeg) : t('sites.noPosition')}
         </Text>
         <Text style={[styles.fallbackHint, { color: theme.textSecondary }]}>
-          The map is not available here.
+          {t('charts.mapUnavailable')}
         </Text>
       </View>
     );
@@ -69,7 +70,7 @@ export function SiteMap({
         cameraPosition={{ coordinates, zoom: hasPosition ? SITE_ZOOM : WORLD_ZOOM }}
         markers={
           hasPosition
-            ? [{ id: 'site', coordinates, title: title ?? 'Dive site', systemImage: 'mappin' }]
+            ? [{ id: 'site', coordinates, title: title ?? t('ui.diveSite'), systemImage: 'mappin' }]
             : []
         }
         onMapClick={

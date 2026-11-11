@@ -25,6 +25,7 @@ import { useUserLocation } from '@/hooks/use-user-location';
 import { createMapViewport } from '@/models/map-viewport';
 import { NEARBY_ZOOM, searchSites, sortSitesByName, toSiteRow } from '@/models/site-edit';
 import { useLogbook, useSites } from '@/queries/logbook';
+import { t } from '@/i18n';
 
 export default function SitesScreen() {
   const logbook = useLogbook();
@@ -61,7 +62,7 @@ export default function SitesScreen() {
       {/* A large title has no scroll view to collapse into over a map. */}
       <Stack.Screen
         options={{
-          title: 'Sites',
+          title: t('nav.sites'),
           headerTransparent: MAPS_AVAILABLE,
           headerLargeTitle: !MAPS_AVAILABLE,
           headerSearchBarOptions: undefined,
@@ -69,10 +70,10 @@ export default function SitesScreen() {
         }}
       />
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Menu icon="line.3.horizontal.decrease" accessibilityLabel="Site options">
-          <Stack.Toolbar.MenuAction isOn>My dive sites</Stack.Toolbar.MenuAction>
+        <Stack.Toolbar.Menu icon="line.3.horizontal.decrease" accessibilityLabel={t('sitesScreen.options')}>
+          <Stack.Toolbar.MenuAction isOn>{t('sitesScreen.mySites')}</Stack.Toolbar.MenuAction>
           <Stack.Toolbar.MenuAction onPress={() => setSource('ssi')}>
-            SSI dive sites
+            {t('sitesScreen.ssiSites')}
           </Stack.Toolbar.MenuAction>
           {historyMenu ? (
             <Stack.Toolbar.Menu inline>
@@ -94,10 +95,10 @@ export default function SitesScreen() {
         <Stack.Toolbar.Button
           hidden={!MAPS_AVAILABLE || sites.length === 0}
           icon={locating ? 'location.fill' : 'location'}
-          accessibilityLabel="Go to my location"
+          accessibilityLabel={t('sitesScreen.myLocation')}
           onPress={() => void goToMyLocation()}
         />
-        <Stack.Toolbar.Button icon="plus" accessibilityLabel="New dive site" onPress={openNew} />
+        <Stack.Toolbar.Button icon="plus" accessibilityLabel={t('sitesScreen.newSite')} onPress={openNew} />
       </Stack.Toolbar>
     </>
   ) : (
@@ -109,18 +110,18 @@ export default function SitesScreen() {
           <View style={{ flexDirection: 'row' }}>
             {MAPS_AVAILABLE && sites.length > 0 ? (
               <HeaderIconButton
-                label="Go to my location"
+                label={t('sitesScreen.myLocation')}
                 icon={locating ? 'location.fill' : 'location'}
                 onPress={() => void goToMyLocation()}
               />
             ) : null}
             {historyMenu ? (
               <HeaderIconButton
-                label="Undo and redo"
+                label={t('common.undoRedo')}
                 icon="arrow.uturn.backward"
                 onPress={() =>
-                  Alert.alert('Undo and redo', undefined, [
-                    { text: 'Cancel', style: 'cancel' },
+                  Alert.alert(t('common.undoRedo'), undefined, [
+                    { text: t('ui.cancel'), style: 'cancel' },
                     ...(historyMenu.canRedo
                       ? [{ text: historyMenu.redoTitle, onPress: historyMenu.redo }]
                       : []),
@@ -132,13 +133,13 @@ export default function SitesScreen() {
               />
             ) : null}
             <HeaderIconButton
-              label="Site options"
+              label={t('sitesScreen.options')}
               icon="ellipsis"
               onPress={() =>
-                Alert.alert('Dive sites', undefined, [
-                  { text: 'SSI dive sites', onPress: () => setSource('ssi') },
-                  { text: 'New dive site', onPress: openNew },
-                  { text: 'Cancel', style: 'cancel' },
+                Alert.alert(t('nav.sites'), undefined, [
+                  { text: t('sitesScreen.ssiSites'), onPress: () => setSource('ssi') },
+                  { text: t('sitesScreen.newSite'), onPress: openNew },
+                  { text: t('ui.cancel'), style: 'cancel' },
                 ])
               }
             />
@@ -149,14 +150,14 @@ export default function SitesScreen() {
   );
 
   const body = !logbook.isSuccess ? (
-    <StatusView kind="loading" title="Opening logbook" />
+    <StatusView kind="loading" title={t('ui.openingLogbook')} />
   ) : sites.length === 0 ? (
     <StatusView
       kind="empty"
-      title="No dive sites"
-      description="Sites appear here once a logbook with sites is loaded, or when you add one."
+      title={t('sitesScreen.empty')}
+      description={t('sitesScreen.emptyDetail')}
       systemImage="mappin.slash"
-      actionLabel="New site"
+      actionLabel={t('nav.newSite')}
       onAction={openNew}
     />
   ) : MAPS_AVAILABLE ? (
@@ -173,7 +174,7 @@ export default function SitesScreen() {
           <SearchField
             value={query}
             onChangeText={setQuery}
-            placeholder="Search dive sites"
+            placeholder={t('sitesScreen.search')}
             onFocus={() => sheet.current?.expand()}
             tint={`${theme.textSecondary}26`}
           />
@@ -185,7 +186,7 @@ export default function SitesScreen() {
         )}
         ListEmptyComponent={
           <Text style={[styles.noMatches, { color: theme.textSecondary }]}>
-            No site matches this search.
+            {t('sitesScreen.noMatch')}
           </Text>
         }
       />

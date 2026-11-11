@@ -29,6 +29,7 @@ import {
   chartSummary,
   diveCount,
 } from '@/models/stats-chart';
+import { t } from '@/i18n';
 
 const CHART_HEIGHT = 300;
 
@@ -54,18 +55,18 @@ export default function StatisticsChartScreen() {
   const rows = useMemo(() => (chart ? chartRows(chart) : []), [chart]);
 
   const customize = (
-    <HeaderAction label="Customize" icon="slider.horizontal.3" onPress={() => router.push('/statistics/builder')} />
+    <HeaderAction label={t('ui.customize')} icon="slider.horizontal.3" onPress={() => router.push('/statistics/builder')} />
   );
 
   if (screen.loading) {
-    return <StatusView kind="loading" title="Drawing the chart" />;
+    return <StatusView kind="loading" title={t('ui.drawingTheChart')} />;
   }
   if (screen.error || !chart) {
     return (
       <StatusView
         kind="error"
-        title="The chart could not be drawn"
-        description={screen.error ?? 'The logbook could not be read.'}
+        title={t('ui.theChartCouldNotBeDrawn')}
+        description={screen.error ?? t('errors.unreadable')}
         systemImage="exclamationmark.triangle"
       />
     );
@@ -117,7 +118,7 @@ export default function StatisticsChartScreen() {
 
       {rows.length > 0 && !horizontal ? (
         <Text style={[styles.section, { color: theme.textSecondary }]} accessibilityRole="header">
-          Values
+          {t('statsScreen.values')}
         </Text>
       ) : null}
     </View>
@@ -155,7 +156,7 @@ function Readout({ screen }: { screen: ChartScreen }) {
   if (!readout) {
     return (
       <Text style={[styles.caption, { color: theme.textSecondary }]}>
-        Tap the chart for its values.
+        {t('statsScreen.tapChart')}
       </Text>
     );
   }
@@ -182,7 +183,9 @@ function Readout({ screen }: { screen: ChartScreen }) {
           onPress={() => screen.showDives(readout.title, readout.dives)}
           style={styles.readoutButton}>
           <Text style={[styles.readoutButtonText, { color: theme.accent }]}>
-            {readout.dives.length === 1 ? 'Open this dive' : `Show ${diveCount(readout.dives.length)}`}
+            {readout.dives.length === 1
+              ? t('statsScreen.openDive')
+              : t('statsScreen.showDives', { dives: diveCount(readout.dives.length) })}
           </Text>
           <SymbolView name="chevron.right" size={12} tintColor={theme.accent} />
         </Pressable>

@@ -13,6 +13,7 @@
 import { parseNumberInput } from './cylinder-edit';
 import type { Dive, WeightSystem, WeightSystemPatch } from './index';
 import { gramsToKg, gramsToLbs, kgToGrams, lbsToGrams, type Units } from './units';
+import { t } from '@/i18n';
 
 /**
  * One row of the weights editor.
@@ -121,7 +122,7 @@ export function validateWeightDrafts(
   const errors: WeightErrors = {};
   for (const draft of drafts) {
     if (parseWeightInput(draft.weightText, units) === null) {
-      errors[draft.key] = 'Weight is not a number.';
+      errors[draft.key] = t('equipment.weight.invalid');
     }
   }
   return errors;

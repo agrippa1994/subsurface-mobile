@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { RECENT_PERIODS, periodNote } from '@/models/statistics';
 
 import type { StatisticsScreen } from './use-statistics-screen';
+import { t } from '@/i18n';
 
 export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
   const theme = useTheme();
@@ -26,7 +27,7 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
     <View style={styles.filters}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         <Chip
-          label="All time"
+          label={t('ui.allTime')}
           selected={filter.year === null && !filter.recentMonths}
           onPress={() => screen.setYear(null)}
         />
@@ -34,7 +35,7 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
           <Chip
             key={`recent-${period.months}`}
             label={period.label}
-            accessibilityLabel={`Dives of ${period.spoken}`}
+            accessibilityLabel={t('statsScreen.periodSpoken', { period: period.spoken })}
             selected={filter.recentMonths === period.months}
             onPress={() =>
               screen.setRecentPeriod(filter.recentMonths === period.months ? null : period.months)
@@ -52,11 +53,11 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
       </ScrollView>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Chip label="All sites" selected={filter.siteUuid === null} onPress={() => screen.setSite(null)} />
+        <Chip label={t('ui.allSites')} selected={filter.siteUuid === null} onPress={() => screen.setSite(null)} />
         {screen.sites.map((site) => (
           <Chip
             key={site.uuid}
-            label={`${site.name || 'Unnamed site'} (${site.diveCount})`}
+            label={`${site.name || t('sites.unnamed')} (${site.diveCount})`}
             selected={filter.siteUuid === site.uuid}
             onPress={() => screen.setSite(filter.siteUuid === site.uuid ? null : site.uuid)}
           />
@@ -66,13 +67,13 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
       {screen.plannedDives > 0 ? (
         <View style={styles.planned}>
           <Chip
-            label={`Without planned dives (${screen.plannedDives})`}
+            label={t('statsScreen.withoutPlanned', { count: screen.plannedDives })}
             selected={Boolean(filter.excludePlanned)}
             onPress={() => screen.setExcludePlanned(!filter.excludePlanned)}
           />
           {filter.excludePlanned ? null : (
             <Text style={[styles.note, { color: theme.textSecondary }]}>
-              Counted now, as desktop Subsurface does.
+              {t('statsScreen.countedNow')}
             </Text>
           )}
         </View>
@@ -84,7 +85,7 @@ export function StatsFilterBar({ screen }: { screen: StatisticsScreen }) {
 
       {screen.filtered ? (
         <Pressable onPress={screen.clearFilter} accessibilityRole="button">
-          <Text style={[styles.clear, { color: theme.textSecondary }]}>Clear filter</Text>
+          <Text style={[styles.clear, { color: theme.textSecondary }]}>{t('statsScreen.clearFilter')}</Text>
         </Pressable>
       ) : null}
     </View>

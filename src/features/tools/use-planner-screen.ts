@@ -31,6 +31,7 @@ import { buildProfilePlot } from '@/models/profile-plot';
 import { useSavePlan } from '@/queries/logbook-mutations';
 
 import { usePlanner } from './use-planner';
+import { t } from '@/i18n';
 
 export function usePlannerScreen() {
   const planner = usePlanner();
@@ -68,7 +69,7 @@ export function usePlannerScreen() {
       },
       onError: (error) => {
         operationFailed();
-        Alert.alert('The plan was not saved', error.message);
+        Alert.alert(t('alerts.planFailed'), error.message);
       },
     });
   };

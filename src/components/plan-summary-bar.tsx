@@ -11,7 +11,8 @@ import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { PlanGasRow, PlanWarning } from '@/models/planner';
-import { PLAN_SHORT_DISCLAIMER } from '@/models/planner';
+import { planShortDisclaimer } from '@/models/planner';
+import { t } from '@/i18n';
 
 export function PlanSummaryBar({
   runtime,
@@ -34,7 +35,7 @@ export function PlanSummaryBar({
   const [first] = warnings;
   const alert = problem ?? first?.text ?? null;
   const alertColor = problem || first?.level === 'danger' ? theme.danger : theme.warning;
-  const more = warnings.length > 1 ? ` (+${warnings.length - 1} more below)` : '';
+  const more = warnings.length > 1 ? ` ${t('charts.moreBelow', { count: warnings.length - 1 })}` : '';
   const levelColor =
     gas?.level === 'danger' ? theme.danger : gas?.level === 'caution' ? theme.warning : theme.accent;
 
@@ -44,13 +45,13 @@ export function PlanSummaryBar({
         accessible
         accessibilityLabel={
           runtime
-            ? `Runtime ${runtime}. ${decoLine}. Maximum depth ${depth}.${gas ? ` ${gas.name}: ${gas.usedText}.` : ''}`
-            : 'No plan'
+            ? `${t('charts.planSpoken', { runtime, deco: decoLine, depth })}${gas ? ` ${gas.name}: ${gas.usedText}.` : ''}`
+            : t('ui.noPlan')
         }
       >
         <View style={styles.headline}>
           <Text style={[styles.runtime, { color: runtime ? theme.text : theme.textSecondary }]}>
-            {runtime ?? 'No plan'}
+            {runtime ?? t('ui.noPlan')}
           </Text>
           <Text numberOfLines={1} style={[styles.depth, { color: theme.textSecondary }]}>
             {depth}
@@ -100,7 +101,7 @@ export function PlanSummaryBar({
           </>
         ) : (
           <Text numberOfLines={2} style={[styles.alertText, { color: theme.textSecondary }]}>
-            {PLAN_SHORT_DISCLAIMER}
+            {planShortDisclaimer()}
           </Text>
         )}
       </View>

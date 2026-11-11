@@ -36,14 +36,16 @@ import { useTheme } from '@/hooks/use-theme';
 import { describeError, formatErrorLine } from '@/models/errors';
 import {
   BELOW_THRESHOLDS,
+  formatGf,
   PLANNED_ENTRY_PRESETS,
-  SINGLE_PRESSURE_NOTE,
-  SURFACE_GF_DISCLAIMER,
-  SURFACE_GF_EXPLAINER,
+  singlePressureNote,
+  surfaceGfDisclaimer,
+  surfaceGfExplainer,
   TIMELINE_SPANS,
   type PressureSource,
   type TimelineSpanKey,
 } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
@@ -56,7 +58,7 @@ export function SurfaceGfScreen() {
     return (
       <StatusView
         kind="error"
-        title="Surface GF is unavailable"
+        title={t('ui.surfaceGfIsUnavailable')}
         description={formatErrorLine(describeError(surface.error))}
         systemImage="exclamationmark.triangle"
       />
@@ -64,12 +66,12 @@ export function SurfaceGfScreen() {
   }
   if (!timeline || !readout || !window) {
     return surface.isPending ? (
-      <StatusView kind="loading" title="Working out the surface GF" />
+      <StatusView kind="loading" title={t('ui.workingOutTheSurfaceGf')} />
     ) : (
       <StatusView
         kind="empty"
-        title="No dives yet"
-        description="The surface GF follows the latest dive in your logbook."
+        title={t('ui.noDivesYet')}
+        description={t('ui.theSurfaceGfFollowsTheLatest')}
         systemImage="water.waves"
       />
     );
@@ -80,7 +82,7 @@ export function SurfaceGfScreen() {
       <Form>
         <Section
           footer={
-            <Text>{`Dive #${timeline.diveNumber}. ${surface.ambient.label}.${timeline.residual ? ' Includes nitrogen from the dives before it.' : ''}`}</Text>
+            <Text>{`${t('surfaceGfScreen.diveNumber', { number: timeline.diveNumber })} ${surface.ambient.label}.${timeline.residual ? ` ${t('surfaceGfScreen.residual')}` : ''}`}</Text>
           }>
           <VStack alignment="leading" spacing={2} modifiers={[accessibilityLabel(readout.accessibilityLabel)]}>
             <Text
@@ -110,12 +112,12 @@ export function SurfaceGfScreen() {
                 onCursorChange={screen.setCursor}
                 plannedMs={screen.settings.plannedEntryMs}
                 gfHigh={surface.gfHigh}
-                accessibilityLabel={`Surface GF over time. ${readout.accessibilityLabel}`}
+                accessibilityLabel={`${t('surfaceGfScreen.overTime')} ${readout.accessibilityLabel}`}
               />
             </View>
           </RNHostView>
           <Picker
-            label="Span"
+            label={t('ui.span')}
             selection={screen.span}
             onSelectionChange={(value: string) => screen.setSpan(value as TimelineSpanKey)}
             modifiers={[pickerStyle('segmented')]}>
@@ -126,28 +128,28 @@ export function SurfaceGfScreen() {
             ))}
           </Picker>
           <DatePicker
-            title="Show the time"
+            title={t('ui.showTheTime')}
             selection={new Date(screen.cursorMs)}
             displayedComponents={['date', 'hourAndMinute']}
             range={{ start: new Date(timeline.startMs), end: new Date(timeline.endMs) }}
             onDateChange={(date) => screen.setCursor(date.getTime())}
           />
           {screen.cursorFollowsNow ? null : (
-            <Button label="Back to now" systemImage="arrow.uturn.backward" onPress={screen.resetCursor} />
+            <Button label={t('ui.backToNow')} systemImage="arrow.uturn.backward" onPress={screen.resetCursor} />
           )}
         </Section>
 
         {screen.pastSeries ? (
-          <Section footer={<Text>The tissues were clean long before now, so the card on the dive list is hidden.</Text>}>
+          <Section footer={<Text>{t('ui.theTissuesWereCleanLongBefore')}</Text>}>
             <Button
-              label="Look at it 30 min after the dive"
+              label={t('ui.lookAtIt30MinAfter')}
               systemImage="clock.arrow.circlepath"
               onPress={() => screen.setAsOfOverride(screen.asOfDefault)}
             />
           </Section>
         ) : null}
 
-        <Section title="Next entry" footer={<Text>Kept on this phone as a preference, not in the logbook.</Text>}>
+        <Section title={t('ui.nextEntry')} footer={<Text>{t('ui.keptOnThisPhoneAsA')}</Text>}>
           {planned ? (
             <LabeledContent label={planned.whenText}>
               <Text
@@ -156,12 +158,12 @@ export function SurfaceGfScreen() {
                   monospacedDigit(),
                   ...(planned.gf !== null && planned.gf > surface.gfHigh ? [foregroundStyle(theme.warning)] : []),
                 ]}>
-                {planned.gf === null ? '-' : planned.gfText.replace('Surface GF ', '')}
+                {planned.gf === null ? '-' : formatGf(planned.gf)}
               </Text>
             </LabeledContent>
           ) : null}
           <DatePicker
-            title="Planned entry"
+            title={t('ui.plannedEntry')}
             selection={new Date(screen.settings.plannedEntryMs ?? screen.asOf)}
             displayedComponents={['date', 'hourAndMinute']}
             onDateChange={(date) => screen.setPlannedEntry(date.getTime())}
@@ -177,13 +179,13 @@ export function SurfaceGfScreen() {
             ))}
           </HStack>
           {planned ? (
-            <Button label="Clear planned entry" role="destructive" onPress={() => screen.setPlannedEntry(null)} />
+            <Button label={t('ui.clearPlannedEntry')} role="destructive" onPress={() => screen.setPlannedEntry(null)} />
           ) : null}
         </Section>
 
-        <Section title="When below">
+        <Section title={t('ui.whenBelow')}>
           <Picker
-            label="Surface GF at or below"
+            label={t('ui.surfaceGfAtOrBelow')}
             selection={screen.threshold}
             onSelectionChange={(value: number) => screen.setThreshold(value)}
             modifiers={[pickerStyle('menu')]}>
@@ -196,9 +198,9 @@ export function SurfaceGfScreen() {
           <Text modifiers={[monospacedDigit()]}>{screen.belowText ?? ''}</Text>
         </Section>
 
-        <Section title="Ambient pressure" footer={<Text>{SINGLE_PRESSURE_NOTE}</Text>}>
+        <Section title={t('ui.ambientPressure')} footer={<Text>{singlePressureNote()}</Text>}>
           <Picker
-            label="Source"
+            label={t('ui.source')}
             selection={screen.settings.pressureSource}
             onSelectionChange={(value: string) => screen.setPressureSource(value as PressureSource)}
             modifiers={[pickerStyle('segmented')]}>
@@ -210,7 +212,7 @@ export function SurfaceGfScreen() {
           </Picker>
           {screen.settings.pressureSource === 'altitude' || surface.ambient.source !== 'barometer' ? (
             <Stepper
-              label={`Altitude  ${screen.altitudeText}`}
+              label={`${t('ui.altitude')}  ${screen.altitudeText}`}
               value={screen.settings.altitudeMm}
               min={screen.altitudeRangeMm.min}
               max={screen.altitudeRangeMm.max}
@@ -218,7 +220,7 @@ export function SurfaceGfScreen() {
               onValueChange={screen.setAltitudeMm}
             />
           ) : null}
-          <LabeledContent label="In use">
+          <LabeledContent label={t('ui.inUse')}>
             <Text modifiers={[monospacedDigit()]}>{surface.ambient.label}</Text>
           </LabeledContent>
           {surface.ambient.fallbackNote ? (
@@ -229,15 +231,14 @@ export function SurfaceGfScreen() {
         </Section>
 
         <Section
-          title="Testing"
+          title={t('ui.testing')}
           footer={
             <Text>
-              Follow an older dive, or pretend now is another time, to try the timeline on a log whose last dive was long
-              ago.
+              {t('ui.followAnOlderDiveOrPretend')}
             </Text>
           }>
           <Picker
-            label="Dive"
+            label={t('ui.dive')}
             selection={screen.referenceValue}
             onSelectionChange={(value: number) => screen.setReference(value)}
             modifiers={[pickerStyle('menu')]}>
@@ -248,13 +249,13 @@ export function SurfaceGfScreen() {
             ))}
           </Picker>
           <Toggle
-            label="As of another time"
+            label={t('ui.asOfAnotherTime')}
             isOn={screen.asOfOverride !== null}
             onIsOnChange={(on: boolean) => screen.setAsOfOverride(on ? screen.asOfDefault : null)}
           />
           {screen.asOfOverride !== null ? (
             <DatePicker
-              title="As of"
+              title={t('ui.asOf')}
               selection={new Date(screen.asOfOverride)}
               displayedComponents={['date', 'hourAndMinute']}
               onDateChange={(date) => screen.setAsOfOverride(date.getTime())}
@@ -262,8 +263,8 @@ export function SurfaceGfScreen() {
           ) : null}
         </Section>
 
-        <Section footer={<Text>{SURFACE_GF_DISCLAIMER}</Text>}>
-          <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle(SECONDARY)]}>{SURFACE_GF_EXPLAINER}</Text>
+        <Section footer={<Text>{surfaceGfDisclaimer()}</Text>}>
+          <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle(SECONDARY)]}>{surfaceGfExplainer()}</Text>
         </Section>
       </Form>
     </Host>

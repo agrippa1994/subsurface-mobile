@@ -9,6 +9,7 @@
 import { diveRowTitle, toDiveRow, tripTitle } from './dive-list';
 import type { DiveSummary, MergePair, MergePreview, Trip } from './index';
 import { formatDepth, formatDuration, type Units } from './units';
+import { t } from '@/i18n';
 
 export type MergeAction = {
   kind: 'next' | 'previous';
@@ -33,16 +34,16 @@ export function mergeNeighbours(pairs: readonly MergePair[]): Map<number, MergeN
 
 /** "5 min", rounded up: a gap of 20 seconds is still a gap. */
 function gapText(seconds: number): string {
-  return `${Math.ceil(seconds / 60)} min`;
+  return t('common.minutesShort', { minutes: Math.ceil(seconds / 60) });
 }
 
 function actionDetail(other: DiveSummary | undefined, kind: MergeAction['kind'], gap: number) {
   const relation =
     gap === 0
-      ? 'Overlaps this dive'
+      ? t('merge.overlaps')
       : kind === 'next'
-        ? `Starts ${gapText(gap)} after this dive ends`
-        : `Ended ${gapText(gap)} before this dive`;
+        ? t('merge.startsAfter', { gap: gapText(gap) })
+        : t('merge.endedBefore', { gap: gapText(gap) });
   return other ? `${diveRowTitle(other)}. ${relation}` : relation;
 }
 
@@ -61,7 +62,7 @@ export function mergeActionsFor(
   if (own?.next) {
     actions.push({
       kind: 'next',
-      label: 'Merge with Next Dive',
+      label: t('merge.withNext'),
       symbol: 'arrow.triangle.merge',
       otherId: own.next.laterId,
       detail: actionDetail(divesById.get(own.next.laterId), 'next', own.next.surfaceIntervalSec),
@@ -70,7 +71,7 @@ export function mergeActionsFor(
   if (own?.previous) {
     actions.push({
       kind: 'previous',
-      label: 'Merge with Previous Dive',
+      label: t('merge.withPrevious'),
       symbol: 'arrow.triangle.merge',
       otherId: own.previous.earlierId,
       detail: actionDetail(
@@ -87,7 +88,7 @@ export function mergeActionsFor(
 function nameDive(dive: DiveSummary, units: Units): string {
   const row = toDiveRow(dive, units);
   const name = `${row.title}, ${row.subtitle}`;
-  return dive.number > 0 ? `Dive ${dive.number}: ${name}` : name;
+  return dive.number > 0 ? t('merge.numbered', { number: dive.number, name }) : name;
 }
 
 export type MergeConfirmation = { title: string; message: string; confirmLabel: string };
@@ -108,34 +109,31 @@ export function mergeConfirmation(
   const ordered = [...dives].sort((a, b) => a.when - b.when || a.id - b.id);
   const lines = [ordered.map((dive) => nameDive(dive, units)).join('\n')];
 
-  const figures = `${formatDepth(merged.maxDepthMm, units)} deep, ${formatDuration(merged.durationSec)} long`;
+  const figures = t('merge.figures', {
+    depth: formatDepth(merged.maxDepthMm, units),
+    duration: formatDuration(merged.durationSec),
+  });
   if (merged.dcs.length > 1) {
-    lines.push(
-      `They become one dive, ${figures}, keeping the recordings of ` +
-        `${merged.dcs.length} dive computers.`,
-    );
+    lines.push(t('merge.becomeOneComputers', { figures, count: merged.dcs.length }));
   } else if (preview.surfaceIntervalSec > 0) {
-    lines.push(
-      `They become one dive, ${figures}. Its profile keeps the ` +
-        `${gapText(preview.surfaceIntervalSec)} on the surface between them.`,
-    );
+    lines.push(t('merge.becomeOneInterval', { figures, gap: gapText(preview.surfaceIntervalSec) }));
   } else {
-    lines.push(`They become one dive, ${figures}.`);
+    lines.push(t('merge.becomeOne', { figures }));
   }
-  lines.push('Notes, buddies, tags and cylinders are combined.');
+  lines.push(t('merge.combined'));
 
   const otherSites = new Set(
     ordered
       .filter((dive) => dive.siteUuid !== 0 && dive.siteUuid !== merged.siteUuid)
-      .map((dive) => dive.siteName.trim() || 'The other site'),
+      .map((dive) => dive.siteName.trim() || t('merge.otherSite')),
   );
   for (const site of otherSites) {
-    lines.push(`It stays at ${merged.siteName.trim()}. ${site} stays in your sites without it.`);
+    lines.push(t('merge.staysAt', { site: merged.siteName.trim(), other: site }));
   }
 
   const tripIds = new Set(ordered.map((dive) => dive.tripId));
   if (merged.tripId !== 0 && tripIds.size > 1) {
-    lines.push(`It goes in the trip ${tripTitle(merged.tripLocation)}.`);
+    lines.push(t('merge.goesInTrip', { trip: tripTitle(merged.tripLocation) }));
   }
   const ending = trips.filter(
     (trip) =>
@@ -145,16 +143,12 @@ export function mergeConfirmation(
       (trip.location.trim() !== '' || trip.notes.trim() !== ''),
   );
   for (const trip of ending) {
-    lines.push(`The trip ${tripTitle(trip.location)} ends, with its location and notes.`);
+    lines.push(t('merge.tripEnds', { trip: tripTitle(trip.location) }));
   }
 
   if (preview.renumberedDives > 0) {
-    lines.push(
-      preview.renumberedDives === 1
-        ? '1 later dive gets a new number.'
-        : `${preview.renumberedDives} later dives get a new number.`,
-    );
+    lines.push(t('merge.renumbered', { count: preview.renumberedDives }));
   }
 
-  return { title: 'Merge these dives?', message: lines.join('\n\n'), confirmLabel: 'Merge' };
+  return { title: t('merge.confirmTitle'), message: lines.join('\n\n'), confirmLabel: t('merge.confirm') };
 }

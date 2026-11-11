@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { DiveSummary, Units } from '@/models';
 import { diveRowTitle, toDiveRow } from '@/models/dive-list';
 import type { TripSummaryRow } from '@/models/trips';
+import { t } from '@/i18n';
 
 export type TripDetailViewProps = {
   summary: TripSummaryRow[];
@@ -55,8 +56,8 @@ export function TripDetailView({
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic">
-      <FormSection title="Summary" footer={summaryFooter}>
-        {location.trim() === '' ? action('Add a Location', theme.accent, onEdit) : null}
+      <FormSection title={t('ui.summary')} footer={summaryFooter}>
+        {location.trim() === '' ? action(t('ui.addALocation'), theme.accent, onEdit) : null}
         {summary.map((row) => (
           <View key={row.label} style={styles.row} accessible>
             <Text style={[styles.label, { color: theme.text }]}>{row.label}</Text>
@@ -67,17 +68,17 @@ export function TripDetailView({
         ))}
       </FormSection>
 
-      <FormSection title="Notes">
+      <FormSection title={t('ui.notes')}>
         {text !== '' ? (
           <Text selectable style={[styles.notes, { color: theme.text }]}>
             {text}
           </Text>
         ) : (
-          action('Add Notes', theme.accent, onEdit)
+          action(t('ui.addNotes'), theme.accent, onEdit)
         )}
       </FormSection>
 
-      <FormSection title="Dives">
+      <FormSection title={t('ui.dives')}>
         {dives.map((dive) => (
           <DiveRowView
             key={dive.id}
@@ -85,16 +86,16 @@ export function TripDetailView({
             onPress={() => onSelectDive(dive.id)}
             onLongPress={() =>
               Alert.alert(diveRowTitle(dive), undefined, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove from Trip', onPress: () => onRemoveDive(dive) },
+                { text: t('ui.cancel'), style: 'cancel' },
+                { text: t('ui.removeFromTrip'), onPress: () => onRemoveDive(dive) },
               ])
             }
           />
         ))}
       </FormSection>
 
-      <FormSection footer="The trip goes away. Its dives stay in your logbook.">
-        {action('Ungroup Trip', theme.danger, onUngroup)}
+      <FormSection footer={t('ui.theTripGoesAwayItsDives')}>
+        {action(t('ui.ungroupTrip'), theme.danger, onUngroup)}
       </FormSection>
     </ScrollView>
   );

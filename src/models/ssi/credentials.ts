@@ -5,6 +5,9 @@
 // rules stay covered by the Node test suite. The credentials themselves are
 // never written here - only the keychain in src/lib/ssi/auth.ts holds them.
 
+
+import { t } from '@/i18n';
+
 export type SsiCredentials = {
   email: string;
   password: string;
@@ -28,15 +31,15 @@ export function validateCredentials(credentials: SsiCredentials): CredentialsChe
   const email = credentials.email.trim();
 
   if (email === '') {
-    return { ok: false, field: 'email', message: 'Enter the email address of your SSI account.' };
+    return { ok: false, field: 'email', message: t('ssi.credentials.emailMissing') };
   }
   if (!looksLikeEmail(email)) {
-    return { ok: false, field: 'email', message: 'That does not look like an email address.' };
+    return { ok: false, field: 'email', message: t('ssi.credentials.emailInvalid') };
   }
   // Not trimmed: a password may legitimately begin or end with a space, and
   // silently changing one would produce a sign-in failure with no explanation.
   if (credentials.password === '') {
-    return { ok: false, field: 'password', message: 'Enter your SSI password.' };
+    return { ok: false, field: 'password', message: t('ssi.credentials.passwordMissing') };
   }
 
   return { ok: true };

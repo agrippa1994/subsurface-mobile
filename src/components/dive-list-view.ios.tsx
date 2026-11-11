@@ -51,6 +51,7 @@ import { PlatformColor } from 'react-native';
 import type { DiveListViewProps } from './dive-list-view';
 import { DiveRowContent } from '@/components/dive-row-swift';
 import { sectionSubtitle, skeletonRows, toDiveRow } from '@/models/dive-list';
+import { t } from '@/i18n';
 
 export type { DiveListViewProps };
 
@@ -124,7 +125,7 @@ export function DiveListView({
                   modifiers={[
                     buttonStyle('plain'),
                     accessibilityLabel(`${section.title}, ${sectionSubtitle(section)}`),
-                    accessibilityHint('Opens the trip'),
+                    accessibilityHint(t('diveList.opensTrip')),
                   ]}>
                   <SectionHeader
                     title={section.title}
@@ -179,12 +180,12 @@ export function DiveListView({
                       ))}
                       <Divider />
                       <Button
-                        label="Select"
+                        label={t('ui.select')}
                         systemImage="checkmark.circle"
                         onPress={() => onStartSelecting(dive.id)}
                       />
                       <Button
-                        label="Delete"
+                        label={t('ui.delete')}
                         systemImage="trash"
                         role="destructive"
                         onPress={() => onDeleteDive(dive)}
@@ -209,7 +210,7 @@ export function DiveListView({
                   {swipe ? (
                     <SwipeActions.Actions edge="leading" allowsFullSwipe={false}>
                       <Button
-                        label={swipe.kind === 'remove' ? 'Remove' : 'Add to Trip'}
+                        label={swipe.kind === 'remove' ? t('ui.remove') : t('trips.action.add')}
                         systemImage={swipe.symbol}
                         onPress={() => onTripAction(dive, swipe)}
                         modifiers={[tint(ACCENT)]}
@@ -218,7 +219,7 @@ export function DiveListView({
                   ) : null}
                   <SwipeActions.Actions edge="trailing">
                     <Button
-                      label="Delete"
+                      label={t('ui.delete')}
                       systemImage="trash"
                       onPress={() => onDeleteDive(dive)}
                       modifiers={[tint(DESTRUCTIVE)]}
@@ -244,9 +245,9 @@ export function DiveListSkeleton() {
           listStyle('insetGrouped'),
           redacted('placeholder'),
           disabled(true),
-          accessibilityLabel('Loading dives'),
+          accessibilityLabel(t('ui.loadingDives')),
         ]}>
-        <Section header={<SectionHeader title="Trip location" subtitle="8 dives - 12 Mar 2024" />}>
+        <Section header={<SectionHeader title={t('ui.tripLocation')} subtitle="8 dives - 12 Mar 2024" />}>
           {rows.map((row) => (
             <VStack key={row.id} modifiers={[accessibilityHidden(true)]}>
               <DiveRowContent row={row} />

@@ -7,8 +7,9 @@ import { StepperRow } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
 import { useGasCalculatorScreen } from '@/features/tools/use-gas-calculator-screen';
 import { useTheme } from '@/hooks/use-theme';
-import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
+import { calculatorDisclaimer } from '@/models/disclaimer';
 import { WATER_OPTIONS } from '@/models/planner';
+import { t } from '@/i18n';
 
 export default function GasCalculatorScreen() {
   const screen = useGasCalculatorScreen();
@@ -23,29 +24,29 @@ export default function GasCalculatorScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Gas" footer={CALCULATOR_DISCLAIMER}>
+      <FormSection title={t('ui.gas')} footer={calculatorDisclaimer()}>
         <OptionField
           options={screen.presets.map((preset) => ({ value: preset.label, label: preset.label }))}
           value={screen.mix}
           onChange={screen.setPreset}
         />
         <StepperRow
-          label={`Oxygen  ${input.o2Percent}%`}
+          label={`${t('toolsScreen.oxygen')}  ${input.o2Percent}%`}
           value={input.o2Percent}
           {...screen.o2Range}
           onChange={screen.setO2}
         />
         <StepperRow
-          label={`Helium  ${input.hePercent}%`}
+          label={`${t('toolsScreen.helium')}  ${input.hePercent}%`}
           value={input.hePercent}
           {...screen.heRange}
           onChange={screen.setHe}
         />
         <OptionField options={WATER_OPTIONS} value={input.water} onChange={screen.setWater} />
         <View style={styles.row}>
-          <Text style={{ color: theme.text }}>Oxygen is narcotic</Text>
+          <Text style={{ color: theme.text }}>{t('ui.oxygenIsNarcotic')}</Text>
           <Switch
-            accessibilityLabel="Oxygen is narcotic"
+            accessibilityLabel={t('ui.oxygenIsNarcotic')}
             value={screen.o2Narcotic}
             onValueChange={screen.setO2Narcotic}
           />
@@ -58,20 +59,20 @@ export default function GasCalculatorScreen() {
       </FormSection>
 
       {screen.error ? (
-        <FormSection title="Result">
+        <FormSection title={t('ui.result')}>
           <Text style={{ color: theme.text }}>{screen.error}</Text>
         </FormSection>
       ) : (
         <FormSection
           title={`pO₂ · MOD · ${screen.narcoticLabel}`}
-          footer="MOD rounded down, END or EAD up. Orange is past the 1.4 bar working limit, red past the 1.6 bar contingency limit."
+          footer={t('ui.modRoundedDownEndOrEad')}
         >
           {screen.rows.map((row) => (
             <View
               key={row.key}
               style={styles.row}
               accessible
-              accessibilityLabel={`pO2 ${row.po2}, maximum depth ${row.mod}, ${screen.narcoticLabel} ${row.narcotic}`}
+              accessibilityLabel={t('toolsScreen.gasRowSpoken', { po2: row.po2, mod: row.mod, label: screen.narcoticLabel, narcotic: row.narcotic })}
             >
               <Text style={{ color: color(row.level) }}>{row.po2}</Text>
               <Text style={[styles.value, { color: color(row.level) }]}>
@@ -83,18 +84,18 @@ export default function GasCalculatorScreen() {
       )}
 
       <FormSection
-        title="Best mix"
-        footer={`The richest oxygen the bottom pO₂ of ${screen.bottomPo2Text} allows, and the helium the best mix END calls for. Both are in the planner settings.`}
+        title={t('ui.bestMix')}
+        footer={t('toolsScreen.bestMixFooter', { po2: screen.bottomPo2Text })}
       >
         <StepperRow
-          label={`Depth  ${screen.bestDepthLabel}`}
+          label={`${t('units.quantity.depth')}  ${screen.bestDepthLabel}`}
           value={screen.bestDepth}
           {...screen.bestDepthRange}
           onChange={screen.setBestDepth}
         />
         {screen.bestMix ? (
           <View style={styles.row}>
-            <Text style={{ color: theme.text }}>Best mix</Text>
+            <Text style={{ color: theme.text }}>{t('ui.bestMix')}</Text>
             <Text style={{ color: theme.textSecondary }}>{screen.bestMix}</Text>
           </View>
         ) : null}

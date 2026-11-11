@@ -13,6 +13,7 @@
 import { formatInstantDayMonth, formatInstantTime } from './date-format';
 import type { SurfaceGfSeries } from './index';
 import type { DepthUnit } from './units';
+import { t } from '@/i18n';
 
 // --- Ambient pressure -------------------------------------------------------
 
@@ -81,25 +82,25 @@ export function resolveAmbient(
 ): Ambient {
   if (source === 'barometer' && barometer.kind === 'reading' && isPlausibleAmbient(barometer.mbar)) {
     const mbar = Math.round(barometer.mbar);
-    return { mbar, source: 'barometer', label: `Phone barometer, ${mbar} mbar`, fallbackNote: null };
+    return { mbar, source: 'barometer', label: t('surfaceGf.ambient.barometer', { mbar }), fallbackNote: null };
   }
   let fallbackNote: string | null = null;
   if (source === 'barometer') {
     fallbackNote =
       barometer.kind === 'pending'
-        ? 'Waiting for the barometer.'
+        ? t('surfaceGf.ambient.waiting')
         : barometer.kind === 'unavailable'
-          ? 'This phone has no barometer.'
-          : 'The barometer reading is out of range.';
+          ? t('surfaceGf.ambient.noBarometer')
+          : t('surfaceGf.ambient.outOfRange');
   }
   if (altitudeMm > 0) {
     const mbar = clampAmbient(altitudeToMbar(altitudeMm));
-    return { mbar, source: 'altitude', label: `Altitude setting, ${mbar} mbar`, fallbackNote };
+    return { mbar, source: 'altitude', label: t('surfaceGf.ambient.altitude', { mbar }), fallbackNote };
   }
   return {
     mbar: SEA_LEVEL_MBAR,
     source: 'default',
-    label: `Sea level, ${SEA_LEVEL_MBAR} mbar`,
+    label: t('surfaceGf.ambient.seaLevel', { mbar: SEA_LEVEL_MBAR }),
     fallbackNote,
   };
 }
@@ -324,10 +325,30 @@ export function sparklineSpan(timeline: SurfaceGfTimeline): { fromMs: number; to
 
 /** The quick presets, minutes from now. */
 export const PLANNED_ENTRY_PRESETS = [
-  { label: '+30 min', minutes: 30 },
-  { label: '+1 h', minutes: 60 },
-  { label: '+2 h', minutes: 120 },
-  { label: '+3 h', minutes: 180 },
+  {
+    get label() {
+      return t('surfaceGf.preset.minutes', { count: 30 });
+    },
+    minutes: 30,
+  },
+  {
+    get label() {
+      return t('surfaceGf.preset.hours', { count: 1 });
+    },
+    minutes: 60,
+  },
+  {
+    get label() {
+      return t('surfaceGf.preset.hours', { count: 2 });
+    },
+    minutes: 120,
+  },
+  {
+    get label() {
+      return t('surfaceGf.preset.hours', { count: 3 });
+    },
+    minutes: 180,
+  },
 ] as const;
 
 /** `minutes` from now, rounded up to the next five minutes as dive briefings are. */
@@ -358,15 +379,17 @@ export function plannedEntry(
   const gf = gfAt(timeline, atMs);
   const past = atMs < nowMs;
   const clock = formatClock(atMs, nowMs);
-  const whenText = past ? `Was ${clock}` : `In ${formatDuration(atMs - nowMs)}, ${clock}`;
-  const gfText = gf === null ? 'Before this dive ended' : `Surface GF ${formatGf(gf)}`;
+  const whenText = past
+    ? t('surfaceGf.planned.was', { clock })
+    : t('surfaceGf.planned.in', { duration: formatDuration(atMs - nowMs), clock });
+  const gfText = gf === null ? t('surfaceGf.planned.beforeEnd') : t('surfaceGf.gf', { gf: formatGf(gf) });
   return {
     atMs,
     gf,
     past,
     whenText,
     gfText,
-    accessibilityLabel: `Planned entry ${whenText}. ${gfText}.`,
+    accessibilityLabel: t('surfaceGf.planned.accessibility', { when: whenText, gf: gfText }),
   };
 }
 
@@ -381,13 +404,13 @@ export function formatGf(gf: number): string {
 export function formatDuration(ms: number): string {
   const minutes = Math.max(0, Math.round(ms / 60_000));
   if (minutes < 60) {
-    return `${minutes} min`;
+    return t('surfaceGf.duration.minutes', { minutes });
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours} h ${String(minutes % 60).padStart(2, '0')} min`;
+    return t('surfaceGf.duration.hours', { hours, minutes: String(minutes % 60).padStart(2, '0') });
   }
-  return `${Math.floor(hours / 24)} d ${hours % 24} h`;
+  return t('surfaceGf.duration.days', { days: Math.floor(hours / 24), hours: hours % 24 });
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -408,28 +431,29 @@ export function formatClock(ms: number, nowMs: number): string {
   const tomorrow = new Date(nowMs);
   tomorrow.setDate(now.getDate() + 1);
   if (sameDay(date, tomorrow)) {
-    return `tomorrow ${time}`;
+    return t('surfaceGf.clock.tomorrow', { time });
   }
   const yesterday = new Date(nowMs);
   yesterday.setDate(now.getDate() - 1);
   if (sameDay(date, yesterday)) {
-    return `yesterday ${time}`;
+    return t('surfaceGf.clock.yesterday', { time });
   }
   return `${formatInstantDayMonth(ms, nowMs)} ${time}`;
 }
 
 /** Said once wherever the value is shown. */
-export const SURFACE_GF_DISCLAIMER =
-  'Surface GF is a Buehlmann model value from your logged profile, not a measurement and not medical advice.';
+export function surfaceGfDisclaimer(): string {
+  return t('surfaceGf.disclaimer');
+}
 
 /** Why one pressure for the whole interval: v1 has no pressure history. */
-export const SINGLE_PRESSURE_NOTE =
-  'One ambient pressure is applied to the whole surface interval. A drive to altitude part way through is not modelled.';
+export function singlePressureNote(): string {
+  return t('surfaceGf.singlePressureNote');
+}
 
-export const SURFACE_GF_EXPLAINER =
-  'Surface GF is how close your leading tissue compartment is to its Buehlmann limit at the surface: 0 % means ' +
-  'no compartment holds more nitrogen than the surrounding air pressure, 100 % is the limit itself. Clean means ' +
-  'every compartment is within 2 % of the nitrogen it holds at rest; the core forgets a dive after 48 hours.';
+export function surfaceGfExplainer(): string {
+  return t('surfaceGf.explainer');
+}
 
 /** What the card on the dive list shows. Null when there is nothing to show. */
 export type SurfaceGfCard = {
@@ -463,22 +487,25 @@ export function surfaceGfCard(
     return null;
   }
   const gf = gfAt(timeline, nowMs) ?? 0;
-  const sinceText = `Surfaced ${formatDuration(nowMs - timeline.startMs)} ago`;
+  const sinceText = t('surfaceGf.card.since', { duration: formatDuration(nowMs - timeline.startMs) });
   const cleanText =
     timeline.cleanMs !== null
-      ? `Clean in ${formatDuration(timeline.cleanMs - nowMs)}, ${formatClock(timeline.cleanMs, nowMs)}`
+      ? t('surfaceGf.card.cleanAt', {
+          duration: formatDuration(timeline.cleanMs - nowMs),
+          clock: formatClock(timeline.cleanMs, nowMs),
+        })
       : null;
   let untilText: string;
   if (phase === 'supersaturated') {
     untilText =
       timeline.gfZeroMs !== null
-        ? `0 % in ${formatDuration(timeline.gfZeroMs - nowMs)}`
-        : 'Above 0 % for the whole series';
+        ? t('surfaceGf.card.zeroIn', { duration: formatDuration(timeline.gfZeroMs - nowMs) })
+        : t('surfaceGf.card.aboveZero');
   } else {
     untilText =
       timeline.cleanMs !== null
-        ? `Residual nitrogen, clean in ${formatDuration(timeline.cleanMs - nowMs)}`
-        : 'Residual nitrogen';
+        ? t('surfaceGf.card.residualClean', { duration: formatDuration(timeline.cleanMs - nowMs) })
+        : t('surfaceGf.phase.residual');
   }
   const planned =
     options.plannedEntryMs !== null && options.plannedEntryMs >= nowMs
@@ -487,7 +514,7 @@ export function surfaceGfCard(
   const span = sparklineSpan(timeline);
   const sparkline = samplePoints(timeline, span.fromMs, span.toMs, 48).map(({ x, y }) => ({ x, y }));
   const nowX = Math.min(1, Math.max(0, (nowMs - span.fromMs) / (span.toMs - span.fromMs)));
-  const parts = [`Surface GF ${formatGf(gf)}`, untilText, sinceText];
+  const parts = [t('surfaceGf.gf', { gf: formatGf(gf) }), untilText, sinceText];
   if (planned) {
     parts.push(planned.accessibilityLabel);
   }
@@ -513,12 +540,12 @@ export const BELOW_THRESHOLDS = [50, 30, 20, 10, 0] as const;
 export function belowText(timeline: SurfaceGfTimeline, threshold: number, nowMs: number): string {
   const at = timeBelow(timeline, threshold, nowMs);
   if (at === null) {
-    return `Stays above ${threshold} % for the whole series`;
+    return t('surfaceGf.below.staysAbove', { threshold });
   }
   if (at <= nowMs) {
-    return `Already at or below ${threshold} %`;
+    return t('surfaceGf.below.already', { threshold });
   }
-  return `In ${formatDuration(at - nowMs)}, ${formatClock(at, nowMs)}`;
+  return t('surfaceGf.below.in', { duration: formatDuration(at - nowMs), clock: formatClock(at, nowMs) });
 }
 
 // --- Timeline chart ---------------------------------------------------------
@@ -528,7 +555,13 @@ export const TIMELINE_SPANS = [
   { key: '6h', label: '6 h', hours: 6 },
   { key: '12h', label: '12 h', hours: 12 },
   { key: '24h', label: '24 h', hours: 24 },
-  { key: 'all', label: 'All', hours: null },
+  {
+    key: 'all',
+    get label() {
+      return t('surfaceGf.span.all');
+    },
+    hours: null,
+  },
 ] as const;
 
 export type TimelineSpanKey = (typeof TIMELINE_SPANS)[number]['key'];
@@ -595,24 +628,24 @@ export function cursorReadout(
   const delta = cursorMs - nowMs;
   const whenText =
     Math.abs(delta) < 60_000
-      ? `Now, ${clock}`
+      ? t('surfaceGf.cursor.now', { clock })
       : delta > 0
-        ? `${clock}, in ${formatDuration(delta)}`
-        : `${clock}, ${formatDuration(-delta)} ago`;
+        ? t('surfaceGf.cursor.ahead', { clock, duration: formatDuration(delta) })
+        : t('surfaceGf.cursor.ago', { clock, duration: formatDuration(-delta) });
   const phase = phaseAt(timeline, cursorMs);
   const phaseText =
     phase === 'diving'
-      ? 'Before the end of the dive'
+      ? t('surfaceGf.phase.diving')
       : phase === 'supersaturated'
-        ? 'Supersaturated'
+        ? t('surfaceGf.phase.supersaturated')
         : phase === 'residual'
-          ? 'Residual nitrogen'
-          : 'Clean';
+          ? t('surfaceGf.phase.residual')
+          : t('surfaceGf.phase.clean');
   const gfText = gf === null ? '-' : formatGf(gf);
   return {
     gfText,
     whenText,
     phaseText,
-    accessibilityLabel: `Surface GF ${gfText} at ${whenText}. ${phaseText}.`,
+    accessibilityLabel: t('surfaceGf.cursor.accessibility', { gf: gfText, when: whenText, phase: phaseText }),
   };
 }

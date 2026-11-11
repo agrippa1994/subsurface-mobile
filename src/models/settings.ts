@@ -19,6 +19,7 @@ import {
 } from './surface-gf';
 import type { StatsChartConfig } from './index';
 import { METRIC_UNITS, parseUnits, unitPreset, unitsForSystem, type Units } from './units';
+import { labelled, t } from '@/i18n';
 
 export type Settings = {
   /**
@@ -192,29 +193,20 @@ export function serializeSettings(settings: Settings): string {
 
 /** Footers of the Settings sections the three platforms share, so they say the same. */
 export const SETTINGS_FOOTERS = {
-  newDives:
-    'Dives you add start with this cylinder, and so do cylinders added in the editor and the planner. ' +
-    'A dive downloaded from a computer that does not report its tank size takes it too. ' +
-    'It starts full at its working pressure; set the end pressure on the dive.',
-  decompression:
-    'Buehlmann gradient factors, in percent. They decide the calculated ceiling and the gradient factor ' +
-    "curves - lower is more conservative. Subsurface's defaults are 30 and 75.",
-  profile:
-    'Drawn on every dive profile and in the planner. GF at depth is the leading tissue against its limit at ' +
-    'that moment, surface GF what the diver would carry on surfacing right then.' +
-    ' The dive computer ceiling is the stop depth the computer showed; the calculated ceiling is the one ' +
-    'Subsurface works out from the samples at the gradient factors above, and can differ by metres. The 3 m ' +
-    'grid puts the depth lines at multiples of three, in feet as well.',
-} as const;
+  get newDives() {
+    return t('settings.footer.newDives');
+  },
+  get decompression() {
+    return t('settings.footer.decompression');
+  },
+  get profile() {
+    return t('settings.footer.profile');
+  },
+};
+
+type ProfileToggleKey = 'showGfNow' | 'showGfSurface' | 'showDcCeiling' | 'showCalcCeiling' | 'threeMeterGrid';
 
 /** The profile's switches, in the order Settings lists them. */
-export const PROFILE_TOGGLES: readonly {
-  key: 'showGfNow' | 'showGfSurface' | 'showDcCeiling' | 'showCalcCeiling' | 'threeMeterGrid';
-  label: string;
-}[] = [
-  { key: 'showDcCeiling', label: 'Dive computer ceiling' },
-  { key: 'showCalcCeiling', label: 'Calculated ceiling' },
-  { key: 'showGfNow', label: 'GF at depth' },
-  { key: 'showGfSurface', label: 'Surface GF' },
-  { key: 'threeMeterGrid', label: '3 m depth grid' },
-];
+export const PROFILE_TOGGLES: readonly { key: ProfileToggleKey; readonly label: string }[] = (
+  ['showDcCeiling', 'showCalcCeiling', 'showGfNow', 'showGfSurface', 'threeMeterGrid'] as const
+).map((key) => labelled({ key }, () => t(`settings.profileToggle.${key}`)));

@@ -11,6 +11,7 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
 import { StatusView } from '@/components/status-view';
 import { sortDivesNewestFirst } from '@/models/dive-list';
 import { useDives } from '@/queries/logbook';
+import { t } from '@/i18n';
 
 export default function DiveAtTimeScreen() {
   const { when } = useLocalSearchParams<{ when: string }>();
@@ -20,7 +21,7 @@ export default function DiveAtTimeScreen() {
     return <Redirect href="/dives" />;
   }
   if (!dives) {
-    return <StatusView kind="loading" title="Opening dive" />;
+    return <StatusView kind="loading" title={t('ui.openingDive')} />;
   }
   const start = Number(when);
   // Newest first, so of two dives logged at the same second the one a widget

@@ -26,6 +26,8 @@ import {
   type VariableField,
 } from '@/features/statistics/use-builder';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
+import { variableLabel } from '@/models/stats-chart';
 
 function VariableRow({ field }: { field: VariableField }) {
   const theme = useTheme();
@@ -36,7 +38,7 @@ function VariableRow({ field }: { field: VariableField }) {
       <Menu
         label={
           <HStack spacing={4}>
-            <Text modifiers={[lineLimit(1), foregroundStyle(theme.accent)]}>{field.selected}</Text>
+            <Text modifiers={[lineLimit(1), foregroundStyle(theme.accent)]}>{variableLabel(field.selected)}</Text>
             <Image
               systemName="chevron.up.chevron.down"
               modifiers={[font({ size: 13 }), foregroundStyle(theme.accent)]}
@@ -56,7 +58,7 @@ function VariableRow({ field }: { field: VariableField }) {
             {group.variables.map((variable) => (
               <Button
                 key={variable.name}
-                label={variable.name}
+                label={variableLabel(variable.name)}
                 systemImage={field.selected === variable.name ? 'checkmark' : undefined}
                 onPress={() => field.onChoose(variable.name)}
               />
@@ -85,10 +87,10 @@ export default function BuilderScreen() {
   const router = useRouter();
   return (
     <>
-      <HeaderAction label="Done" done onPress={() => router.back()} />
+      <HeaderAction label={t('ui.done')} done onPress={() => router.back()} />
       <Host style={{ flex: 1 }} useViewportSizeMeasurement>
         <Form>
-          <Section title="What to show" footer={<Text>{builder.description}</Text>}>
+          <Section title={t('ui.whatToShow')} footer={<Text>{builder.description}</Text>}>
             {builder.first ? <VariableRow field={builder.first} /> : null}
             {builder.fields.map((field) => (
               <ChoiceRow key={field.key} field={field} />
@@ -99,8 +101,8 @@ export default function BuilderScreen() {
             ))}
           </Section>
           <Section
-            title="How to show it"
-            footer={<Text>The chart counts the dives the filter on the chart screen selects.</Text>}
+            title={t('ui.howToShowIt')}
+            footer={<Text>{t('ui.theChartCountsTheDivesThe')}</Text>}
           >
             {builder.display.map((field) => (
               <ChoiceRow key={field.key} field={field} />

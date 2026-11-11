@@ -6,6 +6,7 @@ import { Row, Surface, Text, TextButton, useMaterialColors } from '@expo/ui/jetp
 import { fillMaxWidth, padding } from '@expo/ui/jetpack-compose/modifiers';
 
 import type { DiveSelectionBarProps } from './dive-selection-bar';
+import { t } from '@/i18n';
 
 export type { DiveSelectionBarProps };
 
@@ -22,13 +23,13 @@ export function DiveSelectionBar({
       <Surface color={palette.surfaceContainer} modifiers={[fillMaxWidth()]}>
         <Row horizontalArrangement="spaceBetween" modifiers={[fillMaxWidth(), padding(8, 4, 8, 4)]}>
           <TextButton enabled={!none} onClick={onNewTrip}>
-            <Text>New Trip</Text>
+            <Text>{t('ui.newTrip')}</Text>
           </TextButton>
           <TextButton enabled={!none} onClick={onAddToTrip}>
-            <Text>Add to Trip</Text>
+            <Text>{t('trips.action.add')}</Text>
           </TextButton>
           <TextButton enabled={dives.some((dive) => dive.tripId !== 0)} onClick={onRemoveFromTrip}>
-            <Text>Remove</Text>
+            <Text>{t('ui.remove')}</Text>
           </TextButton>
         </Row>
       </Surface>

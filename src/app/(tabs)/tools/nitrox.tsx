@@ -8,7 +8,7 @@ import { StepperRow as Stepper } from '@/components/stepper-row';
 import { Spacing } from '@/constants/theme';
 import { useNitroxScreen } from '@/features/tools/use-nitrox-screen';
 import { useTheme } from '@/hooks/use-theme';
-import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
+import { calculatorDisclaimer } from '@/models/disclaimer';
 import {
   formatMod,
   formatNdl,
@@ -19,15 +19,16 @@ import {
   O2_RANGE,
   type Water,
 } from '@/models/nitrox';
+import { labelled, t } from '@/i18n';
 
 const PO2_OPTIONS = [1200, 1300, 1400, 1500, 1600].map((mbar) => ({
   value: mbar,
   label: (mbar / 1000).toFixed(1),
 }));
 
-const WATER_OPTIONS: { value: Water; label: string }[] = [
-  { value: 'salt', label: 'Salt' },
-  { value: 'fresh', label: 'Fresh' },
+const WATER_OPTIONS: { value: Water; readonly label: string }[] = [
+  labelled({ value: 'salt' as Water }, () => t('planner.water.salt')),
+  labelled({ value: 'fresh' as Water }, () => t('planner.water.fresh')),
 ];
 
 export default function NitroxScreen() {
@@ -44,9 +45,9 @@ export default function NitroxScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Dive" footer={CALCULATOR_DISCLAIMER}>
+      <FormSection title={t('ui.dive')} footer={calculatorDisclaimer()}>
         <Stepper
-          label={`Depth  ${depthLabel}`}
+          label={`${t('units.quantity.depth')}  ${depthLabel}`}
           value={screen.depth}
           min={screen.depthRange.min}
           max={screen.depthRange.max}
@@ -56,16 +57,16 @@ export default function NitroxScreen() {
         <OptionField options={WATER_OPTIONS} value={input.water} onChange={screen.setWater} />
       </FormSection>
 
-      <FormSection title="Gas">
+      <FormSection title={t('ui.gas')}>
         <Stepper
-          label={`Oxygen  ${input.o2Percent}%  (${mix})`}
+          label={`${t('toolsScreen.oxygen')}  ${input.o2Percent}%  (${mix})`}
           value={input.o2Percent}
           min={O2_RANGE.min}
           max={O2_RANGE.max}
           step={O2_RANGE.step}
           onChange={screen.setO2Percent}
         />
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Max pO2 (bar)</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>{t('toolsScreen.maxPo2Bar')}</Text>
         <OptionField
           options={PO2_OPTIONS}
           value={input.maxPo2Mbar}
@@ -76,17 +77,17 @@ export default function NitroxScreen() {
       {plan ? (
         <>
           <FormSection
-            title="Depth limits"
-            footer={`Rounded down to the whole ${units.depth === 'ft' ? 'foot' : 'metre'}. The best mix is the richest one the max pO2 allows at the planned depth.`}
+            title={t('ui.depthLimits')}
+            footer={units.depth === 'ft' ? t('toolsScreen.roundedFoot') : t('toolsScreen.roundedMetre')}
           >
             <Row
-              label={`MOD at ${formatPo2(input.maxPo2Mbar)}`}
+              label={t('toolsScreen.modAt', { po2: formatPo2(input.maxPo2Mbar) })}
               value={formatMod(plan.modMm, units)}
             />
-            <Row label="MOD at 1.60 bar" value={formatMod(plan.contingencyModMm, units)} />
-            <Row label={`pO2 at ${depthLabel}`} value={formatPo2(plan.po2Mbar)} />
+            <Row label={t('ui.modAt160Bar')} value={formatMod(plan.contingencyModMm, units)} />
+            <Row label={t('toolsScreen.po2At', { depth: depthLabel })} value={formatPo2(plan.po2Mbar)} />
             <Row
-              label={`Best mix for ${depthLabel}`}
+              label={t('toolsScreen.bestMixFor', { depth: depthLabel })}
               value={mixName(Math.min(100, Math.floor(plan.bestMixPermille / 10)))}
             />
             {warning ? (
@@ -97,18 +98,18 @@ export default function NitroxScreen() {
           </FormSection>
 
           <FormSection
-            title={`No-deco limit at ${depthLabel}`}
-            footer={`Buehlmann ZHL-16C with gradient factors ${screen.gfLow}/${screen.gfHigh} from Settings, for a square dive: arriving at the depth and staying there. A planning aid, not a substitute for a dive computer.`}
+            title={t('toolsScreen.ndlAt', { depth: depthLabel })}
+            footer={t('toolsScreen.ndlFooter', { gfLow: screen.gfLow, gfHigh: screen.gfHigh })}
           >
             <Row label={mix} value={formatNdl(plan.ndlMin)} />
-            <Row label="Air" value={formatNdl(plan.airNdlMin)} />
+            <Row label={t('ui.air')} value={formatNdl(plan.airNdlMin)} />
             <Text style={{ color: theme.textSecondary }}>{ndlComparison(plan)}</Text>
           </FormSection>
         </>
       ) : (
-        <FormSection title="Result">
+        <FormSection title={t('ui.result')}>
           <Text style={{ color: theme.text }}>
-            {screen.error ?? 'The calculation is unavailable.'}
+            {screen.error ?? t('toolsScreen.unavailable')}
           </Text>
         </FormSection>
       )}

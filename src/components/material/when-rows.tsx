@@ -20,6 +20,7 @@ import { M3Icon } from './icon';
 
 import { formatDiveDateMedium, formatDiveTime, uses24HourClock } from '@/models/date-format';
 import { whenToDate } from '@/models/planner';
+import { t } from '@/i18n';
 
 const SECONDS_PER_DAY = 86400;
 
@@ -60,8 +61,8 @@ function Row({
 export function M3WhenRows({
   value,
   onChange,
-  dateLabel = 'Date',
-  timeLabel = 'Time',
+  dateLabel = t('ui.date'),
+  timeLabel = t('charts.time'),
 }: {
   value: number;
   onChange: (when: number) => void;

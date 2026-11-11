@@ -16,6 +16,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import { normalizeCredentials, type SsiCredentials } from '@/models/ssi/credentials';
 import { createSsiClient, ssiData, SsiApiError } from './api';
+import { t } from '@/i18n';
 
 const CREDENTIALS_KEY = 'ssi-credentials';
 const TOKEN_KEY = 'ssi-token';
@@ -79,7 +80,7 @@ export async function authenticate(credentials: SsiCredentials): Promise<string>
   );
 
   if (typeof response.token !== 'string' || response.token === '') {
-    throw new SsiApiError('SSI accepted the sign-in but sent no session token.', false);
+    throw new SsiApiError(t('errors.ssi.noToken'), false);
   }
 
   return response.token;
@@ -108,7 +109,7 @@ export async function signOut(): Promise<void> {
 /** Thrown instead of calling SSI when there is no account to call it with. */
 export class NotSignedInError extends Error {
   constructor() {
-    super('Sign in to SSI in Settings first.');
+    super(t('errors.ssi.signInFirst'));
     this.name = 'NotSignedInError';
   }
 }

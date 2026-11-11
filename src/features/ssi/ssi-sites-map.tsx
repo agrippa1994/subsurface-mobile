@@ -6,6 +6,7 @@ import type { MapViewport } from '@/models/map-viewport';
 import { mapCameraFromMove, NEARBY_ZOOM, WORLD_ZOOM } from '@/models/site-edit';
 import { groupSsiSites, type SitePosition } from '@/models/ssi/site-browse';
 import type { SsiSite } from '@/models/ssi/sites';
+import { t } from '@/i18n';
 
 export function SsiSitesMap({
   sites,
@@ -54,7 +55,7 @@ export function SsiSitesMap({
         title:
           group.sites.length === 1
             ? group.sites[0].name
-            : `${group.sites.length} SSI sites — tap to zoom`,
+            : t('ssiBrowser.cluster', { count: group.sites.length }),
         monogram: group.sites.length > 1 ? String(group.sites.length) : undefined,
         systemImage: group.sites.length === 1 ? 'mappin' : undefined,
         tintColor: theme.accent,

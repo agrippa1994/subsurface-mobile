@@ -7,8 +7,9 @@ import { foregroundStyle, monospacedDigit, pickerStyle, tag } from '@expo/ui/swi
 
 import { useGasCalculatorScreen } from '@/features/tools/use-gas-calculator-screen';
 import { useTheme } from '@/hooks/use-theme';
-import { CALCULATOR_DISCLAIMER } from '@/models/disclaimer';
+import { calculatorDisclaimer } from '@/models/disclaimer';
 import { WATER_OPTIONS, type Water } from '@/models/planner';
+import { t } from '@/i18n';
 
 export default function GasCalculatorScreen() {
   const screen = useGasCalculatorScreen();
@@ -19,9 +20,9 @@ export default function GasCalculatorScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Gas" footer={<Text>{CALCULATOR_DISCLAIMER}</Text>}>
+        <Section title={t('ui.gas')} footer={<Text>{calculatorDisclaimer()}</Text>}>
           <Picker
-            label="Mix"
+            label={t('ui.mix')}
             selection={isPreset ? screen.mix : 'Custom'}
             onSelectionChange={(value: string) => screen.setPreset(value)}
             modifiers={[pickerStyle('menu')]}
@@ -36,19 +37,19 @@ export default function GasCalculatorScreen() {
             ]}
           </Picker>
           <Stepper
-            label={`Oxygen  ${input.o2Percent}%`}
+            label={`${t('toolsScreen.oxygen')}  ${input.o2Percent}%`}
             value={input.o2Percent}
             {...screen.o2Range}
             onValueChange={screen.setO2}
           />
           <Stepper
-            label={`Helium  ${input.hePercent}%`}
+            label={`${t('toolsScreen.helium')}  ${input.hePercent}%`}
             value={input.hePercent}
             {...screen.heRange}
             onValueChange={screen.setHe}
           />
           <Picker
-            label="Water"
+            label={t('ui.water')}
             selection={input.water}
             onSelectionChange={(value: string) => screen.setWater(value as Water)}
             modifiers={[pickerStyle('segmented')]}
@@ -59,14 +60,14 @@ export default function GasCalculatorScreen() {
               </Text>
             ))}
           </Picker>
-          <Toggle label="Oxygen is narcotic" isOn={screen.o2Narcotic} onIsOnChange={screen.setO2Narcotic} />
+          <Toggle label={t('ui.oxygenIsNarcotic')} isOn={screen.o2Narcotic} onIsOnChange={screen.setO2Narcotic} />
           {screen.hypoxic ? (
             <Text modifiers={[foregroundStyle(theme.danger)]}>{screen.hypoxic}</Text>
           ) : null}
         </Section>
 
         {screen.error ? (
-          <Section title="Result">
+          <Section title={t('ui.result')}>
             <Text>{screen.error}</Text>
           </Section>
         ) : (
@@ -100,19 +101,19 @@ export default function GasCalculatorScreen() {
         )}
 
         <Section
-          title="Best mix"
+          title={t('ui.bestMix')}
           footer={
-            <Text>{`The richest oxygen the bottom pO₂ of ${screen.bottomPo2Text} allows, and the helium the best mix END calls for. Both are in the planner settings.`}</Text>
+            <Text>{t('toolsScreen.bestMixFooter', { po2: screen.bottomPo2Text })}</Text>
           }
         >
           <Stepper
-            label={`Depth  ${screen.bestDepthLabel}`}
+            label={`${t('units.quantity.depth')}  ${screen.bestDepthLabel}`}
             value={screen.bestDepth}
             {...screen.bestDepthRange}
             onValueChange={screen.setBestDepth}
           />
           {screen.bestMix ? (
-            <LabeledContent label="Best mix">
+            <LabeledContent label={t('ui.bestMix')}>
               <Text>{screen.bestMix}</Text>
             </LabeledContent>
           ) : null}

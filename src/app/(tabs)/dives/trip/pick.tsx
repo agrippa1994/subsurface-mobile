@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { describeError, formatErrorLine } from '@/models/errors';
 import { nearestTrips, parseDiveIds, searchTrips, tripPickerTitle } from '@/models/trips';
 import { useDives, useTrips } from '@/queries/logbook';
+import { t } from '@/i18n';
 
 export default function TripPickScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const params = useLocalSearchParams<{ diveIds: string }>();
@@ -41,23 +42,23 @@ export default function TripPickScreen({ stackPath = '/dives' }: { stackPath?: D
     return (
       <StatusView
         kind="error"
-        title="The trips could not be read"
+        title={t('tripScreen.readFailed')}
         description={formatErrorLine(describeError(failure))}
         systemImage="exclamationmark.triangle"
       />
     );
   }
   if (divesQuery.isPending || tripsQuery.isPending) {
-    return <StatusView kind="loading" title="Reading trips" />;
+    return <StatusView kind="loading" title={t('ui.readingTrips')} />;
   }
 
   return (
     // An opaque ground: on the sheet's glass the list behind blurs through the rows.
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <Stack.Screen options={{ title: tripPickerTitle(dives) }} />
-      <HeaderAction label="Cancel" icon="xmark" onPress={() => router.back()} />
+      <HeaderAction label={t('ui.cancel')} icon="xmark" onPress={() => router.back()} />
       <Stack.SearchBar
-        placeholder="Location or date"
+        placeholder={t('tripScreen.searchPlaceholder')}
         autoCapitalize="none"
         hideWhenScrolling={false}
         onChangeText={(event) => setQuery(event.nativeEvent.text)}

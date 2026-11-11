@@ -13,6 +13,7 @@ import { useStatisticsContext } from '@/features/statistics/statistics-context';
 import { sortDivesNewestFirst } from '@/models/dive-list';
 import { useDives } from '@/queries/logbook';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export default function DivesBehindChartScreen() {
   const { behind } = useStatisticsContext();
@@ -26,12 +27,12 @@ export default function DivesBehindChartScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: behind?.title ?? 'Dives' }} />
+      <Stack.Screen options={{ title: behind?.title ?? t('nav.dives') }} />
       {dives.length === 0 ? (
         <StatusView
           kind="empty"
-          title="No dives"
-          description="These dives are no longer in the logbook."
+          title={t('ui.noDives')}
+          description={t('ui.theseDivesAreNoLongerIn')}
           systemImage="chart.bar"
         />
       ) : (

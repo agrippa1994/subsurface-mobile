@@ -7,6 +7,9 @@
 // The sync only needs to know which server a URL points at, because that is
 // what a trusted host key belongs to. libgit2 does the real parsing.
 
+
+import { t } from '@/i18n';
+
 export type RemoteUrl = {
   user: string | null;
   host: string;
@@ -45,13 +48,13 @@ export function parseRemoteUrl(input: string): RemoteUrl | null {
 export function validateRemoteUrl(input: string): string | null {
   const url = input.trim();
   if (url === '') {
-    return 'Enter the repository URL.';
+    return t('git.remote.empty');
   }
   if (/^https?:\/\//i.test(url)) {
-    return 'Only SSH URLs are supported for now, such as git@github.com:you/logbook.git.';
+    return t('git.remote.https');
   }
   if (parseRemoteUrl(url) === null) {
-    return 'This is not an SSH repository URL, such as git@github.com:you/logbook.git.';
+    return t('git.remote.invalid');
   }
   return null;
 }

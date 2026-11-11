@@ -48,6 +48,7 @@ import {
   type ProfilePlot,
   type ProfileSeries,
 } from '@/models/profile-plot';
+import { t } from '@/i18n';
 
 const PAD = { left: 34, top: 10, bottom: 20 };
 /** Right padding: wider when the pressure or temperature band carries labels. */
@@ -410,7 +411,7 @@ export function ProfileChart({
     return (
       <View style={[styles.empty, { height }]}>
         <Text style={[styles.emptyText, { color: colors.label }]}>
-          This dive has no profile samples.
+          {t('charts.profile.noSamples')}
         </Text>
       </View>
     );
@@ -438,7 +439,7 @@ export function ProfileChart({
         ))}
         {readout === null ? (
           <Text style={[styles.readout, styles.readoutHint, { color: colors.label }]}>
-            Drag to scrub, pinch to zoom, double tap to reset
+            {t('charts.profile.hint')}
           </Text>
         ) : null}
       </View>
@@ -617,50 +618,48 @@ export function ProfileChart({
         <LegendItem
           color={colors.depth}
           textColor={colors.label}
-          label={`Depth (${units.depth === 'ft' ? 'ft' : 'm'})`}
+          label={t('charts.profile.depthAxis', { unit: units.depth })}
         />
         {plot.temperature.length > 1 ? (
           <LegendItem
             color={colors.temperature}
             textColor={colors.label}
-            label={`Temperature (${units.temperature === 'F' ? 'F' : 'C'})`}
+            label={t('charts.profile.temperatureAxis', { unit: units.temperature })}
           />
         ) : null}
         {plot.pressures.length > 0 ? (
           <LegendItem
             color={colors.pressure}
             textColor={colors.label}
-            label={`Tank pressure (${units.pressure === 'psi' ? 'psi' : 'bar'})`}
+            label={t('charts.profile.pressureAxis', { unit: units.pressure })}
           />
         ) : null}
         {showDcCeiling && plot.dcCeiling.length > 1 ? (
-          <LegendItem color={colors.ceiling} textColor={colors.label} label="Computer ceiling" />
+          <LegendItem color={colors.ceiling} textColor={colors.label} label={t('ui.computerCeiling')} />
         ) : null}
         {showCalcCeiling && plot.ceiling.length > 1 ? (
-          <LegendItem color={colors.calcCeiling} textColor={colors.label} label="Calculated ceiling" />
+          <LegendItem color={colors.calcCeiling} textColor={colors.label} label={t('ui.calculatedCeiling')} />
         ) : null}
         {showGfNow && plot.gfNow.length > 1 ? (
-          <LegendItem color={colors.gfNow} textColor={colors.label} label="GF at depth (%)" />
+          <LegendItem color={colors.gfNow} textColor={colors.label} label={t('ui.gfAtDepth')} />
         ) : null}
         {showGfSurface && plot.gfSurface.length > 1 ? (
-          <LegendItem color={colors.gfSurface} textColor={colors.label} label="Surface GF (%)" />
+          <LegendItem color={colors.gfSurface} textColor={colors.label} label={t('ui.surfaceGf')} />
         ) : null}
         {plot.events.length > 0 ? (
-          <LegendItem color={colors.event} textColor={colors.label} label="Events" />
+          <LegendItem color={colors.event} textColor={colors.label} label={t('ui.events')} />
         ) : null}
       </View>
 
       {plot.surfaceIntervalSec !== null ? (
         <Text style={[styles.footnote, { color: colors.label }]}>
-          {`NDL and TTS include nitrogen from the previous dive, ${formatDuration(
-            plot.surfaceIntervalSec
-          )} surface interval. "fresh" is the same dive started with clean tissues.`}
+          {t('charts.profile.residualNote', { interval: formatDuration(plot.surfaceIntervalSec) })}
         </Text>
       ) : null}
       <Text style={[styles.footnote, { color: colors.label }]}>
         {zoomed
-          ? `Showing ${formatDuration(view.from)} to ${formatDuration(view.to)} - double tap to reset`
-          : `Time (minutes), total ${formatDuration(plot.maxSec)}`}
+          ? t('charts.profile.showing', { from: formatDuration(view.from), to: formatDuration(view.to) })
+          : t('charts.profile.timeAxis', { total: formatDuration(plot.maxSec) })}
       </Text>
     </View>
   );

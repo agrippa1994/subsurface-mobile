@@ -134,6 +134,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   },
+  // Per-language Info.plist strings: the system prompts for Bluetooth, the local
+  // network, location and motion in German. The app's own strings are in
+  // src/i18n.
+  locales: {
+    de: './assets/locales/de.json',
+  },
   web: {
     output: 'static',
     favicon: './assets/images/favicon.png',
@@ -146,6 +152,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-image',
     'expo-status-bar',
     'expo-sharing',
+    // The languages the app speaks (src/i18n). Declaring them lets iOS and
+    // Android offer a per-app language in the system settings, and makes the
+    // system's own controls (Back, Done, pickers) follow the app's language.
+    ['expo-localization', { supportedLocales: { ios: ['en', 'de'], android: ['en', 'de'] } }],
     // The keychain the SSI credentials and session token are kept in
     // (src/lib/ssi/auth.ts). Nothing else in the app stores a secret.
     'expo-secure-store',

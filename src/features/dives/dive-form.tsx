@@ -46,6 +46,7 @@ import {
 import { validateWeightDrafts, type WeightDraft } from '@/models/weight-edit';
 import { useDive, useDives, useSites, useTrips } from '@/queries/logbook';
 import { useDefaultCylinder } from '@/queries/settings';
+import { t } from '@/i18n';
 
 /**
  * The draft, plus the things that are input rather than data: the raw tag text
@@ -78,13 +79,13 @@ export function useDiveForm({
       // they belong to; this is the line that says why Save did nothing.
       onSubmit: ({ value }) => {
         if (Object.keys(validateDiveBasics(value, units, rules)).length > 0) {
-          return 'Fix the fields marked in red before saving.';
+          return t('diveForm.fixFields');
         }
         if (Object.keys(validateCylinderDrafts(value.cylinders, units)).length > 0) {
-          return 'Fix the cylinder fields marked in red before saving.';
+          return t('diveForm.fixCylinders');
         }
         if (Object.keys(validateWeightDrafts(value.weights, units)).length > 0) {
-          return 'Fix the weight fields marked in red before saving.';
+          return t('diveForm.fixWeights');
         }
         return undefined;
       },
@@ -139,13 +140,13 @@ function BasicsSection({
 
   const footer =
     rules.profileEditable && self
-      ? 'Changing these redraws the profile, as nothing was measured on this dive.'
+      ? t('diveForm.redrawsProfile')
       : rules.profileEditable
         ? undefined
-        : 'Depth and duration come from the dive computer.';
+        : t('diveForm.fromComputer');
 
   return (
-    <FormSection title="Dive" footer={footer}>
+    <FormSection title={t('ui.dive')} footer={footer}>
       <form.Field name="when">
         {(field) => <WhenField value={field.state.value} onChange={field.handleChange} />}
       </form.Field>
@@ -162,34 +163,34 @@ function BasicsSection({
           <form.Field name="maxDepthText">
             {(field) => (
               <FormField
-                label={`Maximum depth (${depthUnit(units)})`}
-                accessibilityLabel={`Maximum depth in ${depthUnitName(units)}`}
+                label={t('diveForm.maxDepthUnit', { unit: depthUnit(units) })}
+                accessibilityLabel={t('diveForm.maxDepthSpoken', { unit: depthUnitName(units) })}
                 value={field.state.value}
                 onChangeText={field.handleChange}
                 error={shown('maxDepthText')}
                 keyboardType="decimal-pad"
-                placeholder="Required"
+                placeholder={t('ui.required')}
               />
             )}
           </form.Field>
           <form.Field name="durationText">
             {(field) => (
               <FormField
-                label="Duration (min or h:mm)"
-                accessibilityLabel="Duration in minutes, or hours and minutes"
+                label={t('ui.durationMinOrHMm')}
+                accessibilityLabel={t('ui.durationInMinutesOrHoursAnd')}
                 value={field.state.value}
                 onChangeText={field.handleChange}
                 error={shown('durationText')}
                 keyboardType="numbers-and-punctuation"
-                placeholder="Required"
+                placeholder={t('ui.required')}
               />
             )}
           </form.Field>
         </>
       ) : self ? (
         <>
-          <ValueRow label="Maximum depth" value={formatDepth(self.maxDepthMm, units)} />
-          <ValueRow label="Duration" value={formatDuration(self.durationSec)} />
+          <ValueRow label={t('ui.maximumDepth')} value={formatDepth(self.maxDepthMm, units)} />
+          <ValueRow label={t('ui.duration')} value={formatDuration(self.durationSec)} />
         </>
       ) : null}
     </FormSection>
@@ -215,14 +216,14 @@ function DetailsSection({
 
   return (
     <FormSection
-      title="Details"
-      footer={manual ? 'Leave the average empty and the profile is given a usual shape.' : undefined}>
+      title={t('ui.details')}
+      footer={manual ? t('diveForm.averageEmpty') : undefined}>
       {manual ? (
         <form.Field name="meanDepthText">
           {(field) => (
             <FormField
-              label={`Average depth (${depthUnit(units)})`}
-              accessibilityLabel={`Average depth in ${depthUnitName(units)}`}
+              label={t('diveForm.avgDepthUnit', { unit: depthUnit(units) })}
+              accessibilityLabel={t('diveForm.avgDepthSpoken', { unit: depthUnitName(units) })}
               value={field.state.value}
               onChangeText={field.handleChange}
               error={errors.meanDepthText}
@@ -231,13 +232,13 @@ function DetailsSection({
           )}
         </form.Field>
       ) : self && self.meanDepthMm > 0 ? (
-        <ValueRow label="Average depth" value={formatDepth(self.meanDepthMm, units)} />
+        <ValueRow label={t('ui.averageDepth')} value={formatDepth(self.meanDepthMm, units)} />
       ) : null}
       <form.Field name="waterTempText">
         {(field) => (
           <FormField
-            label={`Water temperature (${unit})`}
-            accessibilityLabel={`Water temperature in ${temperatureUnitName(units)}`}
+            label={t('diveForm.waterTempUnit', { unit })}
+            accessibilityLabel={t('diveForm.waterTempSpoken', { unit: temperatureUnitName(units) })}
             value={field.state.value}
             onChangeText={field.handleChange}
             error={errors.waterTempText}
@@ -248,8 +249,8 @@ function DetailsSection({
       <form.Field name="airTempText">
         {(field) => (
           <FormField
-            label={`Air temperature (${unit})`}
-            accessibilityLabel={`Air temperature in ${temperatureUnitName(units)}`}
+            label={t('diveForm.airTempUnit', { unit })}
+            accessibilityLabel={t('diveForm.airTempSpoken', { unit: temperatureUnitName(units) })}
             value={field.state.value}
             onChangeText={field.handleChange}
             error={errors.airTempText}
@@ -261,12 +262,12 @@ function DetailsSection({
         <form.Field name="numberText">
           {(field) => (
             <FormField
-              label="Dive number"
+              label={t('ui.diveNumber')}
               value={field.state.value}
               onChangeText={field.handleChange}
               error={errors.numberText}
               keyboardType="number-pad"
-              placeholder="None"
+              placeholder={t('ui.none')}
             />
           )}
         </form.Field>
@@ -327,16 +328,16 @@ export function DiveFormSections({
 
       <BasicsSection form={form} self={self} rules={rules} units={units} />
 
-      <FormSection title="Place">
+      <FormSection title={t('ui.place')}>
         <form.Field name="siteUuid">
           {(field) => (
             <>
               <FormButtonRow
-                label="Dive site"
+                label={t('ui.diveSite')}
                 value={
                   field.state.value === 0
-                    ? 'None'
-                    : sites.find((site) => site.uuid === field.state.value)?.name || 'Unnamed site'
+                    ? t('ui.none')
+                    : sites.find((site) => site.uuid === field.state.value)?.name || t('sites.unnamed')
                 }
                 onPress={() => setPickingSite(true)}
               />
@@ -381,11 +382,11 @@ export function DiveFormSections({
 
       <DetailsSection form={form} self={self} rules={rules} units={units} />
 
-      <FormSection title="People" footer="Separate names with commas.">
+      <FormSection title={t('ui.people')} footer={t('ui.separateNamesWithCommas')}>
         <form.Field name="buddy">
           {(field) => (
             <NameField
-              label="Buddy"
+              label={t('ui.buddy')}
               value={field.state.value}
               corpus={names}
               placeholder="Alice, Bob"
@@ -396,7 +397,7 @@ export function DiveFormSections({
         <form.Field name="diveguide">
           {(field) => (
             <NameField
-              label="Divemaster"
+              label={t('ui.divemaster')}
               value={field.state.value}
               corpus={names}
               onChange={field.handleChange}
@@ -405,16 +406,16 @@ export function DiveFormSections({
         </form.Field>
       </FormSection>
 
-      <FormSection title="Conditions">
+      <FormSection title={t('ui.conditions')}>
         <form.Field name="rating">
           {(field) => (
-            <RatingField label="Rating" value={field.state.value} onChange={field.handleChange} />
+            <RatingField label={t('ui.rating')} value={field.state.value} onChange={field.handleChange} />
           )}
         </form.Field>
         <form.Field name="visibility">
           {(field) => (
             <RatingField
-              label="Visibility"
+              label={t('ui.visibility')}
               value={field.state.value}
               onChange={field.handleChange}
             />
@@ -423,10 +424,10 @@ export function DiveFormSections({
         <form.Field name="suit">
           {(field) => (
             <SuggestField
-              label="Suit"
+              label={t('ui.suit')}
               value={field.state.value}
               corpus={knownSuits}
-              placeholder="5mm wetsuit"
+              placeholder={t('ui.n5mmWetsuit')}
               onChange={field.handleChange}
             />
           )}
@@ -459,16 +460,16 @@ export function DiveFormSections({
       </form.Field>
 
       <FormSection
-        title="Gas consumption"
-        footer="Surface air consumption, computed from the cylinder sizes and the start and end pressures.">
+        title={t('ui.gasConsumption')}
+        footer={t('ui.surfaceAirConsumptionComputedFromThe')}>
         <form.Subscribe selector={(state) => state.values}>
           {(values) => {
             const sac = previewSac(values);
             return (
               <View style={styles.valueRow}>
-                <Text style={[styles.valueLabel, { color: theme.text }]}>SAC</Text>
+                <Text style={[styles.valueLabel, { color: theme.text }]}>{t('dive.field.sac')}</Text>
                 <Text style={[styles.sacValue, { color: theme.text }]}>
-                  {sac > 0 ? formatSac(sac, units) : 'Not enough data'}
+                  {sac > 0 ? formatSac(sac, units) : t('diveForm.notEnoughData')}
                 </Text>
               </View>
             );
@@ -476,20 +477,20 @@ export function DiveFormSections({
         </form.Subscribe>
       </FormSection>
 
-      <FormSection title="Tags">
+      <FormSection title={t('ui.tags')}>
         <form.Subscribe selector={(state) => state.values.tags}>
           {(tags) => (
             <>
               <form.Field name="tagText">
                 {(field) => (
                   <FormField
-                    label="Tags"
+                    label={t('ui.tags')}
                     value={field.state.value}
                     onChangeText={(text) => {
                       field.handleChange(text);
                       form.setFieldValue('tags', parseTagInput(text));
                     }}
-                    placeholder="boat, deep, night"
+                    placeholder={t('ui.boatDeepNight')}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
@@ -508,11 +509,11 @@ export function DiveFormSections({
         </form.Subscribe>
       </FormSection>
 
-      <FormSection title="Notes">
+      <FormSection title={t('ui.notes')}>
         <form.Field name="notes">
           {(field) => (
             <FormField
-              label="Notes"
+              label={t('ui.notes')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, type AboutInfo } from './about';
+import { aboutRows, licenseNotice, privacyNotice, type AboutInfo } from './about';
 
 const INFO: AboutInfo = {
   appVersion: '1.0.0',
@@ -33,12 +33,12 @@ describe('aboutRows', () => {
 
 describe('the notices', () => {
   it('names the licence and disclaims warranty', () => {
-    expect(LICENSE_NOTICE).toContain('GNU General Public License version 2');
-    expect(LICENSE_NOTICE).toContain('no warranty');
+    expect(licenseNotice()).toContain('GNU General Public License version 2');
+    expect(licenseNotice()).toContain('no warranty');
   });
 
   it('states that nothing is sent anywhere', () => {
-    expect(PRIVACY_NOTICE).toContain('sends nothing anywhere');
-    expect(PRIVACY_NOTICE).toContain('no analytics');
+    expect(privacyNotice()).toContain('sends nothing anywhere');
+    expect(privacyNotice()).toContain('no analytics');
   });
 });

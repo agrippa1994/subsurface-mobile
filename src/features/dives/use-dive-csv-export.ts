@@ -16,6 +16,7 @@ import { csvFileName } from '@/models/transfer';
 import { coreUnits } from '@/models/units';
 import { useExportDiveCSV } from '@/queries/logbook-mutations';
 import { useGradientFactors, useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export type DiveCsvExport = {
   /** True while a file is being written and shared. */
@@ -45,18 +46,18 @@ export function useDiveCsvExport(dive: Pick<DiveSummary, 'id' | 'number' | 'when
             options: { format, units: coreUnits(units), gf },
           });
           if (!(await Sharing.isAvailableAsync())) {
-            Alert.alert('Export saved', target.uri);
+            Alert.alert(t('transferScreen.exportSaved'), target.uri);
             return;
           }
           await Sharing.shareAsync(target.uri, {
             UTI: 'public.comma-separated-values-text',
             mimeType: 'text/csv',
-            dialogTitle: 'Share dive',
+            dialogTitle: t('diveForm.shareDive'),
           });
         } catch (error) {
           operationFailed();
           const info = describeError(error);
-          Alert.alert('Export failed', [info.message, ...info.details].join('\n\n'));
+          Alert.alert(t('transferScreen.exportFailed'), [info.message, ...info.details].join('\n\n'));
         }
       })();
     },

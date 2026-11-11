@@ -14,17 +14,22 @@ import {
   formatDiveTime,
 } from './date-format';
 import { formatDepth, formatDuration, type Units } from './units';
+import { t } from '@/i18n';
 
 /** Section label used for dives that belong to no trip. */
-export const NO_TRIP_LABEL = 'Not in a trip';
+export function noTripLabel(): string {
+  return t('diveList.noTrip');
+}
 
 /** Title of a trip nobody has named: a dive without a site starts one. */
-export const UNTITLED_TRIP_LABEL = 'Untitled trip';
+export function untitledTripLabel(): string {
+  return t('diveList.untitledTrip');
+}
 
 /** A trip's location as a title. */
 export function tripTitle(location: string): string {
   const trimmed = location.trim();
-  return trimmed === '' ? UNTITLED_TRIP_LABEL : trimmed;
+  return trimmed === '' ? untitledTripLabel() : trimmed;
 }
 
 export type DiveTripSection = {
@@ -76,7 +81,7 @@ export function groupDivesByTrip(dives: readonly DiveSummary[]): DiveTripSection
     const section: DiveTripSection = {
       key: dive.tripId !== 0 ? `trip-${dive.tripId}` : `dive-${dive.id}`,
       tripId: dive.tripId,
-      title: dive.tripId !== 0 ? tripTitle(dive.tripLocation) : NO_TRIP_LABEL,
+      title: dive.tripId !== 0 ? tripTitle(dive.tripLocation) : noTripLabel(),
       newestWhen: dive.when,
       oldestWhen: dive.when,
       dives: [dive],
@@ -148,7 +153,7 @@ export function diveRowTitle(dive: DiveSummary): string {
     return site;
   }
   const trip = dive.tripLocation.trim();
-  return trip !== '' ? trip : 'Unnamed dive';
+  return trip !== '' ? trip : t('diveList.unnamedDive');
 }
 
 export function toDiveRow(
@@ -161,24 +166,24 @@ export function toDiveRow(
   const dateText = formatDiveDate(dive.when);
   const timeText = formatDiveTime(dive.when);
 
-  const spoken: string[] = [title, `${dateText} at ${timeText}`];
+  const spoken: string[] = [title, t('diveList.spoken.dateAt', { date: dateText, time: timeText })];
   if (dive.number > 0) {
-    spoken.push(`dive number ${dive.number}`);
+    spoken.push(t('diveList.spoken.number', { number: dive.number }));
   }
   if (depthText !== '') {
-    spoken.push(`maximum depth ${depthText}`);
+    spoken.push(t('diveList.spoken.maxDepth', { depth: depthText }));
   }
   if (dive.durationSec > 0) {
-    spoken.push(`duration ${spokenDuration(dive.durationSec)}`);
+    spoken.push(t('diveList.spoken.duration', { duration: spokenDuration(dive.durationSec) }));
   }
   if (dive.rating > 0) {
-    spoken.push(`rated ${Math.round(dive.rating)} of 5`);
+    spoken.push(t('diveList.spoken.rated', { rating: Math.round(dive.rating) }));
   }
   if (dive.invalid) {
-    spoken.push('marked invalid');
+    spoken.push(t('diveList.spoken.invalid'));
   }
   if (dive.planned) {
-    spoken.push('planned, not logged');
+    spoken.push(t('diveList.spoken.planned'));
   }
 
   return {
@@ -214,20 +219,22 @@ function spokenDuration(seconds: number): string {
   const minutes = Math.round(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  const minuteText = `${rest} ${rest === 1 ? 'minute' : 'minutes'}`;
+  const minuteText = t('common.minutes', { count: rest });
   if (hours === 0) {
     return minuteText;
   }
-  const hourText = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  const hourText = t('common.hours', { count: hours });
   return rest === 0 ? hourText : `${hourText} ${minuteText}`;
 }
 
 /** "3 dives - 12 Mar 2024" or, for a range, "... - 12-15 Mar 2024". */
 export function sectionSubtitle(section: DiveTripSection): string {
-  const count = `${section.dives.length} ${section.dives.length === 1 ? 'dive' : 'dives'}`;
+  const count = t('common.diveCount', { count: section.dives.length });
   const newest = formatDiveDate(section.newestWhen);
   const oldest = formatDiveDate(section.oldestWhen);
-  return newest === oldest ? `${count} - ${newest}` : `${count} - ${oldest} to ${newest}`;
+  return newest === oldest
+    ? `${count} - ${newest}`
+    : `${count} - ${t('trips.dateRange', { first: oldest, last: newest })}`;
 }
 
 // --- Search ----------------------------------------------------------------
@@ -282,9 +289,9 @@ export function searchDives(index: readonly DiveSearchEntry[], query: string): D
 /** "1 dive found", "12 of 340 dives". */
 export function searchResultsText(found: number, total: number): string {
   if (found === total) {
-    return `${found} ${found === 1 ? 'dive' : 'dives'} found`;
+    return t('diveList.found', { count: found });
   }
-  return `${found} of ${total} ${total === 1 ? 'dive' : 'dives'}`;
+  return t('diveList.foundOf', { found, count: total });
 }
 
 /** Five slots, filled according to the dive's 0-5 rating. */

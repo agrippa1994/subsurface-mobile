@@ -9,6 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { usePlannerSettingsScreen } from '@/features/tools/use-planner-settings-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
+import { t } from '@/i18n';
 
 export default function PlannerSettingsScreen() {
   const screen = usePlannerSettingsScreen();
@@ -20,7 +21,7 @@ export default function PlannerSettingsScreen() {
       contentContainerStyle={styles.content}
       contentInsetAdjustmentBehavior="automatic"
     >
-      <FormSection title="Deco model">
+      <FormSection title={t('ui.decoModel')}>
         <OptionField
           options={DECO_MODE_OPTIONS}
           value={screen.planner.decoMode}
@@ -53,7 +54,7 @@ export default function PlannerSettingsScreen() {
         </FormSection>
       ))}
 
-      <FormSection title="Altitude">
+      <FormSection title={t('ui.altitude')}>
         <StepperRow
           label={screen.altitudeLabel}
           value={screen.altitude}
@@ -61,7 +62,7 @@ export default function PlannerSettingsScreen() {
           onChange={screen.setAltitude}
         />
         <StepperRow
-          label={`Surface pressure  ${screen.planner.surfacePressureMbar} mbar`}
+          label={`${t('toolsScreen.surfacePressure')}  ${screen.planner.surfacePressureMbar} mbar`}
           value={screen.planner.surfacePressureMbar}
           min={689}
           max={1100}
@@ -71,7 +72,7 @@ export default function PlannerSettingsScreen() {
       </FormSection>
 
       <FormSection>
-        <FormButtonRow label="Restore defaults" destructive onPress={screen.restore} />
+        <FormButtonRow label={t('ui.restoreDefaults')} destructive onPress={screen.restore} />
       </FormSection>
     </ScrollView>
   );

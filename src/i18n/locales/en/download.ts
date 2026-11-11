@@ -1,0 +1,38 @@
+// AI-generated (Claude)
+export default {
+  adapter: {
+    off: 'Bluetooth is off. Turn it on to look for your dive computer.',
+    unauthorized: 'Subsurface is not allowed to use Bluetooth. You can change that in the system settings.',
+    unsupported: 'This device has no Bluetooth LE. The iOS simulator does not either.',
+  },
+  outcome: {
+    partial: 'The download stopped early. If you keep these, a later download only finds dives newer than them: to get the older ones, use "Force downloading all dives".',
+    running: 'Downloading',
+    downloaded_one: '{{count}} dive downloaded',
+    downloaded_other: '{{count}} dives downloaded',
+    nothingNew: 'No new dives',
+    nothingNewDetail: 'Everything on the dive computer is already in this logbook.',
+    failed: 'The download failed',
+    cancelled: 'Download cancelled',
+  },
+  accept: {
+    added_one: '{{count}} dive added',
+    added_other: '{{count}} dives added',
+    merged_one: '{{count}} dive merged into dives already in the logbook',
+    merged_other: '{{count}} dives merged into dives already in the logbook',
+    nothing: 'Nothing changed.',
+    button_one: 'Accept {{count}} dive',
+    button_other: 'Accept {{count}} dives',
+  },
+  choose: 'Choose',
+  connecting: 'Connecting',
+  looking: 'Looking for dive computers. Switch on Bluetooth on yours and keep it close.',
+  selectAll: 'Select all',
+  unselectAll: 'Unselect all',
+  discardTitle: 'Discard the downloaded dives?',
+  discardMessage: 'They stay on the dive computer.',
+  keepReviewing: 'Keep reviewing',
+  log: 'Dive computer log',
+  retry: 'Retry',
+  download: 'Download',
+};

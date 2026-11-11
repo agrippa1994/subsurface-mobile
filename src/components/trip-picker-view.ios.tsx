@@ -12,6 +12,7 @@ import { PlatformColor } from 'react-native';
 
 import type { TripPickerViewProps } from './trip-picker-view';
 import { emptyPickerText, tripSubtitle, tripTitle } from '@/models/trips';
+import { t } from '@/i18n';
 
 export type { TripPickerViewProps };
 
@@ -32,17 +33,17 @@ export function TripPickerView({
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('insetGrouped')]}>
         <Section>
-          <Button label="New Trip" systemImage="plus" onPress={onNewTrip} />
+          <Button label={t('ui.newTrip')} systemImage="plus" onPress={onNewTrip} />
           {canRemove ? (
             <Button
-              label="Remove from Trip"
+              label={t('ui.removeFromTrip')}
               systemImage="minus.circle"
               role="destructive"
               onPress={onRemove}
             />
           ) : null}
         </Section>
-        <Section title={empty ? undefined : 'Nearest first'}>
+        <Section title={empty ? undefined : t('charts.nearestFirst')}>
           {empty ? (
             <Text modifiers={[foregroundStyle(SECONDARY)]}>{empty}</Text>
           ) : (

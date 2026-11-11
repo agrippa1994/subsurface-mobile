@@ -22,6 +22,7 @@ import {
   type WeightDraft,
   type WeightErrors,
 } from '@/models/weight-edit';
+import { t } from '@/i18n';
 
 export function WeightEditor({
   drafts,
@@ -46,18 +47,18 @@ export function WeightEditor({
   return (
     <View style={styles.container}>
       {drafts.map((draft, index) => (
-        <FormSection key={draft.key} title={`Weight ${index + 1}`}>
+        <FormSection key={draft.key} title={t('diveForm.weightNumber', { number: index + 1 })}>
           <SuggestField
-            label="Type"
+            label={t('ui.type')}
             value={draft.description}
             corpus={descriptions}
-            placeholder="belt"
+            placeholder={t('ui.belt')}
             autoCorrect={false}
             onChange={(description) => patchRow(draft.key, { description })}
           />
 
           <FormField
-            label={units.weight === 'lbs' ? 'Weight (lbs)' : 'Weight (kg)'}
+            label={t('diveForm.weightUnit', { unit: units.weight })}
             value={draft.weightText}
             onChangeText={(weightText) => patchRow(draft.key, { weightText })}
             keyboardType="decimal-pad"
@@ -72,7 +73,7 @@ export function WeightEditor({
             accessibilityRole="button"
             onPress={() => onChange(drafts.filter((other) => other.key !== draft.key))}
             style={({ pressed }) => [pressed ? { opacity: 0.6 } : null]}>
-            <Text style={[styles.remove, { color: theme.danger }]}>Remove weight</Text>
+            <Text style={[styles.remove, { color: theme.danger }]}>{t('diveForm.removeWeight')}</Text>
           </Pressable>
         </FormSection>
       ))}
@@ -80,7 +81,7 @@ export function WeightEditor({
       {drafts.length > 1 ? (
         <FormSection>
           <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: theme.text }]}>Total weight</Text>
+            <Text style={[styles.totalLabel, { color: theme.text }]}>{t('diveForm.totalWeight')}</Text>
             <Text style={[styles.totalValue, { color: theme.text }]}>
               {formatWeight(totalWeightGrams(drafts, units), units)}
             </Text>
@@ -103,7 +104,7 @@ export function WeightEditor({
           tintColor={theme.accent}
           fallback={<Text style={{ color: theme.accent }}>+</Text>}
         />
-        <Text style={[styles.addText, { color: theme.accent }]}>Add weight</Text>
+        <Text style={[styles.addText, { color: theme.accent }]}>{t('diveForm.addWeight')}</Text>
       </Pressable>
     </View>
   );

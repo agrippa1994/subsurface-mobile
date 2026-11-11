@@ -6,6 +6,7 @@ import type { GasInfoInput, GasInfoRow } from './index';
 import { WATER_SALINITY, type Water } from './planner';
 import { formatMod } from './nitrox';
 import { mmToFeet, type Units } from './units';
+import { t } from '@/i18n';
 
 export type GasCalculatorInput = {
   o2Percent: number;
@@ -81,7 +82,7 @@ export function rowTexts(
 }
 
 export function narcoticLabel(o2Narcotic: boolean): string {
-  return o2Narcotic ? 'END at MOD' : 'EAD at MOD';
+  return o2Narcotic ? t('gasCalculator.endAtMod') : t('gasCalculator.eadAtMod');
 }
 
 /** Only for a mix that is hypoxic at the surface. */
@@ -91,5 +92,5 @@ export function hypoxicLine(minDepthMm: number, units: Units): string | null {
   }
   const rounded =
     units.depth === 'ft' ? `${Math.ceil(mmToFeet(minDepthMm))} ft` : `${Math.ceil(minDepthMm / 1000)} m`;
-  return `Hypoxic: below 0.16 bar of oxygen above ${rounded}. Not breathable at the surface.`;
+  return t('gasCalculator.hypoxic', { depth: rounded });
 }

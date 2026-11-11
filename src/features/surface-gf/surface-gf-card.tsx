@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SurfaceGfSparkline } from '@/components/surface-gf-chart';
 import { useTheme } from '@/hooks/use-theme';
 import type { SurfaceGfCard } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpen: () => void }) {
   const theme = useTheme();
@@ -14,11 +15,11 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
       onPress={onOpen}
       accessibilityRole="button"
       accessibilityLabel={card.accessibilityLabel}
-      accessibilityHint="Opens the surface GF timeline"
+      accessibilityHint={t('ui.opensTheSurfaceGfTimeline')}
       style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
       <View style={styles.row}>
         <View style={styles.texts}>
-          <Text style={[styles.caption, { color: theme.textSecondary }]}>SURFACE GF</Text>
+          <Text style={[styles.caption, { color: theme.textSecondary }]}>{t('surfaceGfScreen.caption')}</Text>
           <Text style={[styles.big, { color: card.aboveGfHigh ? theme.warning : theme.text }]}>{card.gfText}</Text>
           <Text style={{ color: theme.text }}>{card.untilText}</Text>
           <Text style={[styles.small, { color: theme.textSecondary }]}>{card.sinceText}</Text>
@@ -27,7 +28,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
       </View>
       {card.planned ? (
         <Text style={[styles.small, { color: theme.text }]}>
-          {`Next entry: ${card.planned.gfText}, ${card.planned.whenText}`}
+          {t('surfaceGfScreen.nextEntry', { entry: `${card.planned.gfText}, ${card.planned.whenText}` })}
         </Text>
       ) : null}
     </Pressable>

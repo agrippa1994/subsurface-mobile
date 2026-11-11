@@ -8,13 +8,14 @@ import { StatusView } from '@/components/status-view';
 import { Spacing } from '@/constants/theme';
 import { usePlanner } from '@/features/tools/use-planner';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export default function PlannerNotesScreen() {
   const { outcome } = usePlanner();
   const theme = useTheme();
 
   if (outcome.kind === 'problem' || outcome.kind === 'error') {
-    return <StatusView kind="error" title="No plan to show" description={outcome.message} />;
+    return <StatusView kind="error" title={t('ui.noPlanToShow')} description={outcome.message} />;
   }
   return (
     <ScrollView

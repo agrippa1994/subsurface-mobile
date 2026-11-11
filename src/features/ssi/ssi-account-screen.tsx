@@ -31,6 +31,7 @@ import {
   useSsiSiteIndexInfo,
 } from '@/queries/ssi';
 import { formatInstantDate } from '@/models/date-format';
+import { t } from '@/i18n';
 
 const dateFormatter = { format: formatInstantDate };
 
@@ -75,19 +76,19 @@ export function SsiAccountScreen() {
   const confirmSignOut = () => {
     warned();
     Alert.alert(
-      'Sign out of SSI?',
-      'The app forgets your SSI email, password and session. Dives already synced stay in your SSI logbook.',
+      t('ssiScreen.signOutTitle'),
+      t('ssiScreen.signOutMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('ui.cancel'), style: 'cancel' },
         {
-          text: 'Sign out',
+          text: t('ui.signOut'),
           style: 'destructive',
           onPress: () => {
             signOut.mutate(undefined, {
               onSuccess: () => operationSucceeded(),
               onError: (caught) => {
                 operationFailed();
-                Alert.alert('Could not sign out', formatErrorLine(describeError(caught)));
+                Alert.alert(t('ssiScreen.signOutFailed'), formatErrorLine(describeError(caught)));
               },
             });
           },
@@ -101,7 +102,7 @@ export function SsiAccountScreen() {
       onSuccess: () => operationSucceeded(),
       onError: (caught) => {
         operationFailed();
-        Alert.alert('Could not download the dive sites', formatErrorLine(describeError(caught)));
+        Alert.alert(t('ssiScreen.sitesFailed'), formatErrorLine(describeError(caught)));
       },
     });
   };
@@ -111,28 +112,28 @@ export function SsiAccountScreen() {
       onSuccess: async (uri) => {
         operationSucceeded();
         if (!(await Sharing.isAvailableAsync())) {
-          Alert.alert('Saved', uri);
+          Alert.alert(t('ssiScreen.saved'), uri);
           return;
         }
         await Sharing.shareAsync(uri, {
           UTI: 'org.subsurface.ssrf',
           mimeType: 'application/xml',
-          dialogTitle: 'Save SSI logbook',
+          dialogTitle: t('ssiScreen.saveLogbook'),
         });
       },
       onError: (caught) => {
         operationFailed();
-        Alert.alert('Could not download from SSI', formatErrorLine(describeError(caught)));
+        Alert.alert(t('ssiScreen.downloadFailed'), formatErrorLine(describeError(caught)));
       },
     });
   };
 
   const info = siteIndex.data ?? { count: 0, downloadedAt: null };
   const sitesValue = refreshSites.isPending
-    ? 'Downloading...'
+    ? t('ssiScreen.downloading')
     : info.count === 0
-      ? 'Not downloaded'
-      : `${info.count.toLocaleString()} sites${
+      ? t('settingsScreen.notDownloaded')
+      : `${t('settingsScreen.siteCount', { count: info.count, formatted: info.count.toLocaleString() })}${
           info.downloadedAt === null ? '' : `, ${dateFormatter.format(info.downloadedAt)}`
         }`;
 
@@ -144,22 +145,22 @@ export function SsiAccountScreen() {
       keyboardShouldPersistTaps="handled">
       {account.data ? (
         <FormSection
-          title="Account"
-          footer="Your dives are pushed to this SSI logbook. Signing out erases the stored email, password and session from this device.">
+          title={t('ui.account')}
+          footer={t('ui.yourDivesArePushedToThis')}>
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>Signed in as</Text>
+            <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>{t('ssiScreen.signedInAs')}</Text>
             <Text style={[styles.rowValue, { color: theme.text }]}>{account.data.email}</Text>
           </View>
-          <FormButtonRow label="Sign out" destructive onPress={confirmSignOut} />
+          <FormButtonRow label={t('ui.signOut')} destructive onPress={confirmSignOut} />
         </FormSection>
       ) : (
         <FormSection
-          title="Sign in"
-          footer="Your SSI email and password are sent to SSI to obtain a session token, and are kept in this device's keychain so the app can renew that token on its own. This app is not affiliated with SSI.">
+          title={t('ui.signIn')}
+          footer={t('ui.yourSsiEmailAndPasswordAre')}>
           <form.Field name="email">
             {(field) => (
               <FormField
-                label="Email"
+                label={t('ui.email')}
                 value={field.state.value}
                 onChangeText={field.handleChange}
                 onBlur={field.handleBlur}
@@ -169,7 +170,7 @@ export function SsiAccountScreen() {
                 autoComplete="email"
                 keyboardType="email-address"
                 textContentType="username"
-                placeholder="you@example.com"
+                placeholder={t('ui.youExampleCom')}
               />
             )}
           </form.Field>
@@ -177,7 +178,7 @@ export function SsiAccountScreen() {
           <form.Field name="password">
             {(field) => (
               <FormField
-                label="Password"
+                label={t('ui.password')}
                 value={field.state.value}
                 onChangeText={field.handleChange}
                 onBlur={field.handleBlur}
@@ -201,10 +202,10 @@ export function SsiAccountScreen() {
               isSubmitting ? (
                 <View style={styles.pending}>
                   <ActivityIndicator />
-                  <Text style={{ color: theme.textSecondary }}>Signing in...</Text>
+                  <Text style={{ color: theme.textSecondary }}>{t('ssiScreen.signingIn')}</Text>
                 </View>
               ) : (
-                <FormButtonRow label="Sign in" onPress={() => void form.handleSubmit()} />
+                <FormButtonRow label={t('ui.signIn')} onPress={() => void form.handleSubmit()} />
               )
             }
           </form.Subscribe>
@@ -214,17 +215,17 @@ export function SsiAccountScreen() {
       {account.data ? (
         <>
           <FormSection
-            title="Logbook"
-            footer="Choose dives to add, or replace this logbook with your SSI logbook. Includes profiles, temperatures, pressures, gradient factor settings, buddies and sites. Nothing changes on SSI.">
+            title={t('ui.logbook')}
+            footer={t('ui.chooseDivesToAddOrReplace')}>
             <FormButtonRow
-              label="Add SSI dives to this logbook"
+              label={t('ui.addSsiDivesToThisLogbook')}
               onPress={() => router.push('/settings/ssi-import')}
             />
           </FormSection>
-          <FormSection footer="A separate file with your whole SSI logbook, to share or open as a new logbook.">
+          <FormSection footer={t('ui.aSeparateFileWithYourWhole')}>
             <FormButtonRow
-              label="Save SSI logbook as a file"
-              value={downloadLogbook.isPending ? 'Downloading...' : undefined}
+              label={t('ui.saveSsiLogbookAsAFile')}
+              value={downloadLogbook.isPending ? t('ssiScreen.downloading') : undefined}
               onPress={downloadLogbook.isPending ? () => undefined : saveFile}
             />
           </FormSection>
@@ -232,10 +233,10 @@ export function SsiAccountScreen() {
       ) : null}
 
       <FormSection
-        title="Dive sites"
-        footer="SSI has no site search, so its whole site catalogue is downloaded once (about a minute) and kept on this device. Site lookup then works without a connection.">
+        title={t('ui.diveSites')}
+        footer={t('ui.ssiHasNoSiteSearchSo')}>
         <FormButtonRow
-          label={info.count === 0 ? 'Download dive sites' : 'Refresh dive sites'}
+          label={info.count === 0 ? t('ssiScreen.downloadSites') : t('ssiScreen.refreshSites')}
           value={sitesValue}
           onPress={downloadSites}
         />

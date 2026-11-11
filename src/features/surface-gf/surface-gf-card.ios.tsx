@@ -17,6 +17,7 @@ import { PlatformColor } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 import type { SurfaceGfCard } from '@/models/surface-gf';
+import { t } from '@/i18n';
 
 const LABEL = PlatformColor('label');
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
@@ -27,7 +28,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
   const gfColor = card.aboveGfHigh ? theme.warning : LABEL;
   const modifiers = [
     accessibilityLabel(card.accessibilityLabel),
-    accessibilityHint('Opens the surface GF timeline'),
+    accessibilityHint(t('ui.opensTheSurfaceGfTimeline')),
   ];
 
   if (card.phase === 'residual') {
@@ -38,7 +39,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
             <Image systemName="chart.line.downtrend.xyaxis" size={22} color={CURVE} />
             <VStack alignment="leading" spacing={2}>
               <Text modifiers={[font({ textStyle: 'subheadline', weight: 'semibold' })]}>
-                {`Surface GF ${card.gfText}`}
+                {t('surfaceGf.gf', { gf: card.gfText })}
               </Text>
               <Text modifiers={[font({ textStyle: 'footnote' }), foregroundStyle(SECONDARY)]}>
                 {card.untilText}
@@ -54,13 +55,13 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
 
   return (
     <Section
-      header={<Text modifiers={[font({ textStyle: 'footnote' })]}>Desaturation</Text>}
-      footer={card.planned ? undefined : <Text>Model value from your log, not medical advice.</Text>}>
+      header={<Text modifiers={[font({ textStyle: 'footnote' })]}>{t('surfaceGfScreen.desaturation')}</Text>}
+      footer={card.planned ? undefined : <Text>{t('surfaceGfScreen.modelValue')}</Text>}>
       <Button onPress={onOpen} modifiers={modifiers}>
         <HStack spacing={12} alignment="center" modifiers={[foregroundStyle(LABEL)]}>
           <VStack alignment="leading" spacing={2}>
             <Text modifiers={[font({ textStyle: 'caption', weight: 'semibold' }), foregroundStyle(SECONDARY)]}>
-              SURFACE GF
+              {t('surfaceGfScreen.caption')}
             </Text>
             <Text
               modifiers={[
@@ -92,7 +93,7 @@ export function SurfaceGfCardView({ card, onOpen }: { card: SurfaceGfCard; onOpe
             <Image systemName="figure.open.water.swim" size={18} color={theme.accent} />
             <VStack alignment="leading" spacing={1}>
               <Text modifiers={[font({ textStyle: 'subheadline', weight: 'semibold' }), monospacedDigit()]}>
-                {`Next entry: ${card.planned.gfText}`}
+                {t('surfaceGfScreen.nextEntry', { entry: card.planned.gfText })}
               </Text>
               <Text modifiers={[font({ textStyle: 'footnote' }), monospacedDigit(), foregroundStyle(SECONDARY)]}>
                 {card.planned.whenText}

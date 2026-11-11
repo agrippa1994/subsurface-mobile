@@ -45,7 +45,7 @@ import {
   DIVE_MODE_OPTIONS,
   formatMinutes,
   gasName,
-  PLAN_DISCLAIMER,
+  planDisclaimer,
   SETPOINT_RANGE,
   TIME_RANGE,
   WATER_OPTIONS,
@@ -56,6 +56,7 @@ import {
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
 import { formatDepth } from '@/models/units';
 import { useProfileSeries } from '@/queries/settings';
+import { t } from '@/i18n';
 
 const SECONDARY = { type: 'hierarchical', style: 'secondary' } as const;
 
@@ -69,7 +70,7 @@ export default function PlannerScreen() {
   const warningSection = (
     <>
       {outcome.kind !== 'planned' ? (
-        <Section title="No plan">
+        <Section title={t('ui.noPlan')}>
           <HStack spacing={8} alignment="top">
             <Image systemName="exclamationmark.triangle.fill" size={18} color={theme.danger} />
             <Text modifiers={[foregroundStyle(theme.danger)]}>{outcome.message}</Text>
@@ -78,7 +79,7 @@ export default function PlannerScreen() {
       ) : null}
 
       {view && view.warnings.length > 0 ? (
-        <Section title={view.warnings.length === 1 ? 'Warning' : 'Warnings'}>
+        <Section title={t('toolsScreen.warnings', { count: view.warnings.length })}>
           {view.warnings.map((warning) => (
             <HStack key={warning.text} spacing={8} alignment="top">
               <Image
@@ -107,21 +108,21 @@ export default function PlannerScreen() {
         return (
           <Section
             key={segment.key}
-            title={draft.segments.length > 1 ? `Level ${index + 1}` : 'Level'}
+            title={draft.segments.length > 1 ? t('toolsScreen.levelNumber', { number: index + 1 }) : t('toolsScreen.level')}
             footer={
               index === 0 ? (
                 <Text>
                   {planner.dropStone
-                    ? 'The time includes the descent.'
-                    : 'The level takes its whole time to reach its depth.'}
+                    ? t('toolsScreen.includesDescent')
+                    : t('toolsScreen.wholeTime')}
                 </Text>
               ) : (
-                <Text>The time includes the travel from the level before.</Text>
+                <Text>{t('toolsScreen.includesTravel')}</Text>
               )
             }
           >
             <Stepper
-              label={`Depth  ${screen.depthOf(segment)} ${screen.depthUnit}`}
+              label={`${t('units.quantity.depth')}  ${screen.depthOf(segment)} ${screen.depthUnit}`}
               value={screen.depthOf(segment)}
               min={screen.depthRange.min}
               max={screen.depthRange.max}
@@ -129,7 +130,7 @@ export default function PlannerScreen() {
               onValueChange={(value) => screen.setDepth(segment.key, value)}
             />
             <Stepper
-              label={`Time  ${segment.minutes} min`}
+              label={`${t('toolsScreen.time')}  ${segment.minutes} min`}
               value={segment.minutes}
               min={TIME_RANGE.min}
               max={TIME_RANGE.max}
@@ -138,7 +139,7 @@ export default function PlannerScreen() {
             />
             {draft.cylinders.length > 1 ? (
               <Picker
-                label="Gas"
+                label={t('ui.gas')}
                 selection={segment.cylinderKey}
                 onSelectionChange={(value: string) => screen.setSegmentGas(segment.key, value)}
                 modifiers={[pickerStyle('menu')]}
@@ -152,7 +153,7 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isCcr && screen.isDiluent(cylinder) ? (
               <Stepper
-                label={`Setpoint  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
+                label={`${t('toolsScreen.setpoint')}  ${((segment.setpointMbar || planner.defaultSetpointMbar) / 1000).toFixed(2)} bar`}
                 value={segment.setpointMbar || planner.defaultSetpointMbar}
                 min={SETPOINT_RANGE.min}
                 max={SETPOINT_RANGE.max}
@@ -162,14 +163,14 @@ export default function PlannerScreen() {
             ) : null}
             {screen.isPscr ? (
               <Toggle
-                label="On the loop"
+                label={t('ui.onTheLoop')}
                 isOn={segment.onLoop}
                 onIsOnChange={(value) => screen.setOnLoop(segment.key, value)}
               />
             ) : null}
             {draft.segments.length > 1 ? (
               <Button
-                label="Remove level"
+                label={t('ui.removeLevel')}
                 role="destructive"
                 onPress={() => screen.removeLevel(segment.key)}
               />
@@ -179,10 +180,10 @@ export default function PlannerScreen() {
       })}
 
       <Section>
-        <Button label="Add level" systemImage="plus" onPress={screen.addLevel} />
+        <Button label={t('ui.addLevel')} systemImage="plus" onPress={screen.addLevel} />
       </Section>
 
-      <Section title="Cylinders">
+      <Section title={t('ui.cylinders')}>
         {draft.cylinders.map((cylinder) => (
           <Button key={cylinder.key} onPress={() => screen.openCylinder(cylinder.key)}>
             <HStack>
@@ -199,18 +200,18 @@ export default function PlannerScreen() {
             </HStack>
           </Button>
         ))}
-        <Button label="Add cylinder" systemImage="plus" onPress={screen.addCylinderAndOpen} />
+        <Button label={t('ui.addCylinder')} systemImage="plus" onPress={screen.addCylinderAndOpen} />
       </Section>
 
-      <Section title="Dive">
+      <Section title={t('ui.dive')}>
         <DatePicker
-          title="Start"
+          title={t('ui.start')}
           selection={whenToDate(draft.when)}
           displayedComponents={['date', 'hourAndMinute']}
           onDateChange={(date) => screen.setDraft((d) => ({ ...d, when: whenFromDate(date) }))}
         />
         <Picker
-          label="Deco model"
+          label={t('ui.decoModel')}
           selection={planner.decoMode}
           onSelectionChange={(value: number) => screen.setPlanner({ decoMode: value as PlanDecoMode })}
           modifiers={[pickerStyle('menu')]}
@@ -222,7 +223,7 @@ export default function PlannerScreen() {
           ))}
         </Picker>
         <Picker
-          label="Dive mode"
+          label={t('ui.diveMode')}
           selection={draft.diveMode}
           onSelectionChange={(value: number) => screen.setMode(value as PlanDiveMode)}
           modifiers={[pickerStyle('menu')]}
@@ -236,14 +237,14 @@ export default function PlannerScreen() {
         {screen.isCcr || screen.isPscr ? (
           planner.decoMode !== PlanDecoMode.Recreational ? (
             <Toggle
-              label="Deco on open circuit bailout"
+              label={t('ui.decoOnOpenCircuitBailout')}
               isOn={planner.doBailout}
               onIsOnChange={(doBailout) => screen.setPlanner({ doBailout })}
             />
           ) : null
         ) : null}
         <Picker
-          label="Water"
+          label={t('ui.water')}
           selection={draft.water}
           onSelectionChange={(value: string) =>
             screen.setDraft((d) => ({ ...d, water: value as Water }))
@@ -265,11 +266,11 @@ export default function PlannerScreen() {
     view && result ? (
       <>
         {view.stops.length > 0 ? (
-          <Section title="Stops">
+          <Section title={t('ui.stops')}>
             {view.stops.map((stop) => (
               <LabeledContent
                 key={`${stop.depthMm}-${stop.endSec}`}
-                label={`${formatDepth(stop.depthMm, units)} on ${stop.gas}`}
+                label={t('toolsScreen.stopOn', { depth: formatDepth(stop.depthMm, units), gas: stop.gas })}
               >
                 <Text modifiers={[monospacedDigit()]}>{formatMinutes(stop.durationSec)}</Text>
               </LabeledContent>
@@ -278,8 +279,8 @@ export default function PlannerScreen() {
         ) : null}
 
         <Section
-          title="Gas"
-          footer={screen.isCcr ? <Text>Closed loop legs are not counted against the cylinders.</Text> : undefined}
+          title={t('ui.gas')}
+          footer={screen.isCcr ? <Text>{t('toolsScreen.closedLoop')}</Text> : undefined}
         >
           {view.gasRows.map((row) => (
             <VStack key={row.key} alignment="leading" spacing={4}>
@@ -313,18 +314,18 @@ export default function PlannerScreen() {
                 ))}
             </VStack>
           ))}
-          <LabeledContent label="CNS">
+          <LabeledContent label={t('ui.cns')}>
             <Text modifiers={[monospacedDigit()]}>{`${result.cns}%`}</Text>
           </LabeledContent>
-          <LabeledContent label="OTU">
+          <LabeledContent label={t('ui.otu')}>
             <Text modifiers={[monospacedDigit()]}>{String(result.otu)}</Text>
           </LabeledContent>
         </Section>
 
         {view.plot && result.profile ? (
-          <Section title="Profile" footer={view.interval ? <Text>{view.interval}</Text> : undefined}>
+          <Section title={t('ui.profile')} footer={view.interval ? <Text>{view.interval}</Text> : undefined}>
             <RNHostView matchContents>
-              <View style={{ width: screen.chartWidth }} accessibilityLabel={`Profile of the plan: ${view.headline.runtime}, ${formatDepth(result.maxDepthMm, units)}`}>
+              <View style={{ width: screen.chartWidth }} accessibilityLabel={t('toolsScreen.planProfile', { runtime: view.headline.runtime, depth: formatDepth(result.maxDepthMm, units) })}>
                 {/* Keyed: its zoom is held in state, and must not outlive the time axis of an older plan. */}
                 <ProfileChart key={result.runtimeSec} plot={view.plot} pi={result.profile} units={units} series={profileSeries} height={200} />
               </View>
@@ -333,30 +334,30 @@ export default function PlannerScreen() {
         ) : null}
 
         <Section>
-          <Button label="Full plan notes" systemImage="doc.text" onPress={screen.openNotes} />
+          <Button label={t('ui.fullPlanNotes')} systemImage="doc.text" onPress={screen.openNotes} />
         </Section>
       </>
     ) : null;
 
   const ending = (
-    <Section footer={<Text>{PLAN_DISCLAIMER}</Text>}>
-      <Button label="Planner settings" systemImage="gearshape" onPress={screen.openSettings} />
-      <Button label="Start over" role="destructive" onPress={screen.resetDraft} />
+    <Section footer={<Text>{planDisclaimer()}</Text>}>
+      <Button label={t('ui.plannerSettings')} systemImage="gearshape" onPress={screen.openSettings} />
+      <Button label={t('ui.startOver')} role="destructive" onPress={screen.resetDraft} />
     </Section>
   );
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Dive planner' }} />
+      <Stack.Screen options={{ title: t('nav.divePlanner') }} />
       <HeaderActions
         actions={[
           {
-            label: 'Add to the logbook',
+            label: t('toolsScreen.addToLogbook'),
             icon: 'square.and.arrow.down',
             disabled: !view?.canSave || screen.saving,
             onPress: screen.savePlan,
           },
-          { label: 'Planner settings', icon: 'gearshape', onPress: screen.openSettings },
+          { label: t('ui.plannerSettings'), icon: 'gearshape', onPress: screen.openSettings },
         ]}
       />
       {screen.twoPanes ? (

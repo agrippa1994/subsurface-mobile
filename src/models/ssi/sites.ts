@@ -15,6 +15,7 @@
 import type { Site } from 'divessi-client';
 
 import { distanceMeters } from '../site-edit';
+import { t } from '@/i18n';
 
 /** The compact cache entry inferred from the catalogue mapping. */
 export type SsiSite = ReturnType<typeof reduceSsiSites>[number];
@@ -157,6 +158,6 @@ export function describeSsiSite(site: SsiSite): string {
     return site.country;
   }
   return site.lat === 0 && site.lon === 0
-    ? 'No position'
+    ? t('sites.noPosition')
     : `${site.lat.toFixed(4)}, ${site.lon.toFixed(4)}`;
 }

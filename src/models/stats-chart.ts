@@ -26,6 +26,7 @@ import type {
   StatsVariableOption,
 } from './index';
 import { formatDayNumber, shortMonthName } from './date-format';
+import { t } from '@/i18n';
 
 // --- Names ---------------------------------------------------------------------
 
@@ -36,13 +37,62 @@ const STAR = /\u{1F31F}/gu;
 export function binLabel(label: string): string {
   const stars = label.match(STAR)?.length ?? 0;
   if (stars > 0) {
-    return `${stars} ${stars === 1 ? 'star' : 'stars'}`;
+    return t('stats.stars', { count: stars });
   }
-  return label.trim() === '' ? 'Not set' : label;
+  return label.trim() === '' ? t('stats.notSet') : label;
 }
 
 export function diveCount(n: number): string {
-  return `${n} ${n === 1 ? 'dive' : 'dives'}`;
+  return t('common.diveCount', { count: n });
+}
+
+/**
+ * Upstream's variable names are its identifiers too (the configuration stores
+ * them), so they stay as they are and only what is shown is translated. A name a
+ * submodule bump adds reads as upstream wrote it.
+ */
+const VARIABLE_KEYS = {
+  Date: 'date',
+  'Month of year': 'monthOfYear',
+  'Day of week': 'dayOfWeek',
+  'Dive #': 'diveNumber',
+  'Max. Depth': 'maxDepth',
+  'Mean Depth': 'meanDepth',
+  Duration: 'duration',
+  'NDL / Deco time': 'ndlDeco',
+  SAC: 'sac',
+  'Gas type': 'gasType',
+  'O₂ (max)': 'o2Max',
+  'O₂ (bottom gas)': 'o2Bottom',
+  'He (max)': 'heMax',
+  'Water temperature': 'waterTemperature',
+  'Air temperature': 'airTemperature',
+  Visibility: 'visibility',
+  Rating: 'rating',
+  People: 'people',
+  Buddies: 'buddies',
+  'Dive guides': 'diveGuides',
+  'Dive site': 'diveSite',
+  'Dive trip': 'diveTrip',
+  Tags: 'tags',
+  'Dive mode': 'diveMode',
+  'Suit type': 'suitType',
+  'Cylinder type': 'cylinderType',
+  Weight: 'weight',
+  Weightsystem: 'weightsystem',
+  'Dive computer': 'diveComputer',
+} as const;
+
+/** A statistics variable as it is shown: "Max. Depth" reads "Max. Tiefe" in German. */
+export function variableLabel(name: string): string {
+  const key = (VARIABLE_KEYS as Record<string, (typeof VARIABLE_KEYS)[keyof typeof VARIABLE_KEYS]>)[name];
+  return key ? t(`stats.variable.${key}`) : name;
+}
+
+/** An axis title, "Max. Depth [m]", with its name translated and its unit kept. */
+export function axisTitle(title: string): string {
+  const match = /^(.*?)( \[[^\]]*\])?$/.exec(title);
+  return match ? `${variableLabel(match[1])}${match[2] ?? ''}` : title;
 }
 
 /** Upstream's value labels: "%L1" with the variable's decimals. */
@@ -80,15 +130,15 @@ export type VariableGroup = { title: string; variables: StatsVariableOption[] };
  * names are upstream's, and the order within a group follows `stats_variables`; a
  * variable a submodule bump adds lands in Other rather than getting lost.
  */
-const GROUPS: { title: string; names: string[] }[] = [
-  { title: 'When', names: ['Date', 'Month of year', 'Day of week', 'Dive #'] },
-  { title: 'Depth and time', names: ['Max. Depth', 'Mean Depth', 'Duration', 'NDL / Deco time'] },
-  { title: 'Air and gas', names: ['SAC', 'Gas type', 'O₂ (max)', 'O₂ (bottom gas)', 'He (max)'] },
-  { title: 'Conditions', names: ['Water temperature', 'Air temperature', 'Visibility', 'Rating'] },
-  { title: 'People', names: ['People', 'Buddies', 'Dive guides'] },
-  { title: 'Place', names: ['Dive site', 'Dive trip', 'Tags'] },
+const GROUPS: { title: () => string; names: string[] }[] = [
+  { title: () => t('stats.group.when'), names: ['Date', 'Month of year', 'Day of week', 'Dive #'] },
+  { title: () => t('stats.group.depthTime'), names: ['Max. Depth', 'Mean Depth', 'Duration', 'NDL / Deco time'] },
+  { title: () => t('stats.group.airGas'), names: ['SAC', 'Gas type', 'O₂ (max)', 'O₂ (bottom gas)', 'He (max)'] },
+  { title: () => t('stats.group.conditions'), names: ['Water temperature', 'Air temperature', 'Visibility', 'Rating'] },
+  { title: () => t('stats.group.people'), names: ['People', 'Buddies', 'Dive guides'] },
+  { title: () => t('stats.group.place'), names: ['Dive site', 'Dive trip', 'Tags'] },
   {
-    title: 'Equipment',
+    title: () => t('stats.group.equipment'),
     names: ['Dive mode', 'Suit type', 'Cylinder type', 'Weight', 'Weightsystem', 'Dive computer'],
   },
 ];
@@ -106,12 +156,12 @@ export function groupVariables(variables: readonly StatsVariableOption[]): Varia
       return variable ? [variable] : [];
     });
     if (members.length > 0) {
-      out.push({ title: group.title, variables: members });
+      out.push({ title: group.title(), variables: members });
     }
   }
   const rest = variables.filter((variable) => !placed.has(variable.name));
   if (rest.length > 0) {
-    out.push({ title: 'Other', variables: rest });
+    out.push({ title: t('stats.group.other'), variables: rest });
   }
   return out;
 }
@@ -179,97 +229,101 @@ export function phoneFriendlyChart(
 /** The first binner of a continuous variable is upstream's "none": a value per dive. */
 export function binnerLabel(name: string): string {
   if (name === 'none') {
-    return 'Every dive on its own';
+    return t('stats.binner.none');
   }
-  return name
-    .replace(/^in /, 'In ')
-    .replace(/^Yearly$/, 'Per year')
-    .replace(/^Quarterly$/, 'Per quarter')
-    .replace(/^Monthly$/, 'Per month');
+  // Upstream's own words: "in 5 m steps", "In 10% steps", "in hours", "Yearly".
+  const steps = /^in (.+) steps$/i.exec(name);
+  if (steps) {
+    return t('stats.binner.steps', { size: steps[1] });
+  }
+  switch (name) {
+    case 'in hours':
+      return t('stats.binner.hours');
+    case 'Yearly':
+      return t('stats.binner.yearly');
+    case 'Quarterly':
+      return t('stats.binner.quarterly');
+    case 'Monthly':
+      return t('stats.binner.monthly');
+    case 'NDL / Deco bins':
+      return t('stats.binner.ndlDeco');
+    default:
+      return name.replace(/^in /, 'In ');
+  }
 }
 
 /** The second variable's binners, where "none" means something else. */
 export function secondBinnerLabel(name: string): string {
-  return name === 'none' ? 'No steps' : binnerLabel(name);
+  return name === 'none' ? t('stats.binner.noSteps') : binnerLabel(name);
 }
 
-const OPERATION_LABELS: Record<StatsOperationName, string> = {
-  Invalid: 'Show the spread',
-  Median: 'Median',
-  Mean: 'Mean',
-  TimeWeightedMean: 'Mean, weighted by dive time',
-  Sum: 'Total',
-  Min: 'Lowest',
-  Max: 'Highest',
-};
+const OPERATION_KEYS = {
+  Invalid: 'invalid',
+  Median: 'median',
+  Mean: 'mean',
+  TimeWeightedMean: 'timeWeightedMean',
+  Sum: 'sum',
+  Min: 'min',
+  Max: 'max',
+} as const satisfies Record<StatsOperationName, string>;
 
 export function operationLabel(key: StatsOperationName): string {
-  return OPERATION_LABELS[key];
+  return t(`stats.operation.${OPERATION_KEYS[key]}`);
 }
 
-const SORT_LABELS: Record<StatsSortMode, string> = {
-  Bin: 'In order',
-  Count: 'Most dives first',
-  Value: 'Lowest value first',
-};
+const SORT_KEYS = {
+  Bin: 'bin',
+  Count: 'count',
+  Value: 'value',
+} as const satisfies Record<StatsSortMode, string>;
 
 export function sortLabel(key: StatsSortMode): string {
-  return SORT_LABELS[key];
+  return t(`stats.sort.${SORT_KEYS[key]}`);
 }
 
-const FEATURE_LABELS: Record<StatsFeature, string> = {
-  labels: 'Values on the chart',
-  legend: 'Legend',
-  median: 'Median marker',
-  mean: 'Mean marker',
-  quartiles: 'Quartile markers',
-  regression: 'Trend line',
-  confidence: 'Confidence area',
-};
-
 export function featureLabel(key: StatsFeature): string {
-  return FEATURE_LABELS[key];
+  return t(`stats.feature.${key}`);
 }
 
 /** A chart in the picker, by what it looks like. */
 export function chartOptionLabel(option: StatsChartOption): string {
   const form = chartFormName(option.type, option.subtype);
-  return option.warning ? `${form}, not ideal for this data` : form;
+  return option.warning ? t('stats.form.notIdeal', { form }) : form;
 }
 
 function chartFormName(type: StatsChartType, subtype: StatsChartSubtype): string {
   switch (type) {
     case 'ScatterPlot':
-      return 'Scatter plot';
+      return t('stats.form.scatter');
     case 'Pie':
-      return 'Pie';
+      return t('stats.form.pie');
     case 'DiscreteScatter':
-      return 'Dots per group';
+      return t('stats.form.dotsPerGroup');
     case 'DiscreteBox':
-      return 'Box plot per group';
+      return t('stats.form.boxPerGroup');
     case 'HistogramBox':
-      return 'Box plot on a scale';
+      return t('stats.form.boxOnScale');
     case 'HistogramCount':
     case 'HistogramValue':
-      return subtype === 'Horizontal' ? 'Histogram, as rows' : 'Histogram';
+      return subtype === 'Horizontal' ? t('stats.form.histogramRows') : t('stats.form.histogram');
     case 'HistogramStacked':
-      return subtype === 'HorizontalStacked' ? 'Stacked histogram, as rows' : 'Stacked histogram';
+      return subtype === 'HorizontalStacked' ? t('stats.form.stackedHistogramRows') : t('stats.form.stackedHistogram');
     default:
       break;
   }
   switch (subtype) {
     case 'VerticalGrouped':
-      return 'Grouped columns';
+      return t('stats.form.groupedColumns');
     case 'VerticalStacked':
-      return 'Stacked columns';
+      return t('stats.form.stackedColumns');
     case 'HorizontalGrouped':
-      return 'Grouped rows';
+      return t('stats.form.groupedRows');
     case 'HorizontalStacked':
-      return 'Stacked rows';
+      return t('stats.form.stackedRows');
     case 'Horizontal':
-      return 'Rows';
+      return t('stats.form.rows');
     default:
-      return 'Columns';
+      return t('stats.form.columns');
   }
 }
 
@@ -282,32 +336,43 @@ export function chartOptionKey(option: { type: StatsChartType; subtype: StatsCha
 /** A date binned per year reads "year" rather than "Date group". */
 function binWord(config: StatsChartConfig, options?: StatsChartOptions | null): string | null {
   const binner = options?.binners1[config.binner1];
-  return config.var1 !== 'Date' || !binner
-    ? null
-    : ({ Yearly: 'year', Quarterly: 'quarter', Monthly: 'month' } as Record<string, string>)[binner] ?? null;
+  if (config.var1 !== 'Date' || !binner) {
+    return null;
+  }
+  switch (binner) {
+    case 'Yearly':
+      return t('stats.period.year');
+    case 'Quarterly':
+      return t('stats.period.quarter');
+    case 'Monthly':
+      return t('stats.period.month');
+    default:
+      return null;
+  }
 }
 
 /** "Dives by Dive site", "Median SAC by year": the screen's headline. */
 export function chartHeadline(config: StatsChartConfig, options?: StatsChartOptions | null): string {
-  const { var2, operation } = config;
-  const var1 = binWord(config, options) ?? config.var1;
+  const { operation } = config;
+  const var1 = binWord(config, options) ?? variableLabel(config.var1);
+  const var2 = config.var2 === null ? '' : variableLabel(config.var2);
   switch (config.chart.type) {
     case 'ScatterPlot':
-      return `${var2} against ${var1}`;
+      return t('stats.headline.against', { var1, var2 });
     case 'DiscreteValue':
     case 'HistogramValue':
-      return `${operationLabel(operation)} ${var2} by ${var1}`;
+      return t('stats.headline.operation', { operation: operationLabel(operation), var1, var2 });
     case 'DiscreteBox':
     case 'HistogramBox':
     case 'DiscreteScatter':
-      return `${var2} by ${var1}`;
+      return t('stats.headline.by', { var1, var2 });
     case 'DiscreteBar':
     case 'HistogramStacked':
-      return `Dives by ${var1} and ${var2}`;
+      return t('stats.headline.divesByTwo', { var1, var2 });
     case 'Pie':
-      return `Share of dives by ${var1}`;
+      return t('stats.headline.share', { var1 });
     default:
-      return `Dives by ${var1}`;
+      return t('stats.headline.dives', { var1 });
   }
 }
 
@@ -321,79 +386,89 @@ export function chartDescription(
   chart?: StatsChart,
   options?: StatsChartOptions | null,
 ): string {
-  const { var1, var2 } = config;
+  const var1 = variableLabel(config.var1);
+  const var2 = config.var2 === null ? '' : variableLabel(config.var2);
   const period = binWord(config, options);
-  const group = period ?? `${var1} group`;
-  const several = SEVERAL_PER_DIVE.has(var1)
-    ? ` A dive with several ${var1 === 'People' ? 'people' : 'values'} counts once for each.`
+  const group = period ?? t('stats.describe.group', { var1 });
+  const several = SEVERAL_PER_DIVE.has(config.var1)
+    ? ` ${config.var1 === 'People' ? t('stats.describe.severalPeople') : t('stats.describe.severalValues')}`
     : '';
   switch (config.chart.type) {
     case 'ScatterPlot': {
-      const parts = [`Each dot is one dive, with ${var1} across and ${var2} up.`];
+      const parts = [t('stats.describe.scatter', { var1, var2 })];
       if (chart?.regression && (config.features.regression || config.features.confidence)) {
-        const line = config.features.regression ? 'The line is the trend' : 'The band follows the trend';
-        parts.push(`${line}, explaining ${Math.round(chart.regression.r2 * 100)}% of the spread.`);
+        const percent = Math.round(chart.regression.r2 * 100);
+        parts.push(
+          config.features.regression
+            ? t('stats.describe.trendLine', { percent })
+            : t('stats.describe.trendBand', { percent }),
+        );
       } else if (chart && chart.family === 'scatter' && chart.regression === null) {
-        parts.push('There is no trend strong enough to draw.');
+        parts.push(t('stats.describe.noTrend'));
       }
       return parts.join(' ');
     }
     case 'DiscreteValue':
     case 'HistogramValue':
-      return `Each bar is the ${operationPhrase(config.operation)} of ${var2} over the dives of one ${group}, among dives that have a value.`;
+      return t('stats.describe.value', { operation: operationPhrase(config.operation), var2, group });
     case 'DiscreteBox':
     case 'HistogramBox':
-      return `Each box covers the middle half of ${var2} in one ${group}, with a line at the median. The whiskers reach the lowest and highest values.`;
+      return t('stats.describe.box', { var2, group });
     case 'DiscreteScatter':
-      return `Each dot is one dive, grouped by ${period ?? var1}, with its ${var2} up. The bars mark the quartiles of each group.`;
+      return t('stats.describe.dots', { by: period ?? var1, var2 });
     case 'DiscreteBar':
       return config.chart.subtype.endsWith('Stacked')
-        ? `The dives of each ${group}, split by ${var2}.${several}`
-        : `Side by side, the dives of each ${group}, for every ${var2}.${several}`;
+        ? t('stats.describe.stacked', { group, var2 }) + several
+        : t('stats.describe.grouped', { group, var2 }) + several;
     case 'HistogramStacked':
-      return `The dives of each ${group}, split by ${var2}.${several}`;
+      return t('stats.describe.stacked', { group, var2 }) + several;
     case 'Pie':
-      return `The share of dives per ${period ?? var1}. Small groups fold into one slice.${several}`;
+      return t('stats.describe.pie', { by: period ?? var1 }) + several;
     case 'HistogramCount':
-      return period ? `How many dives fall into each ${period}.` : `How many dives fall into each ${var1} step.`;
+      return period ? t('stats.describe.countPeriod', { period }) : t('stats.describe.countSteps', { var1 });
     default:
-      return `How many dives there are for each ${period ?? (var1 === 'People' ? 'person' : var1)}.${several}`;
+      return (
+        t('stats.describe.count', {
+          by: period ?? (config.var1 === 'People' ? t('stats.describe.person') : var1),
+        }) + several
+      );
   }
 }
 
 function operationPhrase(operation: StatsOperationName): string {
   switch (operation) {
     case 'Median':
-      return 'median';
+      return t('stats.phrase.median');
     case 'Mean':
-      return 'mean';
+      return t('stats.phrase.mean');
     case 'TimeWeightedMean':
-      return 'dive-time weighted mean';
+      return t('stats.phrase.timeWeightedMean');
     case 'Sum':
-      return 'total';
+      return t('stats.phrase.sum');
     case 'Min':
-      return 'lowest value';
+      return t('stats.phrase.min');
     case 'Max':
-      return 'highest value';
+      return t('stats.phrase.max');
     default:
-      return 'value';
+      return t('stats.phrase.value');
   }
 }
 
 export function chartEmptyText(config: StatsChartConfig, dives: number): string {
   if (dives === 0) {
-    return 'No dives match the filter.';
+    return t('stats.empty.noDives');
   }
-  const missing = config.var2 ?? config.var1;
-  return `None of these ${diveCount(dives)} has a value for ${missing}. Try another variable, or a wider filter.`;
+  const missing = variableLabel(config.var2 ?? config.var1);
+  return t('stats.empty.noValue', { count: dives, variable: missing });
 }
 
 // --- Presets ---------------------------------------------------------------------
 
 export type StatsPreset = {
   key: string;
-  title: string;
-  detail: string;
+  /** Getters on the presets below: looked up in the language in force. */
+  readonly title: string;
+  readonly detail: string;
   /** An SF Symbol; see src/components/symbol.tsx. */
   icon: string;
   config: StatsChartConfigInput;
@@ -407,22 +482,34 @@ export type StatsPreset = {
 export const STATS_PRESETS: readonly StatsPreset[] = [
   {
     key: 'sac-depth',
-    title: 'Does depth change my air use?',
-    detail: 'SAC against maximum depth',
+    get title() {
+      return t('stats.preset.sacDepth.title');
+    },
+    get detail() {
+      return t('stats.preset.sacDepth.detail');
+    },
     icon: 'wind',
     config: { var1: 'Max. Depth', binner1: 0, var2: 'SAC' },
   },
   {
     key: 'depth-temperature',
-    title: 'How cold does it get with depth?',
-    detail: 'Water temperature against maximum depth',
+    get title() {
+      return t('stats.preset.depthTemperature.title');
+    },
+    get detail() {
+      return t('stats.preset.depthTemperature.detail');
+    },
     icon: 'thermometer.medium',
     config: { var1: 'Max. Depth', binner1: 0, var2: 'Water temperature' },
   },
   {
     key: 'year-mode',
-    title: 'How much do I dive, and how?',
-    detail: 'Dives per year by dive mode',
+    get title() {
+      return t('stats.preset.yearMode.title');
+    },
+    get detail() {
+      return t('stats.preset.yearMode.detail');
+    },
     icon: 'chart.bar.fill',
     config: {
       var1: 'Date',
@@ -433,8 +520,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'sac-year',
-    title: 'Is my air use improving?',
-    detail: 'Median SAC per year',
+    get title() {
+      return t('stats.preset.sacYear.title');
+    },
+    get detail() {
+      return t('stats.preset.sacYear.detail');
+    },
     icon: 'chart.line.downtrend.xyaxis',
     config: {
       var1: 'Date',
@@ -446,8 +537,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'sites',
-    title: 'Where do I dive most?',
-    detail: 'Dives per dive site',
+    get title() {
+      return t('stats.preset.sites.title');
+    },
+    get detail() {
+      return t('stats.preset.sites.detail');
+    },
     icon: 'mappin.and.ellipse',
     config: {
       var1: 'Dive site',
@@ -457,8 +552,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'people',
-    title: 'Who do I dive with?',
-    detail: 'Dives per buddy and guide',
+    get title() {
+      return t('stats.preset.people.title');
+    },
+    get detail() {
+      return t('stats.preset.people.detail');
+    },
     icon: 'person.2.fill',
     config: {
       var1: 'People',
@@ -468,8 +567,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'depth-histogram',
-    title: 'How deep do I go?',
-    detail: 'Dives per 5 m or 15 ft of maximum depth',
+    get title() {
+      return t('stats.preset.depthHistogram.title');
+    },
+    get detail() {
+      return t('stats.preset.depthHistogram.detail');
+    },
     icon: 'arrow.down.to.line',
     config: {
       var1: 'Max. Depth',
@@ -488,15 +591,23 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'duration-depth',
-    title: 'Do deeper dives run shorter?',
-    detail: 'Duration against maximum depth',
+    get title() {
+      return t('stats.preset.durationDepth.title');
+    },
+    get detail() {
+      return t('stats.preset.durationDepth.detail');
+    },
     icon: 'timer',
     config: { var1: 'Max. Depth', binner1: 0, var2: 'Duration' },
   },
   {
     key: 'temperature-month',
-    title: 'Which months are warmest?',
-    detail: 'Water temperature per month of the year',
+    get title() {
+      return t('stats.preset.temperatureMonth.title');
+    },
+    get detail() {
+      return t('stats.preset.temperatureMonth.detail');
+    },
     icon: 'calendar',
     config: {
       var1: 'Month of year',
@@ -506,8 +617,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'gases',
-    title: 'What do I breathe?',
-    detail: 'Share of dives per gas',
+    get title() {
+      return t('stats.preset.gases.title');
+    },
+    get detail() {
+      return t('stats.preset.gases.detail');
+    },
     icon: 'circle.hexagongrid',
     config: {
       var1: 'Gas type',
@@ -517,8 +632,12 @@ export const STATS_PRESETS: readonly StatsPreset[] = [
   },
   {
     key: 'weekday',
-    title: 'Which days do I dive?',
-    detail: 'Dives per day of the week',
+    get title() {
+      return t('stats.preset.weekday.title');
+    },
+    get detail() {
+      return t('stats.preset.weekday.detail');
+    },
     icon: 'calendar.day.timeline.left',
     config: { var1: 'Day of week', chart: { type: 'DiscreteCount', subtype: 'Vertical' } },
   },
@@ -546,7 +665,7 @@ export function parseStatsConfig(raw: unknown): StatsChartConfig | null {
 /** The palette's size: more would need a hue nobody could tell from another. */
 export const MAX_SERIES = 8;
 
-const OTHER_LABEL = (n: number) => `Other (${n})`;
+const OTHER_LABEL = (n: number) => t('stats.otherSeries', { count: n });
 
 /**
  * Keeps the largest series and folds the rest into a last "Other". A pie comes with its
@@ -622,7 +741,7 @@ function foldPie(chart: StatsChart): StatsChart {
     }
   });
   const count = other.reduce((acc, row) => acc + row.count, 0);
-  const label = `other (${other.length} items)`;
+  const label = t('stats.otherSlice', { count: other.length });
   items.push({
     label,
     full: label,
@@ -717,7 +836,7 @@ function barRows(chart: StatsChart, items: StatsChartItem[]): StatRow[] {
     const text = counting
       ? diveCount(item.count)
       : value === null
-        ? 'No value'
+        ? t('stats.noValue')
         : formatStat(value, decimals, unit);
     const share = counting && item.total ? percent(item.count, item.total) : '';
     const detail = counting ? share : item.count > 0 ? diveCount(item.count) : '';
@@ -759,8 +878,12 @@ function boxRow(chart: StatsChart, item: StatsChartItem, index: number): StatRow
   }
   const { decimals, unit } = numericAxis(chart.valAxis);
   const label = binLabel(item.full);
-  const value = `${formatStat(item.box.q2, decimals, unit)} median`;
-  const detail = `${formatStat(item.box.min, decimals)} to ${formatStat(item.box.max, decimals, unit)}, ${diveCount(item.count)}`;
+  const value = t('stats.medianValue', { value: formatStat(item.box.q2, decimals, unit) });
+  const detail = t('stats.range', {
+    from: formatStat(item.box.min, decimals),
+    to: formatStat(item.box.max, decimals, unit),
+    dives: diveCount(item.count),
+  });
   return [
     {
       key: `${index}`,
@@ -783,7 +906,7 @@ function quartileRow(chart: StatsChart, item: StatsChartItem, index: number): St
   }
   const { decimals, unit } = numericAxis(chart.valAxis);
   const label = binLabel(item.full);
-  const value = `${formatStat(item.quartiles.q2, decimals, unit)} median`;
+  const value = t('stats.medianValue', { value: formatStat(item.quartiles.q2, decimals, unit) });
   const detail = diveCount(item.count);
   return [
     {
@@ -836,8 +959,8 @@ export function selectionReadout(chart: StatsChart, selection: ChartSelection): 
     return {
       title,
       lines: [
-        { label: 'Dives', value: String(item.count) },
-        { label: 'Share', value: percent(item.count, item.total ?? 0) },
+        { label: t('stats.readout.dives'), value: String(item.count) },
+        { label: t('stats.readout.share'), value: percent(item.count, item.total ?? 0) },
         ...(item.other ?? []).slice(0, 6).map((row) => ({ label: binLabel(row.name), value: String(row.count) })),
       ],
       dives: item.dives ?? [],
@@ -848,10 +971,10 @@ export function selectionReadout(chart: StatsChart, selection: ChartSelection): 
     return {
       title,
       lines: [
-        { label: 'Dives', value: String(item.count) },
-        { label: 'First quartile', value: formatStat(item.quartiles.q1, decimals, unit) },
-        { label: 'Median', value: formatStat(item.quartiles.q2, decimals, unit) },
-        { label: 'Third quartile', value: formatStat(item.quartiles.q3, decimals, unit) },
+        { label: t('stats.readout.dives'), value: String(item.count) },
+        { label: t('stats.readout.firstQuartile'), value: formatStat(item.quartiles.q1, decimals, unit) },
+        { label: t('stats.readout.median'), value: formatStat(item.quartiles.q2, decimals, unit) },
+        { label: t('stats.readout.thirdQuartile'), value: formatStat(item.quartiles.q3, decimals, unit) },
       ],
       dives: item.dives ?? [],
     };
@@ -864,12 +987,12 @@ export function selectionReadout(chart: StatsChart, selection: ChartSelection): 
     return {
       title,
       lines: [
-        { label: 'Dives', value: String(item.count) },
-        ...line('Median', ops.median),
-        ...line('Mean', ops.mean),
-        ...line('Mean, by dive time', ops.timeWeightedMean),
-        ...line('Lowest', ops.min),
-        ...line('Highest', ops.max),
+        { label: t('stats.readout.dives'), value: String(item.count) },
+        ...line(t('stats.readout.median'), ops.median),
+        ...line(t('stats.readout.mean'), ops.mean),
+        ...line(t('stats.readout.timeWeightedMean'), ops.timeWeightedMean),
+        ...line(t('stats.readout.lowest'), ops.min),
+        ...line(t('stats.readout.highest'), ops.max),
       ],
       dives: item.dives ?? [],
     };
@@ -877,8 +1000,8 @@ export function selectionReadout(chart: StatsChart, selection: ChartSelection): 
   return {
     title,
     lines: [
-      { label: 'Dives', value: String(item.count) },
-      ...(item.total ? [{ label: 'Share', value: percent(item.count, item.total) }] : []),
+      { label: t('stats.readout.dives'), value: String(item.count) },
+      ...(item.total ? [{ label: t('stats.readout.share'), value: percent(item.count, item.total) }] : []),
     ],
     dives: item.dives ?? [],
   };
@@ -896,8 +1019,8 @@ function segmentReadout(
     return {
       title: `${title}, ${binLabel(names[segment] ?? '')}`,
       lines: [
-        { label: 'Dives', value: String(chosen.count) },
-        { label: 'Share of the bar', value: percent(chosen.count, item.count) },
+        { label: t('stats.readout.dives'), value: String(chosen.count) },
+        { label: t('stats.readout.shareOfBar'), value: percent(chosen.count, item.count) },
       ],
       dives: chosen.dives,
     };
@@ -905,7 +1028,7 @@ function segmentReadout(
   return {
     title,
     lines: [
-      { label: 'Dives', value: String(item.count) },
+      { label: t('stats.readout.dives'), value: String(item.count) },
       ...(item.segments ?? []).flatMap((s, series) =>
         s.count > 0 ? [{ label: binLabel(names[series] ?? ''), value: String(s.count) }] : [],
       ),
@@ -920,12 +1043,12 @@ function boxReadout(chart: StatsChart, item: StatsChartItem, title: string): Sel
   return {
     title,
     lines: [
-      { label: 'Dives', value: String(item.count) },
-      { label: 'Highest', value: formatStat(box.max, decimals, unit) },
-      { label: 'Third quartile', value: formatStat(box.q3, decimals, unit) },
-      { label: 'Median', value: formatStat(box.q2, decimals, unit) },
-      { label: 'First quartile', value: formatStat(box.q1, decimals, unit) },
-      { label: 'Lowest', value: formatStat(box.min, decimals, unit) },
+      { label: t('stats.readout.dives'), value: String(item.count) },
+      { label: t('stats.readout.highest'), value: formatStat(box.max, decimals, unit) },
+      { label: t('stats.readout.thirdQuartile'), value: formatStat(box.q3, decimals, unit) },
+      { label: t('stats.readout.median'), value: formatStat(box.q2, decimals, unit) },
+      { label: t('stats.readout.firstQuartile'), value: formatStat(box.q1, decimals, unit) },
+      { label: t('stats.readout.lowest'), value: formatStat(box.min, decimals, unit) },
     ],
     dives: item.dives ?? [],
   };
@@ -945,7 +1068,7 @@ function pointReadout(chart: StatsChart, index: number): SelectionReadout | null
         ? binLabel(chart.items?.[Math.round(points.x[index])]?.full ?? '')
         : formatStat(points.x[index], numericAxis(x).decimals, numericAxis(x).unit);
   return {
-    title: 'One dive',
+    title: t('stats.readout.oneDive'),
     lines: [
       { label: axisName(x), value: xText },
       { label: axisName(chart.valAxis), value: formatStat(points.y[index], y.decimals, y.unit) },
@@ -962,7 +1085,7 @@ export function dotTitle(siteName: string, when: number): string {
 
 /** An axis title without its unit, which the value carries. */
 function axisName(axis: StatsAxis | undefined): string {
-  return (axis?.title ?? '').replace(/ \[[^\]]*\]$/, '');
+  return variableLabel((axis?.title ?? '').replace(/ \[[^\]]*\]$/, ''));
 }
 
 // --- What VoiceOver says --------------------------------------------------------------
@@ -983,14 +1106,18 @@ export function chartSummary(
   }
   if (chart.family === 'scatter' && chart.catAxis?.kind !== 'category') {
     const n = chart.points?.dives.length ?? 0;
+    const percent = Math.round((chart.regression?.r2 ?? 0) * 100);
     const trend = chart.regression
-      ? ` The trend ${chart.regression.a >= 0 ? 'rises' : 'falls'}, explaining ${Math.round(chart.regression.r2 * 100)}% of the spread.`
-      : ' There is no clear trend.';
-    return `${head}. Scatter plot of ${diveCount(n)}.${trend}`;
+      ? chart.regression.a >= 0
+        ? t('stats.summary.rises', { percent })
+        : t('stats.summary.falls', { percent })
+      : t('stats.summary.noTrend');
+    return `${head}. ${t('stats.summary.scatter', { count: n })} ${trend}`;
   }
   const rows = chartRows(chart);
   const peak = largestRow(chart);
-  return `${head}. ${rows.length} ${rows.length === 1 ? 'group' : 'groups'}, ${diveCount(dives)}.${peak ? ` Largest: ${peak}.` : ''}`;
+  const groups = t('stats.summary.groups', { count: rows.length, dives: diveCount(dives) });
+  return `${head}. ${groups}${peak ? ` ${t('stats.summary.largest', { peak })}` : ''}`;
 }
 
 function largestRow(chart: StatsChart): string | null {

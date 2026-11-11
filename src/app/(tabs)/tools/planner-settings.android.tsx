@@ -10,13 +10,14 @@ import {
 } from '@/components/material/list';
 import { usePlannerSettingsScreen } from '@/features/tools/use-planner-settings-screen';
 import { DECO_MODE_OPTIONS } from '@/models/planner-settings';
+import { t } from '@/i18n';
 
 export default function PlannerSettingsScreen() {
   const screen = usePlannerSettingsScreen();
 
   return (
     <M3Screen>
-      <M3Section title="Deco model">
+      <M3Section title={t('ui.decoModel')}>
         <M3SegmentedRow
           options={DECO_MODE_OPTIONS}
           value={screen.planner.decoMode}
@@ -47,7 +48,7 @@ export default function PlannerSettingsScreen() {
         </M3Section>
       ))}
 
-      <M3Section title="Altitude">
+      <M3Section title={t('ui.altitude')}>
         <M3StepperRow
           label={screen.altitudeLabel}
           value={screen.altitude}
@@ -55,7 +56,7 @@ export default function PlannerSettingsScreen() {
           onChange={screen.setAltitude}
         />
         <M3StepperRow
-          label={`Surface pressure  ${screen.planner.surfacePressureMbar} mbar`}
+          label={`${t('toolsScreen.surfacePressure')}  ${screen.planner.surfacePressureMbar} mbar`}
           value={screen.planner.surfacePressureMbar}
           min={689}
           max={1100}
@@ -65,7 +66,7 @@ export default function PlannerSettingsScreen() {
       </M3Section>
 
       <M3Section>
-        <M3ActionRow label="Restore defaults" destructive onPress={screen.restore} />
+        <M3ActionRow label={t('ui.restoreDefaults')} destructive onPress={screen.restore} />
       </M3Section>
     </M3Screen>
   );

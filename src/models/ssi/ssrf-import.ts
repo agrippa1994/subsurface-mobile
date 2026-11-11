@@ -27,6 +27,7 @@
 // and "GF High" keys the core's own importers use.
 
 import { distanceMeters } from '../site-edit';
+import { t } from '@/i18n';
 
 /** The app's tag for a dive that exists in SSI. See src/queries/ssi.ts. */
 const SSI_TAG = 'ssi';
@@ -1268,16 +1269,15 @@ export function countDivesOnlyInLog(
 
 /** The result in a sentence, for the screen that ran the import. */
 export function describeSsiImport(result: SsiToSsrfResult): string {
-  const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
-  const parts = [`${count(result.dives, 'dive')} added.`];
+  const parts = [t('ssiImport.result.added', { count: result.dives })];
   if (result.alreadyPresent > 0) {
-    parts.push(`${count(result.alreadyPresent, 'dive')} already in the logbook.`);
+    parts.push(t('ssiImport.result.present', { count: result.alreadyPresent }));
   }
   if (result.duplicates > 0) {
-    parts.push(`${count(result.duplicates, 'duplicate')} in SSI skipped.`);
+    parts.push(t('ssiImport.result.duplicates', { count: result.duplicates }));
   }
   if (result.unreadable > 0) {
-    parts.push(`${count(result.unreadable, 'record')} had no usable date and could not be read.`);
+    parts.push(t('ssiImport.result.unreadable', { count: result.unreadable }));
   }
   return parts.join(' ');
 }

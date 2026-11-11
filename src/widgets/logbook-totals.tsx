@@ -46,13 +46,12 @@ const LogbookTotalsWidget = (
   const period = props.periods[key] ?? props.periods.all;
   const link = widgetURL(props.url);
   const accent = '#0A84FF';
-  const divesWord = period.dives === 1 ? 'dive' : 'dives';
 
   if (family === 'accessoryInline') {
     return (
       <Text
         modifiers={[link]}
-      >{`${period.dives} ${divesWord}, ${period.hoursText} underwater`}</Text>
+      >{period.inlineText}</Text>
     );
   }
 
@@ -91,10 +90,10 @@ const LogbookTotalsWidget = (
         ]}
       >
         <Text modifiers={[font({ textStyle: 'headline' }), lineLimit(1)]}>
-          {`${period.dives} ${divesWord}`}
+          {period.countText}
         </Text>
         <Text modifiers={[font({ textStyle: 'body', design: 'rounded' }), lineLimit(1)]}>
-          {`${period.hoursText}, deepest ${period.deepestText}`}
+          {period.summaryText}
         </Text>
         <Text modifiers={[font({ textStyle: 'caption' }), lineLimit(1)]}>{period.label}</Text>
       </VStack>
@@ -132,7 +131,7 @@ const LogbookTotalsWidget = (
         {String(period.dives)}
       </Text>
       <Text modifiers={[font({ textStyle: 'subheadline', weight: 'semibold' }), secondary]}>
-        {divesWord}
+        {period.divesWord}
       </Text>
     </HStack>
   );
@@ -173,12 +172,12 @@ const LogbookTotalsWidget = (
         <Text
           modifiers={[font({ textStyle: 'caption', weight: 'medium' }), secondary, lineLimit(1)]}
         >
-          {`${period.hoursText} underwater`}
+          {period.underwaterText}
         </Text>
         <Text
           modifiers={[font({ textStyle: 'caption', weight: 'medium' }), secondary, lineLimit(1)]}
         >
-          {`Deepest ${period.deepestText}`}
+          {period.deepestLine}
         </Text>
       </VStack>
     );
@@ -187,12 +186,12 @@ const LogbookTotalsWidget = (
   const grid = (
     <VStack spacing={10}>
       <HStack spacing={8}>
-        {figure('clock', 'Underwater', period.hoursText)}
-        {figure('arrow.down.to.line', 'Deepest', period.deepestText)}
+        {figure('clock', props.text.underwater, period.hoursText)}
+        {figure('arrow.down.to.line', props.text.deepest, period.deepestText)}
       </HStack>
       <HStack spacing={8}>
-        {figure('timer', 'Longest', period.longestText)}
-        {figure('gauge.with.dots.needle.33percent', 'Avg depth', period.averageDepthText)}
+        {figure('timer', props.text.longest, period.longestText)}
+        {figure('gauge.with.dots.needle.33percent', props.text.avgDepth, period.averageDepthText)}
       </HStack>
     </VStack>
   );
@@ -209,7 +208,7 @@ const LogbookTotalsWidget = (
           <Spacer />
           {count}
           <Text modifiers={[font({ textStyle: 'caption' }), secondary, lineLimit(1)]}>
-            {`${period.sites} ${period.sites === 1 ? 'site' : 'sites'}`}
+            {period.sitesText}
           </Text>
         </VStack>
         <VStack modifiers={[frame({ maxWidth: 10000, maxHeight: 10000 })]}>{grid}</VStack>
@@ -218,26 +217,25 @@ const LogbookTotalsWidget = (
   }
 
   // systemLarge and systemExtraLarge.
-  const toGo = props.nextMilestone - props.totalDives;
   return (
     <VStack alignment="leading" spacing={14} modifiers={[fill, background, link]}>
       {caption}
       {count}
       {grid}
-      {figure('mappin.and.ellipse', 'Dive sites', String(period.sites))}
+      {figure('mappin.and.ellipse', props.text.diveSites, String(period.sites))}
       {period.deepestWhere !== '' ? (
         <Text modifiers={[font({ textStyle: 'caption' }), secondary, lineLimit(2)]}>
-          {`Deepest dive: ${period.deepestWhere}`}
+          {period.deepestDiveText}
         </Text>
       ) : null}
       <Spacer />
       <VStack alignment="leading" spacing={4}>
         <HStack>
           <Text modifiers={[font({ textStyle: 'caption', weight: 'semibold' })]}>
-            {`Next milestone: ${props.nextMilestone} dives`}
+            {props.text.milestone}
           </Text>
           <Spacer />
-          <Text modifiers={[font({ textStyle: 'caption' }), secondary]}>{`${toGo} to go`}</Text>
+          <Text modifiers={[font({ textStyle: 'caption' }), secondary]}>{props.text.toGo}</Text>
         </HStack>
         <Gauge
           value={props.totalDives}

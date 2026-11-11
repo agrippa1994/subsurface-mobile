@@ -20,6 +20,7 @@ import {
 import type { TripDetailViewProps } from './trip-detail-view';
 import { DiveRowContent } from '@/components/dive-row-swift';
 import { toDiveRow } from '@/models/dive-list';
+import { t } from '@/i18n';
 
 export type { TripDetailViewProps };
 
@@ -42,10 +43,10 @@ export function TripDetailView({
     <Host style={{ flex: 1 }}>
       <List modifiers={[listStyle('insetGrouped')]}>
         <Section
-          title="Summary"
+          title={t('ui.summary')}
           footer={summaryFooter ? <Text>{summaryFooter}</Text> : undefined}>
           {location.trim() === '' ? (
-            <Button label="Add a Location" systemImage="mappin" onPress={onEdit} />
+            <Button label={t('ui.addALocation')} systemImage="mappin" onPress={onEdit} />
           ) : null}
           {summary.map((row) => (
             <LabeledContent key={row.label} label={row.label}>
@@ -54,15 +55,15 @@ export function TripDetailView({
           ))}
         </Section>
 
-        <Section title="Notes">
+        <Section title={t('ui.notes')}>
           {text !== '' ? (
             <Text>{text}</Text>
           ) : (
-            <Button label="Add Notes" systemImage="square.and.pencil" onPress={onEdit} />
+            <Button label={t('ui.addNotes')} systemImage="square.and.pencil" onPress={onEdit} />
           )}
         </Section>
 
-        <Section title="Dives">
+        <Section title={t('ui.dives')}>
           {dives.map((dive) => {
             const row = toDiveRow(dive, units);
             return (
@@ -74,7 +75,7 @@ export function TripDetailView({
                 </Button>
                 <SwipeActions.Actions edge="trailing" allowsFullSwipe={false}>
                   <Button
-                    label="Remove"
+                    label={t('ui.remove')}
                     systemImage="minus.circle"
                     onPress={() => onRemoveDive(dive)}
                     modifiers={[tint('#FF9500')]}
@@ -86,8 +87,8 @@ export function TripDetailView({
         </Section>
 
         <Section
-          footer={<Text>The trip goes away. Its dives stay in your logbook.</Text>}>
-          <Button label="Ungroup Trip" role="destructive" onPress={onUngroup} />
+          footer={<Text>{t('ui.theTripGoesAwayItsDives')}</Text>}>
+          <Button label={t('ui.ungroupTrip')} role="destructive" onPress={onUngroup} />
         </Section>
       </List>
     </Host>

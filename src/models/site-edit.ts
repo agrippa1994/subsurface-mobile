@@ -7,6 +7,7 @@
 
 import type { DiveSite, DiveSiteInput } from './index';
 import { degreesToUdeg, udegToDegrees } from './units';
+import { t } from '@/i18n';
 
 export type SiteDraft = {
   /** 0 for a site that does not exist yet. */
@@ -48,12 +49,12 @@ export function siteDraftFrom(site: DiveSite): SiteDraft {
  */
 export function formatLatitude(latUdeg: number): string {
   const lat = udegToDegrees(latUdeg);
-  return `${Math.abs(lat).toFixed(4)}${lat >= 0 ? 'N' : 'S'}`;
+  return `${Math.abs(lat).toFixed(4)}${lat >= 0 ? t('sites.hemisphere.north') : t('sites.hemisphere.south')}`;
 }
 
 export function formatLongitude(lonUdeg: number): string {
   const lon = udegToDegrees(lonUdeg);
-  return `${Math.abs(lon).toFixed(4)}${lon >= 0 ? 'E' : 'W'}`;
+  return `${Math.abs(lon).toFixed(4)}${lon >= 0 ? t('sites.hemisphere.east') : t('sites.hemisphere.west')}`;
 }
 
 export function formatCoordinates(latUdeg: number, lonUdeg: number): string {
@@ -194,10 +195,10 @@ export type SiteValidation = { ok: true } | { ok: false; message: string };
  */
 export function validateSiteDraft(draft: SiteDraft): SiteValidation {
   if (draft.name.trim() === '') {
-    return { ok: false, message: 'A dive site needs a name.' };
+    return { ok: false, message: t('sites.validation.name') };
   }
   if ((draft.latUdeg === null) !== (draft.lonUdeg === null)) {
-    return { ok: false, message: 'A position needs both a latitude and a longitude.' };
+    return { ok: false, message: t('sites.validation.position') };
   }
   return { ok: true };
 }
@@ -320,9 +321,9 @@ export type SiteRow = {
 export function toSiteRow(site: DiveSite): SiteRow {
   return {
     uuid: site.uuid,
-    title: site.name.trim() === '' ? 'Unnamed site' : site.name,
-    subtitle: site.hasGps ? formatCoordinates(site.latUdeg, site.lonUdeg) : 'No position',
-    countText: `${site.diveCount} ${site.diveCount === 1 ? 'dive' : 'dives'}`,
+    title: site.name.trim() === '' ? t('sites.unnamed') : site.name,
+    subtitle: site.hasGps ? formatCoordinates(site.latUdeg, site.lonUdeg) : t('sites.noPosition'),
+    countText: t('common.diveCount', { count: site.diveCount }),
     hasGps: site.hasGps,
   };
 }

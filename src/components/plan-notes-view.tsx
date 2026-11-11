@@ -8,6 +8,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { parsePlanNotes, type NoteBlock } from '@/models/plan-notes';
+import { t } from '@/i18n';
 
 export function PlanNotesView({ notes }: { notes: string }) {
   const blocks = useMemo(() => parsePlanNotes(notes), [notes]);
@@ -80,7 +81,12 @@ function NoteTable({ block }: { block: Extract<NoteBlock, { kind: 'table' }> }) 
 
 /** Read row by row: an arrow says nothing to a screen reader, the words around it do. */
 function tableLabel(block: Extract<NoteBlock, { kind: 'table' }>): string {
-  const spoken: Record<string, string> = { '↓': 'down to', '↑': 'up to', '→': 'stay at', '-': 'stop at' };
+  const spoken: Record<string, string> = {
+    '↓': t('charts.notes.down'),
+    '↑': t('charts.notes.up'),
+    '→': t('charts.notes.stay'),
+    '-': t('charts.notes.stop'),
+  };
   return block.rows
     .map((row) => row.map((cell, index) => (index === 0 ? (spoken[cell] ?? cell) : cell)).join(' ').trim())
     .join('. ');

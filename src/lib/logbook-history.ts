@@ -20,6 +20,7 @@ import { flush, schedulePersist } from '@/lib/logbook-persist';
 import { reconcileMerges } from '@/lib/merged-dives';
 import { queryKeys } from '@/lib/query-keys';
 import type { HistoryDirection } from '@/models/logbook-history';
+import { t } from '@/i18n';
 
 let state: HistoryState = {
   canUndo: false,
@@ -104,7 +105,7 @@ export async function stepHistory(
   direction: HistoryDirection,
 ): Promise<HistoryEntry> {
   if (holds > 0) {
-    throw new Error('A sync is running. Try again when it has finished.');
+    throw new Error(t('errors.syncRunning'));
   }
   const { entry, idsKept } = direction === 'undo' ? undo() : redo();
   reconcileMerges(new Set(listDives().map((dive) => dive.id)));

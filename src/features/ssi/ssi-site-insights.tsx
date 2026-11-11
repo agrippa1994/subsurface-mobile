@@ -27,8 +27,8 @@ import {
 } from '@/models/ssi/site-insights';
 import { useSsiSiteLookups } from '@/queries/ssi';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
-const MONTH_HINT = 'Tap a month for its average';
 
 function Fact({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
@@ -95,52 +95,52 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
 
   const facts: [string, string][] = [];
   if (insights.avgDepthM !== null)
-    facts.push(['Average maximum depth', formatSsiDepth(insights.avgDepthM, units)]);
-  if (insights.avgMinutes !== null) facts.push(['Average dive time', `${insights.avgMinutes} min`]);
-  if (insights.water) facts.push(['Water', insights.water]);
-  if (environment.length) facts.push(['Environment', environment.join(', ')]);
-  if (levels.length) facts.push(['Level', levels.join(', ')]);
+    facts.push([t('ssiSite.avgMaxDepth'), formatSsiDepth(insights.avgDepthM, units)]);
+  if (insights.avgMinutes !== null) facts.push([t('ssiSite.avgDiveTime'), t('common.minutesShort', { minutes: insights.avgMinutes })]);
+  if (insights.water) facts.push([t('ui.water'), insights.water]);
+  if (environment.length) facts.push([t('ssiSite.environment'), environment.join(', ')]);
+  if (levels.length) facts.push([t('ssiSite.level'), levels.join(', ')]);
   if (insights.rating !== null)
     facts.push([
-      'SSI rating',
-      `${insights.rating.toFixed(1)} of 5${
+      t('ssiSite.rating'),
+      `${t('ssiSite.ratingValue', { rating: insights.rating.toFixed(1) })}${
         insights.ratingCount ? ` (${insights.ratingCount.toLocaleString()})` : ''
       }`,
     ]);
   if (insights.totalDives !== null)
-    facts.push(['Logged dives', insights.totalDives.toLocaleString()]);
-  if (insights.divers !== null) facts.push(['Divers', insights.divers.toLocaleString()]);
+    facts.push([t('ssiSite.loggedDives'), insights.totalDives.toLocaleString()]);
+  if (insights.divers !== null) facts.push([t('ssiSite.divers'), insights.divers.toLocaleString()]);
 
   const temperatureUnit = ssiTemperatureUnit(units);
   const charts = [
     {
-      title: 'Water temperature',
+      title: t('stats.variable.waterTemperature'),
       bars: ssiWaterTemperatureBars(months, units),
       axisUnit: temperatureUnit,
-      hint: MONTH_HINT,
+      hint: t('ssiSite.monthHint'),
     },
     {
-      title: 'Air temperature',
+      title: t('stats.variable.airTemperature'),
       bars: ssiAirTemperatureBars(months, units),
       axisUnit: temperatureUnit,
-      hint: MONTH_HINT,
+      hint: t('ssiSite.monthHint'),
     },
     {
-      title: 'Visibility',
+      title: t('ui.visibility'),
       bars: ssiVisibilityBars(months, units),
       axisUnit: ssiLengthUnit(units),
-      hint: MONTH_HINT,
+      hint: t('ssiSite.monthHint'),
     },
     {
-      title: 'Dives per month',
+      title: t('ssiSite.divesPerMonth'),
       bars: ssiMonthlyDiveBars(months),
-      hint: 'Tap a month for its count',
+      hint: t('ssiSite.monthCountHint'),
       integer: true,
     },
     {
-      title: 'Ratings',
+      title: t('ssiSite.ratings'),
       bars: ssiRatingBars(insights.ratingCounts),
-      hint: 'Tap a bar for its count',
+      hint: t('charts.tapBarCount'),
       integer: true,
     },
   ].filter((chart) => chart.bars.length > 0);
@@ -148,7 +148,7 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
   return (
     <>
       {facts.length ? (
-        <FormSection title="At this site">
+        <FormSection title={t('ui.atThisSite')}>
           {facts.map(([label, value]) => (
             <Fact key={label} label={label} value={value} />
           ))}
@@ -165,21 +165,21 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
         />
       ))}
       {current.length ? (
-        <FormSection title="Current">
+        <FormSection title={t('ui.current')}>
           {current.map((row) => (
             <Fact key={row.label} label={row.label} value={`${row.percent}%`} />
           ))}
         </FormSection>
       ) : null}
       {entry.length ? (
-        <FormSection title="Entry">
+        <FormSection title={t('ui.entry')}>
           {entry.map((row) => (
             <Fact key={row.label} label={row.label} value={`${row.percent}%`} />
           ))}
         </FormSection>
       ) : null}
       {wildlife.length ? (
-        <FormSection title="Wildlife">
+        <FormSection title={t('ui.wildlife')}>
           {wildlife.map((animal) => (
             <WildlifeRow
               key={animal.id}
@@ -192,7 +192,7 @@ export function SsiSiteInsights({ detail }: { detail: SiteDetail }) {
         </FormSection>
       ) : null}
       {insights.diveTypes.length ? (
-        <FormSection title="How it is dived">
+        <FormSection title={t('ui.howItIsDived')}>
           {insights.diveTypes.map((type) => (
             <Fact key={type.label} label={type.label} value={type.dives.toLocaleString()} />
           ))}

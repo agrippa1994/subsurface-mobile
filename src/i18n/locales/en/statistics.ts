@@ -1,0 +1,33 @@
+// AI-generated (Claude)
+export default {
+  tile: {
+    dives: 'Dives',
+    totalTime: 'Total time',
+    maxDepth: 'Max depth',
+    avgSac: 'Avg SAC',
+    diveSites: 'Dive sites',
+    lastDive: 'Last dive',
+  },
+  average: 'avg {{value}}',
+  first: 'first {{date}}',
+  matched_one: '{{count}} matched',
+  matched_other: '{{count}} matched',
+  onNitrox_one: '{{count}} on nitrox',
+  onNitrox_other: '{{count}} on nitrox',
+  deep_one: '{{count}} past {{depth}}',
+  deep_other: '{{count}} past {{depth}}',
+  range: '{{from}} to {{to}}',
+  hoursMinutes: '{{hours}} h {{minutes}} min',
+  caption: '{{range}}: {{dives}}',
+  durationOver: 'over {{minutes}} min',
+  durationRange: '{{from}} to {{to}} min',
+  period: {
+    lastMonth: 'Last month',
+    months_one: '{{count}} month',
+    months_other: '{{count}} months',
+    spokenLastMonth: 'the last month',
+    spoken_one: 'the last {{count}} month',
+    spoken_other: 'the last {{count}} months',
+  },
+  divesAfter: 'Dives after {{date}}',
+};

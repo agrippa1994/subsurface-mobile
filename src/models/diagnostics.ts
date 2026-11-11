@@ -11,6 +11,7 @@
 // The file itself lives in src/lib/diagnostics.ts.
 
 import { describeError, shortenPaths } from './errors';
+import { t } from '@/i18n';
 
 /** How many entries the log keeps. Older ones fall off the top. */
 export const MAX_ENTRIES = 50;
@@ -58,8 +59,8 @@ export function appendLine(log: string, line: string, max = MAX_ENTRIES): string
 export function diagnosticsSummary(log: string): string {
   const lines = log.split('\n').filter((entry) => entry.trim() !== '');
   if (lines.length === 0) {
-    return 'No problems recorded';
+    return t('diagnostics.none');
   }
   const last = lines[lines.length - 1].slice(0, 10);
-  return `${lines.length} ${lines.length === 1 ? 'entry' : 'entries'}, last on ${last}`;
+  return t('diagnostics.summary', { count: lines.length, last });
 }

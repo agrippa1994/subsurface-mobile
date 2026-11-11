@@ -21,6 +21,7 @@ import {
   mmToMeters,
   type Units,
 } from './units';
+import { t } from '@/i18n';
 
 /** Depth bucket width in `StatsSummary.byDepth`. `STATS_DEPTH_BUCKET` in core/statistics.h. */
 export const DEPTH_BUCKET_M = 10;
@@ -59,39 +60,40 @@ export function summaryTiles(summary: StatsSummary, units: Units): StatTile[] {
   return [
     {
       key: 'dives',
-      label: 'Dives',
+      label: t('statistics.tile.dives'),
       value: String(dives),
       detail: diveCountDetail(summary, units),
     },
     {
       key: 'time',
-      label: 'Total time',
+      label: t('statistics.tile.totalTime'),
       value: formatTotalTime(total.totalTimeSec),
-      detail: dives > 0 ? `avg ${formatDuration(Math.round(total.totalTimeSec / dives))}` : '',
+      detail:
+        dives > 0 ? t('statistics.average', { value: formatDuration(Math.round(total.totalTimeSec / dives)) }) : '',
     },
     {
       key: 'depth',
-      label: 'Max depth',
+      label: t('statistics.tile.maxDepth'),
       value: dives > 0 ? formatDepth(total.maxDepthMm, units) : '-',
-      detail: total.avgDepthMm > 0 ? `avg ${formatDepth(total.avgDepthMm, units)}` : '',
+      detail: total.avgDepthMm > 0 ? t('statistics.average', { value: formatDepth(total.avgDepthMm, units) }) : '',
     },
     {
       key: 'sac',
-      label: 'Avg SAC',
+      label: t('statistics.tile.avgSac'),
       value: total.avgSacMlPerMin > 0 ? formatSac(total.avgSacMlPerMin, units) : '-',
       detail: sacRange(total.minSacMlPerMin, total.maxSacMlPerMin, units),
     },
     {
       key: 'sites',
-      label: 'Dive sites',
+      label: t('statistics.tile.diveSites'),
       value: String(summary.siteCount),
       detail: temperatureRange(summary, units),
     },
     {
       key: 'last',
-      label: 'Last dive',
+      label: t('statistics.tile.lastDive'),
       value: summary.lastWhen > 0 ? formatDiveDate(summary.lastWhen) : '-',
-      detail: summary.firstWhen > 0 ? `first ${formatDiveDate(summary.firstWhen)}` : '',
+      detail: summary.firstWhen > 0 ? t('statistics.first', { date: formatDiveDate(summary.firstWhen) }) : '',
     },
   ];
 }
@@ -107,13 +109,13 @@ export const DEEP_DIVE_MM = 39000;
 function diveCountDetail(summary: StatsSummary, units: Units): string {
   const parts: string[] = [];
   if (summary.matched !== summary.total.selectionSize) {
-    parts.push(`${summary.matched} matched`);
+    parts.push(t('statistics.matched', { count: summary.matched }));
   }
   if (summary.nitroxDives > 0) {
-    parts.push(`${summary.nitroxDives} on nitrox`);
+    parts.push(t('statistics.onNitrox', { count: summary.nitroxDives }));
   }
   if (summary.deepDives > 0) {
-    parts.push(`${summary.deepDives} past ${formatDepth(DEEP_DIVE_MM, units)}`);
+    parts.push(t('statistics.deep', { count: summary.deepDives, depth: formatDepth(DEEP_DIVE_MM, units) }));
   }
   return parts.join(', ');
 }
@@ -122,7 +124,7 @@ function sacRange(minMlPerMin: number, maxMlPerMin: number, units: Units): strin
   if (minMlPerMin <= 0 || maxMlPerMin <= 0) {
     return '';
   }
-  return `${formatSac(minMlPerMin, units)} to ${formatSac(maxMlPerMin, units)}`;
+  return t('statistics.range', { from: formatSac(minMlPerMin, units), to: formatSac(maxMlPerMin, units) });
 }
 
 /** Bottom time is hours-and-minutes, not the `h:mm:ss` a single dive gets. */
@@ -130,7 +132,7 @@ export function formatTotalTime(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
   const hours = Math.floor(total / 3600);
   const minutes = Math.round((total % 3600) / 60);
-  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
+  return hours > 0 ? t('statistics.hoursMinutes', { hours, minutes }) : t('common.minutesShort', { minutes });
 }
 
 function temperatureRange(summary: StatsSummary, units: Units): string {
@@ -138,7 +140,10 @@ function temperatureRange(summary: StatsSummary, units: Units): string {
   if (minTempMkelvin <= 0 || maxTempMkelvin <= 0) {
     return '';
   }
-  return `${formatTemperature(minTempMkelvin, units)} to ${formatTemperature(maxTempMkelvin, units)}`;
+  return t('statistics.range', {
+    from: formatTemperature(minTempMkelvin, units),
+    to: formatTemperature(maxTempMkelvin, units),
+  });
 }
 
 // --- Dives over time -------------------------------------------------------
@@ -178,7 +183,7 @@ export function divesOverTime(
       key: String(year.period),
       label: String(year.period),
       value: year.selectionSize,
-      caption: `${year.period}: ${diveCount(year.selectionSize)}`,
+      caption: t('statistics.caption', { range: year.period, dives: diveCount(year.selectionSize) }),
     }));
   }
 
@@ -197,7 +202,7 @@ export function divesOverTime(
       key,
       label,
       value: counts.get(key) ?? 0,
-      caption: `${formatMonthYear(y, m)}: ${diveCount(counts.get(key) ?? 0)}`,
+      caption: t('statistics.caption', { range: formatMonthYear(y, m), dives: diveCount(counts.get(key) ?? 0) }),
     });
     m += 1;
     if (m > 12) {
@@ -290,7 +295,10 @@ export function depthHistogram(summary: StatsSummary, units: Units): StatBar[] {
       key: `depth-${from}`,
       label,
       value: bucket.selectionSize,
-      caption: `${depthBoundLabel(from, units)} to ${label}: ${diveCount(bucket.selectionSize)}`,
+      caption: t('statistics.caption', {
+        range: t('statistics.range', { from: depthBoundLabel(from, units), to: label }),
+        dives: diveCount(bucket.selectionSize),
+      }),
     };
   });
 }
@@ -315,13 +323,13 @@ export function durationHistogram(summary: StatsSummary): StatBar[] {
     const label = bucket.toMin === null ? `${bucket.fromMin}+` : String(bucket.toMin);
     const range =
       bucket.toMin === null
-        ? `over ${bucket.fromMin} min`
-        : `${bucket.fromMin} to ${bucket.toMin} min`;
+        ? t('statistics.durationOver', { minutes: bucket.fromMin })
+        : t('statistics.durationRange', { from: bucket.fromMin, to: bucket.toMin });
     return {
       key: `duration-${bucket.fromMin}`,
       label,
       value: bucket.dives,
-      caption: `${range}: ${diveCount(bucket.dives)}`,
+      caption: t('statistics.caption', { range, dives: diveCount(bucket.dives) }),
     };
   });
 }
@@ -335,7 +343,7 @@ function trimTrailingEmpty<T>(buckets: readonly T[], count: (bucket: T) => numbe
 }
 
 function diveCount(n: number): string {
-  return `${n} ${n === 1 ? 'dive' : 'dives'}`;
+  return t('common.diveCount', { count: n });
 }
 
 // --- Axis ------------------------------------------------------------------
@@ -377,11 +385,24 @@ export function countAxis(
 /** The legacy dive summary's periods, in calendar months back from now. */
 export type RecentPeriod = 1 | 3 | 6 | 12;
 
-export const RECENT_PERIODS: readonly { months: RecentPeriod; label: string; spoken: string }[] = [
-  { months: 1, label: 'Last month', spoken: 'the last month' },
-  { months: 3, label: '3 months', spoken: 'the last 3 months' },
-  { months: 6, label: '6 months', spoken: 'the last 6 months' },
-  { months: 12, label: '12 months', spoken: 'the last 12 months' },
+/** A recent period whose words are looked up when read. */
+function recentPeriod(months: RecentPeriod): { months: RecentPeriod; readonly label: string; readonly spoken: string } {
+  return {
+    months,
+    get label() {
+      return months === 1 ? t('statistics.period.lastMonth') : t('statistics.period.months', { count: months });
+    },
+    get spoken() {
+      return months === 1 ? t('statistics.period.spokenLastMonth') : t('statistics.period.spoken', { count: months });
+    },
+  };
+}
+
+export const RECENT_PERIODS: readonly { months: RecentPeriod; readonly label: string; readonly spoken: string }[] = [
+  recentPeriod(1),
+  recentPeriod(3),
+  recentPeriod(6),
+  recentPeriod(12),
 ];
 
 export type StatsFilterInput = {
@@ -417,7 +438,7 @@ export function withRecentPeriod(filter: StatsFilterInput, months: RecentPeriod 
 
 /** "Dives after 9 Aug 2026", for a recent period; null otherwise. */
 export function periodNote(summary: StatsSummary): string | null {
-  return summary.periodStartWhen > 0 ? `Dives after ${formatDiveDate(summary.periodStartWhen)}` : null;
+  return summary.periodStartWhen > 0 ? t('statistics.divesAfter', { date: formatDiveDate(summary.periodStartWhen) }) : null;
 }
 
 /**

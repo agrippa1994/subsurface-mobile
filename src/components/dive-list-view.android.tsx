@@ -30,6 +30,7 @@ import type { DiveSummary } from '@/models';
 import { diveRowTitle, sectionSubtitle, toDiveRow, type DiveTripSection } from '@/models/dive-list';
 
 import type { DiveListViewProps } from './dive-list-view';
+import { t } from '@/i18n';
 
 export type { DiveListViewProps };
 
@@ -58,7 +59,7 @@ function SectionHeading({
       modifiers={[
         fillMaxWidth(),
         ...(onOpen
-          ? [clickable(onOpen), semantics({ contentDescription: `${section.title}, ${subtitle}, opens the trip` })]
+          ? [clickable(onOpen), semantics({ contentDescription: t('diveList.sectionSpoken', { title: section.title, subtitle }) })]
           : []),
         padding(16, 16, 16, 8),
       ]}>
@@ -119,8 +120,8 @@ export function DiveListView({
       group: index === 0,
       onPress: () => onMergeAction(dive, action),
     })),
-    { label: 'Select', icon: 'checkmark.circle', group: true, onPress: () => onStartSelecting(dive.id) },
-    { label: 'Delete', icon: 'trash', destructive: true, onPress: () => onDeleteDive(dive) },
+    { label: t('ui.select'), icon: 'checkmark.circle', group: true, onPress: () => onStartSelecting(dive.id) },
+    { label: t('ui.delete'), icon: 'trash', destructive: true, onPress: () => onDeleteDive(dive) },
   ];
 
   return (
@@ -188,7 +189,7 @@ export function DiveListSkeleton() {
   const palette = useMaterialColors();
   return (
     <Host style={{ flex: 1, backgroundColor: palette.surface }}>
-      <LinearProgressIndicator modifiers={[fillMaxWidth(), semantics({ contentDescription: 'Loading dives' })]} />
+      <LinearProgressIndicator modifiers={[fillMaxWidth(), semantics({ contentDescription: t('ui.loadingDives') })]} />
     </Host>
   );
 }

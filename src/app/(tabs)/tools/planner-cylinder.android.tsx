@@ -15,13 +15,14 @@ import {
 import { StatusView } from '@/components/status-view';
 import { USE_OPTIONS, usePlannerCylinderScreen } from '@/features/tools/use-planner-cylinder-screen';
 import { gasName } from '@/models/planner';
+import { t } from '@/i18n';
 
 export default function PlannerCylinderScreen() {
   const screen = usePlannerCylinderScreen();
   const palette = useMaterialColors();
   const { cylinder } = screen;
   if (!cylinder) {
-    return <StatusView kind="empty" title="This cylinder is no longer in the plan" />;
+    return <StatusView kind="empty" title={t('ui.thisCylinderIsNoLongerIn')} />;
   }
   const name = gasName(cylinder.o2Percent, cylinder.hePercent);
 
@@ -29,15 +30,15 @@ export default function PlannerCylinderScreen() {
     <>
       <Stack.Screen options={{ title: name }} />
       <M3Screen>
-        <M3Section title="Cylinder">
+        <M3Section title={t('ui.cylinder')}>
           <M3MenuRow
-            label="Type"
+            label={t('ui.type')}
             value={cylinder.tank}
             options={screen.tanks.map((tank) => ({ value: tank.name, label: tank.name }))}
             onChange={screen.setTank}
           />
           <M3StepperRow
-            label={`Filled to  ${screen.fill} ${screen.fillUnit}`}
+            label={`${t('toolsScreen.filledTo')}  ${screen.fill} ${screen.fillUnit}`}
             value={screen.fill}
             min={screen.fillRange.min}
             max={screen.fillRange.max}
@@ -46,7 +47,7 @@ export default function PlannerCylinderScreen() {
           />
           {screen.showUse ? (
             <M3SegmentedRow
-              label="Use"
+              label={t('ui.use')}
               options={USE_OPTIONS}
               value={cylinder.use}
               onChange={screen.setUse}
@@ -54,16 +55,16 @@ export default function PlannerCylinderScreen() {
           ) : null}
         </M3Section>
 
-        <M3Section title="Gas">
+        <M3Section title={t('ui.gas')}>
           <M3MenuRow
-            label="Mix"
+            label={t('ui.mix')}
             value={name}
             shown={name}
             options={screen.presets.map((preset) => ({ value: preset.label, label: preset.label }))}
             onChange={screen.setPreset}
           />
           <M3StepperRow
-            label={`Oxygen  ${cylinder.o2Percent}%`}
+            label={`${t('toolsScreen.oxygen')}  ${cylinder.o2Percent}%`}
             value={cylinder.o2Percent}
             min={5}
             max={100}
@@ -71,7 +72,7 @@ export default function PlannerCylinderScreen() {
             onChange={screen.setO2}
           />
           <M3StepperRow
-            label={`Helium  ${cylinder.hePercent}%`}
+            label={`${t('toolsScreen.helium')}  ${cylinder.hePercent}%`}
             value={cylinder.hePercent}
             min={0}
             max={95}
@@ -83,7 +84,7 @@ export default function PlannerCylinderScreen() {
 
         <M3Section>
           {screen.canRemove ? (
-            <M3ActionRow label="Remove cylinder" destructive onPress={screen.remove} />
+            <M3ActionRow label={t('ui.removeCylinder')} destructive onPress={screen.remove} />
           ) : (
             <M3Note color={palette.onSurfaceVariant}>
               {screen.inUse

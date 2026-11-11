@@ -15,6 +15,7 @@ import { DiveListScreen } from '@/features/dives/dive-list-screen';
 import { useSplitLayout } from '@/hooks/use-adaptive-layout';
 import { useTheme } from '@/hooks/use-theme';
 import { detailIsBusy } from '@/models/adaptive-layout';
+import { t } from '@/i18n';
 
 export default function DivesLayout() {
   const { split, sidebarWidth } = useSplitLayout();
@@ -60,39 +61,39 @@ function DivesStack({ split }: { split: boolean }) {
             }
           : STACK_OPTIONS;
       }}>
-      <Stack.Screen name="index" options={{ title: 'Dives' }} />
-      <Stack.Screen name="[id]" options={{ title: 'Dive', headerLargeTitle: false }} />
+      <Stack.Screen name="index" options={{ title: t('nav.dives') }} />
+      <Stack.Screen name="[id]" options={{ title: t('nav.dive'), headerLargeTitle: false }} />
       {/* Where a widget's link lands; it hands over to [id] once the dive is found. */}
-      <Stack.Screen name="at/[when]" options={{ title: 'Dive', headerLargeTitle: false }} />
-      <Stack.Screen name="edit/[id]" options={{ title: 'Edit dive', headerLargeTitle: false }} />
-      <Stack.Screen name="ssi/[id]" options={{ title: 'Sync to SSI', headerLargeTitle: false }} />
-      <Stack.Screen name="site/[uuid]" options={{ title: 'Dive site', headerLargeTitle: false }} />
+      <Stack.Screen name="at/[when]" options={{ title: t('nav.dive'), headerLargeTitle: false }} />
+      <Stack.Screen name="edit/[id]" options={{ title: t('nav.editDive'), headerLargeTitle: false }} />
+      <Stack.Screen name="ssi/[id]" options={{ title: t('nav.syncToSsi'), headerLargeTitle: false }} />
+      <Stack.Screen name="site/[uuid]" options={{ title: t('nav.diveSite'), headerLargeTitle: false }} />
       <Stack.Screen
         name="add"
         // Spelled out: above the placeholder this is the second screen, which the options
         // for the root of the detail would otherwise reach.
         options={{
-          title: 'Add Dive',
+          title: t('nav.addDive'),
           headerLargeTitle: false,
           presentation: 'modal',
           animation: 'default',
           gestureEnabled: true,
         }}
       />
-      <Stack.Screen name="download" options={{ title: 'Dive computer', headerLargeTitle: false }} />
-      <Stack.Screen name="surface-gf" options={{ title: 'Surface GF', headerLargeTitle: false }} />
+      <Stack.Screen name="download" options={{ title: t('nav.diveComputer'), headerLargeTitle: false }} />
+      <Stack.Screen name="surface-gf" options={{ title: t('nav.surfaceGf'), headerLargeTitle: false }} />
       <Stack.Screen
         name="trip/[id]"
-        options={{ title: 'Trip', headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}
+        options={{ title: t('nav.trip'), headerLargeTitle: false, headerBackButtonDisplayMode: 'minimal' }}
       />
       <Stack.Screen
         name="trip/edit/[id]"
-        options={{ title: 'Edit trip', headerLargeTitle: false }}
+        options={{ title: t('nav.editTrip'), headerLargeTitle: false }}
       />
       <Stack.Screen
         name="trip/pick"
         options={{
-          title: 'Add to Trip',
+          title: t('nav.addToTrip'),
           headerLargeTitle: false,
           animation: 'default',
           presentation: 'formSheet',

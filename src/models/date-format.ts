@@ -121,6 +121,11 @@ export function shortMonthName(month: number): string {
   return formatter('month-short', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(2000, month - 1, 15));
 }
 
+/** The full name of a month, 1 to 12: "March", "mars", "März". */
+export function longMonthName(month: number): string {
+  return formatter('month-long', { month: 'long', timeZone: 'UTC' }).format(Date.UTC(2000, month - 1, 15));
+}
+
 /** All twelve, January first: what the core's own month labels are mapped to. */
 export function shortMonthNames(): string[] {
   return Array.from({ length: 12 }, (_, index) => shortMonthName(index + 1));

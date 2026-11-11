@@ -39,6 +39,7 @@ import {
   useSetUnits,
   useUnits,
 } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export type SettingsScreen = {
   /** Import and export (task 11), so the screen has one object to render from. */
@@ -213,20 +214,17 @@ export function useSettingsScreen(): SettingsScreen {
 
   const ungroupDives = useCallback(() => {
     if (tripCount === 0) {
-      Alert.alert('No trips', 'None of the dives in this logbook are in a trip.');
+      Alert.alert(t('settingsScreen.noTrips'), t('settingsScreen.noTripsMessage'));
       return;
     }
     warned();
     Alert.alert(
-      'Ungroup all dives',
-      `This removes ${tripCount === 1 ? 'the trip' : `all ${tripCount} trips`} from the logbook ` +
-        'and leaves the dives themselves untouched. Trips made in desktop Subsurface go too - ' +
-        'a saved logbook does not record which trips were generated. You can undo this from ' +
-        'the Dives tab.',
+      t('ui.ungroupAllDives'),
+      t('settingsScreen.ungroupMessage', { count: tripCount }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('ui.cancel'), style: 'cancel' },
         {
-          text: 'Ungroup',
+          text: t('settingsScreen.ungroup'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -235,7 +233,7 @@ export function useSettingsScreen(): SettingsScreen {
                 operationSucceeded();
               } catch (error) {
                 operationFailed();
-                Alert.alert('Could not ungroup', describeError(error).message);
+                Alert.alert(t('settingsScreen.ungroupFailed'), describeError(error).message);
               }
             })();
           },
@@ -255,8 +253,11 @@ export function useSettingsScreen(): SettingsScreen {
       account: ssiAccount.data?.email ?? null,
       siteCatalogue:
         (ssiSites.data?.count ?? 0) === 0
-          ? 'Not downloaded'
-          : `${(ssiSites.data?.count ?? 0).toLocaleString()} sites`,
+          ? t('settingsScreen.notDownloaded')
+          : t('settingsScreen.siteCount', {
+              count: ssiSites.data?.count ?? 0,
+              formatted: (ssiSites.data?.count ?? 0).toLocaleString(),
+            }),
       open: openSsi,
     }),
     [ssiAccount.data, ssiSites.data, openSsi],
@@ -272,13 +273,13 @@ export function useSettingsScreen(): SettingsScreen {
     const hasKey = gitKey.data != null;
     const configured = gitConfig.url !== '';
     return {
-      repository: configured ? gitConfig.url : 'Not set up',
+      repository: configured ? gitConfig.url : t('settingsScreen.notSetUp'),
       lastSync: !configured
-        ? 'Not set up'
+        ? t('settingsScreen.notSetUp')
         : !hasKey
-          ? 'No SSH key'
+          ? t('settingsScreen.noKey')
           : gitConfig.lastSyncAt === null
-            ? 'Never'
+            ? t('gitScreen.never')
             : lastSyncFormatter.format(gitConfig.lastSyncAt),
       ready: configured && hasKey,
       busy: gitRunner.busy,
@@ -300,11 +301,11 @@ export function useSettingsScreen(): SettingsScreen {
       forget: () => {
         warned();
         Alert.alert(
-          'Forget remembered dive computers?',
-          'They are no longer offered for a quick download. The dives you downloaded stay, and so does which of them are new.',
+          t('settingsScreen.forgetTitle'),
+          t('settingsScreen.forgetMessage'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Forget', style: 'destructive', onPress: forgetComputers },
+            { text: t('ui.cancel'), style: 'cancel' },
+            { text: t('ui.forget'), style: 'destructive', onPress: forgetComputers },
           ],
         );
       },
@@ -325,7 +326,7 @@ export function useSettingsScreen(): SettingsScreen {
     void (async () => {
       const log = readDiagnostics();
       if (log.trim() === '') {
-        Alert.alert('Nothing to share', 'No problems have been recorded on this device.');
+        Alert.alert(t('settingsScreen.nothingToShare'), t('settingsScreen.nothingToShareMessage'));
         return;
       }
       // Copied under a name that says what it is, because the name is what the
@@ -337,13 +338,13 @@ export function useSettingsScreen(): SettingsScreen {
       target.create();
       target.write(log);
       if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Problem log', log);
+        Alert.alert(t('ui.problemLog'), log);
         return;
       }
       await Sharing.shareAsync(target.uri, {
         UTI: 'public.plain-text',
         mimeType: 'text/plain',
-        dialogTitle: 'Share problem log',
+        dialogTitle: t('ui.shareTheProblemLog'),
       });
     })();
   }, []);

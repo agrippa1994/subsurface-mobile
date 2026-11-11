@@ -34,6 +34,7 @@ import { M3Icon } from '@/components/material/icon';
 import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { selectionChanged } from '@/lib/haptics';
+import { t } from '@/i18n';
 
 export { fieldError } from './field-error';
 
@@ -299,7 +300,7 @@ export function RatingField({
             <M3Icon
               symbol={star <= value ? 'star.fill' : 'star'}
               tint={star <= value ? palette.primary : palette.onSurfaceVariant}
-              label={`${label} ${star} of 5`}
+              label={t('charts.starOf', { label, star })}
             />
           </IconButton>
         ))}

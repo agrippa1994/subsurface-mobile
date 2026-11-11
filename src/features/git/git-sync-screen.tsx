@@ -32,6 +32,7 @@ import {
   useSaveRepositorySettings,
 } from '@/queries/git-sync';
 import { formatInstant } from '@/models/date-format';
+import { t } from '@/i18n';
 
 const dateFormatter = { format: (date: Date | number) => formatInstant(Number(date)) };
 
@@ -97,11 +98,11 @@ export function GitSyncScreen() {
     }
     warned();
     Alert.alert(
-      'Switch repository?',
-      'The sync starts over with the new repository or branch. The logbook on this device stays as it is and is merged with what the new one holds on the next sync.',
+      t('gitScreen.switchTitle'),
+      t('gitScreen.switchMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Switch', onPress: () => void form.handleSubmit() },
+        { text: t('ui.cancel'), style: 'cancel' },
+        { text: t('ui.switch'), onPress: () => void form.handleSubmit() },
       ],
     );
   };
@@ -110,7 +111,7 @@ export function GitSyncScreen() {
     const run = () =>
       generateKey.mutate(undefined, {
         onSuccess: () => operationSucceeded(),
-        onError: (error) => failed('Could not generate a key', error),
+        onError: (error) => failed(t('gitScreen.generateFailed'), error),
       });
     if (key.data == null) {
       run();
@@ -118,11 +119,11 @@ export function GitSyncScreen() {
     }
     warned();
     Alert.alert(
-      'Replace the key?',
-      'The current key is deleted from this device. Remove it from your git host as well.',
+      t('gitScreen.replaceTitle'),
+      t('gitScreen.replaceMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Replace', style: 'destructive', onPress: run },
+        { text: t('ui.cancel'), style: 'cancel' },
+        { text: t('ui.replace'), style: 'destructive', onPress: run },
       ],
     );
   };
@@ -142,7 +143,7 @@ export function GitSyncScreen() {
       try {
         text = copy.textSync();
       } catch (error) {
-        failed('Could not read the file', error);
+        failed(t('gitScreen.readFailed'), error);
         return;
       } finally {
         // The cache copy is a private key in plain text; it goes as soon as it
@@ -156,7 +157,7 @@ export function GitSyncScreen() {
       try {
         encrypted = describePrivateKey(text).encrypted;
       } catch (error) {
-        failed('Not a private key', error);
+        failed(t('gitScreen.notPrivate'), error);
         return;
       }
 
@@ -165,7 +166,7 @@ export function GitSyncScreen() {
           { text, passphrase },
           {
             onSuccess: () => operationSucceeded(),
-            onError: (error) => failed('Could not import the key', error),
+            onError: (error) => failed(t('gitScreen.importFailed'), error),
           },
         );
       if (!encrypted) {
@@ -173,11 +174,11 @@ export function GitSyncScreen() {
         return;
       }
       Alert.prompt(
-        'Passphrase',
-        'This key is protected by a passphrase. It is kept in the keychain with the key.',
+        t('gitScreen.passphrase'),
+        t('gitScreen.passphraseMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Import', onPress: (value?: string) => store(value ?? '') },
+          { text: t('ui.cancel'), style: 'cancel' },
+          { text: t('ui.import'), onPress: (value?: string) => store(value ?? '') },
         ],
         'secure-text',
       );
@@ -186,14 +187,14 @@ export function GitSyncScreen() {
 
   const confirmDeleteKey = () => {
     warned();
-    Alert.alert('Remove the key?', 'Sync stops working until a new key is added.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('gitScreen.removeTitle'), t('gitScreen.removeMessage'), [
+      { text: t('ui.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('ui.remove'),
         style: 'destructive',
         onPress: () =>
           deleteKey.mutate(undefined, {
-            onError: (error) => failed('Could not remove the key', error),
+            onError: (error) => failed(t('gitScreen.removeFailed'), error),
           }),
       },
     ]);
@@ -205,26 +206,26 @@ export function GitSyncScreen() {
 
   const confirmForgetHost = (host: string) => {
     warned();
-    Alert.alert(`Forget ${host}?`, 'The next sync asks again whether to trust its host key.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Forget', style: 'destructive', onPress: () => forgetHost.mutate(host) },
+    Alert.alert(t('gitScreen.forgetTitle', { host }), t('gitScreen.forgetMessage'), [
+      { text: t('ui.cancel'), style: 'cancel' },
+      { text: t('ui.forget'), style: 'destructive', onPress: () => forgetHost.mutate(host) },
     ]);
   };
 
   const confirmDisconnect = () => {
     warned();
     Alert.alert(
-      'Turn off git sync?',
-      'The repository URL and the sync history on this device are removed. The logbook, the server and the key are untouched.',
+      t('gitScreen.offTitle'),
+      t('gitScreen.offMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('ui.cancel'), style: 'cancel' },
         {
-          text: 'Turn off',
+          text: t('ui.turnOff'),
           style: 'destructive',
           onPress: () =>
             disconnect.mutate(undefined, {
               onSuccess: () => form.reset({ ...form.state.values, url: '' }),
-              onError: (error) => failed('Could not turn off sync', error),
+              onError: (error) => failed(t('gitScreen.offFailed'), error),
             }),
         },
       ],
@@ -241,51 +242,51 @@ export function GitSyncScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <FormSection
-        title="Sync"
-        footer="Sync commits the logbook, brings in what changed on the server and pushes the result. Pull only brings changes in. When both sides changed, the server's logbook is merged into this one the way an import is: new dives are added, matching dives combined - a dive deleted on one side and kept on the other comes back."
+        title={t('ui.sync')}
+        footer={t('ui.syncCommitsTheLogbookBringsIn')}
       >
         {configured ? (
           <>
             <Row
-              label="Last sync"
-              value={config.lastSyncAt === null ? 'Never' : dateFormatter.format(config.lastSyncAt)}
+              label={t('ui.lastSync')}
+              value={config.lastSyncAt === null ? t('gitScreen.never') : dateFormatter.format(config.lastSyncAt)}
             />
             <Row
-              label="Commit"
+              label={t('ui.commit')}
               value={
                 status.data
                   ? describeHead(status.data.head, (date) => dateFormatter.format(date))
                   : '...'
               }
             />
-            <Row label="Server" value={status.data ? describeServerState(status.data) : '...'} />
+            <Row label={t('ui.server')} value={status.data ? describeServerState(status.data) : '...'} />
             {runner.busy ? (
               <View style={styles.pending}>
                 <ActivityIndicator />
-                <Text style={{ color: theme.textSecondary }}>Syncing...</Text>
+                <Text style={{ color: theme.textSecondary }}>{t('gitScreen.syncing')}</Text>
               </View>
             ) : (
               <>
-                <FormButtonRow label="Commit and push" onPress={() => runner.run('sync')} />
-                <FormButtonRow label="Pull" onPress={() => runner.run('pull')} />
+                <FormButtonRow label={t('ui.commitAndPush')} onPress={() => runner.run('sync')} />
+                <FormButtonRow label={t('ui.pull')} onPress={() => runner.run('pull')} />
               </>
             )}
           </>
         ) : (
           <Text style={[styles.note, { color: theme.textSecondary }]}>
-            Set up a repository and a key below to sync this logbook with git.
+            {t('gitScreen.notConfigured')}
           </Text>
         )}
       </FormSection>
 
       <FormSection
-        title="Repository"
-        footer="An SSH URL, such as git@github.com:you/logbook.git. The repository may be empty; the logbook is committed as the file named here, and any other files in it are left alone."
+        title={t('ui.repository')}
+        footer={t('ui.anSshUrlSuchAsGit')}
       >
         <form.Field name="url">
           {(field) => (
             <FormField
-              label="URL"
+              label={t('ui.url')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -300,7 +301,7 @@ export function GitSyncScreen() {
         <form.Field name="branch">
           {(field) => (
             <FormField
-              label="Branch"
+              label={t('ui.branch')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -313,7 +314,7 @@ export function GitSyncScreen() {
         <form.Field name="pathInRepo">
           {(field) => (
             <FormField
-              label="File in the repository"
+              label={t('ui.fileInTheRepository')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -326,7 +327,7 @@ export function GitSyncScreen() {
         <form.Field name="authorName">
           {(field) => (
             <FormField
-              label="Commit author"
+              label={t('ui.commitAuthor')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -337,7 +338,7 @@ export function GitSyncScreen() {
         <form.Field name="authorEmail">
           {(field) => (
             <FormField
-              label="Author email"
+              label={t('ui.authorEmail')}
               value={field.state.value}
               onChangeText={field.handleChange}
               onBlur={field.handleBlur}
@@ -349,12 +350,12 @@ export function GitSyncScreen() {
           )}
         </form.Field>
         {saveError ? <Text style={[styles.note, { color: theme.danger }]}>{saveError}</Text> : null}
-        <FormButtonRow label="Save" onPress={confirmSave} />
+        <FormButtonRow label={t('ui.save')} onPress={confirmSave} />
       </FormSection>
 
       <FormSection
-        title="SSH key"
-        footer="The private key stays in this device's keychain. Add the public key to your git host - as a deploy key with write access to the logbook repository, or to your account."
+        title={t('ui.sshKey')}
+        footer={t('ui.thePrivateKeyStaysInThis')}
       >
         {key.data ? (
           <>
@@ -364,32 +365,31 @@ export function GitSyncScreen() {
               </Text>
             ) : (
               <Text style={[styles.note, { color: theme.textSecondary }]}>
-                Imported key. Its public half is not in the file; use the .pub file that came with
-                it.
+                {t('gitScreen.importedKey')}
               </Text>
             )}
             {key.data.publicKey ? (
               <FormButtonRow
-                label="Share public key"
+                label={t('ui.sharePublicKey')}
                 onPress={() => sharePublicKey(key.data!.publicKey!)}
               />
             ) : null}
-            <FormButtonRow label="Generate a new key" onPress={generate} />
-            <FormButtonRow label="Import a private key" onPress={pickKey} />
-            <FormButtonRow label="Remove key" destructive onPress={confirmDeleteKey} />
+            <FormButtonRow label={t('ui.generateANewKey')} onPress={generate} />
+            <FormButtonRow label={t('ui.importAPrivateKey')} onPress={pickKey} />
+            <FormButtonRow label={t('ui.removeKey')} destructive onPress={confirmDeleteKey} />
           </>
         ) : (
           <>
-            <FormButtonRow label="Generate a new key" onPress={generate} />
-            <FormButtonRow label="Import a private key" onPress={pickKey} />
+            <FormButtonRow label={t('ui.generateANewKey')} onPress={generate} />
+            <FormButtonRow label={t('ui.importAPrivateKey')} onPress={pickKey} />
           </>
         )}
       </FormSection>
 
       {hosts.length > 0 ? (
         <FormSection
-          title="Trusted servers"
-          footer="Host keys trusted on first connection. Tap one to forget it."
+          title={t('ui.trustedServers')}
+          footer={t('ui.hostKeysTrustedOnFirstConnection')}
         >
           {hosts.map(([host, fingerprint]) => (
             <FormButtonRow
@@ -404,7 +404,7 @@ export function GitSyncScreen() {
 
       {configured ? (
         <FormSection>
-          <FormButtonRow label="Turn off git sync" destructive onPress={confirmDisconnect} />
+          <FormButtonRow label={t('ui.turnOffGitSync')} destructive onPress={confirmDisconnect} />
         </FormSection>
       ) : null}
     </ScrollView>

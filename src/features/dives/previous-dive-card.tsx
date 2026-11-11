@@ -22,6 +22,7 @@ import { selectionChanged } from '@/lib/haptics';
 import { formatGasMix, formatWeight, type Dive, type Units } from '@/models';
 import { formatNameList, parseNameList } from '@/models/dive-edit';
 import { toDiveRow } from '@/models/dive-list';
+import { t } from '@/i18n';
 
 type CopyKind = 'site' | 'buddies' | 'diveguide' | 'suit' | 'cylinders' | 'weights';
 
@@ -59,37 +60,37 @@ export function PreviousDiveCard({
     [
       {
         kind: 'site',
-        label: 'Site',
+        label: t('ui.site'),
         // A dive without a site has nothing to copy, even if a trip location
         // would give it a title.
-        value: previous.siteUuid === 0 ? '' : previous.siteName.trim() || 'Unnamed site',
+        value: previous.siteUuid === 0 ? '' : previous.siteName.trim() || t('sites.unnamed'),
         symbol: 'mappin.and.ellipse',
         run: onCopySite,
       },
       {
         kind: 'buddies',
-        label: 'Buddies',
+        label: t('diveForm.buddies'),
         value: formatNameList(parseNameList(previous.buddy)),
         symbol: 'person.2.fill',
         run: onCopyBuddies,
       },
       {
         kind: 'diveguide',
-        label: 'Divemaster',
+        label: t('ui.divemaster'),
         value: formatNameList(parseNameList(previous.diveguide)),
         symbol: 'person.fill.checkmark',
         run: onCopyDiveguide,
       },
       {
         kind: 'suit',
-        label: 'Suit',
+        label: t('ui.suit'),
         value: previous.suit.trim(),
         symbol: 'tshirt.fill',
         run: onCopySuit,
       },
       {
         kind: 'cylinders',
-        label: 'Cylinders',
+        label: t('ui.cylinders'),
         value: previous.cylinders
           .map(
             (cylinder) =>
@@ -102,7 +103,7 @@ export function PreviousDiveCard({
       },
       {
         kind: 'weights',
-        label: 'Weights',
+        label: t('dive.weights'),
         value:
           previous.weightsystems.length > 0
             ? formatWeight(
@@ -139,7 +140,7 @@ export function PreviousDiveCard({
           fallback={null}
         />
         <View style={styles.headerText}>
-          <Text style={[styles.title, { color: theme.text }]}>Same as previous dive</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{t('diveForm.sameAsPrevious')}</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
             {[row.numberText, row.title].filter(Boolean).join(' ')}
           </Text>
@@ -150,13 +151,13 @@ export function PreviousDiveCard({
         {actions.length > 1 ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Copy everything from the previous dive"
+            accessibilityLabel={t('ui.copyEverythingFromThePreviousDive')}
             onPress={() => copy(actions)}
             style={({ pressed }) => [
               styles.allButton,
               { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
             ]}>
-            <Text style={styles.allButtonText}>{allCopied ? 'Copied' : 'Copy all'}</Text>
+            <Text style={styles.allButtonText}>{allCopied ? t('diveForm.copied') : t('diveForm.copyAll')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -170,7 +171,7 @@ export function PreviousDiveCard({
                 <Pressable
                   key={action.kind}
                   accessibilityRole="button"
-                  accessibilityLabel={`Copy ${action.label.toLowerCase()}: ${action.value}`}
+                  accessibilityLabel={t('diveForm.copyItem', { item: action.label, value: action.value })}
                   accessibilityState={{ checked: done }}
                   onPress={() => copy([action])}
                   style={({ pressed }) => [

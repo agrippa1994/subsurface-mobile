@@ -58,6 +58,7 @@ import {
 } from '@/models/git/sync-config';
 import { ensureLogbookLoaded } from '@/queries/logbook';
 import { adoptLogbook, resetData } from '@/queries/logbook-mutations';
+import { t } from '@/i18n';
 
 // --- Settings --------------------------------------------------------------
 
@@ -113,7 +114,7 @@ export function useTrustHostKey(): UseMutationResult<void, Error, string> {
     mutationFn: async (fingerprint: string) => {
       const url = parseRemoteUrl(readConfig().url);
       if (url === null) {
-        throw new Error('Set the repository URL first.');
+        throw new Error(t('errors.git.noUrl'));
       }
       storeConfig(client, (config) => ({
         ...config,
@@ -219,7 +220,7 @@ export function useImportKey(): UseMutationResult<void, Error, ImportKeyInput> {
     mutationFn: async ({ text, passphrase }: ImportKeyInput) => {
       const info = describePrivateKey(text);
       if (info.encrypted && !passphrase) {
-        throw new Error('This key is protected by a passphrase.');
+        throw new Error(t('errors.git.passphrase'));
       }
       await writeKey({
         privateKey: `${text.trim()}\n`,
@@ -286,11 +287,11 @@ export class SyncNotReadyError extends Error {
 
 async function remoteFor(config: GitSyncConfig): Promise<Remote> {
   if (config.url === '') {
-    throw new SyncNotReadyError('Set up the repository first.');
+    throw new SyncNotReadyError(t('errors.git.noRepository'));
   }
   const key = await readKey();
   if (key === null) {
-    throw new SyncNotReadyError('Generate or import an SSH key first.');
+    throw new SyncNotReadyError(t('errors.git.noKey'));
   }
   return {
     url: config.url,

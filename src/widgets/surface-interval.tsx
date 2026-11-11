@@ -45,7 +45,7 @@ const SurfaceIntervalWidget = (
     return props.hasDive ? (
       <Text modifiers={[link]} date={ended} dateStyle="relative" />
     ) : (
-      <Text modifiers={[link]}>No dives yet</Text>
+      <Text modifiers={[link]}>{props.text.noDives}</Text>
     );
   }
 
@@ -88,7 +88,7 @@ const SurfaceIntervalWidget = (
       >
         <HStack spacing={4}>
           <Image systemName="figure.pool.swim" size={12} />
-          <Text modifiers={[font({ textStyle: 'headline' })]}>Surface interval</Text>
+          <Text modifiers={[font({ textStyle: 'headline' })]}>{props.text.title}</Text>
         </HStack>
         {props.hasDive ? (
           <Text
@@ -100,7 +100,7 @@ const SurfaceIntervalWidget = (
             ]}
           />
         ) : (
-          <Text modifiers={[font({ textStyle: 'body' })]}>No dives yet</Text>
+          <Text modifiers={[font({ textStyle: 'body' })]}>{props.text.noDives}</Text>
         )}
         <Text modifiers={[font({ textStyle: 'caption' }), opacity(0.8), lineLimit(1)]}>
           {props.title}
@@ -135,7 +135,7 @@ const SurfaceIntervalWidget = (
             opacity(0.8),
           ]}
         >
-          SURFACE INTERVAL
+          {props.text.caption}
         </Text>
       </HStack>
       <Spacer />
@@ -152,7 +152,7 @@ const SurfaceIntervalWidget = (
         />
       ) : (
         <Text modifiers={[font({ textStyle: 'title3', weight: 'bold' }), foregroundStyle('white')]}>
-          No dives yet
+          {props.text.noDives}
         </Text>
       )}
       <Text
@@ -163,7 +163,7 @@ const SurfaceIntervalWidget = (
           lineLimit(1),
         ]}
       >
-        {props.hasDive ? `since ${props.title}` : 'Your next dive starts the clock.'}
+        {props.hasDive ? props.text.since : props.text.empty}
       </Text>
       {props.dateText !== '' ? (
         <Text

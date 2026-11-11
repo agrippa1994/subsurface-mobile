@@ -1,0 +1,56 @@
+// AI-generated (Claude)
+import type en from '../en/planner-settings';
+
+const plannerSettings: typeof en = {
+  recreational: 'Sporttauchen',
+  nominal: 'Nominal',
+  section: {
+    decompression: 'Dekompression',
+    ascent: 'Aufstieg',
+    descent: 'Abstieg',
+    stops: 'Stopps',
+    gas: 'Gas',
+    notes: 'Plannotizen',
+  },
+  footer: {
+    recreational: 'Der Sporttauchmodus plant keine Stopps: Er bleibt unten, bis die Nullzeit oder die Reserve erreicht ist, je nachdem, was zuerst eintritt.',
+    ascent: 'Wie in der Desktop-App ändern sich die Raten mit der Tiefe im Verhältnis zur mittleren Tiefe des Tauchgangs.',
+    descent: 'Aus: Die erste Stufe braucht ihre ganze Zeit, um ihre Tiefe zu erreichen.',
+    gas: 'Das Mindestgas ist der AMV-Faktor mal das Grund-AMV für die Problemlösungszeit, plus der Aufstieg mit diesem Faktor.',
+  },
+  label: {
+    gfLow: 'GF niedrig',
+    gfHigh: 'GF hoch',
+    vpmbConservatism: 'Konservatismus',
+    reserveGasMbar: 'Reservegas',
+    safetyStop: 'Sicherheitsstopp',
+    ascrate75: 'Unter 75 % der mittleren Tiefe',
+    ascrate50: '75 % bis 50 % der mittleren Tiefe',
+    ascratestops: '50 % der mittleren Tiefe bis 6 m / 20 ft',
+    ascratelast6m: 'Letzte 6 m / 20 ft',
+    dropStone: 'Mit der unten angegebenen Rate abtauchen',
+    descrate: 'Abstiegsrate',
+    lastStop6m: 'Letzter Stopp auf 6 m / 20 ft',
+    o2Breaks: 'Rückgas-Pausen',
+    switchAtRequiredStop: 'Gaswechsel nur an Pflichtstopps',
+    minSwitchSec: 'Minimale Wechselzeit',
+    surfaceSegmentSec: 'Oberflächensegment',
+    bottomSacMl: 'Grund-AMV',
+    decoSacMl: 'Deko-AMV',
+    sacFactor: 'AMV-Faktor',
+    problemSolvingMin: 'Problemlösungszeit',
+    bottomPo2Mbar: 'Grund-pO₂',
+    decoPo2Mbar: 'Deko-pO₂',
+    defaultSetpointMbar: 'Standard-CCR-Setpoint',
+    bestMixEndMm: 'END für bestes Gemisch',
+    o2Narcotic: 'Sauerstoff ist narkotisch',
+    displayRuntime: 'Laufzeit anzeigen',
+    displayDuration: 'Segmentdauer anzeigen',
+    displayTransitions: 'Übergänge in der Deko anzeigen',
+    verbatim: 'Ausführlicher Plan',
+    displayVariations: 'Planvarianten anzeigen',
+    showIcd: 'Prüfung auf isobare Gegendiffusion',
+  },
+};
+
+export default plannerSettings;

@@ -8,12 +8,13 @@ import { StatusView } from '@/components/status-view';
 import { USE_OPTIONS, usePlannerCylinderScreen } from '@/features/tools/use-planner-cylinder-screen';
 import type { CylinderUse } from '@/models';
 import { gasName } from '@/models/planner';
+import { t } from '@/i18n';
 
 export default function PlannerCylinderScreen() {
   const screen = usePlannerCylinderScreen();
   const { cylinder } = screen;
   if (!cylinder) {
-    return <StatusView kind="empty" title="This cylinder is no longer in the plan" />;
+    return <StatusView kind="empty" title={t('ui.thisCylinderIsNoLongerIn')} />;
   }
   const name = gasName(cylinder.o2Percent, cylinder.hePercent);
 
@@ -21,9 +22,9 @@ export default function PlannerCylinderScreen() {
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Stack.Screen options={{ title: name }} />
       <Form>
-        <Section title="Cylinder">
+        <Section title={t('ui.cylinder')}>
           <Picker
-            label="Type"
+            label={t('ui.type')}
             selection={cylinder.tank}
             onSelectionChange={(value: string) => screen.setTank(value)}
             modifiers={[pickerStyle('menu')]}
@@ -35,7 +36,7 @@ export default function PlannerCylinderScreen() {
             ))}
           </Picker>
           <Stepper
-            label={`Filled to  ${screen.fill} ${screen.fillUnit}`}
+            label={`${t('toolsScreen.filledTo')}  ${screen.fill} ${screen.fillUnit}`}
             value={screen.fill}
             min={screen.fillRange.min}
             max={screen.fillRange.max}
@@ -44,7 +45,7 @@ export default function PlannerCylinderScreen() {
           />
           {screen.showUse ? (
             <Picker
-              label="Use"
+              label={t('ui.use')}
               selection={cylinder.use}
               onSelectionChange={(value: number) => screen.setUse(value as CylinderUse)}
               modifiers={[pickerStyle('segmented')]}
@@ -58,9 +59,9 @@ export default function PlannerCylinderScreen() {
           ) : null}
         </Section>
 
-        <Section title="Gas">
+        <Section title={t('ui.gas')}>
           <Picker
-            label="Mix"
+            label={t('ui.mix')}
             selection={screen.presets.some((preset) => preset.label === name) ? name : 'Custom'}
             onSelectionChange={(value: string) => screen.setPreset(value)}
             modifiers={[pickerStyle('menu')]}
@@ -77,7 +78,7 @@ export default function PlannerCylinderScreen() {
             ]}
           </Picker>
           <Stepper
-            label={`Oxygen  ${cylinder.o2Percent}%`}
+            label={`${t('toolsScreen.oxygen')}  ${cylinder.o2Percent}%`}
             value={cylinder.o2Percent}
             min={5}
             max={100}
@@ -85,7 +86,7 @@ export default function PlannerCylinderScreen() {
             onValueChange={screen.setO2}
           />
           <Stepper
-            label={`Helium  ${cylinder.hePercent}%`}
+            label={`${t('toolsScreen.helium')}  ${cylinder.hePercent}%`}
             value={cylinder.hePercent}
             min={0}
             max={95}
@@ -97,7 +98,7 @@ export default function PlannerCylinderScreen() {
 
         <Section>
           {screen.canRemove ? (
-            <Button label="Remove cylinder" role="destructive" onPress={screen.remove} />
+            <Button label={t('ui.removeCylinder')} role="destructive" onPress={screen.remove} />
           ) : (
             <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
               {screen.inUse

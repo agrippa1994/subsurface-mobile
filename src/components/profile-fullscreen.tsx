@@ -23,6 +23,7 @@ import { Spacing } from '@/constants/theme';
 import { IS_TABLET } from '@/hooks/use-adaptive-layout';
 import { useLandscapeCapable } from '@/hooks/use-landscape';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 /**
  * Vertical space the chart's own chrome takes: the scrubber readout above it and
@@ -78,7 +79,7 @@ export function ProfileFullscreen({
               {IS_TABLET ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Close full screen profile"
+                  accessibilityLabel={t('ui.closeFullScreenProfile')}
                   hitSlop={Spacing.two}
                   onPress={onClose}>
                   <SymbolView name="xmark.circle.fill" size={30} tintColor={theme.textSecondary} />

@@ -8,6 +8,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { SymbolView } from '@/components/symbol';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { t } from '@/i18n';
 
 export type Choice<T> = { key: string; label: string; detail?: string; value: T };
 
@@ -52,14 +53,14 @@ export function ChoicePicker<T>({
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
           <Pressable onPress={onClose} accessibilityRole="button" hitSlop={Spacing.two}>
-            <Text style={[styles.action, { color: theme.accent }]}>Done</Text>
+            <Text style={[styles.action, { color: theme.accent }]}>{t('ui.done')}</Text>
           </Pressable>
         </View>
         {searchable ? (
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search"
+            placeholder={t('ui.search')}
             placeholderTextColor={theme.textSecondary}
             autoCorrect={false}
             style={[

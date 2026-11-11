@@ -18,6 +18,7 @@ import { describeSsiSite, type SsiSite } from '@/models/ssi/sites';
 import { useSsiAccount, useSsiLogbook, useSsiSiteIndex } from '@/queries/ssi';
 import { SsiBrowserHeader, type SsiBrowserView, type SsiSiteSort } from './ssi-browser-header';
 import { SsiSitesMap } from './ssi-sites-map';
+import { t } from '@/i18n';
 
 export function SsiSiteBrowser({
   position: initialPosition = null,
@@ -105,9 +106,9 @@ export function SsiSiteBrowser({
     <SsiBrowserHeader
       title={
         (catalogue.data && searchQuery.trim() && allMatches.length === 0
-          ? 'No matching SSI sites'
+          ? t('ssiBrowser.noMatch')
           : null) ??
-        (cluster ? 'Sites at this location' : onSelect ? 'Select dive site' : 'SSI dive sites')
+        (cluster ? t('ssiBrowser.atLocation') : onSelect ? t('ssiPicker.title') : t('sitesScreen.ssiSites'))
       }
       view={view}
       sort={sort}
@@ -130,22 +131,22 @@ export function SsiSiteBrowser({
     view !== 'list' || cluster || sort === 'name'
       ? null
       : sort === 'recent'
-        ? 'From your SSI logbook, most recent first'
+        ? t('ssiBrowser.fromLogbook')
         : locating
-          ? 'Finding your location…'
+          ? t('ssiBrowser.finding')
           : !position
-            ? 'Sorted by name. Tap the location button to sort by distance.'
+            ? t('ssiBrowser.byName')
             : position === initialPosition
-              ? 'Nearest to this dive’s site'
-              : 'Nearest to your location';
+              ? t('ssiBrowser.nearestDive')
+              : t('ssiBrowser.nearestYou');
   let body;
   if (!catalogue.data && catalogue.isError)
     body = (
       <StatusView
         kind="error"
-        title="Could not load SSI sites"
+        title={t('ui.couldNotLoadSsiSites')}
         description={catalogue.error.message}
-        actionLabel="Try again"
+        actionLabel={t('ui.tryAgain')}
         onAction={() => void catalogue.refetch()}
       />
     );
@@ -155,10 +156,10 @@ export function SsiSiteBrowser({
         kind="loading"
         title={
           catalogue.fetchStatus === 'paused'
-            ? 'Connect to download SSI sites'
-            : 'Downloading SSI dive sites'
+            ? t('ssiBrowser.connect')
+            : t('ui.downloadingSsiDiveSites')
         }
-        description="The catalogue is saved on this device for offline browsing."
+        description={t('ui.theCatalogueIsSavedOnThis')}
       />
     );
   else if (view === 'map' && !cluster)
@@ -180,9 +181,9 @@ export function SsiSiteBrowser({
       <StatusView
         kind={history.isError ? 'error' : 'loading'}
         title={
-          history.isError ? 'Could not load recently used sites' : 'Loading recently used sites'
+          history.isError ? t('ssiBrowser.recentFailed') : t('ssiBrowser.recentLoading')
         }
-        actionLabel={history.isError ? 'Try again' : undefined}
+        actionLabel={history.isError ? t('common.tryAgain') : undefined}
         onAction={() => void history.refetch()}
       />
     );
@@ -205,17 +206,17 @@ export function SsiSiteBrowser({
             kind="empty"
             title={
               query
-                ? 'No matching SSI sites'
+                ? t('ssiBrowser.noMatch')
                 : sort === 'recent'
-                  ? 'No recently used sites'
-                  : 'No SSI sites'
+                  ? t('ssiBrowser.noRecent')
+                  : t('ssiBrowser.none')
             }
             description={
               query
-                ? 'Try another name or country.'
+                ? t('ssiBrowser.tryAnother')
                 : !account.data && sort === 'recent'
-                  ? 'Sign in to SSI in Settings to see sites from your SSI logbook.'
-                  : 'Use the map or search for a dive site.'
+                  ? t('ssiBrowser.signIn')
+                  : t('ssiBrowser.useMap')
             }
           />
         }

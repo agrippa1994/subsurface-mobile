@@ -13,6 +13,7 @@
 // React Native imports keeps it reachable from the Node test suite.
 
 import { saveToXML } from '../../modules/ssrf-core/src';
+import { t } from '@/i18n';
 
 const SAVE_DEBOUNCE_MS = 400;
 
@@ -106,7 +107,7 @@ function persist(): void {
     // the user is about to be told about and will never get back, and silence
     // here is what made an import report "complete" while the file on disk
     // never saw it.
-    lastSaveError = new Error('No logbook is open, so the change could not be saved.');
+    lastSaveError = new Error(t('errors.noLogbook'));
     setSaving(false);
     return;
   }

@@ -6,6 +6,7 @@
 // not a preference anyone wants exported with the settings.
 
 import { hostKeyId, parseRemoteUrl } from './remote-url';
+import { t } from '@/i18n';
 
 export type GitSyncConfig = {
   /** SSH URL of the repository; empty while sync is not set up. */
@@ -87,7 +88,7 @@ export function validateRepositorySettings(
 ): { field: keyof RepositorySettings; message: string } | null {
   const branch = settings.branch.trim();
   if (branch === '' || /[\s~^:?*[\\]|\.\.|^\/|\/$|\.lock$|^-/.test(branch)) {
-    return { field: 'branch', message: 'Not a valid branch name.' };
+    return { field: 'branch', message: t('git.config.branch') };
   }
   const path = settings.pathInRepo.trim();
   if (
@@ -96,13 +97,13 @@ export function validateRepositorySettings(
     path.endsWith('/') ||
     path.split('/').some((p) => p === '..' || p === '.git')
   ) {
-    return { field: 'pathInRepo', message: 'A relative file path, such as logbook.ssrf.' };
+    return { field: 'pathInRepo', message: t('git.config.path') };
   }
   if (settings.authorName.trim() === '') {
-    return { field: 'authorName', message: 'Commits need an author name.' };
+    return { field: 'authorName', message: t('git.config.authorName') };
   }
   if (!/^[^\s<>@]+@[^\s<>@]+$/.test(settings.authorEmail.trim())) {
-    return { field: 'authorEmail', message: 'Commits need an email address.' };
+    return { field: 'authorEmail', message: t('git.config.authorEmail') };
   }
   return null;
 }

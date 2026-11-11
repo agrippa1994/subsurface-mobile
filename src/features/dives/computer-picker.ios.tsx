@@ -19,9 +19,10 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 
 import { useTheme } from '@/hooks/use-theme';
-import { computerPositionText, MAKE_FIRST_LABEL } from '@/models/dive-computers';
+import { computerPositionText, makeFirstLabel } from '@/models/dive-computers';
 
 import type { ComputerPickerProps } from './computer-picker';
+import { t } from '@/i18n';
 
 export function ComputerPicker({
   labels,
@@ -46,15 +47,15 @@ export function ComputerPicker({
         </HStack>
       }
       modifiers={[
-        accessibilityLabel('Dive computer'),
+        accessibilityLabel(t('ui.diveComputer')),
         accessibilityValue(
           computerPositionText(labels[selectedIndex], selectedIndex, labels.length),
         ),
-        accessibilityHint('Shows the profile and details from another computer'),
+        accessibilityHint(t('ui.showsTheProfileAndDetailsFrom')),
       ]}
     >
       <Picker
-        label="Dive computer"
+        label={t('ui.diveComputer')}
         selection={selectedIndex}
         onSelectionChange={(index: number) => onSelect(index)}
         modifiers={[pickerStyle('inline')]}
@@ -68,7 +69,7 @@ export function ComputerPicker({
       {canMakeFirst ? <Divider /> : null}
       {canMakeFirst ? (
         <Button
-          label={MAKE_FIRST_LABEL}
+          label={makeFirstLabel()}
           systemImage="arrow.up.to.line"
           onPress={() => onMakeFirst(selectedIndex)}
         />
@@ -82,7 +83,7 @@ export function ComputerPicker({
   return (
     <Host matchContents={{ vertical: true }} style={{ width: '100%' }}>
       <HStack>
-        <Text modifiers={[lineLimit(1)]}>Computer</Text>
+        <Text modifiers={[lineLimit(1)]}>{t('ui.computer')}</Text>
         <Spacer />
         {menu}
       </HStack>

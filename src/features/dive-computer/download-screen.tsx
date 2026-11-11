@@ -24,6 +24,7 @@ import { useUnits } from '@/queries/settings';
 
 import { ChoicePicker, type Choice } from './choice-picker';
 import { useDiveComputer, type DiveComputerScreen } from './use-dive-computer';
+import { t } from '@/i18n';
 
 type PickerKind = 'vendor' | 'product' | 'connection' | null;
 
@@ -72,7 +73,7 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
 
   const adapter = adapterMessage(screen.scan.adapter);
   const notice = screen.permissionDenied
-    ? 'Subsurface is not allowed to use Bluetooth. You can change that in the system settings.'
+    ? t('download.adapter.unauthorized')
     : adapter;
   const { outcome, status, running } = screen;
 
@@ -86,34 +87,34 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
       ) : null}
 
       <FormSection
-        title="Dive computer"
-        footer="Switch on Bluetooth on the dive computer first; many also have to be put into a transfer mode.">
+        title={t('ui.diveComputer')}
+        footer={t('ui.switchOnBluetoothOnTheDive')}>
         <FormButtonRow
-          label="Vendor"
-          value={screen.vendor || 'Choose'}
+          label={t('ui.vendor')}
+          value={screen.vendor || t('download.choose')}
           onPress={() => setPicker('vendor')}
         />
         <FormButtonRow
-          label="Model"
-          value={screen.product || 'Choose'}
+          label={t('ui.model')}
+          value={screen.product || t('download.choose')}
           onPress={() => (screen.vendor === '' ? setPicker('vendor') : setPicker('product'))}
         />
         <FormButtonRow
-          label="Connection"
-          value={screen.connection ? connectionLabel(screen.connection) : 'Choose'}
+          label={t('ui.connection')}
+          value={screen.connection ? connectionLabel(screen.connection) : t('download.choose')}
           onPress={() => setPicker('connection')}
         />
       </FormSection>
 
       {screen.remembered.length > 0 ? (
-        <FormSection title="Previously used">
+        <FormSection title={t('ui.previouslyUsed')}>
           {screen.remembered.map((computer) => (
             <FormButtonRow
               key={`${computer.vendor}/${computer.product}/${computer.address}`}
               label={computerLabel(computer)}
               value={
                 computer.address === screen.connection?.address && computer.product === screen.product
-                  ? 'Selected'
+                  ? t('diveForm.selected')
                   : undefined
               }
               onPress={() => screen.pickRemembered(computer)}
@@ -122,15 +123,15 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
         </FormSection>
       ) : null}
 
-      <FormSection title="Options">
+      <FormSection title={t('ui.options')}>
         <OptionRow
-          label="Force downloading all dives"
+          label={t('ui.forceDownloadingAllDives')}
           value={screen.force}
           disabled={running}
           onChange={screen.setForce}
         />
         <OptionRow
-          label="Sync dive computer time"
+          label={t('ui.syncDiveComputerTime')}
           value={screen.syncTime}
           disabled={running}
           onChange={screen.setSyncTime}
@@ -141,7 +142,7 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
         <View style={styles.progress}>
           <Progress fraction={status.fraction} />
           <Text style={[styles.progressText, { color: theme.textSecondary }]} numberOfLines={2}>
-            {status.text || 'Connecting'}
+            {status.text || t('download.connecting')}
           </Text>
         </View>
       ) : null}
@@ -164,7 +165,7 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
       ) : null}
 
       {running ? (
-        <PrimaryButton label="Cancel" onPress={screen.cancel} />
+        <PrimaryButton label={t('ui.cancel')} onPress={screen.cancel} />
       ) : (
         <PrimaryButton
           label={screen.downloadLabel}
@@ -175,12 +176,12 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
       )}
 
       {screen.shareLog && outcome.kind === 'failed' ? (
-        <PrimaryButton label="Share the log" onPress={screen.shareLog} />
+        <PrimaryButton label={t('ui.shareTheLog')} onPress={screen.shareLog} />
       ) : null}
 
       <ChoicePicker
         visible={picker === 'vendor'}
-        title="Vendor"
+        title={t('ui.vendor')}
         choices={vendorChoices}
         selectedKey={screen.vendor}
         onSelect={(vendor) => {
@@ -200,23 +201,23 @@ function Setup({ screen }: { screen: DiveComputerScreen }) {
       />
       <ChoicePicker
         visible={picker === 'connection'}
-        title="Connection"
+        title={t('ui.connection')}
         searchable={false}
         choices={connectionChoices}
         selectedKey={screen.connection?.address}
         emptyText={
           screen.scan.adapter === 'on' || screen.scan.adapter === 'unknown'
-            ? 'Looking for dive computers. Switch on Bluetooth on yours and keep it close.'
+            ? t('download.looking')
             : (adapter ?? undefined)
         }
         footer={
           <View style={styles.pickerFooter}>
             <OptionRow
-              label="Show all Bluetooth devices"
+              label={t('ui.showAllBluetoothDevices')}
               value={screen.showAllDevices}
               onChange={screen.setShowAllDevices}
             />
-            <PrimaryButton label="Rescan" onPress={screen.rescan} />
+            <PrimaryButton label={t('ui.rescan')} onPress={screen.rescan} />
           </View>
         }
         onSelect={screen.setConnection}
@@ -249,10 +250,10 @@ function Review({ screen }: { screen: DiveComputerScreen }) {
 
       <View style={styles.selectionRow}>
         <Pressable accessibilityRole="button" onPress={screen.selectAll} hitSlop={Spacing.two}>
-          <Text style={{ color: theme.accent, fontSize: 17 }}>Select all</Text>
+          <Text style={{ color: theme.accent, fontSize: 17 }}>{t('download.selectAll')}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={screen.selectNone} hitSlop={Spacing.two}>
-          <Text style={{ color: theme.accent, fontSize: 17 }}>Unselect all</Text>
+          <Text style={{ color: theme.accent, fontSize: 17 }}>{t('download.unselectAll')}</Text>
         </Pressable>
       </View>
 
@@ -289,13 +290,13 @@ function Review({ screen }: { screen: DiveComputerScreen }) {
         <ActivityIndicator />
       ) : (
         <PrimaryButton
-          label={count === 1 ? 'Accept 1 dive' : `Accept ${count} dives`}
+          label={t('download.accept.button', { count })}
           prominent
           disabled={count === 0}
           onPress={screen.accept}
         />
       )}
-      <PrimaryButton label="Discard" disabled={screen.accepting} onPress={screen.discard} />
+      <PrimaryButton label={t('ui.discard')} disabled={screen.accepting} onPress={screen.discard} />
     </ScrollView>
   );
 }

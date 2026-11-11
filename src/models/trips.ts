@@ -11,18 +11,19 @@ import { formatDate, sortDivesNewestFirst, tripTitle } from './dive-list';
 import type { DiveSummary, StatsSummary, Trip, TripPatch } from './index';
 import { formatDepth, formatTemperature, type Units } from './units';
 import { formatTotalTime } from './statistics';
+import { t } from '@/i18n';
 
 export { tripTitle };
 
 export function diveCountText(count: number): string {
-  return `${count} ${count === 1 ? 'dive' : 'dives'}`;
+  return t('common.diveCount', { count });
 }
 
 /** "12 Mar 2024", or "12 Mar 2024 to 15 Mar 2024" for a trip over several days. */
 export function tripDateText(trip: Trip): string {
   const first = formatDate(trip.when);
   const last = formatDate(trip.lastDiveWhen);
-  return first === last ? first : `${first} to ${last}`;
+  return first === last ? first : t('trips.dateRange', { first, last });
 }
 
 /** "3 dives - 12 Mar 2024", the same line a section header of the list has. */
@@ -74,9 +75,9 @@ export function searchTrips(trips: readonly Trip[], query: string): Trip[] {
 /** What the picker says when it has no trip to list. */
 export function emptyPickerText(hasCandidates: boolean, searching: boolean): string {
   if (searching && hasCandidates) {
-    return 'No trip matches.';
+    return t('trips.picker.noMatch');
   }
-  return 'No other trips yet. A new trip starts with these dives.';
+  return t('trips.picker.empty');
 }
 
 // --- Trips above and below -------------------------------------------------
@@ -127,16 +128,16 @@ export type TripAction =
 export function tripActionsFor(dive: DiveSummary, adjacent?: AdjacentTrips): TripAction[] {
   if (dive.tripId !== 0) {
     return [
-      { kind: 'open', label: 'View Trip', symbol: 'suitcase', tripId: dive.tripId },
-      { kind: 'pick', label: 'Move to Trip', symbol: 'text.badge.plus' },
-      { kind: 'remove', label: 'Remove from Trip', symbol: 'minus.circle' },
+      { kind: 'open', label: t('trips.action.view'), symbol: 'suitcase', tripId: dive.tripId },
+      { kind: 'pick', label: t('trips.action.move'), symbol: 'text.badge.plus' },
+      { kind: 'remove', label: t('trips.action.remove'), symbol: 'minus.circle' },
     ];
   }
   const actions: TripAction[] = [];
   if (adjacent?.above) {
     actions.push({
       kind: 'add',
-      label: `Add to ${tripTitle(adjacent.above.location)}`,
+      label: t('trips.action.addTo', { trip: tripTitle(adjacent.above.location) }),
       symbol: 'arrow.up',
       tripId: adjacent.above.id,
     });
@@ -144,21 +145,21 @@ export function tripActionsFor(dive: DiveSummary, adjacent?: AdjacentTrips): Tri
   if (adjacent?.below) {
     actions.push({
       kind: 'add',
-      label: `Add to ${tripTitle(adjacent.below.location)}`,
+      label: t('trips.action.addTo', { trip: tripTitle(adjacent.below.location) }),
       symbol: 'arrow.down',
       tripId: adjacent.below.id,
     });
   }
   actions.push(
-    { kind: 'pick', label: 'Add to Trip', symbol: 'text.badge.plus' },
-    { kind: 'new', label: 'New Trip', symbol: 'plus' },
+    { kind: 'pick', label: t('trips.action.add'), symbol: 'text.badge.plus' },
+    { kind: 'new', label: t('trips.action.new'), symbol: 'plus' },
   );
   return actions;
 }
 
 /** The picker's title: dives in a trip move, dives outside one are added. */
 export function tripPickerTitle(dives: readonly DiveSummary[]): string {
-  return dives.some((dive) => dive.tripId !== 0) ? 'Move to Trip' : 'Add to Trip';
+  return dives.some((dive) => dive.tripId !== 0) ? t('trips.action.move') : t('trips.action.add');
 }
 
 // --- Trip summary ----------------------------------------------------------
@@ -176,24 +177,24 @@ export function tripSummaryRows(
   units: Units,
 ): TripSummaryRow[] {
   const rows: TripSummaryRow[] = [
-    { label: 'Dates', value: tripDateText(trip) },
-    { label: 'Dives', value: String(trip.diveCount) },
+    { label: t('trips.summary.dates'), value: tripDateText(trip) },
+    { label: t('trips.summary.dives'), value: String(trip.diveCount) },
   ];
   const total = stats?.total;
   if (!total) {
     return rows;
   }
   if (total.totalTimeSec > 0) {
-    rows.push({ label: 'Total time', value: formatTotalTime(total.totalTimeSec) });
+    rows.push({ label: t('trips.summary.totalTime'), value: formatTotalTime(total.totalTimeSec) });
   }
   if (total.maxDepthMm > 0) {
-    rows.push({ label: 'Deepest', value: formatDepth(total.maxDepthMm, units) });
+    rows.push({ label: t('trips.summary.deepest'), value: formatDepth(total.maxDepthMm, units) });
   }
   if (total.avgDepthMm > 0) {
-    rows.push({ label: 'Average depth', value: formatDepth(total.avgDepthMm, units) });
+    rows.push({ label: t('trips.summary.averageDepth'), value: formatDepth(total.avgDepthMm, units) });
   }
   if (total.minTempMkelvin > 0) {
-    rows.push({ label: 'Coldest water', value: formatTemperature(total.minTempMkelvin, units) });
+    rows.push({ label: t('trips.summary.coldestWater'), value: formatTemperature(total.minTempMkelvin, units) });
   }
   return rows;
 }
@@ -204,7 +205,7 @@ export function tripSummaryFooter(trip: Trip, stats: StatsSummary | undefined): 
     return undefined;
   }
   const skipped = trip.diveCount - stats.matched;
-  return `Totals leave out ${diveCountText(skipped)} marked invalid.`;
+  return t('trips.summary.leftOut', { count: skipped });
 }
 
 // --- Editor ----------------------------------------------------------------

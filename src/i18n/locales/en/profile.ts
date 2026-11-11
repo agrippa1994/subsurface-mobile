@@ -1,0 +1,33 @@
+// AI-generated (Claude)
+export default {
+  readout: {
+    ndl: 'NDL',
+    tts: 'TTS',
+    calc: '{{name}} {{value}}',
+    fresh: 'fresh {{name}} {{value}}',
+    gf: 'GF {{value}}',
+    surfaceGf: 'sGF {{value}}',
+    dcCeiling: 'DC ceiling {{value}}',
+    dcNdl: 'DC NDL {{value}}',
+    dcTts: 'DC TTS {{value}}',
+    calcCeiling: 'Calc ceiling {{value}}',
+  },
+  summary: {
+    noSamples: 'Dive profile. This dive has no profile samples.',
+    text: 'Dive profile. {{parts}}.',
+    maxDepth: 'maximum depth {{depth}} at {{time}}',
+    totalTime: 'total time {{time}}',
+    waterTemperature: 'water temperature {{temperature}}',
+    waterTemperatureRange: 'water temperature {{min}} to {{max}}',
+    tankPressure: 'tank pressure from {{from}} to {{to}}',
+    residual: 'starts with nitrogen from a dive {{interval}} earlier',
+    deco: 'the dive went into decompression',
+    noDeco: 'no decompression obligation',
+    dcCeiling: 'deepest dive computer ceiling {{depth}}',
+    calcCeiling: 'deepest calculated ceiling {{depth}}',
+    gfNow: 'highest gradient factor at depth {{percent}} percent',
+    gfSurface: 'highest surface gradient factor {{percent}} percent',
+    events_one: '{{count}} event',
+    events_other: '{{count}} events',
+  },
+};

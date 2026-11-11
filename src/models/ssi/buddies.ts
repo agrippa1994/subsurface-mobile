@@ -24,6 +24,7 @@
 import type { Buddy, DiveLog } from 'divessi-client';
 
 import { MAX_RESULTS, MIN_QUERY_LENGTH } from './sites';
+import { t } from '@/i18n';
 
 /** The display and history fields inferred from the buddy mapping. */
 export type SsiBuddy = ReturnType<typeof reduceSsiBuddies>[number];
@@ -201,13 +202,13 @@ export function suggestedSsiBuddies(buddies: readonly SsiBuddy[]): SsiBuddy[] {
  */
 export function describeSsiBuddy(buddy: SsiBuddy): string {
   if (buddy.dives > 0) {
-    const dives = `${buddy.dives} ${buddy.dives === 1 ? 'dive' : 'dives'}`;
-    return buddy.lastDive === '' ? dives : `${dives}, last ${buddy.lastDive}`;
+    const dives = t('common.diveCount', { count: buddy.dives });
+    return buddy.lastDive === '' ? dives : t('ssi.buddy.last', { dives, date: buddy.lastDive });
   }
 
   const place = [buddy.city, buddy.country].filter((part) => part !== '').join(', ');
   const parts = [buddy.nickname === '' ? '' : `"${buddy.nickname}"`, place].filter(
     (part) => part !== ''
   );
-  return parts.length === 0 ? 'No dives together' : parts.join(' - ');
+  return parts.length === 0 ? t('ssi.buddy.none') : parts.join(' - ');
 }

@@ -12,6 +12,7 @@ import { PlatformMap } from '@/components/platform-map';
 import { udegToDegrees, type DiveSite } from '@/models';
 import type { MapViewport } from '@/models/map-viewport';
 import { fitSitesCamera, mapCameraFromMove, mappableSites } from '@/models/site-edit';
+import { t } from '@/i18n';
 
 export function SitesMap({
   sites,
@@ -33,7 +34,7 @@ export function SitesMap({
           latitude: udegToDegrees(site.latUdeg),
           longitude: udegToDegrees(site.lonUdeg),
         },
-        title: site.name.trim() === '' ? 'Unnamed site' : site.name,
+        title: site.name.trim() === '' ? t('sites.unnamed') : site.name,
         systemImage: 'mappin' as const,
       })),
     [sites],

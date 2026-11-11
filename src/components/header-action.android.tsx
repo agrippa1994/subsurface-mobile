@@ -18,6 +18,7 @@ import { M3Icon } from '@/components/material/icon';
 import { useHistoryMenu } from '@/features/history/use-history-actions';
 
 import type { HeaderActionProps, HeaderMenuItem } from './header-action';
+import { t } from '@/i18n';
 
 export type { HeaderActionProps, HeaderMenuItem };
 
@@ -26,7 +27,7 @@ export function HeaderCancel({ onPress }: { onPress: () => void }) {
   const headerLeft = () => (
     <Host matchContents>
       <IconButton onClick={onPress}>
-        <M3Icon name="close" label="Cancel" />
+        <M3Icon name="close" label={t('ui.cancel')} />
       </IconButton>
     </Host>
   );
@@ -102,7 +103,7 @@ function Actions({ actions, history }: { actions: HeaderActionProps[]; history: 
     <Host matchContents>
       <Row verticalAlignment="center">
         {undoItems.length > 0 ? (
-          <ActionMenu label="Undo and redo" icon="arrow.uturn.backward" items={undoItems} />
+          <ActionMenu label={t('ui.undoAndRedo')} icon="arrow.uturn.backward" items={undoItems} />
         ) : null}
         {shown.map(({ label, icon, disabled = false, items, onPress }) =>
           items ? (
@@ -119,7 +120,7 @@ function Actions({ actions, history }: { actions: HeaderActionProps[]; history: 
         )}
         {overflow.length > 0 ? (
           <ActionMenu
-            label="More options"
+            label={t('ui.moreOptions')}
             name="more_vert"
             items={overflow.map((action) => ({
               label: action.label,

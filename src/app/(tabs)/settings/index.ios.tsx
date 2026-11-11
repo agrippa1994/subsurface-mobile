@@ -16,8 +16,8 @@ import { disabled, pickerStyle, tag, textSelection } from '@expo/ui/swift-ui/mod
 import { Fragment } from 'react';
 
 import { useSettingsScreen } from '@/features/settings/use-settings-screen';
-import { aboutRows, LICENSE_NOTICE, PRIVACY_NOTICE, SOURCE_NOTICE } from '@/models/about';
-import { DIVE_DATA_DISCLAIMER } from '@/models/disclaimer';
+import { aboutRows, licenseNotice, privacyNotice, sourceNotice } from '@/models/about';
+import { diveDataDisclaimer } from '@/models/disclaimer';
 import { GF_RANGE, PROFILE_TOGGLES, SETTINGS_FOOTERS } from '@/models/settings';
 import type { Units } from '@/models';
 import {
@@ -26,6 +26,7 @@ import {
   unitsSummary,
   type UnitPresetChoice,
 } from '@/models/units';
+import { t } from '@/i18n';
 
 export default function SettingsScreen() {
   const screen = useSettingsScreen();
@@ -34,16 +35,16 @@ export default function SettingsScreen() {
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
         <Section
-          title="Units"
+          title={t('ui.units')}
           footer={
             <Text>
               {screen.showUnitRows
-                ? 'Each quantity in its own unit, everywhere in the app: lists, profiles, statistics, the planner, editors and CSV export.'
-                : `${unitsSummary(screen.units)} Choose Custom to pick each unit on its own.`}
+                ? t('settingsScreen.unitsEach')
+                : `${unitsSummary(screen.units)} ${t('settingsScreen.unitsCustom')}`}
             </Text>
           }>
           <Picker
-            label="Measurements"
+            label={t('ui.measurements')}
             selection={screen.unitPreset}
             onSelectionChange={(value: string) => screen.setUnitPreset(value as UnitPresetChoice)}
             modifiers={[pickerStyle('segmented')]}>
@@ -73,9 +74,9 @@ export default function SettingsScreen() {
             : null}
         </Section>
 
-        <Section title="Decompression" footer={<Text>{SETTINGS_FOOTERS.decompression}</Text>}>
+        <Section title={t('ui.decompression')} footer={<Text>{SETTINGS_FOOTERS.decompression}</Text>}>
           <Stepper
-            label={`GF low  ${screen.gfLow}%`}
+            label={`${t('plannerSettings.label.gfLow')}  ${screen.gfLow}%`}
             value={screen.gfLow}
             min={GF_RANGE.min}
             max={GF_RANGE.max}
@@ -83,7 +84,7 @@ export default function SettingsScreen() {
             onValueChange={screen.setGfLow}
           />
           <Stepper
-            label={`GF high  ${screen.gfHigh}%`}
+            label={`${t('plannerSettings.label.gfHigh')}  ${screen.gfHigh}%`}
             value={screen.gfHigh}
             min={GF_RANGE.min}
             max={GF_RANGE.max}
@@ -92,7 +93,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Profile" footer={<Text>{SETTINGS_FOOTERS.profile}</Text>}>
+        <Section title={t('ui.profile')} footer={<Text>{SETTINGS_FOOTERS.profile}</Text>}>
           {PROFILE_TOGGLES.map((toggle) => (
             <Toggle
               key={toggle.key}
@@ -103,9 +104,9 @@ export default function SettingsScreen() {
           ))}
         </Section>
 
-        <Section title="New dives" footer={<Text>{SETTINGS_FOOTERS.newDives}</Text>}>
+        <Section title={t('ui.newDives')} footer={<Text>{SETTINGS_FOOTERS.newDives}</Text>}>
           <Picker
-            label="Default cylinder"
+            label={t('ui.defaultCylinder')}
             selection={screen.defaultCylinder.value}
             onSelectionChange={(value: string) => screen.defaultCylinder.set(value)}
             modifiers={[pickerStyle('menu')]}>
@@ -117,46 +118,45 @@ export default function SettingsScreen() {
           </Picker>
         </Section>
 
-        <Section title="Logbook">
-          <LabeledContent label="Dives">
+        <Section title={t('ui.logbook')}>
+          <LabeledContent label={t('ui.dives')}>
             <Text>{String(screen.diveCount)}</Text>
           </LabeledContent>
-          <LabeledContent label="Dive sites">
+          <LabeledContent label={t('ui.diveSites')}>
             <Text>{String(screen.siteCount)}</Text>
           </LabeledContent>
-          <LabeledContent label="Trips">
+          <LabeledContent label={t('ui.trips')}>
             <Text>{String(screen.tripCount)}</Text>
           </LabeledContent>
-          <Button label="Ungroup all dives" role="destructive" onPress={screen.ungroupDives} />
+          <Button label={t('ui.ungroupAllDives')} role="destructive" onPress={screen.ungroupDives} />
         </Section>
 
         <Section
-          title="Transfer"
+          title={t('ui.transfer')}
           footer={
             <Text>
-              Import merges dives into this logbook - Suunto exports (XML, JSON, SDE) and Subsurface
-              files alike. Open replaces it.
+              {t('settingsScreen.transferIos')}
             </Text>
           }>
-          <Button label="Download from dive computer" onPress={screen.diveComputers.open} />
+          <Button label={t('ui.downloadFromDiveComputer')} onPress={screen.diveComputers.open} />
           <Button
-            label="Import dives"
+            label={t('ui.importDives')}
             modifiers={[disabled(screen.transfer.busy)]}
             onPress={screen.transfer.importFile}
           />
           <Button
-            label="Export and share"
+            label={t('ui.exportAndShare')}
             modifiers={[disabled(screen.transfer.busy)]}
             onPress={screen.transfer.shareLogbook}
           />
           <Button
-            label="Open a logbook"
+            label={t('ui.openALogbook')}
             role="destructive"
             modifiers={[disabled(screen.transfer.busy)]}
             onPress={screen.transfer.openLogbook}
           />
           <Button
-            label="Forget remembered dive computers"
+            label={t('ui.forgetRememberedDiveComputers')}
             role="destructive"
             modifiers={[disabled(screen.diveComputers.remembered === 0)]}
             onPress={screen.diveComputers.forget}
@@ -164,60 +164,53 @@ export default function SettingsScreen() {
         </Section>
 
         <Section
-          title="SSI"
+          title={t('ui.ssi')}
           footer={
             <Text>
-              Push a dive to your SSI logbook from the dive itself. Your SSI email and password are
-              kept in this device&apos;s keychain, never in the logbook file. Not affiliated with
-              SSI.
+              {t('settingsScreen.ssiIos')}
             </Text>
           }>
-          <LabeledContent label="Account">
-            <Text>{screen.ssi.account ?? 'Not signed in'}</Text>
+          <LabeledContent label={t('ui.account')}>
+            <Text>{screen.ssi.account ?? t('dive.ssi.notSignedIn')}</Text>
           </LabeledContent>
-          <LabeledContent label="Dive sites">
+          <LabeledContent label={t('ui.diveSites')}>
             <Text>{screen.ssi.siteCatalogue}</Text>
           </LabeledContent>
-          <Button label="SSI account" onPress={screen.ssi.open} />
+          <Button label={t('ui.ssiAccount')} onPress={screen.ssi.open} />
         </Section>
 
         <Section
-          title="Git sync"
+          title={t('ui.gitSync')}
           footer={
             <Text>
-              Keep the logbook in a git repository over SSH, to back it up and share it between
-              devices.
+              {t('ui.keepTheLogbookInAGit')}
             </Text>
           }>
-          <LabeledContent label="Repository">
+          <LabeledContent label={t('ui.repository')}>
             <Text>{screen.git.repository}</Text>
           </LabeledContent>
-          <LabeledContent label="Last sync">
+          <LabeledContent label={t('ui.lastSync')}>
             <Text>{screen.git.lastSync}</Text>
           </LabeledContent>
           {screen.git.ready ? (
             <Button
-              label={screen.git.busy ? 'Syncing...' : 'Sync now'}
+              label={screen.git.busy ? t('gitScreen.syncing') : t('settingsScreen.syncNow')}
               modifiers={[disabled(screen.git.busy)]}
               onPress={screen.git.sync}
             />
           ) : null}
-          <Button label="Git sync settings" onPress={screen.git.open} />
+          <Button label={t('ui.gitSyncSettings')} onPress={screen.git.open} />
         </Section>
 
         <Section
-          title="MCP server"
+          title={t('ui.mcpServer')}
           footer={
             <Text>
-              Lets an AI assistant on a computer in the same network, or on your VPN, read this
-              logbook - dives, statistics, notes, cylinders, weights and the computed profile as
-              CSV. Read-only, and without a password: anyone who can reach one of these addresses
-              can connect while it runs. It answers only while the app is open, and is off again
-              on the next launch.
+              {t('ui.letsAnAiAssistantOnA')}
             </Text>
           }>
-          <Toggle label="Run MCP server" isOn={screen.mcp.on} onIsOnChange={screen.mcp.setOn} />
-          <LabeledContent label="Status">
+          <Toggle label={t('ui.runMcpServer')} isOn={screen.mcp.on} onIsOnChange={screen.mcp.setOn} />
+          <LabeledContent label={t('ui.status')}>
             <Text>{screen.mcp.status}</Text>
           </LabeledContent>
           {screen.mcp.urls.map(({ kind, url }) => (
@@ -226,28 +219,28 @@ export default function SettingsScreen() {
                 <Text modifiers={[textSelection(true)]}>{url}</Text>
               </LabeledContent>
               <Button
-                label={screen.mcp.copied === url ? 'Copied' : `Copy ${kind} URL`}
+                label={screen.mcp.copied === url ? t('diveForm.copied') : t('settingsScreen.copyUrl', { kind })}
                 onPress={() => screen.mcp.copyUrl(url)}
               />
             </Fragment>
           ))}
         </Section>
 
-        <Section title="Problems" footer={<Text>{PRIVACY_NOTICE}</Text>}>
-          <LabeledContent label="Problem log">
+        <Section title={t('ui.problems')} footer={<Text>{privacyNotice()}</Text>}>
+          <LabeledContent label={t('ui.problemLog')}>
             <Text>{screen.diagnostics}</Text>
           </LabeledContent>
-          <Button label="Share the problem log" onPress={screen.shareDiagnostics} />
-          <Button label="Clear it" role="destructive" onPress={screen.clearDiagnostics} />
+          <Button label={t('ui.shareTheProblemLog')} onPress={screen.shareDiagnostics} />
+          <Button label={t('ui.clearIt')} role="destructive" onPress={screen.clearDiagnostics} />
         </Section>
 
-        <Section title="About" footer={<Text>{`${DIVE_DATA_DISCLAIMER}\n\n${LICENSE_NOTICE} ${SOURCE_NOTICE}`}</Text>}>
+        <Section title={t('ui.about')} footer={<Text>{`${diveDataDisclaimer()}\n\n${licenseNotice()} ${sourceNotice()}`}</Text>}>
           {aboutRows(screen.about).map((row) => (
             <LabeledContent key={row.label} label={row.label}>
               <Text>{row.value}</Text>
             </LabeledContent>
           ))}
-          <Button label="Source code and licence" onPress={screen.openSource} />
+          <Button label={t('ui.sourceCodeAndLicence')} onPress={screen.openSource} />
         </Section>
 
       </Form>

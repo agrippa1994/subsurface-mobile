@@ -5,6 +5,7 @@ import { HeaderAction } from '@/components/header-action';
 import { StatusView } from '@/components/status-view';
 import { SsiSiteBrowser } from '@/features/ssi/ssi-site-browser';
 import { useSsiPickerSession } from '@/features/ssi/ssi-site-picker-session';
+import { t } from '@/i18n';
 
 export default function SsiSitePickerScreen() {
   const session = useSsiPickerSession();
@@ -13,7 +14,7 @@ export default function SsiSitePickerScreen() {
   useEffect(() => () => initial.current?.onClose(), []);
   return (
     <>
-      <Stack.Screen options={{ headerShown: true, title: 'Select dive site' }} />
+      <Stack.Screen options={{ headerShown: true, title: t('ssiPicker.title') }} />
       {session ? (
         <SsiSiteBrowser
           position={session.position}
@@ -30,13 +31,13 @@ export default function SsiSitePickerScreen() {
       ) : (
         <>
           <HeaderAction
-            label="Cancel"
+            label={t('common.cancel')}
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/dives'))}
           />
           <StatusView
             kind="empty"
-            title="Choose a dive first"
-            description="Open the SSI site selector from a dive."
+            title={t('ssiPicker.noDive')}
+            description={t('ssiPicker.noDiveDetail')}
           />
         </>
       )}

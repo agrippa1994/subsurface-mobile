@@ -10,13 +10,14 @@ import { Spacing } from '@/constants/theme';
 import { USE_OPTIONS, usePlannerCylinderScreen } from '@/features/tools/use-planner-cylinder-screen';
 import { useTheme } from '@/hooks/use-theme';
 import { gasName } from '@/models/planner';
+import { t } from '@/i18n';
 
 export default function PlannerCylinderScreen() {
   const screen = usePlannerCylinderScreen();
   const theme = useTheme();
   const { cylinder } = screen;
   if (!cylinder) {
-    return <StatusView kind="empty" title="This cylinder is no longer in the plan" />;
+    return <StatusView kind="empty" title={t('ui.thisCylinderIsNoLongerIn')} />;
   }
   const name = gasName(cylinder.o2Percent, cylinder.hePercent);
 
@@ -27,7 +28,7 @@ export default function PlannerCylinderScreen() {
       contentInsetAdjustmentBehavior="automatic"
     >
       <Stack.Screen options={{ title: name }} />
-      <FormSection title="Cylinder type">
+      <FormSection title={t('ui.cylinderType')}>
         <OptionField
           options={screen.tanks.map((tank) => ({ value: tank.name, label: tank.name }))}
           value={cylinder.tank}
@@ -36,7 +37,7 @@ export default function PlannerCylinderScreen() {
       </FormSection>
       <FormSection>
         <StepperRow
-          label={`Filled to  ${screen.fill} ${screen.fillUnit}`}
+          label={`${t('toolsScreen.filledTo')}  ${screen.fill} ${screen.fillUnit}`}
           value={screen.fill}
           {...screen.fillRange}
           onChange={screen.setFill}
@@ -45,14 +46,14 @@ export default function PlannerCylinderScreen() {
           <OptionField options={USE_OPTIONS} value={cylinder.use} onChange={screen.setUse} />
         ) : null}
       </FormSection>
-      <FormSection title="Gas">
+      <FormSection title={t('ui.gas')}>
         <OptionField
           options={screen.presets.map((preset) => ({ value: preset.label, label: preset.label }))}
           value={name}
           onChange={screen.setPreset}
         />
         <StepperRow
-          label={`Oxygen  ${cylinder.o2Percent}%`}
+          label={`${t('toolsScreen.oxygen')}  ${cylinder.o2Percent}%`}
           value={cylinder.o2Percent}
           min={5}
           max={100}
@@ -60,7 +61,7 @@ export default function PlannerCylinderScreen() {
           onChange={screen.setO2}
         />
         <StepperRow
-          label={`Helium  ${cylinder.hePercent}%`}
+          label={`${t('toolsScreen.helium')}  ${cylinder.hePercent}%`}
           value={cylinder.hePercent}
           min={0}
           max={95}
@@ -71,7 +72,7 @@ export default function PlannerCylinderScreen() {
       </FormSection>
       <FormSection>
         {screen.canRemove ? (
-          <FormButtonRow label="Remove cylinder" destructive onPress={screen.remove} />
+          <FormButtonRow label={t('ui.removeCylinder')} destructive onPress={screen.remove} />
         ) : (
           <Text style={{ color: theme.textSecondary }}>
             {screen.inUse

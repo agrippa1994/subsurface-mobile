@@ -23,6 +23,7 @@ import {
 import type { DiveRow } from '@/models/dive-list';
 
 import { M3Icon } from './icon';
+import { t } from '@/i18n';
 
 const STAR_COLOR = '#FFB300';
 
@@ -42,7 +43,7 @@ export function M3DiveRow({
   open?: boolean;
 }) {
   const palette = useMaterialColors();
-  const subtitle = [row.subtitle, row.planned ? 'planned' : '', row.invalid ? 'invalid' : '']
+  const subtitle = [row.subtitle, row.planned ? t('diveList.planned') : '', row.invalid ? t('diveList.invalid') : '']
     .filter(Boolean)
     .join('  ');
   return (

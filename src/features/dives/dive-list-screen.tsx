@@ -60,9 +60,10 @@ import { useDives, useLogbook, useTrips } from '@/queries/logbook';
 import { useDeleteDive } from '@/queries/logbook-mutations';
 import { useUnits } from '@/queries/settings';
 import { useSurfaceGfSettings } from '@/queries/surface-gf';
+import { t } from '@/i18n';
 
 function selectedTitle(count: number): string {
-  return count === 0 ? 'Select Dives' : `${count} Selected`;
+  return count === 0 ? t('diveList.selectDives') : t('diveList.selected', { count });
 }
 
 export function DiveListScreen({ pane = false }: { pane?: boolean }) {
@@ -157,11 +158,11 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
   // keeps room for Select and undo.
   const addAction = useMemo<HeaderActionProps>(
     () => ({
-      label: 'Add dive',
+      label: t('ui.addDive'),
       icon: 'plus',
       items: [
-        { label: 'Add dive manually', icon: 'square.and.pencil', onPress: openAdd },
-        { label: 'Download from dive computer', icon: 'arrow.down.circle', onPress: openDownload },
+        { label: t('diveList.addManually'), icon: 'square.and.pencil', onPress: openAdd },
+        { label: t('ui.downloadFromDiveComputer'), icon: 'arrow.down.circle', onPress: openDownload },
       ],
     }),
     [openAdd, openDownload],
@@ -205,7 +206,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
           operationSucceeded();
         } catch (error) {
           operationFailed();
-          Alert.alert('The dive could not be deleted', formatErrorLine(describeError(error)));
+          Alert.alert(t('alerts.deleteFailed'), formatErrorLine(describeError(error)));
         }
       })();
     },
@@ -216,7 +217,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     body: ReactNode,
     {
       search = false,
-      title = 'Dives',
+      title = t('nav.dives'),
       actions,
       history = false,
     }: { search?: boolean; title?: string; actions?: HeaderActionProps[]; history?: boolean },
@@ -229,7 +230,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
           history={history}
           search={
             search || query !== ''
-              ? { value: query, onChangeText: setQuery, placeholder: 'Site, buddy, date' }
+              ? { value: query, onChangeText: setQuery, placeholder: t('ui.siteBuddyDate') }
               : undefined
           }
         />
@@ -244,7 +245,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
             bar taller, so adding it only once the dives are in would shift the list. */}
         {search ? (
           <Stack.SearchBar
-            placeholder="Site, buddy, date"
+            placeholder={t('ui.siteBuddyDate')}
             textColor={theme.text}
             hintTextColor={theme.textSecondary}
             headerIconColor={theme.text}
@@ -262,10 +263,10 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     return (
       <StatusView
         kind="error"
-        title="The logbook could not be opened"
+        title={t('ui.theLogbookCouldNotBeOpened')}
         description={formatErrorLine(describeError(logbook.error))}
         systemImage="exclamationmark.triangle"
-        actionLabel="Try again"
+        actionLabel={t('ui.tryAgain')}
         onAction={() => void logbook.refetch()}
       />
     );
@@ -282,12 +283,12 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     return chrome(
       <StatusView
         kind="empty"
-        title="No dives yet"
-        description="Download them from your dive computer, add one by hand, or import a Suunto database or a Subsurface logbook."
+        title={t('ui.noDivesYet')}
+        description={t('ui.downloadThemFromYourDiveComputer')}
         systemImage="water.waves"
-        actionLabel="Download from dive computer"
+        actionLabel={t('ui.downloadFromDiveComputer')}
         onAction={openDownload}
-        secondaryActionLabel="Add dive manually"
+        secondaryActionLabel={t('diveList.addManually')}
         onSecondaryAction={openAdd}
       />,
       { actions: [addAction], history: true },
@@ -299,8 +300,8 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     return chrome(
       <StatusView
         kind="empty"
-        title="No matching dives"
-        description={`No dive matches "${query.trim()}". Try a site, buddy or date.`}
+        title={t('ui.noMatchingDives')}
+        description={t('diveList.noMatch', { query: query.trim() })}
         systemImage="magnifyingglass"
       />,
       { search: true },
@@ -349,13 +350,13 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
     </>,
     {
       search: true,
-      title: selectedIds ? selectedTitle(selectedIds.size) : 'Dives',
+      title: selectedIds ? selectedTitle(selectedIds.size) : t('nav.dives'),
       history: !selectedIds,
       actions: selectedIds
-        ? [{ label: 'Done', done: true, onPress: () => setSelection(null) }]
+        ? [{ label: t('ui.done'), done: true, onPress: () => setSelection(null) }]
         : [
             ...(ADD_DIVE_IN_HEADER || pane ? [addAction] : []),
-            { label: 'Select', onPress: () => setSelection({ ids: new Set(), of: dives }) },
+            { label: t('ui.select'), onPress: () => setSelection({ ids: new Set(), of: dives }) },
           ],
     },
   );

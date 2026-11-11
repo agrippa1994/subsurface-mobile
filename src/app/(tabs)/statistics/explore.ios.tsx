@@ -6,6 +6,7 @@ import { PlatformColor } from 'react-native';
 import type { SFSymbol } from 'sf-symbols-typescript';
 
 import { useExploreScreen } from '@/features/statistics/use-explore-screen';
+import { t } from '@/i18n';
 
 const ACCENT = '#007AFF';
 // On the row, as in dive-row-swift.tsx: a Button's tint would turn its content blue.
@@ -46,18 +47,18 @@ export default function ExploreScreen() {
   return (
     <Host style={{ flex: 1 }} useViewportSizeMeasurement>
       <Form>
-        <Section title="Your chart">
+        <Section title={t('ui.yourChart')}>
           {screen.last ? (
             <Row icon="chart.xyaxis.line" title={screen.last.title} detail={screen.last.detail} onPress={screen.openLast} />
           ) : null}
           <Row
             icon="slider.horizontal.3"
-            title="Build your own"
-            detail="Choose what to compare and how to show it"
+            title={t('ui.buildYourOwn')}
+            detail={t('ui.chooseWhatToCompareAndHow')}
             onPress={screen.build}
           />
         </Section>
-        <Section title="Questions">
+        <Section title={t('ui.questions')}>
           {screen.presets.map((preset) => (
             <Row
               key={preset.key}

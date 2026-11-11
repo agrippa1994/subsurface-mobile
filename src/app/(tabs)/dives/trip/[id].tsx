@@ -18,6 +18,7 @@ import { sortDivesNewestFirst } from '@/models/dive-list';
 import { tripSummaryFooter, tripSummaryRows, tripTitle } from '@/models/trips';
 import { useDives, useTrips, useTripStatistics } from '@/queries/logbook';
 import { useUnits } from '@/queries/settings';
+import { t } from '@/i18n';
 
 export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?: DiveStackPath }) {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,25 +43,25 @@ export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?:
     return (
       <StatusView
         kind="error"
-        title="The trip could not be opened"
+        title={t('tripScreen.openFailed')}
         description={formatErrorLine(describeError(failure))}
         systemImage="exclamationmark.triangle"
       />
     );
   }
   if (tripsQuery.isPending || divesQuery.isPending) {
-    return <StatusView kind="loading" title="Opening trip" />;
+    return <StatusView kind="loading" title={t('ui.openingTrip')} />;
   }
   if (!trip) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Trip' }} />
+        <Stack.Screen options={{ title: t('nav.trip') }} />
         <StatusView
           kind="empty"
-          title="This trip is gone"
-          description="A trip ends when its last dive leaves it. The dives are still in your logbook."
+          title={t('tripScreen.gone')}
+          description={t('tripScreen.goneDetail')}
           systemImage="suitcase"
-          actionLabel="Back"
+          actionLabel={t('common.back')}
           onAction={() => router.back()}
         />
       </>
@@ -71,7 +72,7 @@ export default function TripDetailScreen({ stackPath = '/dives' }: { stackPath?:
   return (
     <>
       <Stack.Screen options={{ title: tripTitle(trip.location) }} />
-      <HeaderAction history label="Edit" onPress={openEditor} />
+      <HeaderAction history label={t('common.edit')} onPress={openEditor} />
       <TripDetailView
         summary={tripSummaryRows(trip, statsQuery.data, units)}
         summaryFooter={tripSummaryFooter(trip, statsQuery.data)}

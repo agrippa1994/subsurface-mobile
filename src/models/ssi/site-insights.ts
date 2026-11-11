@@ -15,21 +15,11 @@ import type { SiteDetail } from 'divessi-client';
 
 import type { StatBar } from '../statistics';
 import { celsiusToMkelvin, metersToMm, mkelvinToFahrenheit, mmToFeet, type Units } from '../units';
+import { longMonthName, shortMonthName } from '../date-format';
+import { t } from '@/i18n';
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+/** January first; the names follow the device, as every date in the app does. */
+const MONTHS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 export type SsiSiteMonth = {
   /** 1 to 12. */
@@ -56,7 +46,7 @@ export type SsiSiteInsights = {
   ratingCount: number | null;
   totalDives: number | null;
   divers: number | null;
-  water: 'Fresh water' | 'Salt water' | 'Artificial' | null;
+  water: string | null;
   /** January first, always twelve. */
   months: SsiSiteMonth[];
   /** How many ratings gave 1 to 5 stars, in that order. */
@@ -145,19 +135,14 @@ function toWildlife(selected: unknown, sightings: unknown): SsiSiteWildlife[] {
   });
 }
 
-const DIVE_TYPES: Record<string, string> = {
-  scuba: 'Scuba',
-  frd: 'Freediving',
-  xr: 'Extended range',
-  ccr: 'Closed circuit rebreather',
-  scr: 'Semi-closed rebreather',
-};
+const DIVE_TYPES = ['scuba', 'frd', 'xr', 'ccr', 'scr'] as const;
 
-const WATER: Record<string, SsiSiteInsights['water']> = {
-  fresh: 'Fresh water',
-  salt: 'Salt water',
-  artificial: 'Artificial',
-};
+const WATER = ['fresh', 'salt', 'artificial'] as const;
+
+function waterLabel(bow: string): string | null {
+  const key = WATER.find((candidate) => candidate === bow);
+  return key ? t(`ssi.water.${key}`) : null;
+}
 
 export function parseSsiSiteInsights(detail: SiteDetail): SsiSiteInsights {
   const conditions = toObject(detail.temp_month_avg);
@@ -188,11 +173,10 @@ export function parseSsiSiteInsights(detail: SiteDetail): SsiSiteInsights {
     ratingCount: toAverage(detail.avg_log_rating_dives),
     totalDives: toAverage(detail.total_logged_dives),
     divers: toAverage(detail.dives_logged_by_divers),
-    water: WATER[detail.bow ?? ''] ?? null,
+    water: waterLabel(detail.bow ?? ''),
     months,
     ratingCounts: [1, 2, 3, 4, 5].map((star) => toNumber(stars[star]) ?? 0),
-    diveTypes: Object.entries(DIVE_TYPES)
-      .map(([key, label]) => ({ label, dives: toNumber(types[key]) ?? 0 }))
+    diveTypes: DIVE_TYPES.map((key) => ({ label: t(`ssi.diveType.${key}`), dives: toNumber(types[key]) ?? 0 }))
       .filter((type) => type.dives > 0)
       .sort((a, b) => b.dives - a.dives),
     environmentIds: toIds(extra.environment),
@@ -234,14 +218,14 @@ export function ssiShareRows(
 export function ssiMonthRange(months: readonly number[]): string {
   const seen = [...new Set(months)].filter((m) => m >= 1 && m <= 12).sort((a, b) => a - b);
   if (seen.length === 0) return '';
-  if (seen.length === 12) return 'All year';
+  if (seen.length === 12) return t('ssi.months.allYear');
   const has = (month: number) => seen.includes(month);
   const starts = seen.filter((month) => !has(month === 1 ? 12 : month - 1));
-  const name = (month: number) => MONTHS[month - 1];
-  if (starts.length !== 1) return seen.map((month) => name(month).slice(0, 3)).join(', ');
+  const name = (month: number) => longMonthName(month);
+  if (starts.length !== 1) return seen.map((month) => shortMonthName(month)).join(', ');
   if (seen.length === 1) return name(seen[0]);
   const last = seen.filter((month) => !has(month === 12 ? 1 : month + 1))[0];
-  return `${name(starts[0])} to ${name(last)}`;
+  return t('ssi.months.range', { from: name(starts[0]), to: name(last) });
 }
 
 export function formatSsiDepth(meters: number, units: Units): string {
@@ -257,7 +241,7 @@ function temperature(celsius: number, units: Units): number {
 }
 
 function diveCount(dives: number): string {
-  return `${dives.toLocaleString()} ${dives === 1 ? 'dive' : 'dives'}`;
+  return t('ssi.diveCount', { count: dives, formatted: dives.toLocaleString() });
 }
 
 /**
@@ -275,7 +259,7 @@ function monthBars(
     return [];
   }
   return months.map((month) => {
-    const name = MONTHS[month.month - 1];
+    const name = longMonthName(month.month);
     const value = read(month);
     const shown = value === null ? null : convert(value);
     return {
@@ -284,8 +268,8 @@ function monthBars(
       value: Math.max(0, shown ?? 0),
       caption:
         shown === null
-          ? `${name}: no data`
-          : `${name}: ${shown} ${unit}, from ${diveCount(month.dives)}`,
+          ? t('ssi.months.noData', { month: name })
+          : t('ssi.months.value', { month: name, value: shown, unit, dives: diveCount(month.dives) }),
     };
   });
 }
@@ -322,12 +306,12 @@ export function ssiMonthlyDiveBars(months: readonly SsiSiteMonth[]): StatBar[] {
     return [];
   }
   return months.map((month) => {
-    const name = MONTHS[month.month - 1];
+    const name = longMonthName(month.month);
     return {
       key: String(month.month),
       label: name.charAt(0),
       value: month.dives,
-      caption: `${name}: ${diveCount(month.dives)}`,
+      caption: t('ssi.months.dives', { month: name, dives: diveCount(month.dives) }),
     };
   });
 }
@@ -342,9 +326,10 @@ export function ssiRatingBars(counts: readonly number[]): StatBar[] {
       key: String(stars),
       label: String(stars),
       value: count,
-      caption: `${stars} ${stars === 1 ? 'star' : 'stars'}: ${count.toLocaleString()} ${
-        count === 1 ? 'rating' : 'ratings'
-      }`,
+      caption: t('ssi.ratingCaption', {
+        stars: t('stats.stars', { count: stars }),
+        ratings: t('ssi.ratings', { count, formatted: count.toLocaleString() }),
+      }),
     };
   });
 }
