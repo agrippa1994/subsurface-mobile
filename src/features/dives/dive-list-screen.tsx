@@ -154,6 +154,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
 
   const openDownload = useCallback(() => router.push('/dives/download'), [router]);
   const openAdd = useCallback(() => router.push('/dives/add'), [router]);
+  const openStatistics = useCallback(() => router.push('/statistics'), [router]);
   // One button for the ways a dive gets into the log from here, so that the header
   // keeps room for Select and undo.
   const addAction = useMemo<HeaderActionProps>(
@@ -291,7 +292,10 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
         secondaryActionLabel={t('diveList.addManually')}
         onSecondaryAction={openAdd}
       />,
-      { actions: [addAction], history: true },
+      {
+        actions: [addAction, { label: t('nav.statistics'), icon: 'chart.bar', onPress: openStatistics }],
+        history: true,
+      },
     );
   }
 
@@ -356,6 +360,7 @@ export function DiveListScreen({ pane = false }: { pane?: boolean }) {
         ? [{ label: t('ui.done'), done: true, onPress: () => setSelection(null) }]
         : [
             ...(ADD_DIVE_IN_HEADER || pane ? [addAction] : []),
+            { label: t('nav.statistics'), icon: 'chart.bar', onPress: openStatistics },
             { label: t('ui.select'), onPress: () => setSelection({ ids: new Set(), of: dives }) },
           ],
     },

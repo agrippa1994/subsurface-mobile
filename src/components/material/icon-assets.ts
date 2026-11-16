@@ -9,6 +9,7 @@ export const ICON_ASSETS = {
   arrow_drop_down: require('@/assets/material-symbols/arrow_drop_down.xml'),
   arrow_upward: require('@/assets/material-symbols/arrow_upward.xml'),
   assignment: require('@/assets/material-symbols/assignment.xml'),
+  badge: require('@/assets/material-symbols/badge.xml'),
   bar_chart: require('@/assets/material-symbols/bar_chart.xml'),
   bubble_chart: require('@/assets/material-symbols/bubble_chart.xml'),
   build: require('@/assets/material-symbols/build.xml'),

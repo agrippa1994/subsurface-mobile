@@ -23,6 +23,8 @@ const nav: typeof en = {
   editSite: 'Tauchplatz bearbeiten',
   newSite: 'Neuer Tauchplatz',
   statistics: 'Statistik',
+  cards: 'Brevets',
+  card: 'Brevet',
   explore: 'Erkunden',
   chart: 'Diagramm',
   customize: 'Anpassen',

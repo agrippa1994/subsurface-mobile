@@ -21,6 +21,8 @@ export default {
   editSite: 'Edit site',
   newSite: 'New site',
   statistics: 'Statistics',
+  cards: 'Cards',
+  card: 'Card',
   explore: 'Explore',
   chart: 'Chart',
   customize: 'Customize',

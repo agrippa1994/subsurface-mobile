@@ -186,7 +186,7 @@ Use the 600-dive logbook synthesized from `tests/harness/large-log.ts`
 
 Record, as numbers rather than impressions: seconds from Open to the list
 appearing, whether scrolling the Dives tab drops frames, seconds to open one
-dive's profile, seconds for the Statistics tab. The host budgets for the same
+dive's profile, seconds for the Statistics screen. The host budgets for the same
 data are in `tests/performance.test.ts` (parse 1.4 s, `listDives` 29 ms,
 one profile 305 ms) - a phone will be slower; what matters is that the cost is
 flat per dive.
