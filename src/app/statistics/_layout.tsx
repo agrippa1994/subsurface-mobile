@@ -1,17 +1,25 @@
 // AI-generated (Claude)
-// Stack of the Statistics tab: the overview, questions and the builder, a chart, the
-// dives behind a chart item, and a dive opened from there.
-import { Stack } from 'expo-router';
+// Stack of Statistics: the overview, questions and the builder, a chart, the dives
+// behind a chart item, and a dive opened from there. Pushed over the tabs from the
+// Dives list, so its first screen has nothing of its own to go back to; it gets a
+// back button that leaves the whole stack.
+import { Stack, useRouter } from 'expo-router';
+
+import { HeaderIconButton } from '@/components/header-icon-button';
 
 import { StatisticsProvider } from '@/features/statistics/statistics-context';
 import { STACK_OPTIONS } from '@/constants/navigation';
 import { t } from '@/i18n';
 
 export default function StatisticsLayout() {
+  const router = useRouter();
+  const headerLeft = () => (
+    <HeaderIconButton label={t('nav.dives')} icon="chevron.left" onPress={() => router.back()} />
+  );
   return (
     <StatisticsProvider>
       <Stack screenOptions={STACK_OPTIONS}>
-        <Stack.Screen name="index" options={{ title: t('nav.statistics') }} />
+        <Stack.Screen name="index" options={{ title: t('nav.statistics'), headerLeft }} />
         <Stack.Screen name="explore" options={{ title: t('nav.explore'), headerLargeTitle: false }} />
         <Stack.Screen name="chart" options={{ title: t('nav.chart'), headerLargeTitle: false }} />
         <Stack.Screen

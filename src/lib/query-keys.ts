@@ -69,6 +69,10 @@ export const queryKeys = {
   ssiLogbook: () => ['ssi', 'logbook'] as const,
   /** The full SSI logbook, for the import screen. Large, so held only briefly. */
   ssiDownload: () => ['ssi', 'download'] as const,
+  /** The diver's certification cards and the name on them. */
+  ssiCards: () => ['ssi', 'cards'] as const,
+  /** The Wallet signing certificate, as a summary; the key itself is never cached. */
+  walletIdentity: () => ['wallet', 'identity'] as const,
 
   /**
    * The git sync: its settings file, the key in the keychain (as a summary -

@@ -10,6 +10,7 @@ import about from './about';
 import alerts from './alerts';
 import app from './app';
 import builder from './builder';
+import certificates from './certificates';
 import charts from './charts';
 import common from './common';
 import diagnostics from './diagnostics';
@@ -67,6 +68,7 @@ const en = {
   alerts,
   app,
   builder,
+  certificates,
   charts,
   common,
   diagnostics,

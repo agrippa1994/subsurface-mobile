@@ -55,6 +55,7 @@ export const MATERIAL_SYMBOLS: Partial<Record<SFSymbol, AndroidSymbol>> = {
   'minus.circle': 'remove_circle_outline',
   'person.2.fill': 'group',
   'person.crop.circle.badge.questionmark': 'person_search',
+  'person.text.rectangle': 'badge',
   'person.fill.checkmark': 'how_to_reg',
   plus: 'add',
   'questionmark.circle': 'help',

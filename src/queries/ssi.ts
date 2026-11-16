@@ -98,6 +98,7 @@ export function useSsiSignIn(): UseMutationResult<SsiAccount, Error, SsiCredenti
       // The dive number and the buddies came from the previous account's logbook.
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
       client.removeQueries({ queryKey: queryKeys.ssiDownload() });
+      client.removeQueries({ queryKey: queryKeys.ssiCards() });
     },
   });
 }
@@ -110,6 +111,7 @@ export function useSsiSignOut(): UseMutationResult<void, Error, void> {
       client.setQueryData(queryKeys.ssiAccount(), null);
       client.removeQueries({ queryKey: queryKeys.ssiLogbook() });
       client.removeQueries({ queryKey: queryKeys.ssiDownload() });
+      client.removeQueries({ queryKey: queryKeys.ssiCards() });
     },
   });
 }

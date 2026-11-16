@@ -31,6 +31,8 @@ import {
   useSsiSiteIndexInfo,
 } from '@/queries/ssi';
 import { formatInstantDate } from '@/models/date-format';
+import { useWalletSetup } from '@/features/certificates/use-wallet-setup';
+import { canAddPasses } from '../../../modules/wallet-pass/src';
 import { t } from '@/i18n';
 
 const dateFormatter = { format: formatInstantDate };
@@ -44,6 +46,7 @@ export function SsiAccountScreen() {
   const refreshSites = useRefreshSsiSites();
   const router = useRouter();
   const downloadLogbook = useDownloadSsiLogbook();
+  const wallet = useWalletSetup();
 
   // Sign-in failures are shown in the form rather than in an alert: the user is
   // looking at the two fields that caused it, and the fix is to retype one.
@@ -229,6 +232,30 @@ export function SsiAccountScreen() {
               onPress={downloadLogbook.isPending ? () => undefined : saveFile}
             />
           </FormSection>
+          {canAddPasses() ? (
+            <FormSection title={t('certificates.wallet.section')} footer={t('certificates.wallet.footer')}>
+              <View style={styles.row}>
+                <Text style={[styles.rowLabel, { color: theme.textSecondary }]}>
+                  {t('certificates.wallet.certificate')}
+                </Text>
+                <Text style={[styles.rowValue, { color: theme.text }]} numberOfLines={2}>
+                  {wallet.identity
+                    ? `${wallet.identity.passTypeIdentifier}\n${t('certificates.wallet.validUntil', {
+                        date: formatInstantDate(Date.parse(wallet.identity.expiresAt)),
+                      })}`
+                    : t('certificates.wallet.notSetUp')}
+                </Text>
+              </View>
+              {wallet.identity ? (
+                <FormButtonRow label={t('certificates.wallet.remove')} destructive onPress={wallet.confirmRemove} />
+              ) : (
+                <FormButtonRow
+                  label={wallet.importing ? t('certificates.wallet.adding') : t('certificates.wallet.choose')}
+                  onPress={() => void wallet.importCertificate()}
+                />
+              )}
+            </FormSection>
+          ) : null}
         </>
       ) : null}
 

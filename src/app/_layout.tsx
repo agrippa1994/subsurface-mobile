@@ -105,6 +105,8 @@ function AppShell() {
     <ThemeProvider value={navigationTheme}>
       <Stack key={i18n.language} screenOptions={rootScreenOptions}>
         <Stack.Screen name="(tabs)" />
+        {/* Pushed over the tabs from the Dives list; its stack draws its own bar. */}
+        <Stack.Screen name="statistics" />
         <Stack.Screen name="ssi-site-picker" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       {/* Above every screen: any of them can make a change. */}
